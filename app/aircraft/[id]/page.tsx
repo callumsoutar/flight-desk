@@ -1,11 +1,10 @@
 import * as React from "react"
 import { redirect } from "next/navigation"
 
-import { AppSidebar } from "@/components/app-sidebar"
 import { AircraftDetailClient } from "@/components/aircraft/aircraft-detail-client"
-import { SiteHeader } from "@/components/site-header"
+import { AircraftDetailSkeleton } from "@/components/loading/page-skeletons"
+import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { fetchAircraftDetail } from "@/lib/aircraft/fetch-aircraft-detail"
 import { getAuthSession } from "@/lib/auth/session"
 import { getUserTenantId } from "@/lib/auth/tenant"
@@ -13,24 +12,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-function LayoutShell({ children }: { children: React.ReactNode }) {
-  return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "16rem",
-        } as React.CSSProperties
-      }
-    >
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
-  )
 }
 
 function MessageCard({
@@ -41,19 +22,52 @@ function MessageCard({
   description: string
 }) {
   return (
-    <LayoutShell>
-      <div className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto w-full max-w-5xl">
-          <Card>
-            <CardHeader>
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>{description}</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    </LayoutShell>
+    <AppRouteShell>
+      <AppRouteNarrowDetailContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+        </Card>
+      </AppRouteNarrowDetailContainer>
+    </AppRouteShell>
   )
+}
+
+async function AircraftDetailContent({ tenantId, id }: { tenantId: string; id: string }) {
+  const supabase = await createSupabaseServerClient()
+
+  let detail: Awaited<ReturnType<typeof fetchAircraftDetail>>
+  try {
+    detail = await fetchAircraftDetail(supabase, tenantId, id)
+  } catch {
+    return (
+      <AppRouteNarrowDetailContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>Aircraft</CardTitle>
+            <CardDescription>Failed to load aircraft. Please try again.</CardDescription>
+          </CardHeader>
+        </Card>
+      </AppRouteNarrowDetailContainer>
+    )
+  }
+
+  if (!detail.data) {
+    return (
+      <AppRouteNarrowDetailContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>Aircraft Not Found</CardTitle>
+            <CardDescription>This aircraft does not exist in your tenant.</CardDescription>
+          </CardHeader>
+        </Card>
+      </AppRouteNarrowDetailContainer>
+    )
+  }
+
+  return <AircraftDetailClient aircraftId={id} data={detail.data} loadErrors={detail.loadErrors} />
 }
 
 export default async function AircraftDetailPage({ params }: PageProps) {
@@ -74,30 +88,11 @@ export default async function AircraftDetailPage({ params }: PageProps) {
     )
   }
 
-  let detail: Awaited<ReturnType<typeof fetchAircraftDetail>>
-  try {
-    detail = await fetchAircraftDetail(supabase, tenantId, id)
-  } catch {
-    return (
-      <MessageCard
-        title="Aircraft"
-        description="Failed to load aircraft. Please try again."
-      />
-    )
-  }
-
-  if (!detail.data) {
-    return (
-      <MessageCard
-        title="Aircraft Not Found"
-        description="This aircraft does not exist in your tenant."
-      />
-    )
-  }
-
   return (
-    <LayoutShell>
-      <AircraftDetailClient aircraftId={id} data={detail.data} loadErrors={detail.loadErrors} />
-    </LayoutShell>
+    <AppRouteShell>
+      <React.Suspense fallback={<AircraftDetailSkeleton />}>
+        <AircraftDetailContent tenantId={tenantId} id={id} />
+      </React.Suspense>
+    </AppRouteShell>
   )
 }

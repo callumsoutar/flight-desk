@@ -198,9 +198,18 @@ export function InvoicesTable({
   onFiltersChange,
 }: InvoicesTableProps) {
   const router = useRouter()
+  const [isNavigating, startNavigation] = React.useTransition()
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  const navigate = React.useCallback(
+    (href: string) => {
+      startNavigation(() => {
+        router.push(href)
+      })
+    },
+    [router]
+  )
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -245,7 +254,7 @@ export function InvoicesTable({
   const end = Math.min((page.pageIndex + 1) * page.pageSize, invoices.length)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", isNavigating && "cursor-progress")} aria-busy={isNavigating}>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Invoices</h1>
@@ -274,7 +283,7 @@ export function InvoicesTable({
 
           <Button
             className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-            onClick={() => router.push("/invoices/new")}
+            onClick={() => navigate("/invoices/new")}
           >
             <IconPlus className="mr-2 h-4 w-4" />
             New Invoice
@@ -340,7 +349,7 @@ export function InvoicesTable({
                 <tr
                   key={row.id}
                   className="group cursor-pointer transition-colors hover:bg-slate-50/50"
-                  onClick={() => router.push(`/invoices/${row.original.id}`)}
+                  onClick={() => navigate(`/invoices/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3.5 align-middle">
@@ -376,7 +385,7 @@ export function InvoicesTable({
               <div
                 key={row.id}
                 className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors active:bg-slate-50"
-                onClick={() => router.push(`/invoices/${invoice.id}`)}
+                onClick={() => navigate(`/invoices/${invoice.id}`)}
               >
                 <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-lg bg-slate-900" />
 

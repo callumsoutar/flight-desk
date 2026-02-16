@@ -54,8 +54,17 @@ function formatTotalHours(hours: number | null): string {
 export function AircraftTable({ aircraft }: AircraftTableProps) {
   const [search, setSearch] = React.useState("")
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [isNavigating, startNavigation] = React.useTransition()
   const router = useRouter()
   const { role } = useAuth()
+  const navigate = React.useCallback(
+    (href: string) => {
+      startNavigation(() => {
+        router.push(href)
+      })
+    },
+    [router]
+  )
 
   const filteredAircraft = React.useMemo(() => {
     if (!search) return aircraft
@@ -168,7 +177,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
   const end = Math.min((page.pageIndex + 1) * page.pageSize, total)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", isNavigating && "cursor-progress")} aria-busy={isNavigating}>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Aircraft</h2>
@@ -189,7 +198,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
             <Button
               variant="outline"
               className="h-10 w-full border-slate-200 px-5 text-slate-700 hover:bg-slate-50 sm:w-auto"
-              onClick={() => router.push("/aircraft/reorder")}
+              onClick={() => navigate("/aircraft/reorder")}
             >
               Reorder
             </Button>
@@ -197,7 +206,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
           {canAddAircraft ? (
             <Button
               className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-              onClick={() => router.push("/aircraft/new")}
+              onClick={() => navigate("/aircraft/new")}
             >
               <IconPlus className="mr-2 h-4 w-4" />
               Add Aircraft
@@ -239,7 +248,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
                 <tr
                   key={row.id}
                   className="group cursor-pointer transition-colors hover:bg-slate-50/50"
-                  onClick={() => router.push(`/aircraft/${row.original.id}`)}
+                  onClick={() => navigate(`/aircraft/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
@@ -272,7 +281,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
               <div
                 key={row.id}
                 className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors active:bg-slate-50"
-                onClick={() => router.push(`/aircraft/${item.id}`)}
+                onClick={() => navigate(`/aircraft/${item.id}`)}
               >
                 <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-lg bg-slate-900" />
 

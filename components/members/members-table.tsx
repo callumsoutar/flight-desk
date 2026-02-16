@@ -78,8 +78,17 @@ export function MembersTable({
 }: MembersTableProps) {
   const [search, setSearch] = React.useState("")
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [isNavigating, startNavigation] = React.useTransition()
   const router = useRouter()
   const { role } = useAuth()
+  const navigate = React.useCallback(
+    (href: string) => {
+      startNavigation(() => {
+        router.push(href)
+      })
+    },
+    [router]
+  )
 
   const filteredMembers = React.useMemo(() => {
     if (!search) return members
@@ -195,7 +204,7 @@ export function MembersTable({
   const end = Math.min((page.pageIndex + 1) * page.pageSize, total)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", isNavigating && "cursor-progress")} aria-busy={isNavigating}>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Members</h2>
@@ -216,7 +225,7 @@ export function MembersTable({
           {canAddMember ? (
             <Button
               className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-              onClick={() => router.push("/members/new")}
+              onClick={() => navigate("/members/new")}
             >
               <IconUserPlus className="mr-2 h-4 w-4" />
               New Member
@@ -277,7 +286,7 @@ export function MembersTable({
                 <tr
                   key={row.id}
                   className="group cursor-pointer transition-colors hover:bg-slate-50/50"
-                  onClick={() => router.push(`/members/${row.original.user_id}`)}
+                  onClick={() => navigate(`/members/${row.original.user_id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
@@ -313,7 +322,7 @@ export function MembersTable({
               <div
                 key={row.id}
                 className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors active:bg-slate-50"
-                onClick={() => router.push(`/members/${member.user_id}`)}
+                onClick={() => navigate(`/members/${member.user_id}`)}
               >
                 <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-lg bg-slate-900" />
 

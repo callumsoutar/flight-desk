@@ -247,9 +247,13 @@ const columns: ColumnDef<BookingWithRelations>[] = [
   },
 ]
 
-function BookingCard({ booking }: { booking: BookingWithRelations }) {
-  const router = useRouter()
-
+function BookingCard({
+  booking,
+  onOpen,
+}: {
+  booking: BookingWithRelations
+  onOpen: (bookingId: string) => void
+}) {
   const start = new Date(booking.start_time)
   const end = new Date(booking.end_time)
   const status = booking.status
@@ -267,7 +271,7 @@ function BookingCard({ booking }: { booking: BookingWithRelations }) {
   return (
     <div
       className="group relative cursor-pointer border-b bg-background transition-all last:border-b-0 hover:bg-accent/5 active:scale-[0.98]"
-      onClick={() => router.push(`/bookings/${booking.id}`)}
+      onClick={() => onOpen(booking.id)}
     >
       <div className="px-4 py-3">
         <div className="flex items-start gap-4">
@@ -332,6 +336,7 @@ export function BookingsTable({
   tabCounts,
 }: BookingsTableProps) {
   const isMobile = useIsMobile()
+  const [isNavigating, startNavigation] = React.useTransition()
   const [mounted, setMounted] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -340,6 +345,14 @@ export function BookingsTable({
   const [statusFilter, setStatusFilter] = React.useState<string>("all")
   const [typeFilter, setTypeFilter] = React.useState<string>("all")
   const router = useRouter()
+  const navigate = React.useCallback(
+    (href: string) => {
+      startNavigation(() => {
+        router.push(href)
+      })
+    },
+    [router]
+  )
 
   React.useEffect(() => {
     setMounted(true)
@@ -405,7 +418,7 @@ export function BookingsTable({
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", isNavigating && "cursor-progress")} aria-busy={isNavigating}>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Bookings</h2>
@@ -424,7 +437,7 @@ export function BookingsTable({
           </div>
           <Button
             className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-            onClick={() => router.push("/bookings/new")}
+            onClick={() => navigate("/bookings/new")}
           >
             <IconCalendarPlus className="mr-2 h-4 w-4" />
             New Booking
@@ -503,7 +516,9 @@ export function BookingsTable({
                 table.getState().pagination.pageIndex * table.getState().pagination.pageSize,
                 (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize
               )
-              .map((booking) => <BookingCard key={booking.id} booking={booking} />)
+              .map((booking) => (
+                <BookingCard key={booking.id} booking={booking} onOpen={(bookingId) => navigate(`/bookings/${bookingId}`)} />
+              ))
           ) : (
             <div className="p-12">
               <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
@@ -547,7 +562,7 @@ export function BookingsTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement
                           if (!target.closest("button, a, [role='button'], input, select")) {
-                            router.push(`/bookings/${row.original.id}`)
+                            navigate(`/bookings/${row.original.id}`)
                           }
                         }}
                       >

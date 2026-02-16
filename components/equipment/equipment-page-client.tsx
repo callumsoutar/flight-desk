@@ -12,39 +12,50 @@ type Props = {
 
 export function EquipmentPageClient({ equipment }: Props) {
   const router = useRouter()
+  const [isNavigating, startNavigation] = React.useTransition()
+  const navigate = React.useCallback(
+    (href: string) => {
+      startNavigation(() => {
+        router.push(href)
+      })
+    },
+    [router]
+  )
 
   const handleIssue = React.useCallback(
     (item: EquipmentWithIssuance) => {
-      router.push(`/equipment/${item.id}?action=issue`)
+      navigate(`/equipment/${item.id}?action=issue`)
     },
-    [router]
+    [navigate]
   )
 
   const handleReturn = React.useCallback(
     (item: EquipmentWithIssuance) => {
-      router.push(`/equipment/${item.id}?action=return`)
+      navigate(`/equipment/${item.id}?action=return`)
     },
-    [router]
+    [navigate]
   )
 
   const handleLogUpdate = React.useCallback(
     (item: EquipmentWithIssuance) => {
-      router.push(`/equipment/${item.id}?action=log-update`)
+      navigate(`/equipment/${item.id}?action=log-update`)
     },
-    [router]
+    [navigate]
   )
 
   const handleAdd = React.useCallback(() => {
-    router.push("/equipment/new")
-  }, [router])
+    navigate("/equipment/new")
+  }, [navigate])
 
   return (
-    <EquipmentTable
-      equipment={equipment}
-      onIssue={handleIssue}
-      onReturn={handleReturn}
-      onLogUpdate={handleLogUpdate}
-      onAdd={handleAdd}
-    />
+    <div aria-busy={isNavigating}>
+      <EquipmentTable
+        equipment={equipment}
+        onIssue={handleIssue}
+        onReturn={handleReturn}
+        onLogUpdate={handleLogUpdate}
+        onAdd={handleAdd}
+      />
+    </div>
   )
 }

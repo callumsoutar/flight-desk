@@ -154,11 +154,20 @@ export function EquipmentTable({
   onAdd,
 }: EquipmentTableProps) {
   const router = useRouter()
+  const [isNavigating, startNavigation] = React.useTransition()
   const [search, setSearch] = React.useState("")
   const [selectedType, setSelectedType] = React.useState<EquipmentType | "all">("all")
   const [showIssuedOnly, setShowIssuedOnly] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const { role } = useAuth()
+  const navigate = React.useCallback(
+    (href: string) => {
+      startNavigation(() => {
+        router.push(href)
+      })
+    },
+    [router]
+  )
 
   const filteredEquipment = React.useMemo(() => {
     return equipment.filter((item) => {
@@ -275,7 +284,7 @@ export function EquipmentTable({
                     <IconPackage className="mr-2 h-4 w-4" /> Log Update
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push(`/equipment/${item.id}`)}>
+                  <DropdownMenuItem onClick={() => navigate(`/equipment/${item.id}`)}>
                     <IconEdit className="mr-2 h-4 w-4" /> View Details
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -285,7 +294,7 @@ export function EquipmentTable({
         },
       },
     ],
-    [onIssue, onLogUpdate, onReturn, router]
+    [navigate, onIssue, onLogUpdate, onReturn]
   )
 
   const table = useReactTable<EquipmentWithIssuance>({
@@ -313,7 +322,7 @@ export function EquipmentTable({
   const end = Math.min((page.pageIndex + 1) * page.pageSize, total)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", isNavigating && "cursor-progress")} aria-busy={isNavigating}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
@@ -451,7 +460,7 @@ export function EquipmentTable({
                 <tr
                   key={row.id}
                   className="group cursor-pointer transition-colors hover:bg-slate-50/50"
-                  onClick={() => router.push(`/equipment/${row.original.id}`)}
+                  onClick={() => navigate(`/equipment/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
@@ -485,7 +494,7 @@ export function EquipmentTable({
               <div
                 key={row.id}
                 className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
-                onClick={() => router.push(`/equipment/${item.id}`)}
+                onClick={() => navigate(`/equipment/${item.id}`)}
               >
                 <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-lg bg-slate-900" />
 
@@ -547,7 +556,7 @@ export function EquipmentTable({
                         <IconPackage className="mr-2 h-4 w-4" /> Log Update
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => router.push(`/equipment/${item.id}`)}>
+                      <DropdownMenuItem onClick={() => navigate(`/equipment/${item.id}`)}>
                         <IconEdit className="mr-2 h-4 w-4" /> View Details
                       </DropdownMenuItem>
                     </DropdownMenuContent>
