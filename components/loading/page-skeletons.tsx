@@ -145,6 +145,59 @@ export function MemberDetailSkeleton() {
   )
 }
 
+export function InstructorDetailSkeleton() {
+  return (
+    <div className="w-full py-8" aria-busy="true" aria-live="polite">
+      <SkeletonBlock className="mb-6 h-4 w-40" />
+
+      <Card className="mb-6 border border-border/50 bg-card py-0 shadow-sm">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-start gap-4">
+            <SkeletonBlock className="h-20 w-20 rounded-full" />
+            <div className="flex-1 space-y-3">
+              <SkeletonBlock className="h-8 w-64" />
+              <SkeletonBlock className="h-4 w-80" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardContent className="p-4">
+            <SkeletonBlock className="h-4 w-28" />
+            <SkeletonBlock className="mt-2 h-8 w-16" />
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardContent className="p-4">
+            <SkeletonBlock className="h-4 w-32" />
+            <SkeletonBlock className="mt-2 h-8 w-16" />
+          </CardContent>
+        </Card>
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardContent className="p-4">
+            <SkeletonBlock className="h-4 w-36" />
+            <SkeletonBlock className="mt-2 h-8 w-20" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <CardContent className="p-6">
+          <div className="mb-6 flex gap-2" aria-hidden="true">
+            <SkeletonBlock className="h-7 w-24" />
+            <SkeletonBlock className="h-7 w-28" />
+            <SkeletonBlock className="h-7 w-24" />
+            <SkeletonBlock className="h-7 w-32" />
+          </div>
+          <SkeletonTable columns={4} rows={5} className="border-0 shadow-none" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export function InvoiceDetailSkeleton() {
   return (
     <div className="flex flex-1 flex-col bg-muted/20" aria-busy="true" aria-live="polite">

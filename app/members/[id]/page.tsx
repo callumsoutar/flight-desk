@@ -119,7 +119,13 @@ export default async function MemberDetailPage({ params }: PageProps) {
 
   return (
     <AppRouteShell>
-      <React.Suspense fallback={<MemberDetailSkeleton />}>
+      <React.Suspense
+        fallback={
+          <AppRouteDetailContainer>
+            <MemberDetailSkeleton />
+          </AppRouteDetailContainer>
+        }
+      >
         <MemberDetailContent tenantId={tenantId} memberId={id} />
       </React.Suspense>
     </AppRouteShell>

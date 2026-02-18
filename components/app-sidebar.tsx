@@ -46,6 +46,7 @@ const data = {
       items: [
         { title: "Aircraft", url: "/aircraft", icon: IconPlane },
         { title: "Members", url: "/members", icon: IconUser },
+        { title: "Instructors", url: "/instructors", icon: IconUsers },
         { title: "Staff", url: "/staff", icon: IconUsers },
       ],
     },
