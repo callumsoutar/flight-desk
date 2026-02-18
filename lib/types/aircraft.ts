@@ -1,5 +1,6 @@
 import type { AircraftRow, AircraftTypesRow } from "@/lib/types"
 
+export type AircraftType = AircraftTypesRow
 export type AircraftTypeLite = Pick<AircraftTypesRow, "id" | "name" | "category">
 
 export type AircraftWithType = AircraftRow & {
@@ -11,4 +12,3 @@ export type AircraftFilter = {
   status?: string
   aircraft_type_id?: string
 }
-

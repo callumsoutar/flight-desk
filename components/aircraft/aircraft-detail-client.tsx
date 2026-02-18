@@ -324,7 +324,7 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                 </Tabs.Content>
 
                 <Tabs.Content value="observations">
-                  <AircraftObservationsTab observations={observations} />
+                  <AircraftObservationsTab aircraftId={aircraftId} observations={observations} />
                 </Tabs.Content>
 
                 <Tabs.Content value="maintenance-items">
@@ -332,7 +332,10 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                 </Tabs.Content>
 
                 <Tabs.Content value="maintenance-history">
-                  <AircraftMaintenanceHistoryTab maintenanceVisits={maintenanceVisits} />
+                  <AircraftMaintenanceHistoryTab
+                    aircraftId={aircraftId}
+                    initialVisits={maintenanceVisits}
+                  />
                 </Tabs.Content>
 
                 <Tabs.Content value="settings">

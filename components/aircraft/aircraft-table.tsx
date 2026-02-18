@@ -19,6 +19,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { AddAircraftModal } from "@/components/aircraft/add-aircraft-modal"
+import { ReorderAircraftModal } from "@/components/aircraft/reorder-aircraft-modal"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 
 interface AircraftTableProps {
@@ -54,6 +56,8 @@ function formatTotalHours(hours: number | null): string {
 export function AircraftTable({ aircraft }: AircraftTableProps) {
   const [search, setSearch] = React.useState("")
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [addAircraftOpen, setAddAircraftOpen] = React.useState(false)
+  const [reorderOpen, setReorderOpen] = React.useState(false)
   const [isNavigating, startNavigation] = React.useTransition()
   const router = useRouter()
   const { role } = useAuth()
@@ -198,7 +202,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
             <Button
               variant="outline"
               className="h-10 w-full border-slate-200 px-5 text-slate-700 hover:bg-slate-50 sm:w-auto"
-              onClick={() => navigate("/aircraft/reorder")}
+              onClick={() => setReorderOpen(true)}
             >
               Reorder
             </Button>
@@ -206,7 +210,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
           {canAddAircraft ? (
             <Button
               className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-              onClick={() => navigate("/aircraft/new")}
+              onClick={() => setAddAircraftOpen(true)}
             >
               <IconPlus className="mr-2 h-4 w-4" />
               Add Aircraft
@@ -364,6 +368,14 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
           </Button>
         </div>
       </div>
+
+      <AddAircraftModal open={addAircraftOpen} onOpenChange={setAddAircraftOpen} />
+      <ReorderAircraftModal
+        open={reorderOpen}
+        onOpenChange={setReorderOpen}
+        aircraft={aircraft}
+        onSaved={() => router.refresh()}
+      />
     </div>
   )
 }
