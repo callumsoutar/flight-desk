@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -23,9 +22,12 @@ const bookingSchema = z.object({
 
 async function getTenantContext() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, {
+    requireUser: true,
+    includeTenant: true,
+    authoritativeTenant: true,
+  })
   if (!user) return { supabase, user: null, tenantId: null }
-  const tenantId = await getUserTenantId(supabase, user.id)
   return { supabase, user, tenantId }
 }
 
@@ -108,4 +110,3 @@ export async function cancelBookingAction(
   revalidatePath(`/bookings/${bookingId}`)
   return { ok: true as const }
 }
-

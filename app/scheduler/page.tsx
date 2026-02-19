@@ -8,7 +8,6 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { fetchSchedulerPageData } from "@/lib/scheduler/fetch-scheduler-page-data"
 import { resolveDateKey } from "@/lib/utils/timezone"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { SchedulerPageData } from "@/lib/types/scheduler"
 
@@ -89,11 +88,9 @@ async function SchedulerContent({
 
 export default async function SchedulerPage({ searchParams }: PageProps) {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) redirect("/login")
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return (
       <MessageCard

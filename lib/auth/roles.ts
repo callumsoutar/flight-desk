@@ -9,6 +9,8 @@ const USER_ROLES = new Set<UserRole>([
 ])
 
 export function claimsRoleToUserRole(roleClaim: unknown): UserRole | null {
+  if (isUserRole(roleClaim)) return roleClaim
+
   if (typeof roleClaim !== "string") return null
   if (!roleClaim.startsWith("app_")) return null
 

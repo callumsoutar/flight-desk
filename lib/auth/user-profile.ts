@@ -1,10 +1,11 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 
 export type UserProfile = Record<string, unknown> | null
+type UserIdentity = Pick<User, "id">
 
 export async function fetchUserProfile(
   supabase: SupabaseClient,
-  user: User
+  user: UserIdentity
 ): Promise<UserProfile> {
   const { data, error } = await supabase
     .from("users")
@@ -15,4 +16,3 @@ export async function fetchUserProfile(
   if (error) return null
   return (data ?? null) as UserProfile
 }
-

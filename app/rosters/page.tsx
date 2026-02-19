@@ -1,14 +1,14 @@
 import * as React from "react"
 import { redirect } from "next/navigation"
 
-import { InstructorsPageClient } from "@/components/instructors/instructors-page-client"
-import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { ListPageSkeleton } from "@/components/loading/page-skeletons"
+import { RostersPageClient } from "@/components/rosters/rosters-page-client"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
-import { fetchInstructors } from "@/lib/instructors/fetch-instructors"
+import { fetchRosterPageData } from "@/lib/rosters/fetch-roster-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import type { InstructorWithRelations } from "@/lib/types/instructors"
+import type { RosterInstructor, RosterRule, TimelineConfig } from "@/lib/types/roster"
 
 function MessageCard({
   title,
@@ -31,28 +31,42 @@ function MessageCard({
   )
 }
 
-async function InstructorsContent({ tenantId }: { tenantId: string }) {
+async function RostersContent({ tenantId }: { tenantId: string }) {
   const supabase = await createSupabaseServerClient()
 
-  let instructors: InstructorWithRelations[] = []
+  let instructors: RosterInstructor[] = []
+  let rosterRules: RosterRule[] = []
+  let timelineConfig: TimelineConfig = {
+    startHour: 9,
+    endHour: 17,
+    intervalMinutes: 30,
+  }
   let loadError: string | null = null
 
   try {
-    instructors = await fetchInstructors(supabase, tenantId)
+    const data = await fetchRosterPageData(supabase, tenantId)
+    instructors = data.instructors
+    rosterRules = data.rosterRules
+    timelineConfig = data.timelineConfig
   } catch {
     instructors = []
-    loadError = "Failed to load instructors. You may not have permission to view this page."
+    rosterRules = []
+    loadError = "Failed to load roster data. You may not have permission to view this page."
   }
 
   return (
     <div className="flex flex-col gap-4">
       {loadError ? <div className="text-sm text-muted-foreground">{loadError}</div> : null}
-      <InstructorsPageClient instructors={instructors} />
+      <RostersPageClient
+        instructors={instructors}
+        rosterRules={rosterRules}
+        timelineConfig={timelineConfig}
+      />
     </div>
   )
 }
 
-export default async function InstructorsPage() {
+export default async function RostersPage() {
   const supabase = await createSupabaseServerClient()
   const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
@@ -60,7 +74,7 @@ export default async function InstructorsPage() {
   if (!tenantId) {
     return (
       <MessageCard
-        title="Instructors"
+        title="Rosters"
         description="Your account isn&apos;t linked to a tenant yet."
       />
     )
@@ -69,8 +83,8 @@ export default async function InstructorsPage() {
   return (
     <AppRouteShell>
       <AppRouteListContainer>
-        <React.Suspense fallback={<ListPageSkeleton />}>
-          <InstructorsContent tenantId={tenantId} />
+        <React.Suspense fallback={<ListPageSkeleton showTabs />}>
+          <RostersContent tenantId={tenantId} />
         </React.Suspense>
       </AppRouteListContainer>
     </AppRouteShell>

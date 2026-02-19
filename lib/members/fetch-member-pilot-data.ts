@@ -2,7 +2,6 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/lib/types"
 import type { EndorsementLite, LicenseLite, UserEndorsementWithRelation } from "@/lib/types/members"
 
@@ -20,38 +19,13 @@ export type MemberPilotData = {
 async function fetchAvailableLicenses(
   supabase: SupabaseClient<Database>
 ): Promise<LicenseLite[]> {
-  const fetchFromAdmin = async (): Promise<LicenseLite[] | null> => {
-    try {
-      const admin = createSupabaseAdminClient()
-      const adminResult = await admin
-        .from("licenses")
-        .select("id, name, is_active")
-        .eq("is_active", true)
-        .order("name", { ascending: true })
-      if (adminResult.error) return null
-      return (adminResult.data ?? []) as LicenseLite[]
-    } catch {
-      return null
-    }
-  }
-
   const sessionResult = await supabase
     .from("licenses")
     .select("id, name, is_active")
     .eq("is_active", true)
     .order("name", { ascending: true })
 
-  if (sessionResult.error) {
-    const adminData = await fetchFromAdmin()
-    if (adminData) return adminData
-    throw sessionResult.error
-  }
-
-  // If RLS blocks visibility without throwing (0 rows), fall back to admin.
-  if ((sessionResult.data ?? []).length === 0) {
-    const adminData = await fetchFromAdmin()
-    if (adminData) return adminData
-  }
+  if (sessionResult.error) throw sessionResult.error
 
   return (sessionResult.data ?? []) as LicenseLite[]
 }

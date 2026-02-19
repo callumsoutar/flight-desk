@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -22,7 +21,7 @@ function isStaff(role: string | null) {
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
+  const { user, role, tenantId } = await getAuthSession(supabase, { includeRole: true, includeTenant: true })
 
   if (!user) {
     return NextResponse.json(
@@ -30,8 +29,6 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return NextResponse.json(
       { error: "Tenant not found" },
@@ -76,7 +73,13 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    includeRole: true,
+    includeTenant: true,
+    requireUser: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
 
   if (!user) {
     return NextResponse.json(
@@ -84,8 +87,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return NextResponse.json(
       { error: "Tenant not found" },

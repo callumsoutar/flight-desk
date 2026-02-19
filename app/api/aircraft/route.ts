@@ -3,7 +3,6 @@ import { z } from "zod"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 
 const querySchema = z.object({
@@ -43,7 +42,7 @@ const createSchema = z.object({
 
 export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -56,8 +55,6 @@ export async function GET(request: Request) {
   if (!parsedQuery.success) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 })
   }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return NextResponse.json(
       { error: "Forbidden: Missing tenant context" },

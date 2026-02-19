@@ -8,7 +8,7 @@ It reflects the current patterns in `app/`, `lib/auth/`, `lib/*/fetch-*`, and `c
 1. Default to Server Components for routes and data loading.
 2. Only use `"use client"` in focused UI islands (tables, forms, modals, interactive tabs).
 3. Always resolve auth and tenant on the server.
-4. Never trust client-provided `tenant_id`; derive it with `getUserTenantId`.
+4. Never trust client-provided `tenant_id`; derive it from `getAuthSession(..., { includeTenant: true })`.
 5. Every DB query must be tenant-scoped (`.eq("tenant_id", tenantId)`), plus RLS remains the final gate.
 6. Add route-level loading and error boundaries (`loading.tsx`, `error.tsx`).
 7. Use `React.Suspense` in page routes with project skeleton fallbacks.
@@ -46,7 +46,6 @@ import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchFeature } from "@/lib/feature/fetch-feature"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { FeatureRow } from "@/lib/types/feature"
@@ -95,11 +94,9 @@ async function FeatureContent({ tenantId }: { tenantId: string }) {
 
 export default async function FeaturePage() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) redirect("/login")
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return (
       <MessageCard
@@ -218,7 +215,6 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 const inputSchema = z.object({
@@ -227,9 +223,12 @@ const inputSchema = z.object({
 
 async function getTenantContext() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, {
+    includeTenant: true,
+    requireUser: true,
+    authoritativeTenant: true,
+  })
   if (!user) return { supabase, user: null, tenantId: null }
-  const tenantId = await getUserTenantId(supabase, user.id)
   return { supabase, user, tenantId }
 }
 
@@ -260,18 +259,15 @@ export async function updateFeatureAction(input: unknown) {
 import { NextResponse } from "next/server"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return NextResponse.json(
       { error: "Forbidden: Missing tenant context" },
@@ -303,14 +299,14 @@ export async function GET() {
 
 1. Auth verification entrypoint is `getAuthSession` in `lib/auth/session.ts`.
 2. `getAuthSession` uses:
-   - `supabase.auth.getClaims()`
-   - `supabase.auth.getUser()`
-   - claim subject match check (`claims.sub === user.id`)
-3. Role is resolved from JWT `claims.role` (`app_*`) and falls back to `rpc("get_tenant_user_role")`.
+   - `supabase.auth.getClaims()` (claims/JWKS fast path)
+   - optional `supabase.auth.getUser()` only when `requireUser: true`
+   - claim subject match check (`claims.sub === user.id`) when authoritative user is required
+3. Role is resolved claims-first (`claims.app_role`, then compatible claim forms), with DB fallback unless strict claims mode is enabled.
 4. Role type is `UserRole` in `lib/types/roles.ts`:
    - `owner | admin | instructor | member | student`
 5. Route middleware (`middleware.ts`) enforces authenticated access and login redirect behavior.
-6. Tenant resolution is server-only via `getUserTenantId` in `lib/auth/tenant.ts`.
+6. Tenant resolution is via `getAuthSession(..., { includeTenant: true })` (claims-first, DB fallback during rollout).
 7. Client-side role checks (`useAuth`) are UX-only; server checks + RLS are mandatory security controls.
 8. Optional server-side role gate is `components/auth/role-guard.tsx`.
 
@@ -330,7 +326,7 @@ Use this prompt when generating a new page:
 
 ```text
 Build this route using the FlightDesk page scaffold:
-- Server-first page in app router (`page.tsx`) with `createSupabaseServerClient`, `getAuthSession`, and `getUserTenantId`
+- Server-first page in app router (`page.tsx`) with `createSupabaseServerClient` and `getAuthSession(..., { includeTenant: true })`
 - Redirect unauthenticated users to `/login`
 - If no tenant context, render the standard message card
 - Fetch data in a server-only loader in `lib/<feature>/fetch-*.ts` and tenant-scope every query
@@ -340,4 +336,3 @@ Build this route using the FlightDesk page scaffold:
 - For mutations, use server actions with zod validation, tenant checks, and `revalidatePath`
 - Keep role gating UX in client (`useAuth`) but enforce true authorization on server/RLS
 ```
-

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchBookings } from "@/lib/bookings/fetch-bookings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { MemberFlightHistoryResponse } from "@/lib/types/flight-history"
@@ -15,7 +14,7 @@ export async function GET(
   const { id: targetUserId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
+  const { user, role, tenantId } = await getAuthSession(supabase, { includeRole: true, includeTenant: true })
 
   if (!user) {
     return NextResponse.json(
@@ -23,8 +22,6 @@ export async function GET(
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return NextResponse.json(
       { error: "Tenant not found" },
