@@ -5,6 +5,9 @@ import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/contexts/auth-context"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { SpeedInsights } from "@vercel/speed-insights/next"
+
+<SpeedInsights />
 
 export const metadata: Metadata = {
   title: "Create Next App",
