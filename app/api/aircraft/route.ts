@@ -78,13 +78,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return NextResponse.json(
       { error: "Forbidden: Missing tenant context" },
