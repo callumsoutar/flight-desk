@@ -29,18 +29,12 @@ export async function updateSession(request: NextRequest): Promise<{
     },
   })
 
-  // Prefer local/JWKS-backed verification via getClaims() for lower latency.
-  // With symmetric projects this may still hit Auth internally, but keeps us
-  // aligned as projects migrate to asymmetric JWT signing keys.
+  // Middleware is on the hot path: rely on JWT/JWKS claims verification only.
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims()
   const claimedUserId = claimsData?.claims?.sub
   if (!claimsError && typeof claimedUserId === "string" && claimedUserId) {
     return { userId: claimedUserId, cookiesToSet }
   }
 
-  // Fallback keeps behavior robust while migrating key setups.
-  const { data, error } = await supabase.auth.getUser()
-  if (error) return { userId: null, cookiesToSet }
-
-  return { userId: data.user?.id ?? null, cookiesToSet }
+  return { userId: null, cookiesToSet }
 }

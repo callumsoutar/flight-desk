@@ -6,7 +6,6 @@ import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchEquipment } from "@/lib/equipment/fetch-equipment"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { EquipmentWithIssuance } from "@/lib/types/equipment"
@@ -55,11 +54,9 @@ async function EquipmentContent({ tenantId }: { tenantId: string }) {
 
 export default async function EquipmentPage() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) redirect("/login")
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return (
       <MessageCard

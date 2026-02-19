@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchMemberMembershipsData } from "@/lib/members/fetch-member-memberships-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -73,9 +72,12 @@ export type CreateMemberMembershipInput = z.infer<typeof createMembershipSchema>
 
 async function requireTenantContext() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, {
+    requireUser: true,
+    includeTenant: true,
+    authoritativeTenant: true,
+  })
   if (!user) return { supabase, user: null, tenantId: null }
-  const tenantId = await getUserTenantId(supabase, user.id)
   return { supabase, user, tenantId }
 }
 

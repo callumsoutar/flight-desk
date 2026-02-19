@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
+  const { user, role } = await getAuthSession(supabase, {
+    includeRole: true,
+    requireUser: true,
+  })
 
   if (!user) {
     return NextResponse.json(

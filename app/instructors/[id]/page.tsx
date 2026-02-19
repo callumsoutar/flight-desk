@@ -6,7 +6,6 @@ import { InstructorDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchInstructorCategories } from "@/lib/instructors/fetch-instructor-categories"
 import { fetchInstructorDetail } from "@/lib/instructors/fetch-instructor-detail"
 import { fetchInstructorRateMetadata } from "@/lib/instructors/fetch-instructor-rate-metadata"
@@ -120,11 +119,9 @@ export default async function InstructorDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) redirect("/login")
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return (
       <MessageCard

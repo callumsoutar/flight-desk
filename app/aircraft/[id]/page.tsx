@@ -7,7 +7,6 @@ import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layou
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchAircraftDetail } from "@/lib/aircraft/fetch-aircraft-detail"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
@@ -74,11 +73,9 @@ export default async function AircraftDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) redirect("/login")
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return (
       <MessageCard

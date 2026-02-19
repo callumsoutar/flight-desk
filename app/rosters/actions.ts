@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { normalizeTimeToSql, parseTimeToMinutes } from "@/lib/roster/availability"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { RosterRule } from "@/lib/types/roster"
@@ -69,9 +68,14 @@ function validateEffectiveRange(fromDate: string, untilDate: string | null) {
 
 async function requireTenantContext() {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    includeRole: true,
+    includeTenant: true,
+    requireUser: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
   if (!user) return { supabase, user: null, role: null, tenantId: null }
-  const tenantId = await getUserTenantId(supabase, user.id)
   return { supabase, user, role, tenantId }
 }
 

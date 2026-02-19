@@ -6,7 +6,6 @@ import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
 import { fetchMembers } from "@/lib/members/fetch-members"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { MemberWithRelations } from "@/lib/types/members"
@@ -55,11 +54,9 @@ async function MembersContent({ tenantId }: { tenantId: string }) {
 
 export default async function MembersPage() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
 
   if (!user) redirect("/login")
-
-  const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
     return (
       <MessageCard

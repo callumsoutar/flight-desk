@@ -14,7 +14,7 @@ export async function RoleGuard({
   children: React.ReactNode
 }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
+  const { user, role } = await getAuthSession(supabase, { includeRole: true })
   if (!user) redirect("/login")
 
   if (!role || !allowedRoles.includes(role)) redirect(redirectTo)

@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/contexts/auth-context"
 import { getAuthSession } from "@/lib/auth/session"
-import { fetchUserProfile } from "@/lib/auth/user-profile"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const metadata: Metadata = {
@@ -18,8 +17,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase)
-  const profile = user ? await fetchUserProfile(supabase, user) : null
+  const { user, role } = await getAuthSession(supabase, { includeRole: true })
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -30,7 +28,7 @@ export default async function RootLayout({
         <AuthProvider
           initialUser={user}
           initialRole={role}
-          initialProfile={profile}
+          initialProfile={null}
         >
           {children}
           <Toaster />
