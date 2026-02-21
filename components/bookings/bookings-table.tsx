@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 
+import { getBookingOpenPath } from "@/lib/bookings/navigation"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -252,7 +253,7 @@ function BookingCard({
   onOpen,
 }: {
   booking: BookingWithRelations
-  onOpen: (bookingId: string) => void
+  onOpen: (booking: BookingWithRelations) => void
 }) {
   const start = new Date(booking.start_time)
   const end = new Date(booking.end_time)
@@ -271,7 +272,7 @@ function BookingCard({
   return (
     <div
       className="group relative cursor-pointer border-b bg-background transition-all last:border-b-0 hover:bg-accent/5 active:scale-[0.98]"
-      onClick={() => onOpen(booking.id)}
+      onClick={() => onOpen(booking)}
     >
       <div className="px-4 py-3">
         <div className="flex items-start gap-4">
@@ -517,7 +518,11 @@ export function BookingsTable({
                 (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize
               )
               .map((booking) => (
-                <BookingCard key={booking.id} booking={booking} onOpen={(bookingId) => navigate(`/bookings/${bookingId}`)} />
+                <BookingCard
+                  key={booking.id}
+                  booking={booking}
+                  onOpen={(item) => navigate(getBookingOpenPath(item.id, item.status))}
+                />
               ))
           ) : (
             <div className="p-12">
@@ -562,7 +567,7 @@ export function BookingsTable({
                         onClick={(e) => {
                           const target = e.target as HTMLElement
                           if (!target.closest("button, a, [role='button'], input, select")) {
-                            navigate(`/bookings/${row.original.id}`)
+                            navigate(getBookingOpenPath(row.original.id, row.original.status))
                           }
                         }}
                       >

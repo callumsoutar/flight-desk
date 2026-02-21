@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
+import { getBookingOpenPath } from "@/lib/bookings/navigation"
 import { getBookingLayout } from "@/lib/scheduler/timeline"
 import {
   addDaysYyyyMmDd,
@@ -533,7 +534,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         })
         return
       }
-      router.push(`/bookings/${booking.id}`)
+      router.push(getBookingOpenPath(booking.id, booking.status))
     },
     [router]
   )

@@ -1,12 +1,11 @@
 import * as React from "react"
 import { redirect } from "next/navigation"
 
-import { BookingDetailClient } from "@/components/bookings/booking-detail-client"
+import { BookingCheckoutClient } from "@/components/bookings/booking-checkout-client"
 import { BookingDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
-import { getBookingOpenPath } from "@/lib/bookings/navigation"
 import { fetchBookingPageData } from "@/lib/bookings/fetch-booking-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types/roles"
@@ -36,7 +35,7 @@ function MessageCard({
   )
 }
 
-async function BookingDetailContent({
+async function BookingCheckoutContent({
   tenantId,
   bookingId,
   role,
@@ -55,7 +54,7 @@ async function BookingDetailContent({
       <AppRouteNarrowDetailContainer>
         <Card>
           <CardHeader>
-            <CardTitle>Booking</CardTitle>
+            <CardTitle>Booking Checkout</CardTitle>
             <CardDescription>Failed to load booking. Please try again.</CardDescription>
           </CardHeader>
         </Card>
@@ -76,20 +75,17 @@ async function BookingDetailContent({
     )
   }
 
-  if (pageData.booking.status === "flying") redirect(getBookingOpenPath(bookingId, pageData.booking.status))
-
   return (
-    <BookingDetailClient
+    <BookingCheckoutClient
       bookingId={bookingId}
       booking={pageData.booking}
       options={pageData.options}
-      auditLogs={pageData.auditLogs}
       role={role}
     />
   )
 }
 
-export default async function BookingDetailPage({ params }: PageProps) {
+export default async function BookingCheckoutPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
@@ -102,7 +98,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   if (!tenantId) {
     return (
       <MessageCard
-        title="Booking"
+        title="Booking Checkout"
         description="Your account isn't linked to a tenant yet."
       />
     )
@@ -111,7 +107,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   return (
     <AppRouteShell>
       <React.Suspense fallback={<BookingDetailSkeleton />}>
-        <BookingDetailContent tenantId={tenantId} bookingId={id} role={role} />
+        <BookingCheckoutContent tenantId={tenantId} bookingId={id} role={role} />
       </React.Suspense>
     </AppRouteShell>
   )
