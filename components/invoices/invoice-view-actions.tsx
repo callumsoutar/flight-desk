@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+import InvoiceReportPDF from "@/components/invoices/invoice-report-pdf"
 import RecordPaymentModal from "@/components/invoices/record-payment-modal"
 import type {
   InvoiceDocumentData,
@@ -55,16 +56,33 @@ export default function InvoiceViewActions({
   const [isPrinting, setIsPrinting] = React.useState(false)
 
   const canEmail = Boolean(billToEmail)
-  const isPaid = status === "paid"
+  const hasBalanceDue = typeof invoice.balanceDue === "number" ? invoice.balanceDue > 0 : true
+  const canRecordPayment = (status === "pending" || status === "overdue") && hasBalanceDue
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
-    // PDF renderer dependency is not currently installed in this codebase.
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    toast.info("PDF download is not configured yet.")
-    setIsDownloading(false)
-    void items
-    void settings
+    try {
+      const { pdf } = await import("@react-pdf/renderer")
+      const blob = await pdf(
+        <InvoiceReportPDF invoice={invoice} items={items} settings={settings} />
+      ).toBlob()
+
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      const rawNumber = invoice.invoiceNumber || `#${invoiceId.slice(0, 8)}`
+      const safeInvoiceNumber = rawNumber.replace(/[^a-zA-Z0-9_-]/g, "_")
+
+      link.href = objectUrl
+      link.download = `invoice-${safeInvoiceNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+    } catch {
+      toast.error("Failed to generate PDF")
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   const handlePrint = async () => {
@@ -86,7 +104,7 @@ export default function InvoiceViewActions({
   return (
     <>
       <div className="flex items-center gap-2">
-        {!isPaid ? (
+        {canRecordPayment ? (
           <Button
             type="button"
             size="sm"
@@ -138,7 +156,7 @@ export default function InvoiceViewActions({
               </DropdownMenuItem>
             ) : null}
 
-            {!isPaid ? (
+            {canRecordPayment ? (
               <DropdownMenuItem onSelect={() => setPaymentOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Record Payment

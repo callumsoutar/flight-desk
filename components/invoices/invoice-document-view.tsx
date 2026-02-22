@@ -3,16 +3,9 @@
 import * as React from "react"
 
 import { Card } from "@/components/ui/card"
+import type { InvoicingSettings } from "@/lib/invoices/invoicing-settings"
 
-export type InvoicingSettings = {
-  schoolName: string
-  billingAddress: string
-  gstNumber: string
-  contactPhone: string
-  contactEmail: string
-  invoiceFooter: string
-  paymentTerms: string
-}
+export type { InvoicingSettings } from "@/lib/invoices/invoicing-settings"
 
 export type InvoiceDocumentData = {
   invoiceNumber: string
@@ -69,6 +62,7 @@ export default function InvoiceDocumentView({
             <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{settings.billingAddress || ""}</p>
             {settings.contactEmail ? <p className="text-sm text-muted-foreground">{settings.contactEmail}</p> : null}
             {settings.contactPhone ? <p className="text-sm text-muted-foreground">{settings.contactPhone}</p> : null}
+            {settings.gstNumber ? <p className="text-sm text-muted-foreground">GST: {settings.gstNumber}</p> : null}
           </div>
 
           <div className="rounded-md border bg-muted/20 px-4 py-3 text-sm">

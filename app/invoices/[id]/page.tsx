@@ -7,6 +7,8 @@ import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layou
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceDetail } from "@/lib/invoices/fetch-invoice-detail"
+import { fetchInvoicingSettings } from "@/lib/invoices/fetch-invoicing-settings"
+import { DEFAULT_INVOICING_SETTINGS } from "@/lib/invoices/invoicing-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
@@ -34,7 +36,15 @@ function MessageCard({
   )
 }
 
-async function InvoiceDetailContent({ tenantId, id }: { tenantId: string; id: string }) {
+async function InvoiceDetailContent({
+  tenantId,
+  id,
+  canApproveDraft,
+}: {
+  tenantId: string
+  id: string
+  canApproveDraft: boolean
+}) {
   const supabase = await createSupabaseServerClient()
 
   let detail: Awaited<ReturnType<typeof fetchInvoiceDetail>>
@@ -53,6 +63,14 @@ async function InvoiceDetailContent({ tenantId, id }: { tenantId: string; id: st
     )
   }
 
+  const loadErrors: string[] = []
+  let settings = DEFAULT_INVOICING_SETTINGS
+  try {
+    settings = await fetchInvoicingSettings(supabase, tenantId)
+  } catch {
+    loadErrors.push("invoicing settings")
+  }
+
   if (!detail.invoice) {
     return (
       <AppRouteNarrowDetailContainer>
@@ -66,14 +84,27 @@ async function InvoiceDetailContent({ tenantId, id }: { tenantId: string; id: st
     )
   }
 
-  return <InvoiceDetailClient invoice={detail.invoice} items={detail.items} />
+  return (
+    <InvoiceDetailClient
+      invoice={detail.invoice}
+      items={detail.items}
+      settings={settings}
+      loadErrors={loadErrors}
+      canApproveDraft={canApproveDraft}
+    />
+  )
 }
 
 export default async function InvoiceDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId, role } = await getAuthSession(supabase, {
+    includeTenant: true,
+    includeRole: true,
+    authoritativeTenant: true,
+    authoritativeRole: true,
+  })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -94,10 +125,12 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
     )
   }
 
+  const canApproveDraft = role === "owner" || role === "admin" || role === "instructor"
+
   return (
     <AppRouteShell>
       <React.Suspense fallback={<InvoiceDetailSkeleton />}>
-        <InvoiceDetailContent tenantId={tenantId} id={id} />
+        <InvoiceDetailContent tenantId={tenantId} id={id} canApproveDraft={canApproveDraft} />
       </React.Suspense>
     </AppRouteShell>
   )

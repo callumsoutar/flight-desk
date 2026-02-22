@@ -1,41 +1,40 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { ChevronRight } from "lucide-react"
+import { toast } from "sonner"
 
+import { approveDraftInvoiceAction } from "@/app/invoices/[id]/actions"
 import InvoiceActionsToolbar from "@/components/invoices/invoice-actions-toolbar"
-import InvoiceDocumentView, {
-  type InvoicingSettings,
-} from "@/components/invoices/invoice-document-view"
+import InvoiceDocumentView from "@/components/invoices/invoice-document-view"
 import InvoiceViewActions from "@/components/invoices/invoice-view-actions"
 import type { UserResult } from "@/components/invoices/member-select"
 import { Card } from "@/components/ui/card"
+import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
+import {
+  DEFAULT_INVOICING_SETTINGS,
+  type InvoicingSettings,
+} from "@/lib/invoices/invoicing-settings"
 import type { InvoiceItemsRow } from "@/lib/types"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
-
-function roundToTwoDecimals(value: number) {
-  return Math.round(value * 100) / 100
-}
-
-const DEFAULT_SETTINGS: InvoicingSettings = {
-  schoolName: "Flight School",
-  billingAddress: "",
-  gstNumber: "",
-  contactPhone: "",
-  contactEmail: "",
-  invoiceFooter: "Thank you for your business.",
-  paymentTerms: "Payment terms: Net 30 days.",
-}
 
 export function InvoiceDetailClient({
   invoice,
   items,
+  settings = DEFAULT_INVOICING_SETTINGS,
   loadErrors = [],
+  canApproveDraft = false,
 }: {
   invoice: InvoiceWithRelations
   items: InvoiceItemsRow[]
+  settings?: InvoicingSettings
   loadErrors?: string[]
+  canApproveDraft?: boolean
 }) {
+  const router = useRouter()
+  const [isApproving, startApproveTransition] = React.useTransition()
+
   const selectedMember = React.useMemo<UserResult | null>(() => {
     if (!invoice.user || !invoice.user.id || !invoice.user.email) return null
     return {
@@ -57,6 +56,21 @@ export function InvoiceDetailClient({
 
   const isReadOnly = invoice.status !== "draft"
 
+  const handleApprove = React.useCallback(() => {
+    if (invoice.status !== "draft") return
+
+    startApproveTransition(async () => {
+      const result = await approveDraftInvoiceAction({ invoiceId: invoice.id })
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success("Invoice approved")
+      router.refresh()
+    })
+  }, [invoice.id, invoice.status, router])
+
   return (
     <div className="flex flex-1 flex-col bg-muted/20">
       <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
@@ -73,7 +87,7 @@ export function InvoiceDetailClient({
                   invoiceId={invoice.id}
                   billToEmail={invoice.user?.email || selectedMember?.email || null}
                   status={invoice.status}
-                  settings={DEFAULT_SETTINGS}
+                  settings={settings}
                   bookingId={invoice.booking_id}
                   invoice={{
                     invoiceNumber: invoice.invoice_number || `#${invoice.id.slice(0, 8)}`,
@@ -100,9 +114,11 @@ export function InvoiceDetailClient({
                 />
               ) : null
             }
+            onApprove={canApproveDraft && invoice.status === "draft" ? handleApprove : undefined}
             saveDisabled
-            approveDisabled
-            showApprove={invoice.status === "draft"}
+            approveDisabled={isApproving}
+            approveLoading={isApproving}
+            showApprove={canApproveDraft && invoice.status === "draft"}
           />
         </div>
 
@@ -112,7 +128,7 @@ export function InvoiceDetailClient({
 
         <div className="mt-6 space-y-6">
           <InvoiceDocumentView
-            settings={DEFAULT_SETTINGS}
+            settings={settings}
             invoice={{
               invoiceNumber: invoice.invoice_number || `#${invoice.id.slice(0, 8)}`,
               issueDate: invoice.issue_date,

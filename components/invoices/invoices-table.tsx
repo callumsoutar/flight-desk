@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 
+import { useAuth } from "@/contexts/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -197,6 +198,7 @@ export function InvoicesTable({
   tabCounts,
   onFiltersChange,
 }: InvoicesTableProps) {
+  const { role } = useAuth()
   const router = useRouter()
   const [isNavigating, startNavigation] = React.useTransition()
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -249,6 +251,7 @@ export function InvoicesTable({
   ] as const
 
   const rowCount = table.getRowModel().rows.length
+  const canCreateInvoice = role === "owner" || role === "admin" || role === "instructor"
   const page = table.getState().pagination
   const start = rowCount === 0 ? 0 : page.pageIndex * page.pageSize + 1
   const end = Math.min((page.pageIndex + 1) * page.pageSize, invoices.length)
@@ -281,13 +284,15 @@ export function InvoicesTable({
             ) : null}
           </div>
 
-          <Button
-            className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-            onClick={() => navigate("/invoices/new")}
-          >
-            <IconPlus className="mr-2 h-4 w-4" />
-            New Invoice
-          </Button>
+          {canCreateInvoice ? (
+            <Button
+              className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
+              onClick={() => navigate("/invoices/new")}
+            >
+              <IconPlus className="mr-2 h-4 w-4" />
+              New Invoice
+            </Button>
+          ) : null}
         </div>
       </div>
 
