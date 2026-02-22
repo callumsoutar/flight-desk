@@ -8,9 +8,23 @@ import type {
 
 export type EquipmentType = Database["public"]["Enums"]["equipment_type"]
 export type EquipmentStatus = Database["public"]["Enums"]["equipment_status"]
+export type Equipment = EquipmentRow
+export type EquipmentIssuance = EquipmentIssuanceRow
+export type EquipmentUpdate = EquipmentUpdatesRow
+export type EquipmentIssuanceMember = {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string
+}
 
 export type EquipmentTypeOption = {
   value: EquipmentType
+  label: string
+}
+
+export type EquipmentStatusOption = {
+  value: EquipmentStatus
   label: string
 }
 
@@ -27,6 +41,13 @@ export const EQUIPMENT_TYPE_OPTIONS: EquipmentTypeOption[] = [
   { value: "FirstAidKit", label: "First Aid Kit" },
   { value: "FireExtinguisher", label: "Fire Extinguisher" },
   { value: "Other", label: "Other" },
+]
+
+export const EQUIPMENT_STATUS_OPTIONS: EquipmentStatusOption[] = [
+  { value: "active", label: "Active" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "lost", label: "Lost" },
+  { value: "retired", label: "Retired" },
 ]
 
 export type EquipmentFilter = {

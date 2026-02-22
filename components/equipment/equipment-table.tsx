@@ -271,15 +271,15 @@ export function EquipmentTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {isIssued ? (
+                  {isIssued && onReturn ? (
                     <DropdownMenuItem onClick={() => onReturn?.(item)}>
                       <IconAlertCircle className="mr-2 h-4 w-4" /> Return
                     </DropdownMenuItem>
-                  ) : (
+                  ) : onIssue ? (
                     <DropdownMenuItem onClick={() => onIssue?.(item)}>
                       <IconClock className="mr-2 h-4 w-4" /> Issue
                     </DropdownMenuItem>
-                  )}
+                  ) : null}
                   <DropdownMenuItem onClick={() => onLogUpdate?.(item)}>
                     <IconPackage className="mr-2 h-4 w-4" /> Log Update
                   </DropdownMenuItem>
@@ -543,15 +543,15 @@ export function EquipmentTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {isIssued ? (
+                      {isIssued && onReturn ? (
                         <DropdownMenuItem onClick={() => onReturn?.(item)}>
                           <IconAlertCircle className="mr-2 h-4 w-4" /> Return
                         </DropdownMenuItem>
-                      ) : (
+                      ) : onIssue ? (
                         <DropdownMenuItem onClick={() => onIssue?.(item)}>
                           <IconClock className="mr-2 h-4 w-4" /> Issue
                         </DropdownMenuItem>
-                      )}
+                      ) : null}
                       <DropdownMenuItem onClick={() => onLogUpdate?.(item)}>
                         <IconPackage className="mr-2 h-4 w-4" /> Log Update
                       </DropdownMenuItem>

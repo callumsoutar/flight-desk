@@ -7,8 +7,9 @@ import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-r
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchEquipment } from "@/lib/equipment/fetch-equipment"
+import { fetchEquipmentIssuanceMembers } from "@/lib/equipment/fetch-equipment-issuance-members"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import type { EquipmentWithIssuance } from "@/lib/types/equipment"
+import type { EquipmentIssuanceMember, EquipmentWithIssuance } from "@/lib/types/equipment"
 
 function MessageCard({
   title,
@@ -31,10 +32,17 @@ function MessageCard({
   )
 }
 
-async function EquipmentContent({ tenantId }: { tenantId: string }) {
+async function EquipmentContent({
+  tenantId,
+  canIssueEquipment,
+}: {
+  tenantId: string
+  canIssueEquipment: boolean
+}) {
   const supabase = await createSupabaseServerClient()
 
   let equipment: EquipmentWithIssuance[] = []
+  let issueMembers: EquipmentIssuanceMember[] = []
   let loadError: string | null = null
 
   try {
@@ -44,17 +52,35 @@ async function EquipmentContent({ tenantId }: { tenantId: string }) {
     loadError = "Failed to load equipment. You may not have permission to view this page."
   }
 
+  if (canIssueEquipment) {
+    try {
+      issueMembers = await fetchEquipmentIssuanceMembers(supabase, tenantId)
+    } catch {
+      issueMembers = []
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {loadError ? <div className="text-sm text-muted-foreground">{loadError}</div> : null}
-      <EquipmentPageClient equipment={equipment} />
+      <EquipmentPageClient
+        equipment={equipment}
+        issueMembers={issueMembers}
+        canIssueEquipment={canIssueEquipment}
+      />
     </div>
   )
 }
 
 export default async function EquipmentPage() {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    includeRole: true,
+    includeTenant: true,
+    requireUser: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -66,11 +92,13 @@ export default async function EquipmentPage() {
     )
   }
 
+  const canIssueEquipment = role === "owner" || role === "admin" || role === "instructor"
+
   return (
     <AppRouteShell>
       <AppRouteListContainer>
         <React.Suspense fallback={<ListPageSkeleton />}>
-          <EquipmentContent tenantId={tenantId} />
+          <EquipmentContent tenantId={tenantId} canIssueEquipment={canIssueEquipment} />
         </React.Suspense>
       </AppRouteListContainer>
     </AppRouteShell>

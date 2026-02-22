@@ -32,6 +32,7 @@ interface MembersTableProps {
   members: MemberWithRelations[]
   activeTab: PersonType
   onTabChange: (tab: PersonType) => void
+  onAdd?: () => void
   tabCounts: {
     all: number
     member: number
@@ -74,6 +75,7 @@ export function MembersTable({
   members,
   activeTab,
   onTabChange,
+  onAdd,
   tabCounts,
 }: MembersTableProps) {
   const [search, setSearch] = React.useState("")
@@ -225,7 +227,13 @@ export function MembersTable({
           {canAddMember ? (
             <Button
               className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-              onClick={() => navigate("/members/new")}
+              onClick={() => {
+                if (onAdd) {
+                  onAdd()
+                  return
+                }
+                navigate("/members/new")
+              }}
             >
               <IconUserPlus className="mr-2 h-4 w-4" />
               New Member

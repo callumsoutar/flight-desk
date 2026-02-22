@@ -228,3 +228,34 @@ export function InvoiceDetailSkeleton() {
     </div>
   )
 }
+
+export function EquipmentDetailSkeleton() {
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8" aria-busy="true" aria-live="polite">
+      <SkeletonBlock className="mb-6 h-4 w-40" />
+
+      <Card className="mb-6 border border-border/50 bg-card py-0 shadow-sm">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-start gap-4">
+            <SkeletonBlock className="h-16 w-16 rounded-lg" />
+            <div className="flex-1 space-y-3">
+              <SkeletonBlock className="h-8 w-56" />
+              <SkeletonBlock className="h-4 w-72" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <CardContent className="space-y-6 p-6">
+          <div className="flex gap-2" aria-hidden="true">
+            <SkeletonBlock className="h-8 w-24" />
+            <SkeletonBlock className="h-8 w-36" />
+            <SkeletonBlock className="h-8 w-24" />
+          </div>
+          <SkeletonTable columns={2} rows={6} className="border-0 shadow-none" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
