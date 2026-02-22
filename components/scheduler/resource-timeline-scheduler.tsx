@@ -40,6 +40,14 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -79,6 +87,50 @@ type SchedulerBooking = {
   canConfirm: boolean
 }
 
+type SchedulerBookingPointerDownPayload = {
+  booking: SchedulerBooking
+  sourceResource: Resource
+  pointerId: number
+  clientX: number
+  clientY: number
+  button: number
+  pointerOffsetSlots: number
+  durationSlots: number
+}
+
+type SchedulerBookingDragCandidate = {
+  booking: SchedulerBooking
+  sourceResource: Resource
+  pointerId: number
+  startClientX: number
+  startClientY: number
+  pointerOffsetSlots: number
+  durationSlots: number
+}
+
+type SchedulerBookingDragPreview = {
+  booking: SchedulerBooking
+  dragKind: Resource["kind"]
+  sourceResourceId: string
+  targetResourceId: string
+  startAt: Date
+  endAt: Date
+  valid: boolean
+}
+
+type PendingSchedulerBookingMove = {
+  booking: SchedulerBooking
+  dragKind: Resource["kind"]
+  fromResourceId: string
+  toResourceId: string
+  fromResourceLabel: string
+  toResourceLabel: string
+  startBefore: Date
+  endBefore: Date
+  startAfter: Date
+  endAfter: Date
+}
+
 type MinutesWindow = { startMin: number; endMin: number }
 type TimelineConfig = { startMin: number; endMin: number; intervalMinutes: number }
 
@@ -90,7 +142,22 @@ const LEFT_COL_WIDTH = "w-[160px] sm:w-[240px] lg:w-[280px]"
 const timeFormatterCache = new Map<string, Intl.DateTimeFormat>()
 const time12FormatterCache = new Map<string, Intl.DateTimeFormat>()
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const WEEKDAY_FULL_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const MONTH_FULL_LABELS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+]
 
 function getTimeFormatter(timeZone: string) {
   const key = `${timeZone}:24h`
@@ -130,6 +197,45 @@ function formatTimeRangeLabel(start: Date, end: Date, timeZone: string) {
   return `${formatTimeLabel(start, timeZone)}-${formatTimeLabel(end, timeZone)}`
 }
 
+function formatOrdinalDay(day: number) {
+  const mod10 = day % 10
+  const mod100 = day % 100
+  if (mod10 === 1 && mod100 !== 11) return `${day}st`
+  if (mod10 === 2 && mod100 !== 12) return `${day}nd`
+  if (mod10 === 3 && mod100 !== 13) return `${day}rd`
+  return `${day}th`
+}
+
+function formatTimeLabel12hCompact(d: Date, timeZone: string) {
+  return formatTimeLabel12h(d, timeZone).replace(/\s/g, "")
+}
+
+function formatFriendlyDateLabel(date: Date, timeZone: string) {
+  const { yyyyMmDd } = getZonedYyyyMmDdAndHHmm(date, timeZone)
+  const parsed = parseDateKeyParts(yyyyMmDd)
+  if (!parsed) return yyyyMmDd
+
+  const weekday = WEEKDAY_FULL_LABELS[dayOfWeekFromYyyyMmDd(yyyyMmDd)] ?? ""
+  const month = MONTH_FULL_LABELS[parsed.month - 1] ?? ""
+  return `${weekday} ${formatOrdinalDay(parsed.day)} ${month}`
+}
+
+function formatFriendlyDateTimeRangeLabel(start: Date, end: Date, timeZone: string) {
+  const startDate = getZonedYyyyMmDdAndHHmm(start, timeZone).yyyyMmDd
+  const endDate = getZonedYyyyMmDdAndHHmm(end, timeZone).yyyyMmDd
+  const sameDay = startDate === endDate
+
+  if (sameDay) {
+    return `${formatFriendlyDateLabel(start, timeZone)} ${formatTimeLabel12hCompact(start, timeZone)} - ${formatTimeLabel12hCompact(end, timeZone)}`
+  }
+
+  return `${formatFriendlyDateLabel(start, timeZone)} ${formatTimeLabel12hCompact(start, timeZone)} - ${formatFriendlyDateLabel(end, timeZone)} ${formatTimeLabel12hCompact(end, timeZone)}`
+}
+
+function formatTimeRangeLabel12h(start: Date, end: Date, timeZone: string) {
+  return `${formatTimeLabel12h(start, timeZone)} - ${formatTimeLabel12h(end, timeZone)}`
+}
+
 function formatTimeLabel12h(d: Date, timeZone: string) {
   return getTime12Formatter(timeZone).format(d).toLowerCase()
 }
@@ -139,6 +245,10 @@ function parseDateKeyParts(dateKey: string) {
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null
   if (month < 1 || month > 12 || day < 1 || day > 31) return null
   return { year, month, day }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(value, max))
 }
 
 function dateToKeyFromCalendar(date: Date) {
@@ -297,6 +407,10 @@ function bookingMatchesResource(booking: SchedulerBooking, resource: Resource) {
   return booking.aircraftId === resource.data.id
 }
 
+function getResourceId(resource: Resource) {
+  return resource.data.id
+}
+
 function parseSupabaseUtcTimestamp(ts: string) {
   const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(ts)
   return new Date(hasTimezone ? ts : `${ts}Z`)
@@ -361,17 +475,34 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const [newBookingDraft, setNewBookingDraft] = React.useState<SchedulerBookingDraft | null>(null)
   const [cancelModalOpen, setCancelModalOpen] = React.useState(false)
   const [selectedBookingForCancel, setSelectedBookingForCancel] = React.useState<SchedulerBooking | null>(null)
+  const [dragPreview, setDragPreview] = React.useState<SchedulerBookingDragPreview | null>(null)
+  const [pendingMove, setPendingMove] = React.useState<PendingSchedulerBookingMove | null>(null)
+  const [isApplyingMove, setIsApplyingMove] = React.useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false)
   const [isNavigating, startNavigation] = React.useTransition()
   const openModalTimerRef = React.useRef<number | null>(null)
+  const dragCandidateRef = React.useRef<SchedulerBookingDragCandidate | null>(null)
+  const dragPreviewRef = React.useRef<SchedulerBookingDragPreview | null>(null)
+  const didDragRef = React.useRef(false)
+  const suppressBookingOpenRef = React.useRef(false)
+  const suppressBookingOpenTimerRef = React.useRef<number | null>(null)
 
   React.useEffect(() => {
     return () => {
       if (openModalTimerRef.current !== null) {
         window.clearTimeout(openModalTimerRef.current)
       }
+      if (suppressBookingOpenTimerRef.current !== null) {
+        window.clearTimeout(suppressBookingOpenTimerRef.current)
+      }
+      document.body.style.removeProperty("user-select")
+      document.body.style.removeProperty("cursor")
     }
   }, [])
+
+  React.useEffect(() => {
+    dragPreviewRef.current = dragPreview
+  }, [dragPreview])
 
   React.useEffect(() => {
     setSelectedDateKey(data.dateYyyyMmDd)
@@ -446,12 +577,248 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     [data.aircraft]
   )
 
+  const instructorResourceById = React.useMemo(() => {
+    const map = new Map<string, InstructorResource>()
+    for (const resource of instructorResources) {
+      map.set(resource.id, resource)
+    }
+    return map
+  }, [instructorResources])
+
+  const aircraftResourceById = React.useMemo(() => {
+    const map = new Map<string, AircraftResource>()
+    for (const resource of aircraftResources) {
+      map.set(resource.id, resource)
+    }
+    return map
+  }, [aircraftResources])
+
   const bookings = React.useMemo(() => {
     const viewer = { userId: user?.id ?? null, isStaff }
     return data.bookings
       .map((booking) => bookingToSchedulerBooking(booking, viewer))
       .filter((value): value is SchedulerBooking => value !== null)
   }, [data.bookings, isStaff, user?.id])
+
+  const formatResourceLabel = React.useCallback(
+    (kind: Resource["kind"], resourceId: string) => {
+      if (kind === "instructor") {
+        return instructorResourceById.get(resourceId)?.name ?? "Instructor"
+      }
+
+      const aircraft = aircraftResourceById.get(resourceId)
+      if (!aircraft) return "Aircraft"
+      return `${aircraft.registration} (${aircraft.type})`
+    },
+    [aircraftResourceById, instructorResourceById]
+  )
+
+  const resolveResourceFromRowElement = React.useCallback(
+    (element: Element | null): Resource | null => {
+      if (!(element instanceof HTMLElement)) return null
+      const row = element.closest<HTMLElement>("[data-scheduler-row='true']")
+      if (!row) return null
+
+      const kind = row.dataset.resourceKind
+      const resourceId = row.dataset.resourceId
+      if (!kind || !resourceId) return null
+
+      if (kind === "instructor") {
+        const data = instructorResourceById.get(resourceId)
+        if (!data) return null
+        return { kind: "instructor", data }
+      }
+
+      if (kind === "aircraft") {
+        const data = aircraftResourceById.get(resourceId)
+        if (!data) return null
+        return { kind: "aircraft", data }
+      }
+
+      return null
+    },
+    [aircraftResourceById, instructorResourceById]
+  )
+
+  const isInstructorRangeAvailable = React.useCallback(
+    (instructorId: string, start: Date, end: Date) => {
+      const windows = instructorAvailabilityById.get(instructorId) ?? []
+      if (windows.length === 0) return false
+
+      const intervalMs = INTERVAL_MINUTES * 60_000
+      for (let t = start.getTime(); t < end.getTime(); t += intervalMs) {
+        const minute = getMinutesInTimeZone(new Date(t), data.timeZone)
+        if (!isMinutesWithinAnyWindow(minute, windows)) return false
+      }
+
+      return true
+    },
+    [data.timeZone, instructorAvailabilityById]
+  )
+
+  const buildDragPreview = React.useCallback(
+    (
+      candidate: SchedulerBookingDragCandidate,
+      clientX: number,
+      clientY: number
+    ): SchedulerBookingDragPreview => {
+      const sourceResourceId = getResourceId(candidate.sourceResource)
+      const fallback: SchedulerBookingDragPreview = {
+        booking: candidate.booking,
+        dragKind: candidate.sourceResource.kind,
+        sourceResourceId,
+        targetResourceId: sourceResourceId,
+        startAt: candidate.booking.startsAt,
+        endAt: candidate.booking.endsAt,
+        valid: false,
+      }
+
+      if (slotCount <= 0) return fallback
+
+      const hoveredElement = document.elementFromPoint(clientX, clientY)
+      const targetResource = resolveResourceFromRowElement(hoveredElement)
+      if (!targetResource) return fallback
+      if (targetResource.kind !== candidate.sourceResource.kind) return fallback
+
+      const rowElement = hoveredElement?.closest<HTMLElement>("[data-scheduler-row='true']") ?? null
+      if (!rowElement) return fallback
+
+      const rect = rowElement.getBoundingClientRect()
+      if (!rect.width) return fallback
+
+      const relativeX = clamp(clientX - rect.left, 0, rect.width)
+      const hoveredIdx = clamp(Math.floor((relativeX / rect.width) * slotCount), 0, slotCount - 1)
+      const maxStartIdx = Math.max(0, slotCount - Math.max(1, candidate.durationSlots))
+      const startIdx = clamp(hoveredIdx - candidate.pointerOffsetSlots, 0, maxStartIdx)
+      let startAt = slots[startIdx] ?? timelineStart
+      const durationMs = candidate.booking.endsAt.getTime() - candidate.booking.startsAt.getTime()
+      let endAt = new Date(startAt.getTime() + durationMs)
+
+      if (endAt > timelineEnd) {
+        endAt = new Date(timelineEnd)
+        startAt = new Date(endAt.getTime() - durationMs)
+      }
+      if (startAt < timelineStart) {
+        startAt = new Date(timelineStart)
+        endAt = new Date(startAt.getTime() + durationMs)
+      }
+
+      let valid = true
+      if (targetResource.kind === "instructor") {
+        valid = isInstructorRangeAvailable(targetResource.data.id, startAt, endAt)
+      }
+
+      return {
+        booking: candidate.booking,
+        dragKind: candidate.sourceResource.kind,
+        sourceResourceId,
+        targetResourceId: targetResource.data.id,
+        startAt,
+        endAt,
+        valid,
+      }
+    },
+    [isInstructorRangeAvailable, resolveResourceFromRowElement, slotCount, slots, timelineEnd, timelineStart]
+  )
+
+  const handleBookingPointerDown = React.useCallback(
+    (payload: SchedulerBookingPointerDownPayload) => {
+      if (!isStaff) return
+      if (payload.button !== 0) return
+      if (pendingMove || isApplyingMove || isUpdatingStatus) return
+
+      dragCandidateRef.current = {
+        booking: payload.booking,
+        sourceResource: payload.sourceResource,
+        pointerId: payload.pointerId,
+        startClientX: payload.clientX,
+        startClientY: payload.clientY,
+        pointerOffsetSlots: payload.pointerOffsetSlots,
+        durationSlots: payload.durationSlots,
+      }
+      didDragRef.current = false
+      dragPreviewRef.current = null
+      setDragPreview(null)
+    },
+    [isApplyingMove, isStaff, isUpdatingStatus, pendingMove]
+  )
+
+  React.useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const candidate = dragCandidateRef.current
+      if (!candidate || event.pointerId !== candidate.pointerId) return
+
+      const distance = Math.hypot(event.clientX - candidate.startClientX, event.clientY - candidate.startClientY)
+      if (!didDragRef.current && distance < 4) return
+
+      if (!didDragRef.current) {
+        didDragRef.current = true
+        document.body.style.userSelect = "none"
+        document.body.style.cursor = "grabbing"
+      }
+
+      const nextPreview = buildDragPreview(candidate, event.clientX, event.clientY)
+      dragPreviewRef.current = nextPreview
+      setDragPreview(nextPreview)
+    }
+
+    const handlePointerRelease = (event: PointerEvent) => {
+      const candidate = dragCandidateRef.current
+      if (!candidate || event.pointerId !== candidate.pointerId) return
+
+      const didDrag = didDragRef.current
+      const preview = dragPreviewRef.current
+
+      dragCandidateRef.current = null
+      didDragRef.current = false
+      dragPreviewRef.current = null
+      setDragPreview(null)
+
+      document.body.style.removeProperty("user-select")
+      document.body.style.removeProperty("cursor")
+
+      if (!didDrag) return
+
+      suppressBookingOpenRef.current = true
+      if (suppressBookingOpenTimerRef.current !== null) {
+        window.clearTimeout(suppressBookingOpenTimerRef.current)
+      }
+      suppressBookingOpenTimerRef.current = window.setTimeout(() => {
+        suppressBookingOpenRef.current = false
+        suppressBookingOpenTimerRef.current = null
+      }, 0)
+
+      if (!preview || !preview.valid) return
+
+      const resourceChanged = preview.sourceResourceId !== preview.targetResourceId
+      const timeChanged =
+        preview.startAt.getTime() !== candidate.booking.startsAt.getTime() ||
+        preview.endAt.getTime() !== candidate.booking.endsAt.getTime()
+      if (!resourceChanged && !timeChanged) return
+
+      setPendingMove({
+        booking: candidate.booking,
+        dragKind: preview.dragKind,
+        fromResourceId: preview.sourceResourceId,
+        toResourceId: preview.targetResourceId,
+        fromResourceLabel: formatResourceLabel(preview.dragKind, preview.sourceResourceId),
+        toResourceLabel: formatResourceLabel(preview.dragKind, preview.targetResourceId),
+        startBefore: candidate.booking.startsAt,
+        endBefore: candidate.booking.endsAt,
+        startAfter: preview.startAt,
+        endAfter: preview.endAt,
+      })
+    }
+
+    window.addEventListener("pointermove", handlePointerMove)
+    window.addEventListener("pointerup", handlePointerRelease)
+    window.addEventListener("pointercancel", handlePointerRelease)
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerup", handlePointerRelease)
+      window.removeEventListener("pointercancel", handlePointerRelease)
+    }
+  }, [buildDragPreview, formatResourceLabel])
 
   const handleStatusUpdate = React.useCallback(
     async (variables: {
@@ -496,6 +863,62 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     [router]
   )
 
+  const handleApplyPendingMove = React.useCallback(async () => {
+    if (!pendingMove) return
+
+    const resourceChanged = pendingMove.fromResourceId !== pendingMove.toResourceId
+    const timeChanged =
+      pendingMove.startBefore.getTime() !== pendingMove.startAfter.getTime() ||
+      pendingMove.endBefore.getTime() !== pendingMove.endAfter.getTime()
+    if (!resourceChanged && !timeChanged) {
+      setPendingMove(null)
+      return
+    }
+
+    const body: {
+      instructor_id?: string | null
+      aircraft_id?: string | null
+      start_time?: string
+      end_time?: string
+    } = {}
+
+    if (resourceChanged) {
+      if (pendingMove.dragKind === "instructor") {
+        body.instructor_id = pendingMove.toResourceId
+      } else {
+        body.aircraft_id = pendingMove.toResourceId
+      }
+    }
+
+    if (timeChanged) {
+      body.start_time = pendingMove.startAfter.toISOString()
+      body.end_time = pendingMove.endAfter.toISOString()
+    }
+
+    setIsApplyingMove(true)
+    try {
+      const response = await fetch(`/api/bookings/${pendingMove.booking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(payload.error || "Failed to move booking")
+      }
+
+      await response.json()
+      setPendingMove(null)
+      toast.success("Booking moved")
+      router.refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to move booking")
+    } finally {
+      setIsApplyingMove(false)
+    }
+  }, [pendingMove, router])
+
   const selectedDate = React.useMemo(
     () => dateKeyToCalendarDate(selectedDateKey),
     [selectedDateKey]
@@ -537,6 +960,10 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
 
   const handleBookingClick = React.useCallback(
     (booking: SchedulerBooking) => {
+      if (suppressBookingOpenRef.current) {
+        suppressBookingOpenRef.current = false
+        return
+      }
       if (!booking.canOpen) {
         toast.message("Busy slot", {
           description: "You can only open your own bookings.",
@@ -603,6 +1030,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
       clientX: number
       container: HTMLDivElement
     }) => {
+      if (suppressBookingOpenRef.current) return
       if (!selectedDateKey) return
       const rect = container.getBoundingClientRect()
       if (!rect.width || slotCount === 0) return
@@ -637,6 +1065,15 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     router.refresh()
   }, [router])
 
+  const dragInProgress = dragPreview !== null
+  const pendingMoveHasResourceChange = Boolean(
+    pendingMove && pendingMove.fromResourceId !== pendingMove.toResourceId
+  )
+  const pendingMoveHasTimeChange = Boolean(
+    pendingMove &&
+      (pendingMove.startBefore.getTime() !== pendingMove.startAfter.getTime() ||
+        pendingMove.endBefore.getTime() !== pendingMove.endAfter.getTime())
+  )
   const isLoading = !selectedDateKey || isNavigating
 
   return (
@@ -820,6 +1257,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                     return (
                       <TimelineRow
                         key={inst.id}
+                        rowResource={resource}
                         height={ROW_HEIGHT}
                         slotCount={slotCount}
                         slots={slots}
@@ -827,9 +1265,13 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                         timelineEnd={timelineEnd}
                         timeZone={data.timeZone}
                         bookings={rowBookings}
+                        dragPreview={dragPreview}
+                        dragInProgress={dragInProgress}
                         resourceTitle={getResourceTitle(resource)}
                         isSlotAvailable={(slot) => isMinutesWithinAnyWindow(getMinutesInTimeZone(slot, data.timeZone), windows)}
                         onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
+                        onBookingPointerDown={handleBookingPointerDown}
+                        canDragBookings={isStaff}
                         onBookingClick={handleBookingClick}
                         onStatusUpdate={(variables) => {
                           void handleStatusUpdate(variables)
@@ -857,6 +1299,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                     return (
                       <TimelineRow
                         key={ac.id}
+                        rowResource={resource}
                         height={ROW_HEIGHT}
                         slotCount={slotCount}
                         slots={slots}
@@ -864,8 +1307,12 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                         timelineEnd={timelineEnd}
                         timeZone={data.timeZone}
                         bookings={rowBookings}
+                        dragPreview={dragPreview}
+                        dragInProgress={dragInProgress}
                         resourceTitle={getResourceTitle(resource)}
                         onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
+                        onBookingPointerDown={handleBookingPointerDown}
+                        canDragBookings={isStaff}
                         onBookingClick={handleBookingClick}
                         onStatusUpdate={(variables) => {
                           void handleStatusUpdate(variables)
@@ -880,6 +1327,120 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
           </div>
         )}
       </div>
+
+      <Dialog
+        open={Boolean(pendingMove)}
+        onOpenChange={(open) => {
+          if (!open && !isApplyingMove) {
+            setPendingMove(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Confirm booking move</DialogTitle>
+            <DialogDescription>
+              Review the pending scheduler changes before applying them.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingMove ? (
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Booking</span>
+                  <span className="min-w-0 truncate font-medium">{pendingMove.booking.primaryLabel}</span>
+                </div>
+
+                {pendingMoveHasResourceChange ? (
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground capitalize">
+                      {pendingMove.dragKind}
+                    </div>
+                    <div className="rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="min-w-[42px] text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">
+                            Old
+                          </span>
+                          <span className="min-w-0 truncate font-medium text-rose-600 line-through decoration-rose-500/80 dark:text-rose-300">
+                            {pendingMove.fromResourceLabel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="min-w-[42px] text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                            New
+                          </span>
+                          <span className="min-w-0 truncate font-semibold text-emerald-700 dark:text-emerald-300">
+                            {pendingMove.toResourceLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {pendingMoveHasTimeChange ? (
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Time
+                    </div>
+                    <div className="rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
+                      <div className="space-y-1.5">
+                        <div className="flex items-start gap-2">
+                          <span className="min-w-[42px] pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">
+                            Old
+                          </span>
+                          <span className="font-medium text-rose-600 line-through decoration-rose-500/80 dark:text-rose-300">
+                            {formatFriendlyDateTimeRangeLabel(
+                              pendingMove.startBefore,
+                              pendingMove.endBefore,
+                              data.timeZone
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="min-w-[42px] pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                            New
+                          </span>
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                            {formatFriendlyDateTimeRangeLabel(
+                              pendingMove.startAfter,
+                              pendingMove.endAfter,
+                              data.timeZone
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={isApplyingMove}
+              onClick={() => {
+                setPendingMove(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-slate-900 font-semibold text-white hover:bg-slate-800"
+              disabled={isApplyingMove || !pendingMove}
+              onClick={() => {
+                void handleApplyPendingMove()
+              }}
+            >
+              {isApplyingMove ? "Applying..." : "Approve changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <NewBookingModal
         open={newBookingModalOpen}
@@ -915,29 +1476,39 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
 }
 
 function TimelineRow({
+  rowResource,
   height,
   slotCount,
   slots,
   timelineStart,
   timelineEnd,
   bookings,
+  dragPreview,
+  dragInProgress,
   resourceTitle,
   isSlotAvailable,
   onEmptyClick,
+  onBookingPointerDown,
+  canDragBookings,
   onBookingClick,
   onStatusUpdate,
   onCancelBooking,
   timeZone,
 }: {
+  rowResource: Resource
   height: number
   slotCount: number
   slots: Date[]
   timelineStart: Date
   timelineEnd: Date
   bookings: SchedulerBooking[]
+  dragPreview: SchedulerBookingDragPreview | null
+  dragInProgress: boolean
   resourceTitle?: string
   isSlotAvailable?: (slot: Date) => boolean
   onEmptyClick: (clientX: number, container: HTMLDivElement) => void
+  onBookingPointerDown: (payload: SchedulerBookingPointerDownPayload) => void
+  canDragBookings: boolean
   onBookingClick: (booking: SchedulerBooking) => void
   onStatusUpdate: (variables: {
     bookingId: string
@@ -953,12 +1524,51 @@ function TimelineRow({
   const hoveredSlot = hoveredSlotIdx === null ? null : (slots[hoveredSlotIdx] ?? null)
   const hoveredAvailable = hoveredSlot && isSlotAvailable ? isSlotAvailable(hoveredSlot) : true
   const hoveredTimeLabel = hoveredSlot ? formatTimeLabel12h(hoveredSlot, timeZone) : null
+  const activeDragPreview =
+    dragPreview && dragPreview.dragKind === rowResource.kind ? dragPreview : null
+  const renderedBookings = React.useMemo(() => {
+    const base = bookings
+      .filter((booking) => !(activeDragPreview && booking.id === activeDragPreview.booking.id))
+      .map((booking) => ({
+        booking,
+        startAt: booking.startsAt,
+        endAt: booking.endsAt,
+        isPreview: false,
+        previewValid: true,
+      }))
+
+    if (activeDragPreview && rowResource.data.id === activeDragPreview.targetResourceId) {
+      base.push({
+        booking: activeDragPreview.booking,
+        startAt: activeDragPreview.startAt,
+        endAt: activeDragPreview.endAt,
+        isPreview: true,
+        previewValid: activeDragPreview.valid,
+      })
+    }
+
+    base.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
+    return base
+  }, [activeDragPreview, bookings, rowResource.data.id])
 
   return (
-    <div className="relative" style={{ height }}>
+    <div
+      className="relative"
+      style={{ height }}
+      data-scheduler-row="true"
+      data-resource-kind={rowResource.kind}
+      data-resource-id={rowResource.data.id}
+    >
       <div
         ref={containerRef}
-        className="absolute inset-0 cursor-default"
+        className={cn(
+          "absolute inset-0 cursor-default",
+          activeDragPreview && rowResource.data.id === activeDragPreview.targetResourceId
+            ? activeDragPreview.valid
+              ? "bg-emerald-500/5"
+              : "bg-destructive/5"
+            : ""
+        )}
         onMouseMove={(event) => {
           if (!containerRef.current) return
           const rect = containerRef.current.getBoundingClientRect()
@@ -970,6 +1580,7 @@ function TimelineRow({
         }}
         onMouseLeave={() => setHoveredSlotIdx(null)}
         onClick={(event) => {
+          if (dragInProgress) return
           if (!containerRef.current) return
           if (isSlotAvailable) {
             const rect = containerRef.current.getBoundingClientRect()
@@ -1004,7 +1615,7 @@ function TimelineRow({
       </div>
 
       <div className="pointer-events-none absolute inset-0 hidden sm:block">
-        {hoveredSlot && hoveredTimeLabel ? (
+        {!dragInProgress && hoveredSlot && hoveredTimeLabel ? (
           <div
             className="absolute z-10"
             style={{
@@ -1030,17 +1641,21 @@ function TimelineRow({
       </div>
 
       <div className="pointer-events-none absolute inset-0">
-        {bookings.map((booking) => {
+        {renderedBookings.map((item) => {
+          const booking = item.booking
           const layout = getBookingLayout({
-            bookingStart: booking.startsAt,
-            bookingEnd: booking.endsAt,
+            bookingStart: item.startAt,
+            bookingEnd: item.endAt,
             timelineStart,
             timelineEnd,
           })
           if (!layout) return null
 
           const label = booking.primaryLabel
-          const range = formatTimeRangeLabel(booking.startsAt, booking.endsAt, timeZone)
+          const range = formatTimeRangeLabel(item.startAt, item.endAt, timeZone)
+          const previewTimeLabel = item.isPreview
+            ? formatTimeRangeLabel12h(item.startAt, item.endAt, timeZone)
+            : null
 
           return (
             <div
@@ -1051,111 +1666,175 @@ function TimelineRow({
                 width: `max(${layout.widthPct}%, 2%)`,
               }}
             >
-              <ContextMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <ContextMenuTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onBookingClick(booking)
-                        }}
-                        className={cn(
-                          "group h-full w-full cursor-pointer rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all hover:brightness-[1.02] hover:shadow-md focus:ring-2 focus:ring-blue-500/40 focus:outline-none",
-                          statusPillClasses(booking.status)
-                        )}
-                      >
-                        <div className="flex h-full flex-col justify-center">
-                          <div className="truncate text-xs font-semibold leading-tight">{label}</div>
-                        </div>
-                      </button>
-                    </ContextMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent variant="card" side="top" sideOffset={8} className="max-w-[360px]">
-                    <div className="relative">
-                      <div
-                        className={cn("absolute left-0 top-0 h-full w-1.5", statusIndicatorClasses(booking.status))}
-                        aria-hidden="true"
-                      />
-                      <div className="space-y-2 p-3 pl-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold leading-tight">{booking.primaryLabel}</div>
-                            <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span className="font-medium text-foreground/90">{range}</span>
+              <div className="relative h-full">
+                {item.isPreview && previewTimeLabel ? (
+                  <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[105%]">
+                    <div
+                      className={cn(
+                        "rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-md ring-1 backdrop-blur",
+                        item.previewValid
+                          ? "bg-slate-900/90 text-white ring-white/20"
+                          : "bg-destructive/90 text-white ring-white/20"
+                      )}
+                    >
+                      {item.previewValid ? "New time " : "Unavailable "}
+                      {previewTimeLabel}
+                    </div>
+                  </div>
+                ) : null}
+
+                <ContextMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ContextMenuTrigger asChild>
+                        <button
+                          type="button"
+                          onPointerDown={(event) => {
+                            if (!canDragBookings || event.button !== 0) return
+                            if (!containerRef.current) return
+
+                            const rect = containerRef.current.getBoundingClientRect()
+                            if (!rect.width || slotCount <= 0) return
+
+                            const slotWidth = rect.width / slotCount
+                            const bookingStartPx = (layout.leftPct / 100) * rect.width
+                            const rawOffsetSlots = Math.floor(
+                              (event.clientX - rect.left - bookingStartPx) / Math.max(1, slotWidth)
+                            )
+                            const durationMs = item.endAt.getTime() - item.startAt.getTime()
+                            const durationSlots = Math.max(1, Math.ceil(durationMs / (INTERVAL_MINUTES * 60_000)))
+                            const pointerOffsetSlots = clamp(
+                              rawOffsetSlots,
+                              0,
+                              Math.max(0, durationSlots - 1)
+                            )
+
+                            onBookingPointerDown({
+                              booking,
+                              sourceResource: rowResource,
+                              pointerId: event.pointerId,
+                              clientX: event.clientX,
+                              clientY: event.clientY,
+                              button: event.button,
+                              pointerOffsetSlots,
+                              durationSlots,
+                            })
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onBookingClick(booking)
+                          }}
+                          className={cn(
+                            "group h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all hover:brightness-[1.02] hover:shadow-md focus:ring-2 focus:ring-blue-500/40 focus:outline-none",
+                            statusPillClasses(booking.status),
+                            canDragBookings ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                            item.isPreview
+                              ? item.previewValid
+                                ? "cursor-grabbing ring-2 ring-emerald-300/80 shadow-lg"
+                                : "cursor-not-allowed opacity-70 ring-2 ring-destructive/70"
+                              : ""
+                          )}
+                        >
+                          <div className="flex h-full flex-col justify-center">
+                            <div className="truncate text-xs font-semibold leading-tight">{label}</div>
+                            {item.isPreview && previewTimeLabel ? (
+                              <div className="mt-0.5 truncate text-[10px] font-medium leading-tight opacity-90">
+                                {previewTimeLabel}
+                              </div>
+                            ) : null}
+                          </div>
+                        </button>
+                      </ContextMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent variant="card" side="top" sideOffset={8} className="max-w-[360px]">
+                      <div className="relative">
+                        <div
+                          className={cn("absolute left-0 top-0 h-full w-1.5", statusIndicatorClasses(booking.status))}
+                          aria-hidden="true"
+                        />
+                        <div className="space-y-2 p-3 pl-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold leading-tight">{booking.primaryLabel}</div>
+                              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span className="font-medium text-foreground/90">{range}</span>
+                              </div>
+                            </div>
+                            <Badge variant={statusBadgeVariant(booking.status)} className="capitalize">
+                              {booking.status}
+                            </Badge>
+                          </div>
+
+                          <Separator className="bg-border/60" />
+
+                          <div className="grid gap-1.5 text-xs">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <User className="h-3.5 w-3.5" />
+                                <span>Instructor</span>
+                              </div>
+                              <span className="min-w-0 truncate font-medium text-foreground">
+                                {booking.instructorLabel ?? "-"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Plane className="h-3.5 w-3.5" />
+                                <span>Aircraft</span>
+                              </div>
+                              <span className="min-w-0 truncate font-medium text-foreground">
+                                {booking.aircraftLabel ?? "-"}
+                              </span>
                             </div>
                           </div>
-                          <Badge variant={statusBadgeVariant(booking.status)} className="capitalize">
-                            {booking.status}
-                          </Badge>
-                        </div>
 
-                        <Separator className="bg-border/60" />
-
-                        <div className="grid gap-1.5 text-xs">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <User className="h-3.5 w-3.5" />
-                              <span>Instructor</span>
-                            </div>
-                            <span className="min-w-0 truncate font-medium text-foreground">
-                              {booking.instructorLabel ?? "-"}
-                            </span>
+                          <div className="pt-0.5 text-[11px] text-muted-foreground">
+                            {booking.canOpen
+                              ? canDragBookings
+                                ? "Click to open, or drag to move"
+                                : "Click to open booking"
+                              : "Busy slot"}
                           </div>
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Plane className="h-3.5 w-3.5" />
-                              <span>Aircraft</span>
-                            </div>
-                            <span className="min-w-0 truncate font-medium text-foreground">
-                              {booking.aircraftLabel ?? "-"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="pt-0.5 text-[11px] text-muted-foreground">
-                          {booking.canOpen ? "Click to open booking" : "Busy slot"}
                         </div>
                       </div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
+                    </TooltipContent>
+                  </Tooltip>
 
-                <ContextMenuContent>
-                  <ContextMenuItem onClick={() => router.push(`/aircraft/${booking.aircraftId}`)}>
-                    <Eye className="h-4 w-4" />
-                    View Aircraft
-                  </ContextMenuItem>
-                  {booking.userId && booking.canViewContact ? (
-                    <ContextMenuItem onClick={() => router.push(`/members/${booking.userId}`)}>
-                      <UserCircle className="h-4 w-4" />
-                      View Contact Details
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => router.push(`/aircraft/${booking.aircraftId}`)}>
+                      <Eye className="h-4 w-4" />
+                      View Aircraft
                     </ContextMenuItem>
-                  ) : null}
-                  {booking.canCancel || booking.canConfirm ? (
-                    <>
-                      <ContextMenuSeparator />
-                      {booking.canCancel ? (
-                        <ContextMenuItem onClick={() => onCancelBooking(booking)} variant="destructive">
-                          <X className="h-4 w-4" />
-                          Cancel Booking
-                        </ContextMenuItem>
-                      ) : null}
-                      {booking.canConfirm ? (
-                        <ContextMenuItem
-                          onClick={() => onStatusUpdate({ bookingId: booking.id, status: "confirmed" })}
-                          className="text-green-600 focus:text-green-600 [&_svg]:text-green-600"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          Confirm Booking
-                        </ContextMenuItem>
-                      ) : null}
-                    </>
-                  ) : null}
-                </ContextMenuContent>
-              </ContextMenu>
+                    {booking.userId && booking.canViewContact ? (
+                      <ContextMenuItem onClick={() => router.push(`/members/${booking.userId}`)}>
+                        <UserCircle className="h-4 w-4" />
+                        View Contact Details
+                      </ContextMenuItem>
+                    ) : null}
+                    {booking.canCancel || booking.canConfirm ? (
+                      <>
+                        <ContextMenuSeparator />
+                        {booking.canCancel ? (
+                          <ContextMenuItem onClick={() => onCancelBooking(booking)} variant="destructive">
+                            <X className="h-4 w-4" />
+                            Cancel Booking
+                          </ContextMenuItem>
+                        ) : null}
+                        {booking.canConfirm ? (
+                          <ContextMenuItem
+                            onClick={() => onStatusUpdate({ bookingId: booking.id, status: "confirmed" })}
+                            className="text-green-600 focus:text-green-600 [&_svg]:text-green-600"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Confirm Booking
+                          </ContextMenuItem>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </ContextMenuContent>
+                </ContextMenu>
+              </div>
             </div>
           )
         })}
