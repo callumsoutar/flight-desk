@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Calendar, Pencil, Plus, Repeat, User } from "lucide-react"
 
 import {
+  checkRosterRuleConflictsAction,
   createRosterRuleAction,
   updateRosterRuleAction,
   voidRosterRuleAction,
@@ -324,6 +325,21 @@ export function RosterShiftModal({
     setIsSubmitting(true)
 
     try {
+      const effectiveUntil = values.is_recurring ? values.effective_until : values.effective_from
+      const conflictCheckResult = await checkRosterRuleConflictsAction({
+        instructor_id: values.instructor_id,
+        days_of_week: targetDays,
+        start_time: values.start_time,
+        end_time: values.end_time,
+        effective_from: values.effective_from,
+        effective_until: effectiveUntil,
+        exclude_rule_id: mode === "edit" ? ruleId : undefined,
+      })
+
+      if (!conflictCheckResult.ok) {
+        throw new Error(conflictCheckResult.error || "Failed to validate roster conflicts")
+      }
+
       const savedRules: RosterRule[] = []
 
       if (mode === "create") {
@@ -334,7 +350,7 @@ export function RosterShiftModal({
             start_time: values.start_time,
             end_time: values.end_time,
             effective_from: values.effective_from,
-            effective_until: values.is_recurring ? values.effective_until : values.effective_from,
+            effective_until: effectiveUntil,
             notes: values.notes ?? null,
           })
 
@@ -355,7 +371,7 @@ export function RosterShiftModal({
           start_time: values.start_time,
           end_time: values.end_time,
           effective_from: values.effective_from,
-          effective_until: values.is_recurring ? values.effective_until : values.effective_from,
+          effective_until: effectiveUntil,
           notes: values.notes ?? null,
         })
 

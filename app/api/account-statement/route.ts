@@ -6,6 +6,11 @@ import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/type
 
 export const dynamic = "force-dynamic"
 
+type SortableAccountStatementEntry = AccountStatementEntry & {
+  sort_ts: number
+  created_ts: number
+}
+
 function parseDateValue(value: string | null | undefined): number {
   if (!value) return Number.MAX_SAFE_INTEGER
   const date = new Date(value)
@@ -65,13 +70,13 @@ export async function GET(request: NextRequest) {
   const [invoicesResult, paymentsResult] = await Promise.all([
     supabase
       .from("invoices")
-      .select("id, issue_date, invoice_number, reference, total_amount, subtotal, tax_total")
+      .select("id, issue_date, created_at, invoice_number, reference, total_amount, subtotal, tax_total")
       .eq("tenant_id", tenantId)
       .eq("user_id", targetUserId)
       .is("deleted_at", null),
     supabase
       .from("invoice_payments")
-      .select("id, paid_at, amount, payment_method, payment_reference, notes")
+      .select("id, paid_at, created_at, amount, payment_method, payment_reference, notes")
       .eq("tenant_id", tenantId)
       .eq("user_id", targetUserId),
   ])
@@ -83,7 +88,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const entries: AccountStatementEntry[] = []
+  const entries: SortableAccountStatementEntry[] = []
 
   for (const invoice of invoicesResult.data ?? []) {
     const totalAmount =
@@ -91,48 +96,64 @@ export async function GET(request: NextRequest) {
         ? invoice.total_amount
         : (invoice.subtotal ?? 0) + (invoice.tax_total ?? 0)
 
+    // For account history, use when the invoice record was created.
+    // `issue_date` is often date-only and can collapse multiple actions to midnight.
+    const eventDate = invoice.created_at ?? invoice.issue_date ?? new Date(0).toISOString()
+
     entries.push({
       entry_id: invoice.id,
       entry_type: "invoice",
-      date: invoice.issue_date,
+      date: eventDate,
       reference: invoice.invoice_number ?? `INV-${invoice.id.slice(0, 8).toUpperCase()}`,
       description: invoice.reference?.trim() || "Invoice",
       amount: totalAmount,
       balance: 0,
+      sort_ts: parseDateValue(eventDate),
+      created_ts: parseDateValue(invoice.created_at),
     })
   }
 
   for (const payment of paymentsResult.data ?? []) {
-    const methodLabel = payment.payment_method
+    const methodLabel = (payment.payment_method ?? "other")
       .replaceAll("_", " ")
       .replace(/\b\w/g, (ch) => ch.toUpperCase())
+
+    const eventDate = payment.paid_at ?? payment.created_at ?? new Date(0).toISOString()
 
     entries.push({
       entry_id: payment.id,
       entry_type: "payment",
-      date: payment.paid_at,
+      date: eventDate,
       reference:
         payment.payment_reference?.trim() || `PAY-${payment.id.slice(0, 8).toUpperCase()}`,
       description: payment.notes?.trim() || `Payment (${methodLabel})`,
       amount: -Math.abs(payment.amount),
       balance: 0,
+      sort_ts: parseDateValue(eventDate),
+      created_ts: parseDateValue(payment.created_at),
     })
   }
 
   entries.sort((a, b) => {
-    const diff = parseDateValue(a.date) - parseDateValue(b.date)
-    if (diff !== 0) return diff
-    if (a.entry_type === b.entry_type) return 0
-    if (a.entry_type === "invoice") return -1
-    if (b.entry_type === "invoice") return 1
-    return 0
+    const eventDiff = a.sort_ts - b.sort_ts
+    if (eventDiff !== 0) return eventDiff
+
+    const createdDiff = a.created_ts - b.created_ts
+    if (createdDiff !== 0) return createdDiff
+
+    return a.entry_id.localeCompare(b.entry_id)
   })
 
   let runningBalance = 0
   const statement = entries.map((entry) => {
     runningBalance += entry.amount
     return {
-      ...entry,
+      entry_id: entry.entry_id,
+      entry_type: entry.entry_type,
+      date: entry.date,
+      reference: entry.reference,
+      description: entry.description,
+      amount: entry.amount,
       balance: Number(runningBalance.toFixed(2)),
     }
   })

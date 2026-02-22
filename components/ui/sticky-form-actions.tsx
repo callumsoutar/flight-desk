@@ -10,6 +10,7 @@ interface StickyFormActionsProps {
   formId?: string
   isDirty: boolean
   isSaving?: boolean
+  isSaveDisabled?: boolean
   onUndo: () => void
   onSave?: () => void
   message: string
@@ -21,6 +22,7 @@ export function StickyFormActions({
   formId,
   isDirty,
   isSaving,
+  isSaveDisabled,
   onUndo,
   onSave,
   message,
@@ -158,7 +160,7 @@ export function StickyFormActions({
               form={formId}
               onClick={onSave}
               size="lg"
-              disabled={isSaving}
+              disabled={isSaving || isSaveDisabled}
               className={`h-12 bg-slate-700 font-semibold text-white shadow-lg transition-all hover:bg-slate-800 hover:shadow-xl ${
                 isMobile ? "max-w-[200px] flex-1" : "min-w-[160px] px-8"
               }`}

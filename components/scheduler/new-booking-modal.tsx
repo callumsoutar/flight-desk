@@ -715,8 +715,8 @@ export function NewBookingModal({
         className={cn(
           "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden flex flex-col",
           "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[720px]",
-          "top-[calc(env(safe-area-inset-top)+1rem)] sm:top-[50%] translate-y-0 sm:translate-y-[-50%]",
-          "h-[calc(100dvh-2rem)] sm:h-fit sm:max-h-[90vh]"
+          "top-4 sm:top-1/2 translate-y-0 sm:-translate-y-1/2",
+          "h-[calc(100vh-2rem)] supports-[height:100dvh]:h-[calc(100dvh-2rem)] sm:h-auto sm:max-h-[calc(100vh-4rem)] sm:max-h-[calc(100dvh-4rem)]"
         )}
       >
         <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-white">

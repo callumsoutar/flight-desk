@@ -363,6 +363,15 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const [selectedBookingForCancel, setSelectedBookingForCancel] = React.useState<SchedulerBooking | null>(null)
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false)
   const [isNavigating, startNavigation] = React.useTransition()
+  const openModalTimerRef = React.useRef<number | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (openModalTimerRef.current !== null) {
+        window.clearTimeout(openModalTimerRef.current)
+      }
+    }
+  }, [])
 
   React.useEffect(() => {
     setSelectedDateKey(data.dateYyyyMmDd)
@@ -567,7 +576,15 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         preselectedInstructorId: resource?.kind === "instructor" ? resource.data.id : null,
         preselectedAircraftId: resource?.kind === "aircraft" ? resource.data.id : null,
       })
-      setNewBookingModalOpen(true)
+
+      if (openModalTimerRef.current !== null) {
+        window.clearTimeout(openModalTimerRef.current)
+      }
+      // Safari can dismiss controlled dialogs if opened within the same click cycle.
+      openModalTimerRef.current = window.setTimeout(() => {
+        setNewBookingModalOpen(true)
+        openModalTimerRef.current = null
+      }, 0)
     },
     [data.timeZone, selectedDateKey, timelineConfig.startMin]
   )

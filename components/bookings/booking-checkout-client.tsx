@@ -112,6 +112,10 @@ export function BookingCheckoutClient({
 
   const studentName = booking.student ? formatUser(booking.student) : "Booking Checkout"
   const canSubmitCheckout = canCheckOut && checkoutForm.authorization_completed
+  const stickySaveLabel = canCheckOut ? "Check Flight Out" : "Save Changes"
+  const stickyMessage = canCheckOut
+    ? "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
+    : "You have unsaved checkout details."
 
   const updateBookingField = <K extends keyof BookingEditFormState>(
     key: K,
@@ -224,8 +228,8 @@ export function BookingCheckoutClient({
       <BookingHeader
         booking={booking}
         title={studentName}
-        backHref={`/bookings/${bookingId}`}
-        backLabel="Back to Booking"
+        backHref="/bookings"
+        backLabel="Back to Bookings"
         actions={headerActions}
       />
 
@@ -353,11 +357,12 @@ export function BookingCheckoutClient({
         <StickyFormActions
           isDirty={isDirty}
           isSaving={isPending}
+          isSaveDisabled={canCheckOut ? !canSubmitCheckout : false}
           onUndo={handleUndo}
-          onSave={handleSave}
-          message="You have unsaved checkout details."
+          onSave={canCheckOut ? handleAuthorize : handleSave}
+          message={stickyMessage}
           undoLabel="Undo Changes"
-          saveLabel="Save Changes"
+          saveLabel={stickySaveLabel}
         />
       ) : null}
     </div>
