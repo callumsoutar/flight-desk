@@ -1,10 +1,15 @@
 import type { Database } from "@/lib/types/database"
+import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
 import type {
   AircraftRow,
+  AircraftTypesRow,
   AuditLogsRow,
   BookingRow,
+  ChargeableTypesRow,
   FlightTypesRow,
   InstructorRow,
+  LandingFeeRatesRow,
+  LessonProgressRow,
   LessonRow,
 } from "@/lib/types/tables"
 
@@ -25,9 +30,40 @@ export type BookingWithRelations = BookingRow & {
         user: DirectoryUserLite | null
       })
     | null
-  aircraft: Pick<AircraftRow, "id" | "registration" | "type" | "model" | "manufacturer"> | null
+  checked_out_instructor:
+    | (Pick<InstructorRow, "id" | "first_name" | "last_name" | "user_id"> & {
+        user: DirectoryUserLite | null
+      })
+    | null
+  aircraft:
+    | Pick<
+        AircraftRow,
+        | "id"
+        | "registration"
+        | "type"
+        | "model"
+        | "manufacturer"
+        | "current_hobbs"
+        | "current_tach"
+        | "aircraft_type_id"
+      >
+    | null
+  checked_out_aircraft:
+    | Pick<
+        AircraftRow,
+        | "id"
+        | "registration"
+        | "type"
+        | "model"
+        | "manufacturer"
+        | "current_hobbs"
+        | "current_tach"
+        | "aircraft_type_id"
+      >
+    | null
   flight_type: Pick<FlightTypesRow, "id" | "name" | "instruction_type"> | null
   lesson: Pick<LessonRow, "id" | "name" | "syllabus_id"> | null
+  lesson_progress: LessonProgressRow[] | LessonProgressRow | null
 }
 
 export type BookingsFilter = {
@@ -43,7 +79,7 @@ export type BookingsFilter = {
 
 export type BookingOptions = {
   aircraft: Array<
-    Pick<AircraftRow, "id" | "registration" | "type" | "model" | "manufacturer">
+    Pick<AircraftRow, "id" | "registration" | "type" | "model" | "manufacturer" | "aircraft_type_id">
   >
   members: DirectoryUserLite[]
   instructors: Array<
@@ -54,6 +90,12 @@ export type BookingOptions = {
   flightTypes: Array<Pick<FlightTypesRow, "id" | "name" | "instruction_type">>
   syllabi: Array<{ id: string; name: string }>
   lessons: Array<Pick<LessonRow, "id" | "name" | "description" | "order" | "syllabus_id">>
+  chargeables?: InvoiceCreateChargeable[]
+  aircraftTypes?: Array<Pick<AircraftTypesRow, "id" | "name">>
+  chargeableTypes?: Array<
+    Pick<ChargeableTypesRow, "id" | "code" | "name" | "description" | "is_global" | "is_active">
+  >
+  landingFeeRates?: Array<Pick<LandingFeeRatesRow, "id" | "chargeable_id" | "aircraft_type_id" | "rate">>
 }
 
 export type AuditLog = AuditLogsRow & {

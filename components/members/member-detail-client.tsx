@@ -41,6 +41,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select"
 import type {
   EndorsementLite,
@@ -310,20 +311,22 @@ export function MemberDetailClient({
               <div className="px-4 pt-3 pb-3 md:hidden">
                 <Select value={activeTab} onValueChange={setActiveTab}>
                   <SelectTrigger className="h-11 w-full border-2 border-gray-300 hover:border-indigo-400 focus:border-indigo-500">
-                    {(() => {
-                      const activeTabItem =
-                        tabItems.find((tab) => tab.id === activeTab) ??
-                        tabItems[0]
-                      const Icon = activeTabItem.icon
-                      return (
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-indigo-600" />
-                          <span className="font-medium">
-                            {activeTabItem.label}
-                          </span>
-                        </div>
-                      )
-                    })()}
+                    <SelectValue>
+                      {(() => {
+                        const activeTabItem =
+                          tabItems.find((tab) => tab.id === activeTab) ??
+                          tabItems[0]
+                        const Icon = activeTabItem.icon
+                        return (
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-indigo-600" />
+                            <span className="font-medium">
+                              {activeTabItem.label}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {tabItems.map((tab) => {

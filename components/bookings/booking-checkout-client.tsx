@@ -8,7 +8,6 @@ import { toast } from "sonner"
 import {
   authorizeBookingCheckoutAction,
   updateBookingCheckoutDetailsAction,
-  updateBookingStatusAction,
 } from "@/app/bookings/actions"
 import {
   BookingEditDetailsCard,
@@ -16,6 +15,11 @@ import {
   type BookingEditFormState,
 } from "@/components/bookings/booking-edit-details-card"
 import { BookingHeader } from "@/components/bookings/booking-header"
+import {
+  BookingStatusTracker,
+  deriveBookingTrackerState,
+  getBookingTrackerStages,
+} from "@/components/bookings/booking-status-tracker"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -116,6 +120,37 @@ export function BookingCheckoutClient({
   const stickyMessage = canCheckOut
     ? "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
     : "You have unsaved checkout details."
+  const lessonProgressExists = React.useMemo(() => {
+    if (!booking.lesson_progress) return false
+    return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
+  }, [booking.lesson_progress])
+  const trackerStages = React.useMemo(
+    () => getBookingTrackerStages(Boolean(checkoutForm.briefing_completed)),
+    [checkoutForm.briefing_completed]
+  )
+  const trackerState = React.useMemo(
+    () =>
+      deriveBookingTrackerState({
+        stages: trackerStages,
+        status: booking.status,
+        briefingCompleted: checkoutForm.briefing_completed,
+        authorizationCompleted: checkoutForm.authorization_completed,
+        checkedOutAt: booking.checked_out_at,
+        checkedInAt: booking.checked_in_at,
+        checkinApprovedAt: booking.checkin_approved_at,
+        hasDebrief: lessonProgressExists,
+      }),
+    [
+      booking.checkin_approved_at,
+      booking.checked_in_at,
+      booking.checked_out_at,
+      booking.status,
+      checkoutForm.authorization_completed,
+      checkoutForm.briefing_completed,
+      lessonProgressExists,
+      trackerStages,
+    ]
+  )
 
   const updateBookingField = <K extends keyof BookingEditFormState>(
     key: K,
@@ -186,20 +221,9 @@ export function BookingCheckoutClient({
     })
   }
 
-  const handleCheckIn = () => {
+  const handleOpenCheckIn = () => {
     if (!canCheckIn) return
-
-    startTransition(async () => {
-      const result = await updateBookingStatusAction(bookingId, "complete")
-
-      if (!result.ok) {
-        toast.error(result.error)
-        return
-      }
-
-      toast.success("Flight checked in and marked complete")
-      router.refresh()
-    })
+    router.push(`/bookings/checkin/${bookingId}`)
   }
 
   const headerActions = isStaff ? (
@@ -215,9 +239,9 @@ export function BookingCheckoutClient({
         </Button>
       ) : null}
       {canCheckIn ? (
-        <Button className="w-full sm:w-auto" onClick={handleCheckIn} disabled={isPending}>
+        <Button className="w-full sm:w-auto" onClick={handleOpenCheckIn} disabled={isPending}>
           <IconCheck className="mr-2 h-4 w-4" />
-          {isPending ? "Checking In..." : "Check In"}
+          Check In
         </Button>
       ) : null}
     </div>
@@ -234,6 +258,13 @@ export function BookingCheckoutClient({
       />
 
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
+        <BookingStatusTracker
+          stages={trackerStages}
+          activeStageId={trackerState.activeStageId}
+          completedStageIds={trackerState.completedStageIds}
+          className="mb-6"
+        />
+
         {!isStaff ? (
           <Card className="mb-6 border border-border/50">
             <CardHeader>

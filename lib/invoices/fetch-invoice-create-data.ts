@@ -31,7 +31,7 @@ export async function fetchInvoiceCreateData(
       .eq("is_active", true),
     supabase
       .from("chargeables")
-      .select("id, name, description, rate, is_taxable")
+      .select("id, name, description, rate, is_taxable, chargeable_type_id")
       .eq("tenant_id", tenantId)
       .eq("is_active", true)
       .is("voided_at", null)

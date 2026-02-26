@@ -28,7 +28,7 @@ import {
   zonedTodayYyyyMmDd,
 } from "@/lib/utils/timezone"
 import { useAuth } from "@/contexts/auth-context"
-import { CancelBookingModal } from "@/components/bookings/cancel-booking-modal"
+import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import { NewBookingModal, type SchedulerBookingDraft } from "@/components/scheduler/new-booking-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -474,7 +474,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const [newBookingModalOpen, setNewBookingModalOpen] = React.useState(false)
   const [newBookingDraft, setNewBookingDraft] = React.useState<SchedulerBookingDraft | null>(null)
   const [cancelModalOpen, setCancelModalOpen] = React.useState(false)
-  const [selectedBookingForCancel, setSelectedBookingForCancel] = React.useState<SchedulerBooking | null>(null)
+  const [selectedBookingForCancel, setSelectedBookingForCancel] = React.useState<BookingWithRelations | null>(null)
   const [dragPreview, setDragPreview] = React.useState<SchedulerBookingDragPreview | null>(null)
   const [pendingMove, setPendingMove] = React.useState<PendingSchedulerBookingMove | null>(null)
   const [isApplyingMove, setIsApplyingMove] = React.useState(false)
@@ -599,6 +599,13 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
       .map((booking) => bookingToSchedulerBooking(booking, viewer))
       .filter((value): value is SchedulerBooking => value !== null)
   }, [data.bookings, isStaff, user?.id])
+  const bookingsById = React.useMemo(() => {
+    const map = new Map<string, BookingWithRelations>()
+    for (const booking of data.bookings) {
+      map.set(booking.id, booking)
+    }
+    return map
+  }, [data.bookings])
 
   const formatResourceLabel = React.useCallback(
     (kind: Resource["kind"], resourceId: string) => {
@@ -824,7 +831,9 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     async (variables: {
       bookingId: string
       status: BookingStatus
+      cancellationCategoryId?: string
       cancellationReason?: string | null
+      cancelledNotes?: string | null
     }) => {
       setIsUpdatingStatus(true)
       try {
@@ -833,8 +842,11 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: variables.status,
+            cancellation_category_id:
+              variables.status === "cancelled" ? (variables.cancellationCategoryId ?? null) : undefined,
             cancellation_reason:
               variables.status === "cancelled" ? (variables.cancellationReason ?? null) : undefined,
+            cancelled_notes: variables.status === "cancelled" ? (variables.cancelledNotes ?? null) : undefined,
           }),
         })
 
@@ -975,10 +987,18 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     [router]
   )
 
-  const handleCancelBookingClick = React.useCallback((booking: SchedulerBooking) => {
-    setSelectedBookingForCancel(booking)
-    setCancelModalOpen(true)
-  }, [])
+  const handleCancelBookingClick = React.useCallback(
+    (booking: SchedulerBooking) => {
+      const bookingForModal = bookingsById.get(booking.id) ?? null
+      if (!bookingForModal) {
+        toast.error("Failed to load booking details")
+        return
+      }
+      setSelectedBookingForCancel(bookingForModal)
+      setCancelModalOpen(true)
+    },
+    [bookingsById]
+  )
 
   const openCreateBookingModal = React.useCallback(
     ({ when, resource }: { when?: Date; resource?: Resource } = {}) => {
@@ -1461,13 +1481,16 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
           setCancelModalOpen(open)
           if (!open) setSelectedBookingForCancel(null)
         }}
+        booking={selectedBookingForCancel}
         pending={isUpdatingStatus}
-        onConfirm={(reason) => {
+        onConfirm={(payload: CancelBookingPayload) => {
           if (!selectedBookingForCancel) return
           void handleStatusUpdate({
             bookingId: selectedBookingForCancel.id,
             status: "cancelled",
-            cancellationReason: reason,
+            cancellationCategoryId: payload.cancellationCategoryId,
+            cancellationReason: payload.cancellationReason,
+            cancelledNotes: payload.cancelledNotes,
           })
         }}
       />
@@ -1513,7 +1536,9 @@ function TimelineRow({
   onStatusUpdate: (variables: {
     bookingId: string
     status: BookingStatus
+    cancellationCategoryId?: string
     cancellationReason?: string | null
+    cancelledNotes?: string | null
   }) => void
   onCancelBooking: (booking: SchedulerBooking) => void
   timeZone: string

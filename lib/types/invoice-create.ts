@@ -11,6 +11,7 @@ export type InvoiceCreateChargeable = {
   description: string | null
   rate: number | null
   is_taxable: boolean | null
+  chargeable_type_id: string
 }
 
 export type InvoiceCreateActionItemInput = {
@@ -27,4 +28,3 @@ export type InvoiceCreateActionInput = {
   notes?: string | null
   items: InvoiceCreateActionItemInput[]
 }
-

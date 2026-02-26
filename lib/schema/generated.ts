@@ -240,6 +240,7 @@ export const publicAircraftRowSchema = z.object({
   for_ato: z.boolean(),
   fuel_consumption: z.number().nullable(),
   id: z.string(),
+  initial_total_time_in_service: z.number(),
   manufacturer: z.string().nullable(),
   model: z.string().nullable(),
   notes: z.string().nullable(),
@@ -269,6 +270,7 @@ export const publicAircraftInsertSchema = z.object({
   for_ato: z.boolean().optional(),
   fuel_consumption: z.number().optional().nullable(),
   id: z.string().optional(),
+  initial_total_time_in_service: z.number().optional(),
   manufacturer: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -298,6 +300,7 @@ export const publicAircraftUpdateSchema = z.object({
   for_ato: z.boolean().optional(),
   fuel_consumption: z.number().optional().nullable(),
   id: z.string().optional(),
+  initial_total_time_in_service: z.number().optional(),
   manufacturer: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -573,6 +576,8 @@ export const publicAuditLogsRelationshipsSchema = z.tuple([
 ]);
 
 export const publicBookingsRowSchema = z.object({
+  actual_end: z.string().nullable(),
+  actual_start: z.string().nullable(),
   aircraft_id: z.string().nullable(),
   airswitch_end: z.number().nullable(),
   airswitch_start: z.number().nullable(),
@@ -589,6 +594,7 @@ export const publicBookingsRowSchema = z.object({
   cancelled_by: z.string().nullable(),
   cancelled_notes: z.string().nullable(),
   checked_in_at: z.string().nullable(),
+  checked_in_by: z.string().nullable(),
   checked_out_aircraft_id: z.string().nullable(),
   checked_out_at: z.string().nullable(),
   checked_out_instructor_id: z.string().nullable(),
@@ -637,6 +643,8 @@ export const publicBookingsRowSchema = z.object({
 });
 
 export const publicBookingsInsertSchema = z.object({
+  actual_end: z.string().optional().nullable(),
+  actual_start: z.string().optional().nullable(),
   aircraft_id: z.string().optional().nullable(),
   airswitch_end: z.number().optional().nullable(),
   airswitch_start: z.number().optional().nullable(),
@@ -653,6 +661,7 @@ export const publicBookingsInsertSchema = z.object({
   cancelled_by: z.string().optional().nullable(),
   cancelled_notes: z.string().optional().nullable(),
   checked_in_at: z.string().optional().nullable(),
+  checked_in_by: z.string().optional().nullable(),
   checked_out_aircraft_id: z.string().optional().nullable(),
   checked_out_at: z.string().optional().nullable(),
   checked_out_instructor_id: z.string().optional().nullable(),
@@ -701,6 +710,8 @@ export const publicBookingsInsertSchema = z.object({
 });
 
 export const publicBookingsUpdateSchema = z.object({
+  actual_end: z.string().optional().nullable(),
+  actual_start: z.string().optional().nullable(),
   aircraft_id: z.string().optional().nullable(),
   airswitch_end: z.number().optional().nullable(),
   airswitch_start: z.number().optional().nullable(),
@@ -717,6 +728,7 @@ export const publicBookingsUpdateSchema = z.object({
   cancelled_by: z.string().optional().nullable(),
   cancelled_notes: z.string().optional().nullable(),
   checked_in_at: z.string().optional().nullable(),
+  checked_in_by: z.string().optional().nullable(),
   checked_out_aircraft_id: z.string().optional().nullable(),
   checked_out_at: z.string().optional().nullable(),
   checked_out_instructor_id: z.string().optional().nullable(),

@@ -2,8 +2,8 @@ import * as React from "react"
 import { redirect } from "next/navigation"
 
 import { SchedulerPageClient } from "@/components/scheduler/scheduler-page-client"
-import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteLoadingState } from "@/components/loading/route-loading-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchSchedulerPageData } from "@/lib/scheduler/fetch-scheduler-page-data"
 import { resolveDateKey } from "@/lib/utils/timezone"
@@ -113,7 +113,7 @@ export default async function SchedulerPage({ searchParams }: PageProps) {
   return (
     <AppRouteShell>
       <AppRouteListContainer>
-        <React.Suspense fallback={<ListPageSkeleton />}>
+        <React.Suspense fallback={<RouteLoadingState message="Loading scheduler..." />}>
           <SchedulerContent tenantId={tenantId} dateYyyyMmDd={dateYyyyMmDd} timeZone={timeZone} />
         </React.Suspense>
       </AppRouteListContainer>
