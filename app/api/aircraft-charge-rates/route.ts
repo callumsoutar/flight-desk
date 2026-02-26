@@ -79,6 +79,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "aircraft_id is required" }, { status: 400 })
   }
 
+  const flightTypeId = request.nextUrl.searchParams.get("flight_type_id")
+  if (flightTypeId) {
+    const { data, error } = await supabase
+      .from("aircraft_charge_rates")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("aircraft_id", aircraftId)
+      .eq("flight_type_id", flightTypeId)
+      .order("created_at", { ascending: false })
+      .maybeSingle()
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to fetch aircraft charge rate" },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json(
+      { charge_rate: data ?? null },
+      { headers: { "cache-control": "no-store" } }
+    )
+  }
+
   const { data, error } = await supabase
     .from("aircraft_charge_rates")
     .select("*")

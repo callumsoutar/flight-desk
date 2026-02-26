@@ -332,15 +332,17 @@ export function NewBookingModal({
     return () => controller.abort()
   }, [open])
 
+  const memberId = form?.memberId ?? null
+
   React.useEffect(() => {
-    if (!form || !open || !isMemberOrStudent) return
-    if (form.memberId) return
+    if (!open || !isMemberOrStudent) return
+    if (memberId) return
 
     const candidate = options?.members?.[0]?.id ?? currentUserId
     if (!candidate) return
 
     setForm((prev) => (prev ? { ...prev, memberId: candidate } : prev))
-  }, [open, form, isMemberOrStudent, options?.members, currentUserId])
+  }, [open, memberId, isMemberOrStudent, options?.members, currentUserId])
 
   const selectedFlightType = React.useMemo(() => {
     if (!form?.flightTypeId) return null
@@ -362,9 +364,9 @@ export function NewBookingModal({
   }, [open, form?.startTime])
 
   React.useEffect(() => {
-    if (!open || !form || !shouldHideInstructor || !form.instructorId) return
+    if (!open || !shouldHideInstructor || !form?.instructorId) return
     setForm((prev) => (prev ? { ...prev, instructorId: null } : prev))
-  }, [open, form, shouldHideInstructor])
+  }, [open, shouldHideInstructor, form?.instructorId])
 
   const filteredFlightTypes = React.useMemo(() => {
     const all = options?.flightTypes ?? []
@@ -380,27 +382,30 @@ export function NewBookingModal({
   }, [open, form?.flightTypeId, filteredFlightTypes])
 
   const isValidTimeRange = React.useMemo(() => {
-    if (!form) return false
+    if (!form?.startTime || !form?.endTime) return false
     const start = parseTimeToMinutes(form.startTime)
     const end = parseTimeToMinutes(form.endTime)
     if (start === null || end === null) return false
     return end > start
-  }, [form])
+  }, [form?.startTime, form?.endTime])
 
   const computedRange = React.useMemo(() => {
-    if (!form || !isValidTimeRange) return null
+    if (!form?.date || !form.startTime || !form.endTime || !isValidTimeRange) return null
     return {
       startIso: combineSchoolDateAndTimeToIso({ date: form.date, timeHHmm: form.startTime, timeZone }),
       endIso: combineSchoolDateAndTimeToIso({ date: form.date, timeHHmm: form.endTime, timeZone }),
     }
-  }, [form, isValidTimeRange, timeZone])
+  }, [form?.date, form?.startTime, form?.endTime, isValidTimeRange, timeZone])
+
+  const computedRangeStartIso = computedRange?.startIso ?? null
+  const computedRangeEndIso = computedRange?.endIso ?? null
 
   React.useEffect(() => {
-    if (!open || !computedRange) return
+    if (!open || !computedRangeStartIso || !computedRangeEndIso) return
     const controller = new AbortController()
     const params = new URLSearchParams({
-      start_time: computedRange.startIso,
-      end_time: computedRange.endIso,
+      start_time: computedRangeStartIso,
+      end_time: computedRangeEndIso,
     })
 
     setOverlapsFetching(true)
@@ -434,7 +439,7 @@ export function NewBookingModal({
       })
 
     return () => controller.abort()
-  }, [open, computedRange])
+  }, [open, computedRangeStartIso, computedRangeEndIso])
 
   const unavailableAircraftSet = React.useMemo(
     () => new Set(unavailableAircraftIds),
@@ -458,18 +463,18 @@ export function NewBookingModal({
   }, [options?.instructors, isValidTimeRange, unavailableInstructorSet])
 
   React.useEffect(() => {
-    if (!form || !open || !isValidTimeRange) return
+    if (!open || !isValidTimeRange) return
 
-    if (form.aircraftId && unavailableAircraftSet.has(form.aircraftId)) {
+    if (form?.aircraftId && unavailableAircraftSet.has(form.aircraftId)) {
       setForm((prev) => (prev ? { ...prev, aircraftId: null } : prev))
       toast.message("Selected aircraft is no longer available for this time range.")
     }
 
-    if (form.instructorId && unavailableInstructorSet.has(form.instructorId)) {
+    if (form?.instructorId && unavailableInstructorSet.has(form.instructorId)) {
       setForm((prev) => (prev ? { ...prev, instructorId: null } : prev))
       toast.message("Selected instructor is no longer available for this time range.")
     }
-  }, [form, open, isValidTimeRange, unavailableAircraftSet, unavailableInstructorSet])
+  }, [form?.aircraftId, form?.instructorId, open, isValidTimeRange, unavailableAircraftSet, unavailableInstructorSet])
 
   const lessonsForSelectedSyllabus = React.useMemo(() => {
     const all = options?.lessons ?? []
@@ -505,7 +510,16 @@ export function NewBookingModal({
     }
 
     return list
-  }, [form, isValidTimeRange, timeZone])
+  }, [
+    form?.date,
+    form?.endTime,
+    form?.isRecurring,
+    form?.recurringDays,
+    form?.repeatUntil,
+    form?.startTime,
+    isValidTimeRange,
+    timeZone,
+  ])
 
   React.useEffect(() => {
     if (!open || !form?.isRecurring || occurrences.length === 0) {

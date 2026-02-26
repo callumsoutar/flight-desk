@@ -30,6 +30,12 @@ const checkoutSchema = bookingSchema.extend({
   authorization_completed: z.boolean(),
 })
 
+const cancelBookingSchema = z.object({
+  cancellation_category_id: z.string().uuid(),
+  cancellation_reason: z.string().trim().min(1).max(500),
+  cancelled_notes: z.string().max(2000).nullable().optional(),
+})
+
 async function getTenantContext() {
   const supabase = await createSupabaseServerClient()
   const { user, tenantId } = await getAuthSession(supabase, {
@@ -86,7 +92,6 @@ export async function updateBookingStatusAction(
     "briefing",
     "flying",
     "complete",
-    "cancelled",
   ])
 
   if (!statusSchema.safeParse(status).success) {
@@ -111,11 +116,30 @@ export async function updateBookingStatusAction(
 
 export async function cancelBookingAction(
   bookingId: string,
-  reason: string | null
+  input: unknown
 ) {
+  const parsed = cancelBookingSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false as const, error: "Invalid cancellation payload" }
+  }
+
   const { supabase, user, tenantId } = await getTenantContext()
   if (!user) return { ok: false, error: "Unauthorized" }
   if (!tenantId) return { ok: false, error: "Missing tenant context" }
+
+  const { data: category, error: categoryError } = await supabase
+    .from("cancellation_categories")
+    .select("id")
+    .eq("id", parsed.data.cancellation_category_id)
+    .is("voided_at", null)
+    .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+    .maybeSingle()
+
+  if (categoryError || !category) {
+    return { ok: false as const, error: "Invalid cancellation category" }
+  }
+
+  const cancelledNotes = parsed.data.cancelled_notes?.trim() ?? null
 
   const { error } = await supabase
     .from("bookings")
@@ -123,7 +147,9 @@ export async function cancelBookingAction(
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
       cancelled_by: user.id,
-      cancellation_reason: reason,
+      cancellation_category_id: parsed.data.cancellation_category_id,
+      cancellation_reason: parsed.data.cancellation_reason,
+      cancelled_notes: cancelledNotes || null,
     })
     .eq("tenant_id", tenantId)
     .eq("id", bookingId)

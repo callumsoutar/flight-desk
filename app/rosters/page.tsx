@@ -2,7 +2,7 @@ import * as React from "react"
 import { redirect } from "next/navigation"
 
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
-import { ListPageSkeleton } from "@/components/loading/page-skeletons"
+import { RouteLoadingState } from "@/components/loading/route-loading-state"
 import { RostersPageClient } from "@/components/rosters/rosters-page-client"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
@@ -83,7 +83,7 @@ export default async function RostersPage() {
   return (
     <AppRouteShell>
       <AppRouteListContainer>
-        <React.Suspense fallback={<ListPageSkeleton showTabs />}>
+        <React.Suspense fallback={<RouteLoadingState message="Loading rosters..." />}>
           <RostersContent tenantId={tenantId} />
         </React.Suspense>
       </AppRouteListContainer>

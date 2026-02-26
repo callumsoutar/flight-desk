@@ -7,13 +7,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
 const BOOKING_SELECT =
-  "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id)"
+  "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), checked_out_instructor:instructors!bookings_checked_out_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach), checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id), lesson_progress(*)"
 
 const patchSchema = z.object({
   status: z
     .enum(["unconfirmed", "confirmed", "briefing", "flying", "complete", "cancelled"])
     .optional(),
-  cancellation_reason: z.string().nullable().optional(),
+  cancellation_category_id: z.string().uuid().nullable().optional(),
+  cancellation_reason: z.string().max(500).nullable().optional(),
+  cancelled_notes: z.string().max(2000).nullable().optional(),
   start_time: z.string().optional(),
   end_time: z.string().optional(),
   aircraft_id: z.string().uuid().nullable().optional(),
@@ -156,6 +158,10 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     "end_time" in payload.data ||
     "aircraft_id" in payload.data ||
     "instructor_id" in payload.data
+  const hasCancellationChange =
+    "cancellation_category_id" in payload.data ||
+    "cancellation_reason" in payload.data ||
+    "cancelled_notes" in payload.data
 
   if (hasScheduleChange && !staff) {
     return NextResponse.json(
@@ -170,10 +176,18 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
+  if (hasCancellationChange && nextStatus !== "cancelled") {
+    return NextResponse.json(
+      { error: "Cancellation details can only be set when cancelling a booking" },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    )
+  }
 
   const updatePayload: {
     status?: BookingStatus
+    cancellation_category_id?: string | null
     cancellation_reason?: string | null
+    cancelled_notes?: string | null
     cancelled_at?: string | null
     cancelled_by?: string | null
     start_time?: string
@@ -187,11 +201,43 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
 
   if (nextStatus === "cancelled") {
+    const cancellationCategoryId = payload.data.cancellation_category_id ?? null
+    const cancellationReason = (payload.data.cancellation_reason ?? "").trim()
+    const cancelledNotes = payload.data.cancelled_notes?.trim() ?? null
+
+    if (!cancellationCategoryId) {
+      return NextResponse.json(
+        { error: "Cancellation category is required" },
+        { status: 400, headers: { "cache-control": "no-store" } }
+      )
+    }
+    if (!cancellationReason) {
+      return NextResponse.json(
+        { error: "Cancellation reason is required" },
+        { status: 400, headers: { "cache-control": "no-store" } }
+      )
+    }
+
+    const { data: cancellationCategory, error: cancellationCategoryError } = await supabase
+      .from("cancellation_categories")
+      .select("id")
+      .eq("id", cancellationCategoryId)
+      .is("voided_at", null)
+      .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+      .maybeSingle()
+
+    if (cancellationCategoryError || !cancellationCategory) {
+      return NextResponse.json(
+        { error: "Selected cancellation category was not found" },
+        { status: 404, headers: { "cache-control": "no-store" } }
+      )
+    }
+
     updatePayload.cancelled_at = new Date().toISOString()
     updatePayload.cancelled_by = user.id
-    if ("cancellation_reason" in payload.data) {
-      updatePayload.cancellation_reason = payload.data.cancellation_reason ?? null
-    }
+    updatePayload.cancellation_category_id = cancellationCategoryId
+    updatePayload.cancellation_reason = cancellationReason
+    updatePayload.cancelled_notes = cancelledNotes || null
   }
 
   if (hasScheduleChange) {

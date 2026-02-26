@@ -32,6 +32,7 @@ export type Database = {
           for_ato: boolean
           fuel_consumption: number | null
           id: string
+          initial_total_time_in_service: number
           manufacturer: string | null
           model: string | null
           notes: string | null
@@ -62,6 +63,7 @@ export type Database = {
           for_ato?: boolean
           fuel_consumption?: number | null
           id?: string
+          initial_total_time_in_service?: number
           manufacturer?: string | null
           model?: string | null
           notes?: string | null
@@ -92,6 +94,7 @@ export type Database = {
           for_ato?: boolean
           fuel_consumption?: number | null
           id?: string
+          initial_total_time_in_service?: number
           manufacturer?: string | null
           model?: string | null
           notes?: string | null
@@ -362,6 +365,8 @@ export type Database = {
       bookings: {
         Row: {
           aircraft_id: string | null
+          actual_end: string | null
+          actual_start: string | null
           airswitch_end: number | null
           airswitch_start: number | null
           applied_aircraft_delta: number | null
@@ -377,6 +382,7 @@ export type Database = {
           cancelled_by: string | null
           cancelled_notes: string | null
           checked_in_at: string | null
+          checked_in_by: string | null
           checked_out_aircraft_id: string | null
           checked_out_at: string | null
           checked_out_instructor_id: string | null
@@ -424,6 +430,8 @@ export type Database = {
           voucher_number: string | null
         }
         Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
           aircraft_id?: string | null
           airswitch_end?: number | null
           airswitch_start?: number | null
@@ -440,6 +448,7 @@ export type Database = {
           cancelled_by?: string | null
           cancelled_notes?: string | null
           checked_in_at?: string | null
+          checked_in_by?: string | null
           checked_out_aircraft_id?: string | null
           checked_out_at?: string | null
           checked_out_instructor_id?: string | null
@@ -487,6 +496,8 @@ export type Database = {
           voucher_number?: string | null
         }
         Update: {
+          actual_end?: string | null
+          actual_start?: string | null
           aircraft_id?: string | null
           airswitch_end?: number | null
           airswitch_start?: number | null
@@ -503,6 +514,7 @@ export type Database = {
           cancelled_by?: string | null
           cancelled_notes?: string | null
           checked_in_at?: string | null
+          checked_in_by?: string | null
           checked_out_aircraft_id?: string | null
           checked_out_at?: string | null
           checked_out_instructor_id?: string | null
@@ -3423,55 +3435,55 @@ export type Database = {
       approve_booking_checkin_atomic:
         | {
             Args: {
-              p_actual_end: string
-              p_actual_start: string
-              p_airswitch_end: number
-              p_airswitch_start: number
+              p_actual_end: string | null
+              p_actual_start: string | null
+              p_airswitch_end: number | null
+              p_airswitch_start: number | null
               p_billing_basis: string
               p_billing_hours: number
               p_booking_id: string
               p_checked_out_aircraft_id: string
-              p_checked_out_instructor_id: string
-              p_dual_time: number
-              p_due_date?: string
+              p_checked_out_instructor_id: string | null
+              p_dual_time: number | null
+              p_due_date?: string | null
               p_flight_type_id: string
-              p_hobbs_end: number
-              p_hobbs_start: number
+              p_hobbs_end: number | null
+              p_hobbs_start: number | null
               p_items?: Json
-              p_notes?: string
-              p_reference?: string
-              p_solo_end_hobbs: number
-              p_solo_end_tach: number
-              p_solo_time: number
-              p_tach_end: number
-              p_tach_start: number
-              p_tax_rate?: number
+              p_notes?: string | null
+              p_reference?: string | null
+              p_solo_end_hobbs: number | null
+              p_solo_end_tach: number | null
+              p_solo_time: number | null
+              p_tach_end: number | null
+              p_tach_start: number | null
+              p_tax_rate?: number | null
             }
             Returns: Json
           }
         | {
             Args: {
-              p_airswitch_end: number
-              p_airswitch_start: number
+              p_airswitch_end: number | null
+              p_airswitch_start: number | null
               p_billing_basis: string
               p_billing_hours: number
               p_booking_id: string
               p_checked_out_aircraft_id: string
-              p_checked_out_instructor_id: string
-              p_dual_time: number
-              p_due_date?: string
+              p_checked_out_instructor_id: string | null
+              p_dual_time: number | null
+              p_due_date?: string | null
               p_flight_type_id: string
-              p_hobbs_end: number
-              p_hobbs_start: number
+              p_hobbs_end: number | null
+              p_hobbs_start: number | null
               p_items?: Json
-              p_notes?: string
-              p_reference?: string
-              p_solo_end_hobbs: number
-              p_solo_end_tach: number
-              p_solo_time: number
-              p_tach_end: number
-              p_tach_start: number
-              p_tax_rate?: number
+              p_notes?: string | null
+              p_reference?: string | null
+              p_solo_end_hobbs: number | null
+              p_solo_end_tach: number | null
+              p_solo_time: number | null
+              p_tach_end: number | null
+              p_tach_start: number | null
+              p_tax_rate?: number | null
             }
             Returns: Json
           }

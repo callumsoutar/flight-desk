@@ -19,7 +19,7 @@ async function fetchBooking(
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id)"
+      "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), checked_out_instructor:instructors!bookings_checked_out_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, aircraft_type_id), checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, aircraft_type_id), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id), lesson_progress(*)"
     )
     .eq("tenant_id", tenantId)
     .eq("id", bookingId)
@@ -33,13 +33,28 @@ async function fetchOptions(
   supabase: SupabaseClient<Database>,
   tenantId: string
 ): Promise<BookingOptions> {
-  const [aircraftResult, membersResult, instructorsResult, flightTypesResult, syllabiResult, lessonsResult] =
-    await Promise.all([
+  const [
+    aircraftResult,
+    aircraftTypesResult,
+    membersResult,
+    instructorsResult,
+    flightTypesResult,
+    syllabiResult,
+    lessonsResult,
+    chargeablesResult,
+    chargeableTypesResult,
+    landingFeeRatesResult,
+  ] = await Promise.all([
       supabase
         .from("aircraft")
-        .select("id, registration, type, model, manufacturer")
+        .select("id, registration, type, model, manufacturer, aircraft_type_id")
         .eq("tenant_id", tenantId)
         .order("registration", { ascending: true }),
+      supabase
+        .from("aircraft_types")
+        .select("id, name")
+        .eq("tenant_id", tenantId)
+        .order("name", { ascending: true }),
       supabase
         .from("tenant_users")
         .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")
@@ -71,14 +86,35 @@ async function fetchOptions(
         .eq("tenant_id", tenantId)
         .eq("is_active", true)
         .order("order", { ascending: true }),
+      supabase
+        .from("chargeables")
+        .select("id, name, description, rate, is_taxable, chargeable_type_id")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .is("voided_at", null)
+        .order("name", { ascending: true }),
+      supabase
+        .from("chargeable_types")
+        .select("id, code, name, description, is_global, is_active")
+        .eq("is_active", true)
+        .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+        .order("name", { ascending: true }),
+      supabase
+        .from("landing_fee_rates")
+        .select("id, chargeable_id, aircraft_type_id, rate")
+        .eq("tenant_id", tenantId),
     ])
 
   if (aircraftResult.error) throw aircraftResult.error
+  if (aircraftTypesResult.error) throw aircraftTypesResult.error
   if (membersResult.error) throw membersResult.error
   if (instructorsResult.error) throw instructorsResult.error
   if (flightTypesResult.error) throw flightTypesResult.error
   if (syllabiResult.error) throw syllabiResult.error
   if (lessonsResult.error) throw lessonsResult.error
+  if (chargeablesResult.error) throw chargeablesResult.error
+  if (chargeableTypesResult.error) throw chargeableTypesResult.error
+  if (landingFeeRatesResult.error) throw landingFeeRatesResult.error
 
   const members = (membersResult.data ?? [])
     .map((row) => row.user)
@@ -89,11 +125,15 @@ async function fetchOptions(
 
   return {
     aircraft: (aircraftResult.data ?? []) as BookingOptions["aircraft"],
+    aircraftTypes: (aircraftTypesResult.data ?? []) as NonNullable<BookingOptions["aircraftTypes"]>,
     members,
     instructors: (instructorsResult.data ?? []) as BookingOptions["instructors"],
     flightTypes: (flightTypesResult.data ?? []) as BookingOptions["flightTypes"],
     syllabi: (syllabiResult.data ?? []) as BookingOptions["syllabi"],
     lessons: (lessonsResult.data ?? []) as BookingOptions["lessons"],
+    chargeables: (chargeablesResult.data ?? []) as NonNullable<BookingOptions["chargeables"]>,
+    chargeableTypes: (chargeableTypesResult.data ?? []) as NonNullable<BookingOptions["chargeableTypes"]>,
+    landingFeeRates: (landingFeeRatesResult.data ?? []) as NonNullable<BookingOptions["landingFeeRates"]>,
   }
 }
 

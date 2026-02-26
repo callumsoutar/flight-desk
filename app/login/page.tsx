@@ -16,9 +16,5 @@ export default async function LoginPage({
 
   if (user) redirect(next || "/dashboard")
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-black">
-      <LoginForm nextUrl={next} />
-    </div>
-  )
+  return <LoginForm nextUrl={next} />
 }

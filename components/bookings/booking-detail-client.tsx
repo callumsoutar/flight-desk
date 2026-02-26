@@ -12,14 +12,19 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { cancelBookingAction, updateBookingAction, updateBookingStatusAction } from "@/app/bookings/actions"
+import { updateBookingAction, updateBookingStatusAction } from "@/app/bookings/actions"
 import {
   BookingEditDetailsCard,
   createBookingEditInitialState,
   type BookingEditFormState,
 } from "@/components/bookings/booking-edit-details-card"
 import { BookingHeader } from "@/components/bookings/booking-header"
-import { CancelBookingModal } from "@/components/bookings/cancel-booking-modal"
+import {
+  BookingStatusTracker,
+  deriveBookingTrackerState,
+  getBookingTrackerStages,
+} from "@/components/bookings/booking-status-tracker"
+import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -120,13 +125,25 @@ export function BookingDetailClient({
     })
   }
 
-  const handleCancel = (reason: string | null) => {
+  const handleCancel = (payload: CancelBookingPayload) => {
     startTransition(async () => {
-      const result = await cancelBookingAction(bookingId, reason)
-      if (!result.ok) {
-        toast.error(result.error)
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellation_category_id: payload.cancellationCategoryId,
+          cancellation_reason: payload.cancellationReason,
+          cancelled_notes: payload.cancelledNotes,
+        }),
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string }
+        toast.error(json.error || "Failed to cancel booking")
         return
       }
+
       toast.success("Booking cancelled")
       setCancelOpen(false)
       router.refresh()
@@ -141,6 +158,37 @@ export function BookingDetailClient({
         email: booking.instructor.user?.email ?? null,
       })
     : "—"
+  const lessonProgressExists = React.useMemo(() => {
+    if (!booking.lesson_progress) return false
+    return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
+  }, [booking.lesson_progress])
+  const trackerStages = React.useMemo(
+    () => getBookingTrackerStages(Boolean(booking.briefing_completed)),
+    [booking.briefing_completed]
+  )
+  const trackerState = React.useMemo(
+    () =>
+      deriveBookingTrackerState({
+        stages: trackerStages,
+        status: booking.status,
+        briefingCompleted: booking.briefing_completed,
+        authorizationCompleted: booking.authorization_completed,
+        checkedOutAt: booking.checked_out_at,
+        checkedInAt: booking.checked_in_at,
+        checkinApprovedAt: booking.checkin_approved_at,
+        hasDebrief: lessonProgressExists,
+      }),
+    [
+      booking.authorization_completed,
+      booking.briefing_completed,
+      booking.checkin_approved_at,
+      booking.checked_in_at,
+      booking.checked_out_at,
+      booking.status,
+      lessonProgressExists,
+      trackerStages,
+    ]
+  )
 
   const headerActions = isAdminOrInstructor ? (
     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -170,7 +218,7 @@ export function BookingDetailClient({
         <Button
           size="sm"
           className="w-full sm:w-auto"
-          onClick={() => handleStatusChange("complete")}
+          onClick={() => router.push(`/bookings/checkin/${bookingId}`)}
           disabled={isPending}
         >
           <IconCheck className="mr-2 h-4 w-4" />
@@ -208,6 +256,13 @@ export function BookingDetailClient({
       />
 
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
+        <BookingStatusTracker
+          stages={trackerStages}
+          activeStageId={trackerState.activeStageId}
+          completedStageIds={trackerState.completedStageIds}
+          className="mb-6"
+        />
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
           <div className="space-y-6 lg:col-span-2">
             <BookingEditDetailsCard
@@ -375,6 +430,7 @@ export function BookingDetailClient({
       <CancelBookingModal
         open={cancelOpen}
         onOpenChange={setCancelOpen}
+        booking={booking}
         onConfirm={handleCancel}
         pending={isPending}
       />

@@ -1,11 +1,11 @@
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
-import { ListPageSkeleton } from "@/components/loading/page-skeletons"
+import { RouteLoadingState } from "@/components/loading/route-loading-state"
 
 export default function Loading() {
   return (
     <AppRouteShell>
       <AppRouteListContainer>
-        <ListPageSkeleton showTabs />
+        <RouteLoadingState message="Loading rosters..." />
       </AppRouteListContainer>
     </AppRouteShell>
   )
