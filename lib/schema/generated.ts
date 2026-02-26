@@ -576,8 +576,6 @@ export const publicAuditLogsRelationshipsSchema = z.tuple([
 ]);
 
 export const publicBookingsRowSchema = z.object({
-  actual_end: z.string().nullable(),
-  actual_start: z.string().nullable(),
   aircraft_id: z.string().nullable(),
   airswitch_end: z.number().nullable(),
   airswitch_start: z.number().nullable(),
@@ -611,7 +609,6 @@ export const publicBookingsRowSchema = z.object({
   equipment: jsonSchema.nullable(),
   eta: z.string().nullable(),
   flight_remarks: z.string().nullable(),
-  flight_time: z.number().nullable(),
   flight_time_airswitch: z.number().nullable(),
   flight_time_hobbs: z.number().nullable(),
   flight_time_tach: z.number().nullable(),
@@ -622,7 +619,6 @@ export const publicBookingsRowSchema = z.object({
   id: z.string(),
   instructor_id: z.string().nullable(),
   lesson_id: z.string().nullable(),
-  notes: z.string().nullable(),
   passengers: z.string().nullable(),
   purpose: z.string(),
   remarks: z.string().nullable(),
@@ -643,8 +639,6 @@ export const publicBookingsRowSchema = z.object({
 });
 
 export const publicBookingsInsertSchema = z.object({
-  actual_end: z.string().optional().nullable(),
-  actual_start: z.string().optional().nullable(),
   aircraft_id: z.string().optional().nullable(),
   airswitch_end: z.number().optional().nullable(),
   airswitch_start: z.number().optional().nullable(),
@@ -678,7 +672,6 @@ export const publicBookingsInsertSchema = z.object({
   equipment: jsonSchema.optional().nullable(),
   eta: z.string().optional().nullable(),
   flight_remarks: z.string().optional().nullable(),
-  flight_time: z.number().optional().nullable(),
   flight_time_airswitch: z.number().optional().nullable(),
   flight_time_hobbs: z.number().optional().nullable(),
   flight_time_tach: z.number().optional().nullable(),
@@ -689,7 +682,6 @@ export const publicBookingsInsertSchema = z.object({
   id: z.string().optional(),
   instructor_id: z.string().optional().nullable(),
   lesson_id: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
   passengers: z.string().optional().nullable(),
   purpose: z.string().optional(),
   remarks: z.string().optional().nullable(),
@@ -710,8 +702,6 @@ export const publicBookingsInsertSchema = z.object({
 });
 
 export const publicBookingsUpdateSchema = z.object({
-  actual_end: z.string().optional().nullable(),
-  actual_start: z.string().optional().nullable(),
   aircraft_id: z.string().optional().nullable(),
   airswitch_end: z.number().optional().nullable(),
   airswitch_start: z.number().optional().nullable(),
@@ -745,7 +735,6 @@ export const publicBookingsUpdateSchema = z.object({
   equipment: jsonSchema.optional().nullable(),
   eta: z.string().optional().nullable(),
   flight_remarks: z.string().optional().nullable(),
-  flight_time: z.number().optional().nullable(),
   flight_time_airswitch: z.number().optional().nullable(),
   flight_time_hobbs: z.number().optional().nullable(),
   flight_time_tach: z.number().optional().nullable(),
@@ -756,7 +745,6 @@ export const publicBookingsUpdateSchema = z.object({
   id: z.string().optional(),
   instructor_id: z.string().optional().nullable(),
   lesson_id: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
   passengers: z.string().optional().nullable(),
   purpose: z.string().optional(),
   remarks: z.string().optional().nullable(),

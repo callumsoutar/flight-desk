@@ -141,7 +141,6 @@ Each completed flight booking is an entry in the flight ledger. The bookings tab
 |--------|------|----------|---------|
 | `billing_basis` | `text` | YES | Which meter is used for billing (`hobbs`, `tacho`, or `airswitch`) |
 | `billing_hours` | `numeric` | YES | The billable hours for the flight |
-| `flight_time` | `numeric` | YES | Mirrors `billing_hours` (legacy compatibility) |
 | `dual_time` | `numeric` | YES | Hours of dual instruction |
 | `solo_time` | `numeric` | YES | Hours of solo flight |
 
@@ -155,8 +154,6 @@ Each completed flight booking is an entry in the flight ledger. The bookings tab
 | `checkin_approved_at` | `timestamptz` | YES | When an admin/instructor approved the check-in and finalized TTIS |
 | `checkin_approved_by` | `uuid` | YES | Who approved |
 | `checkin_invoice_id` | `uuid` | YES | FK to the invoice generated at approval |
-| `actual_start` | `timestamptz` | YES | Actual flight start time |
-| `actual_end` | `timestamptz` | YES | Actual flight end time |
 
 **Correction columns (for post-approval fixes):**
 
@@ -409,7 +406,7 @@ Then AFTER UPDATE:
 
 Once a booking is approved (`checkin_approved_at IS NOT NULL`):
 
-- **Fully immutable fields:** `status`, `checked_out_aircraft_id`, `checked_out_instructor_id`, `flight_type_id`, `billing_basis`, `billing_hours`, `flight_time`, `checkin_invoice_id`, `checkin_approved_at`, `checkin_approved_by`, `checked_in_by`
+- **Fully immutable fields:** `status`, `checked_out_aircraft_id`, `checked_out_instructor_id`, `flight_type_id`, `billing_basis`, `billing_hours`, `checkin_invoice_id`, `checkin_approved_at`, `checkin_approved_by`, `checked_in_by`
 - **Correction path only:** `hobbs_end`, `tach_end`, `airswitch_end`, `flight_time_hobbs/tach/airswitch`, `applied_aircraft_delta`, `total_hours_end`, `correction_delta`, `corrected_at`, `corrected_by`, `correction_reason` — can only change if `corrected_at`, `corrected_by`, and `correction_reason` are all provided in the same UPDATE.
 - **Always immutable:** `hobbs_start`, `tach_start`, `airswitch_start`, `total_hours_start`, `applied_total_time_method` — the original readings and method snapshot can never change.
 
@@ -634,5 +631,8 @@ The system uses a **materialized cache + ledger verification** pattern:
 | `applied_aircraft_delta` | **Derived** | Computed in RPC via `calculate_applied_aircraft_delta()` |
 | `applied_total_time_method` | **Snapshot** | Copied from `aircraft.total_time_method` at approval time |
 | `total_hours_start/end` | **Snapshot** | Copied from `aircraft.total_time_in_service` before/after update |
-| `billing_basis/hours` | **Source of truth** | From instructor input at check-in |
+| `billing_basis` | **Source of truth** | From instructor input at check-in |
+| `billing_hours` | **Source of truth** | From instructor input at check-in |
+| `dual_time` | **Source of truth** | From instructor input at check-in |
+| `solo_time` | **Source of truth** | From instructor input at check-in |
 | `correction_delta` | **Derived** | Computed in correction RPC |

@@ -5,10 +5,12 @@ import {
   AlertCircle,
   CalendarIcon,
   Check,
-  NotebookPen,
+  Mail,
+  Phone,
   Plane,
   Plus,
   Repeat,
+  Ticket,
   User,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -36,6 +38,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 
 type SchedulerBookingDraft = {
   dateYyyyMmDd: string
@@ -44,6 +47,8 @@ type SchedulerBookingDraft = {
   preselectedInstructorId?: string | null
   preselectedAircraftId?: string | null
 }
+
+type InstructorRosterWindow = { startMin: number; endMin: number }
 
 type BookingType = "flight" | "groundwork" | "maintenance" | "other"
 
@@ -80,17 +85,6 @@ type BookingOptionsResponse = {
       name: string
       instruction_type: string | null
     }>
-    syllabi?: Array<{
-      id: string
-      name: string
-    }>
-    lessons: Array<{
-      id: string
-      name: string
-      description?: string | null
-      order?: number | null
-      syllabus_id: string | null
-    }>
   }
 }
 
@@ -105,7 +99,6 @@ type FormState = {
   endTime: string
   aircraftId: string | null
   flightTypeId: string | null
-  lessonId: string | null
   instructorId: string | null
   memberId: string | null
   bookingType: BookingType
@@ -114,6 +107,11 @@ type FormState = {
   isRecurring: boolean
   recurringDays: number[]
   repeatUntil: Date | null
+  trialFirstName: string
+  trialLastName: string
+  trialEmail: string
+  trialPhone: string
+  voucherNumber: string
 }
 
 type Occurrence = {
@@ -129,14 +127,18 @@ type ErrorState = Partial<
     | "endTime"
     | "aircraftId"
     | "flightTypeId"
-    | "lessonId"
     | "instructorId"
     | "memberId"
     | "bookingType"
     | "purpose"
     | "remarks"
     | "recurringDays"
-    | "repeatUntil",
+    | "repeatUntil"
+    | "trialFirstName"
+    | "trialLastName"
+    | "trialEmail"
+    | "trialPhone"
+    | "voucherNumber",
     string
   >
 >
@@ -201,14 +203,33 @@ function parseTimeToMinutes(value: string) {
   return h * 60 + m
 }
 
+function minutesToHHmm(minutes: number) {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+}
+
 function addMinutesToHHmm(timeHHmm: string, minutesToAdd: number) {
   const start = parseTimeToMinutes(timeHHmm)
   if (start === null) return timeHHmm
   const maxEnd = 23 * 60 + 30
   const end = Math.min(start + minutesToAdd, maxEnd)
-  const h = Math.floor(end / 60)
-  const m = end % 60
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+  return minutesToHHmm(end)
+}
+
+function getRosterMaxEndMinutes(
+  startTimeHHmm: string,
+  instructorId: string | null,
+  rosterWindows: Map<string, InstructorRosterWindow[]> | undefined
+): number | null {
+  if (!instructorId || !rosterWindows) return null
+  const windows = rosterWindows.get(instructorId)
+  if (!windows || windows.length === 0) return null
+  const startMin = parseTimeToMinutes(startTimeHHmm)
+  if (startMin === null) return null
+  const containingWindow = windows.find((w) => startMin >= w.startMin && startMin < w.endMin)
+  if (!containingWindow) return null
+  return containingWindow.endMin
 }
 
 function combineSchoolDateAndTimeToIso(params: { date: Date; timeHHmm: string; timeZone: string }) {
@@ -235,7 +256,6 @@ function buildInitialState({
     endTime: addMinutesToHHmm(draft.startTimeHHmm, 120),
     aircraftId: draft.preselectedAircraftId ?? null,
     flightTypeId: null,
-    lessonId: null,
     instructorId: draft.preselectedInstructorId ?? null,
     memberId: isStaff ? null : currentUserId,
     bookingType: "flight",
@@ -244,6 +264,11 @@ function buildInitialState({
     isRecurring: false,
     recurringDays: [],
     repeatUntil: null,
+    trialFirstName: "",
+    trialLastName: "",
+    trialEmail: "",
+    trialPhone: "",
+    voucherNumber: "",
   }
 }
 
@@ -255,6 +280,7 @@ export function NewBookingModal({
   isStaff,
   currentUserId,
   onCreated,
+  instructorRosterWindows,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -263,6 +289,7 @@ export function NewBookingModal({
   isStaff: boolean
   currentUserId: string | null
   onCreated: () => void
+  instructorRosterWindows?: Map<string, InstructorRosterWindow[]>
 }) {
   const isMemberOrStudent = !isStaff
   const defaultDurationMinutes = 120
@@ -271,8 +298,6 @@ export function NewBookingModal({
   const [form, setForm] = React.useState<FormState | null>(null)
   const [errors, setErrors] = React.useState<ErrorState>({})
   const [submitting, setSubmitting] = React.useState(false)
-
-  const [selectedSyllabusId, setSelectedSyllabusId] = React.useState<string | null>(null)
 
   const [options, setOptions] = React.useState<BookingOptionsResponse["options"] | null>(null)
   const [optionsLoading, setOptionsLoading] = React.useState(false)
@@ -291,7 +316,6 @@ export function NewBookingModal({
     setForm(buildInitialState({ draft, isStaff, currentUserId }))
     setBookingMode("regular")
     setErrors({})
-    setSelectedSyllabusId(null)
     setOccurrenceConflicts({})
     setUnavailableAircraftIds([])
     setUnavailableInstructorIds([])
@@ -356,23 +380,53 @@ export function NewBookingModal({
     if (!open || !form?.startTime) return
     setForm((prev) => {
       if (!prev) return prev
-      return {
-        ...prev,
-        endTime: addMinutesToHHmm(prev.startTime, defaultDurationMinutes),
+      let newEndTime = addMinutesToHHmm(prev.startTime, defaultDurationMinutes)
+
+      const maxEnd = getRosterMaxEndMinutes(prev.startTime, prev.instructorId, instructorRosterWindows)
+      if (maxEnd !== null) {
+        const endMin = parseTimeToMinutes(newEndTime)
+        if (endMin !== null && endMin > maxEnd) {
+          newEndTime = minutesToHHmm(maxEnd)
+        }
       }
+
+      return { ...prev, endTime: newEndTime }
     })
-  }, [open, form?.startTime])
+  }, [open, form?.startTime, instructorRosterWindows])
 
   React.useEffect(() => {
     if (!open || !shouldHideInstructor || !form?.instructorId) return
     setForm((prev) => (prev ? { ...prev, instructorId: null } : prev))
   }, [open, shouldHideInstructor, form?.instructorId])
 
+	  React.useEffect(() => {
+	    if (!open || !form?.instructorId || !form.startTime || !form.endTime || !instructorRosterWindows) return
+	    const maxEnd = getRosterMaxEndMinutes(form.startTime, form.instructorId, instructorRosterWindows)
+	    if (maxEnd === null) return
+	    const endMin = parseTimeToMinutes(form.endTime)
+	    if (endMin === null || endMin <= maxEnd) return
+	    setForm((prev) => (prev ? { ...prev, endTime: minutesToHHmm(maxEnd) } : prev))
+	  }, [open, form?.instructorId, form?.startTime, form?.endTime, instructorRosterWindows])
+
   const filteredFlightTypes = React.useMemo(() => {
     const all = options?.flightTypes ?? []
     if (bookingMode === "trial") return all.filter((ft) => ft.instruction_type === "trial")
     return all.filter((ft) => ft.instruction_type !== "trial")
   }, [bookingMode, options?.flightTypes])
+
+  React.useEffect(() => {
+    if (!open || bookingMode !== "trial") return
+    setForm((prev) => {
+      if (!prev) return prev
+      const updates: Partial<FormState> = { bookingType: "flight" }
+      if (!prev.purpose.trim()) updates.purpose = "Trial Flight"
+      const trialTypes = (options?.flightTypes ?? []).filter((ft) => ft.instruction_type === "trial")
+      if (trialTypes.length === 1 && prev.flightTypeId !== trialTypes[0].id) {
+        updates.flightTypeId = trialTypes[0].id
+      }
+      return { ...prev, ...updates }
+    })
+  }, [open, bookingMode, options?.flightTypes])
 
   React.useEffect(() => {
     if (!open || !form?.flightTypeId) return
@@ -388,6 +442,22 @@ export function NewBookingModal({
     if (start === null || end === null) return false
     return end > start
   }, [form?.startTime, form?.endTime])
+
+  const rosterMaxEndMinutes = React.useMemo(
+    () => getRosterMaxEndMinutes(form?.startTime ?? "", form?.instructorId ?? null, instructorRosterWindows),
+    [form?.startTime, form?.instructorId, instructorRosterWindows]
+  )
+
+  const filteredEndTimeOptions = React.useMemo(() => {
+    if (rosterMaxEndMinutes === null || !form?.startTime) return TIME_OPTIONS
+    const startMin = parseTimeToMinutes(form.startTime)
+    if (startMin === null) return TIME_OPTIONS
+    return TIME_OPTIONS.filter((time) => {
+      const timeMin = parseTimeToMinutes(time)
+      if (timeMin === null) return false
+      return timeMin > startMin && timeMin <= rosterMaxEndMinutes
+    })
+  }, [rosterMaxEndMinutes, form?.startTime])
 
   const computedRange = React.useMemo(() => {
     if (!form?.date || !form.startTime || !form.endTime || !isValidTimeRange) return null
@@ -458,9 +528,21 @@ export function NewBookingModal({
 
   const availableInstructors = React.useMemo(() => {
     const all = options?.instructors ?? []
-    if (!isValidTimeRange) return all
-    return all.filter((i) => !unavailableInstructorSet.has(i.id))
-  }, [options?.instructors, isValidTimeRange, unavailableInstructorSet])
+    let filtered = all
+
+    if (instructorRosterWindows && instructorRosterWindows.size > 0) {
+      filtered = filtered.filter((i) => {
+        const windows = instructorRosterWindows.get(i.id)
+        return windows && windows.length > 0
+      })
+    }
+
+    if (isValidTimeRange) {
+      filtered = filtered.filter((i) => !unavailableInstructorSet.has(i.id))
+    }
+
+    return filtered
+  }, [options?.instructors, isValidTimeRange, unavailableInstructorSet, instructorRosterWindows])
 
   React.useEffect(() => {
     if (!open || !isValidTimeRange) return
@@ -475,19 +557,6 @@ export function NewBookingModal({
       toast.message("Selected instructor is no longer available for this time range.")
     }
   }, [form?.aircraftId, form?.instructorId, open, isValidTimeRange, unavailableAircraftSet, unavailableInstructorSet])
-
-  const lessonsForSelectedSyllabus = React.useMemo(() => {
-    const all = options?.lessons ?? []
-    if (!selectedSyllabusId) return all
-    return all.filter((lesson) => lesson.syllabus_id === selectedSyllabusId)
-  }, [options?.lessons, selectedSyllabusId])
-
-  React.useEffect(() => {
-    if (!form?.lessonId) return
-    const exists = lessonsForSelectedSyllabus.some((lesson) => lesson.id === form.lessonId)
-    if (exists) return
-    setForm((prev) => (prev ? { ...prev, lessonId: null } : prev))
-  }, [form?.lessonId, lessonsForSelectedSyllabus])
 
   const occurrences = React.useMemo<Occurrence[]>(() => {
     if (!form?.isRecurring || !form.repeatUntil || form.recurringDays.length === 0 || !isValidTimeRange) {
@@ -577,8 +646,22 @@ export function NewBookingModal({
     setErrors((prev) => ({ ...prev, [key]: undefined }))
   }, [])
 
+  const handleBookingTypeChange = React.useCallback(
+    (value: string) => {
+      const nextType = value as BookingType
+      updateForm("bookingType", nextType)
+      if (nextType !== "flight") {
+        updateForm("flightTypeId", null)
+      }
+      if (nextType === "groundwork" || nextType === "other") {
+        updateForm("aircraftId", null)
+      }
+    },
+    [updateForm]
+  )
+
   const validate = React.useCallback(
-    (values: FormState) => {
+    (values: FormState, mode: "regular" | "trial") => {
       const nextErrors: ErrorState = {}
 
       const start = parseTimeToMinutes(values.startTime)
@@ -589,6 +672,13 @@ export function NewBookingModal({
         nextErrors.endTime = "End time must be after start time"
       }
 
+      if (!nextErrors.endTime && values.instructorId && start !== null && end !== null && instructorRosterWindows) {
+        const maxEnd = getRosterMaxEndMinutes(values.startTime, values.instructorId, instructorRosterWindows)
+        if (maxEnd !== null && end > maxEnd) {
+          nextErrors.endTime = `Instructor is only available until ${minutesToHHmm(maxEnd)}`
+        }
+      }
+
       if (!values.purpose.trim()) {
         nextErrors.purpose = "Description is required"
       }
@@ -597,8 +687,18 @@ export function NewBookingModal({
         nextErrors.aircraftId = "Aircraft is required for flight and maintenance bookings"
       }
 
-      if (isStaff && !values.memberId) {
-        nextErrors.memberId = "Member is required"
+      if (mode === "trial") {
+        if (!values.trialFirstName.trim()) nextErrors.trialFirstName = "First name is required"
+        if (!values.trialLastName.trim()) nextErrors.trialLastName = "Last name is required"
+        if (!values.trialEmail.trim()) {
+          nextErrors.trialEmail = "Email is required"
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.trialEmail.trim())) {
+          nextErrors.trialEmail = "Please enter a valid email"
+        }
+      } else {
+        if (isStaff && !values.memberId) {
+          nextErrors.memberId = "Member is required"
+        }
       }
 
       if (isStaff && values.bookingType === "flight" && !values.flightTypeId) {
@@ -622,14 +722,14 @@ export function NewBookingModal({
 
       return nextErrors
     },
-    [isStaff]
+    [isStaff, instructorRosterWindows]
   )
 
   const submit = React.useCallback(
     async (status: "unconfirmed" | "confirmed") => {
       if (!form) return
 
-      const nextErrors = validate(form)
+      const nextErrors = validate(form, bookingMode)
       setErrors(nextErrors)
       if (Object.keys(nextErrors).length > 0) {
         toast.error("Please fix the highlighted fields.")
@@ -641,22 +741,65 @@ export function NewBookingModal({
         return
       }
 
-      const makePayload = (startIso: string, endIso: string) => ({
-        aircraft_id: form.aircraftId,
-        start_time: startIso,
-        end_time: endIso,
-        booking_type: form.bookingType,
-        purpose: form.purpose.trim(),
-        remarks: form.remarks.trim() || null,
-        instructor_id: shouldHideInstructor ? null : form.instructorId,
-        flight_type_id: isMemberOrStudent ? null : form.flightTypeId,
-        lesson_id: isMemberOrStudent ? null : form.lessonId,
-        user_id: isStaff ? form.memberId : currentUserId,
-        status,
-      })
-
       setSubmitting(true)
       try {
+        if (bookingMode === "trial") {
+          const startIso = combineSchoolDateAndTimeToIso({
+            date: form.date,
+            timeHHmm: form.startTime,
+            timeZone,
+          })
+          const endIso = combineSchoolDateAndTimeToIso({
+            date: form.date,
+            timeHHmm: form.endTime,
+            timeZone,
+          })
+
+          const response = await fetch("/api/bookings/trial", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "cache-control": "no-store" },
+            body: JSON.stringify({
+              guest_first_name: form.trialFirstName.trim(),
+              guest_last_name: form.trialLastName.trim(),
+              guest_email: form.trialEmail.trim(),
+              guest_phone: form.trialPhone.trim() || undefined,
+              voucher_number: form.voucherNumber.trim() || undefined,
+              start_time: startIso,
+              end_time: endIso,
+              aircraft_id: form.aircraftId,
+              instructor_id: shouldHideInstructor ? null : form.instructorId,
+              flight_type_id: form.flightTypeId,
+              purpose: form.purpose.trim(),
+              remarks: form.remarks.trim() || null,
+              status,
+            }),
+          })
+
+          if (!response.ok) {
+            const payload = (await response.json().catch(() => ({}))) as { error?: string }
+            throw new Error(payload.error || "Failed to create trial flight booking")
+          }
+
+          toast.success("Trial flight booking created")
+          onOpenChange(false)
+          onCreated()
+          return
+        }
+
+        const makePayload = (startIso: string, endIso: string) => ({
+          aircraft_id: form.aircraftId,
+          start_time: startIso,
+          end_time: endIso,
+          booking_type: form.bookingType,
+          purpose: form.purpose.trim(),
+          remarks: form.remarks.trim() || null,
+          instructor_id: shouldHideInstructor ? null : form.instructorId,
+          flight_type_id: isMemberOrStudent ? null : form.flightTypeId,
+          lesson_id: null,
+          user_id: isStaff ? form.memberId : currentUserId,
+          status,
+        })
+
         if (form.isRecurring && occurrences.length > 0) {
           for (const occ of occurrences) {
             const response = await fetch("/api/bookings", {
@@ -708,6 +851,7 @@ export function NewBookingModal({
       }
     },
     [
+      bookingMode,
       currentUserId,
       form,
       hasConflicts,
@@ -736,13 +880,21 @@ export function NewBookingModal({
         <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-white">
           <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6 shrink-0">
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                <Plus className="h-5 w-5" />
+              <div className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-full",
+                bookingMode === "trial" ? "bg-violet-50 text-violet-600" : "bg-emerald-50 text-emerald-600"
+              )}>
+                {bookingMode === "trial" ? <Plane className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
               </div>
               <div>
-                <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">New Booking</DialogTitle>
+                <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                  {bookingMode === "trial" ? "Trial Flight Booking" : "New Booking"}
+                </DialogTitle>
                 <DialogDescription className="mt-0.5 text-sm text-slate-500">
-                  Enter details for the new booking. Required fields are marked with <span className="text-destructive">*</span>.
+                  {bookingMode === "trial"
+                    ? "Create a trial flight for a new guest. Guest details and booking will be saved together."
+                    : <>Enter details for the new booking. Required fields are marked with <span className="text-destructive">*</span>.</>
+                  }
                 </DialogDescription>
               </div>
             </div>
@@ -765,7 +917,10 @@ export function NewBookingModal({
                       <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                       <span className="text-xs font-semibold tracking-tight text-slate-900">Booking Category</span>
                     </div>
-                    <Tabs value={bookingMode} onValueChange={(value) => setBookingMode(value as "regular" | "trial")} className="w-full">
+                    <Tabs value={bookingMode} onValueChange={(value) => {
+                      setBookingMode(value as "regular" | "trial")
+                      setErrors({})
+                    }} className="w-full">
                       <TabsList className="grid h-9 w-full grid-cols-2 rounded-[12px] bg-slate-50 p-1 ring-1 ring-slate-100">
                         <TabsTrigger
                           value="regular"
@@ -786,6 +941,7 @@ export function NewBookingModal({
                   </section>
                 ) : null}
 
+                {bookingMode === "regular" ? (
                 <section className="rounded-[24px] bg-slate-50/50 p-5 ring-1 ring-slate-100">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -898,8 +1054,9 @@ export function NewBookingModal({
                     </div>
                   ) : null}
                 </section>
+                ) : null}
 
-                {form.isRecurring && occurrences.length > 0 ? (
+                {bookingMode === "regular" && form.isRecurring && occurrences.length > 0 ? (
                   <section className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1009,6 +1166,11 @@ export function NewBookingModal({
                     <div>
                       <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                         END TIME <span className="text-destructive">*</span>
+                        {rosterMaxEndMinutes !== null ? (
+                          <span className="ml-1.5 font-semibold text-amber-500">
+                            (available until {minutesToHHmm(rosterMaxEndMinutes)})
+                          </span>
+                        ) : null}
                       </label>
                       <div className="flex gap-2">
                         <div className="flex-[1.4]">
@@ -1045,7 +1207,7 @@ export function NewBookingModal({
                               <SelectValue placeholder="Time" />
                             </SelectTrigger>
                             <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                              {TIME_OPTIONS.map((time) => (
+                              {filteredEndTimeOptions.map((time) => (
                                 <SelectItem key={time} value={time} className="rounded-lg py-2 text-xs">
                                   {time}
                                 </SelectItem>
@@ -1058,6 +1220,95 @@ export function NewBookingModal({
                     </div>
                   </div>
                 </section>
+
+                {bookingMode === "trial" ? (
+                  <section>
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                      <span className="text-xs font-semibold tracking-tight text-slate-900">Guest Details</span>
+                    </div>
+
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          FIRST NAME <span className="text-destructive">*</span>
+                        </label>
+                        <div className="relative">
+                          <User className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            placeholder="First name"
+                            value={form.trialFirstName}
+                            onChange={(e) => updateForm("trialFirstName", e.target.value)}
+                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                          />
+                        </div>
+                        {errors.trialFirstName ? <p className="mt-1 text-[10px] text-destructive">{errors.trialFirstName}</p> : null}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          LAST NAME <span className="text-destructive">*</span>
+                        </label>
+                        <div className="relative">
+                          <User className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            placeholder="Last name"
+                            value={form.trialLastName}
+                            onChange={(e) => updateForm("trialLastName", e.target.value)}
+                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                          />
+                        </div>
+                        {errors.trialLastName ? <p className="mt-1 text-[10px] text-destructive">{errors.trialLastName}</p> : null}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          EMAIL <span className="text-destructive">*</span>
+                        </label>
+                        <div className="relative">
+                          <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            type="email"
+                            placeholder="guest@example.com"
+                            value={form.trialEmail}
+                            onChange={(e) => updateForm("trialEmail", e.target.value)}
+                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                          />
+                        </div>
+                        {errors.trialEmail ? <p className="mt-1 text-[10px] text-destructive">{errors.trialEmail}</p> : null}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          PHONE
+                        </label>
+                        <div className="relative">
+                          <Phone className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            type="tel"
+                            placeholder="Phone number (optional)"
+                            value={form.trialPhone}
+                            onChange={(e) => updateForm("trialPhone", e.target.value)}
+                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                          />
+                        </div>
+                        {errors.trialPhone ? <p className="mt-1 text-[10px] text-destructive">{errors.trialPhone}</p> : null}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          VOUCHER NUMBER
+                        </label>
+                        <div className="relative">
+                          <Ticket className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            placeholder="e.g. TF-2026-001"
+                            value={form.voucherNumber}
+                            onChange={(e) => updateForm("voucherNumber", e.target.value)}
+                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                          />
+                        </div>
+                        {errors.voucherNumber ? <p className="mt-1 text-[10px] text-destructive">{errors.voucherNumber}</p> : null}
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
 
                 <section>
                   <div className="mb-3 flex items-center gap-2">
@@ -1077,43 +1328,45 @@ export function NewBookingModal({
                   ) : null}
 
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        SELECT MEMBER {isStaff ? <span className="text-destructive">*</span> : null}
-                      </label>
-                      {isStaff ? (
-                        <>
-                          <Select
-                            value={form.memberId ?? "none"}
-                            onValueChange={(value) => updateForm("memberId", value === "none" ? null : value)}
-                            disabled={optionsLoading}
-                          >
-                            <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                              <div className="flex items-center gap-2 truncate">
-                                <User className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                <SelectValue placeholder="Select member" />
-                              </div>
-                            </SelectTrigger>
-                            <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                              <SelectItem value="none" className="rounded-lg py-2 text-xs">
-                                Select member
-                              </SelectItem>
-                              {(options?.members ?? []).map((member) => (
-                                <SelectItem key={member.id} value={member.id} className="rounded-lg py-2 text-xs">
-                                  {formatName(member)}
+                    {bookingMode === "regular" ? (
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          SELECT MEMBER {isStaff ? <span className="text-destructive">*</span> : null}
+                        </label>
+                        {isStaff ? (
+                          <>
+                            <Select
+                              value={form.memberId ?? "none"}
+                              onValueChange={(value) => updateForm("memberId", value === "none" ? null : value)}
+                              disabled={optionsLoading}
+                            >
+                              <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                                <div className="flex items-center gap-2 truncate">
+                                  <User className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                  <SelectValue placeholder="Select member" />
+                                </div>
+                              </SelectTrigger>
+                              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
+                                <SelectItem value="none" className="rounded-lg py-2 text-xs">
+                                  Select member
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {errors.memberId ? <p className="mt-1 text-[10px] text-destructive">{errors.memberId}</p> : null}
-                        </>
-                      ) : (
-                        <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs font-medium text-slate-600">
-                          <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{options?.members?.[0] ? formatName(options.members[0]) : "your account"}</span>
-                        </div>
-                      )}
-                    </div>
+                                {(options?.members ?? []).map((member) => (
+                                  <SelectItem key={member.id} value={member.id} className="rounded-lg py-2 text-xs">
+                                    {formatName(member)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {errors.memberId ? <p className="mt-1 text-[10px] text-destructive">{errors.memberId}</p> : null}
+                          </>
+                        ) : (
+                          <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs font-medium text-slate-600">
+                            <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            <span className="truncate">{options?.members?.[0] ? formatName(options.members[0]) : "your account"}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
 
                     <div>
                       <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">SELECT INSTRUCTOR</label>
@@ -1195,39 +1448,8 @@ export function NewBookingModal({
                       {errors.aircraftId ? <p className="mt-1 text-[10px] text-destructive">{errors.aircraftId}</p> : null}
                     </div>
 
-                    <div>
-                      <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        BOOKING TYPE <span className="text-destructive">*</span>
-                      </label>
-                      <Select
-                        value={form.bookingType}
-                        onValueChange={(value) => {
-                          const nextType = value as BookingType
-                          updateForm("bookingType", nextType)
-                          if (nextType !== "flight") {
-                            updateForm("flightTypeId", null)
-                          }
-                          if (nextType === "groundwork" || nextType === "other") {
-                            updateForm("aircraftId", null)
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                          {BOOKING_TYPE_OPTIONS.map((item) => (
-                            <SelectItem key={item.value} value={item.value} className="rounded-lg py-2 text-xs">
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.bookingType ? <p className="mt-1 text-[10px] text-destructive">{errors.bookingType}</p> : null}
-                    </div>
-
                     {!isMemberOrStudent ? (
-                      <div className="sm:col-span-2">
+                      <div>
                         <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                           FLIGHT TYPE {form.bookingType === "flight" ? <span className="text-destructive">*</span> : null}
                         </label>
@@ -1265,76 +1487,27 @@ export function NewBookingModal({
                       </div>
                     ) : null}
 
-                    {!isMemberOrStudent ? (
+                    {bookingMode === "regular" ? (
                       <div>
-                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">SYLLABUS</label>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          BOOKING TYPE <span className="text-destructive">*</span>
+                        </label>
                         <Select
-                          value={selectedSyllabusId ?? "none"}
-                          onValueChange={(value) => {
-                            setSelectedSyllabusId(value === "none" ? null : value)
-                            updateForm("lessonId", null)
-                          }}
-                          disabled={form.bookingType !== "flight" || (options?.syllabi ?? []).length === 0}
+                          value={form.bookingType}
+                          onValueChange={handleBookingTypeChange}
                         >
                           <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                            <SelectValue
-                              placeholder={
-                                form.bookingType !== "flight"
-                                  ? "N/A"
-                                  : (options?.syllabi ?? []).length === 0
-                                    ? "No active syllabi"
-                                    : "Select syllabus"
-                              }
-                            />
+                            <SelectValue placeholder="Type" />
                           </SelectTrigger>
                           <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                            <SelectItem value="none" className="rounded-lg py-2 text-xs">
-                              Select syllabus
-                            </SelectItem>
-                            {(options?.syllabi ?? []).map((syllabus) => (
-                              <SelectItem key={syllabus.id} value={syllabus.id} className="rounded-lg py-2 text-xs">
-                                {syllabus.name}
+                            {BOOKING_TYPE_OPTIONS.map((item) => (
+                              <SelectItem key={item.value} value={item.value} className="rounded-lg py-2 text-xs">
+                                {item.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
-                    ) : null}
-
-                    {!isMemberOrStudent ? (
-                      <div>
-                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">LESSON</label>
-                        <Select
-                          value={form.lessonId ?? "none"}
-                          onValueChange={(value) => updateForm("lessonId", value === "none" ? null : value)}
-                          disabled={form.bookingType !== "flight" || optionsLoading}
-                        >
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                            <div className="flex items-center gap-2 truncate">
-                              <NotebookPen className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                              <SelectValue
-                                placeholder={
-                                  form.bookingType !== "flight"
-                                    ? "N/A"
-                                    : optionsLoading
-                                      ? "Loading..."
-                                      : "Select lesson"
-                                }
-                              />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                            <SelectItem value="none" className="rounded-lg py-2 text-xs">
-                              No lesson
-                            </SelectItem>
-                            {lessonsForSelectedSyllabus.map((lesson) => (
-                              <SelectItem key={lesson.id} value={lesson.id} className="rounded-lg py-2 text-xs">
-                                {lesson.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.lessonId ? <p className="mt-1 text-[10px] text-destructive">{errors.lessonId}</p> : null}
+                        {errors.bookingType ? <p className="mt-1 text-[10px] text-destructive">{errors.bookingType}</p> : null}
                       </div>
                     ) : null}
                   </div>
@@ -1408,7 +1581,7 @@ export function NewBookingModal({
                 }}
                 className="h-10 flex-[1.4] rounded-xl bg-slate-900 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
               >
-                {submitting ? "Saving..." : "Save Booking"}
+                {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : "Save Booking"}
               </Button>
             </div>
           </div>
@@ -1418,4 +1591,4 @@ export function NewBookingModal({
   )
 }
 
-export type { SchedulerBookingDraft }
+export type { SchedulerBookingDraft, InstructorRosterWindow }

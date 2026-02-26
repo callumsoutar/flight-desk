@@ -7,10 +7,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: { next?: string } | Promise<{ next?: string }>
+  searchParams?: Promise<{ next?: string }>
 }) {
-  const resolved = await Promise.resolve(searchParams)
-  const next = resolved?.next
+  const next = (await searchParams)?.next
   const supabase = await createSupabaseServerClient()
   const { user } = await getAuthSession(supabase)
 

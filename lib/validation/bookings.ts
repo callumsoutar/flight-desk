@@ -18,7 +18,6 @@ export const bookingUpdateSchema = z.object({
   flight_time_hobbs: z.number().nullable().optional(),
   flight_time_tach: z.number().nullable().optional(),
   flight_time_airswitch: z.number().nullable().optional(),
-  flight_time: z.number().nullable().optional(),
 
   billing_basis: z.string().nullable().optional(),
   billing_hours: z.number().nullable().optional(),

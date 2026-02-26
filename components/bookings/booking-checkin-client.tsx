@@ -8,11 +8,13 @@ import {
   IconCalculator,
   IconCheck,
   IconClock,
+  IconEdit,
   IconFileText,
   IconLoader2,
   IconPlane,
   IconPlus,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
@@ -30,6 +32,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import { InvoiceCalculations, roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
 import type { InvoiceRow } from "@/lib/types"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
@@ -297,6 +300,12 @@ export function BookingCheckinClient({
   const [invoice, setInvoice] = React.useState<InvoiceRow | null>(null)
   const [invoiceItems, setInvoiceItems] = React.useState<InvoiceItem[]>([])
   const [invoiceLoading, setInvoiceLoading] = React.useState(false)
+
+  const [isCorrectionMode, setIsCorrectionMode] = React.useState(false)
+  const [correctionHobbsEnd, setCorrectionHobbsEnd] = React.useState("")
+  const [correctionTachEnd, setCorrectionTachEnd] = React.useState("")
+  const [correctionReason, setCorrectionReason] = React.useState("")
+  const [isCorrecting, setIsCorrecting] = React.useState(false)
 
   const checkinInvoiceId = booking.checkin_invoice_id ?? localInvoiceId
   const isApproved = Boolean(booking.checkin_approved_at || localInvoiceId)
@@ -1409,6 +1418,77 @@ export function BookingCheckinClient({
     !splitTimes.error &&
     billingHours > 0
 
+  const enterCorrectionMode = React.useCallback(() => {
+    setCorrectionHobbsEnd(booking.hobbs_end != null ? String(booking.hobbs_end) : "")
+    setCorrectionTachEnd(booking.tach_end != null ? String(booking.tach_end) : "")
+    setCorrectionReason("")
+    setIsCorrectionMode(true)
+  }, [booking.hobbs_end, booking.tach_end])
+
+  const exitCorrectionMode = React.useCallback(() => {
+    setIsCorrectionMode(false)
+    setCorrectionReason("")
+  }, [])
+
+  const correctionHobbsEndNum = React.useMemo(() => parseOptionalNumber(correctionHobbsEnd), [correctionHobbsEnd])
+  const correctionTachEndNum = React.useMemo(() => parseOptionalNumber(correctionTachEnd), [correctionTachEnd])
+
+  const correctionHobbsDelta = React.useMemo(() => {
+    if (booking.hobbs_start == null || correctionHobbsEndNum == null) return null
+    const delta = correctionHobbsEndNum - Number(booking.hobbs_start)
+    return delta >= 0 ? parseFloat(delta.toFixed(1)) : null
+  }, [booking.hobbs_start, correctionHobbsEndNum])
+
+  const correctionTachDelta = React.useMemo(() => {
+    if (booking.tach_start == null || correctionTachEndNum == null) return null
+    const delta = correctionTachEndNum - Number(booking.tach_start)
+    return delta >= 0 ? parseFloat(delta.toFixed(1)) : null
+  }, [booking.tach_start, correctionTachEndNum])
+
+  const hasEndReadingChanged =
+    (booking.hobbs_end != null && correctionHobbsEndNum != null && correctionHobbsEndNum !== Number(booking.hobbs_end)) ||
+    (booking.tach_end != null && correctionTachEndNum != null && correctionTachEndNum !== Number(booking.tach_end))
+
+  const canSubmitCorrection =
+    isCorrectionMode &&
+    !isCorrecting &&
+    hasEndReadingChanged &&
+    correctionReason.trim().length >= 10
+
+  const submitCorrection = React.useCallback(async () => {
+    if (!canSubmitCorrection) return
+
+    setIsCorrecting(true)
+    try {
+      await fetchJson(`/api/bookings/${bookingId}/checkin/correct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hobbs_end: correctionHobbsEndNum,
+          tach_end: correctionTachEndNum,
+          airswitch_end: null,
+          correction_reason: correctionReason.trim(),
+        }),
+      })
+
+      toast.success("Flight readings corrected successfully")
+      setIsCorrectionMode(false)
+      setCorrectionReason("")
+      router.refresh()
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setIsCorrecting(false)
+    }
+  }, [
+    bookingId,
+    canSubmitCorrection,
+    correctionHobbsEndNum,
+    correctionReason,
+    correctionTachEndNum,
+    router,
+  ])
+
   const aircraftRatePerHourInclTax =
     aircraftRatePerHourExclTax == null ? null : roundToTwoDecimals(aircraftRatePerHourExclTax * (1 + taxRate))
   const instructorRatePerHourInclTax =
@@ -2157,9 +2237,196 @@ export function BookingCheckinClient({
           </CardContent>
         </Card>
 
-        {isApproved ? (
-          <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-            Check-in has been approved.
+        {isApproved && !isCorrectionMode ? (
+          <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/30">
+            <span className="text-sm text-green-800 dark:text-green-300">
+              Check-in has been approved.
+            </span>
+            {isAdminOrInstructor ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={enterCorrectionMode}
+                className="ml-3 shrink-0"
+              >
+                <IconEdit className="mr-2 h-3.5 w-3.5" />
+                Correct Readings
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isCorrectionMode ? (
+          <Card className="border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <IconEdit className="h-4 w-4" />
+                  Correct Flight Readings
+                </CardTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={exitCorrectionMode}
+                  className="h-8 w-8"
+                >
+                  <IconX className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>
+                Update end meter readings to fix an incorrect entry. Start readings are locked.
+                The aircraft TTIS will be automatically adjusted.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <div className="hidden sm:grid sm:grid-cols-[140px_1fr_1fr_80px] max-w-xl gap-3 text-xs font-medium text-muted-foreground">
+                  <div>Meter</div>
+                  <div>Start (locked)</div>
+                  <div>End (corrected)</div>
+                  <div className="text-right">Delta</div>
+                </div>
+
+                {booking.hobbs_start != null ? (
+                  <div className="grid items-center gap-3 sm:grid-cols-[140px_1fr_1fr_80px] max-w-xl">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <IconClock className="h-4 w-4 text-muted-foreground" />
+                      Hobbs
+                    </label>
+                    <Input
+                      value={String(booking.hobbs_start)}
+                      disabled
+                      className="h-9 tabular-nums bg-muted/50"
+                    />
+                    <Input
+                      inputMode="decimal"
+                      placeholder="0.0"
+                      value={correctionHobbsEnd}
+                      onChange={(e) => setCorrectionHobbsEnd(e.target.value)}
+                      className="h-9 tabular-nums"
+                    />
+                    <div className={cn(
+                      "text-right text-sm tabular-nums",
+                      correctionHobbsDelta != null && correctionHobbsDelta !== calculateFlightHours(
+                        Number(booking.hobbs_start), booking.hobbs_end != null ? Number(booking.hobbs_end) : null
+                      )
+                        ? "font-semibold text-amber-700 dark:text-amber-400"
+                        : "text-muted-foreground"
+                    )}>
+                      {correctionHobbsDelta != null ? `${correctionHobbsDelta.toFixed(1)}h` : "—"}
+                    </div>
+                  </div>
+                ) : null}
+
+                {booking.tach_start != null ? (
+                  <div className="grid items-center gap-3 sm:grid-cols-[140px_1fr_1fr_80px] max-w-xl">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <IconPlane className="h-4 w-4 text-muted-foreground" />
+                      Tacho
+                    </label>
+                    <Input
+                      value={String(booking.tach_start)}
+                      disabled
+                      className="h-9 tabular-nums bg-muted/50"
+                    />
+                    <Input
+                      inputMode="decimal"
+                      placeholder="0.0"
+                      value={correctionTachEnd}
+                      onChange={(e) => setCorrectionTachEnd(e.target.value)}
+                      className="h-9 tabular-nums"
+                    />
+                    <div className={cn(
+                      "text-right text-sm tabular-nums",
+                      correctionTachDelta != null && correctionTachDelta !== calculateFlightHours(
+                        Number(booking.tach_start), booking.tach_end != null ? Number(booking.tach_end) : null
+                      )
+                        ? "font-semibold text-amber-700 dark:text-amber-400"
+                        : "text-muted-foreground"
+                    )}>
+                      {correctionTachDelta != null ? `${correctionTachDelta.toFixed(1)}h` : "—"}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">
+                  Reason for Correction <span className="text-destructive">*</span>
+                </label>
+                <Textarea
+                  placeholder="Explain why the readings need to be corrected (min 10 characters)..."
+                  value={correctionReason}
+                  onChange={(e) => setCorrectionReason(e.target.value)}
+                  className="min-h-[80px] resize-y"
+                />
+                {correctionReason.length > 0 && correctionReason.trim().length < 10 ? (
+                  <p className="text-xs text-destructive">
+                    Reason must be at least 10 characters ({correctionReason.trim().length}/10)
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex items-center gap-3 border-t border-amber-200 pt-4 dark:border-amber-800">
+                <Button
+                  type="button"
+                  onClick={() => void submitCorrection()}
+                  disabled={!canSubmitCorrection}
+                >
+                  {isCorrecting ? (
+                    <>
+                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Applying...
+                    </>
+                  ) : (
+                    <>
+                      <IconCheck className="mr-2 h-4 w-4" />
+                      Apply Correction
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={exitCorrectionMode}
+                  disabled={isCorrecting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {isApproved && booking.corrected_at ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+            <div className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+              <IconAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <span className="font-medium">Readings corrected</span>
+                {" on "}
+                {new Date(booking.corrected_at).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                {booking.correction_reason ? (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    {" — "}{booking.correction_reason}
+                  </span>
+                ) : null}
+                {booking.correction_delta != null ? (
+                  <span className="ml-1 text-xs text-amber-600 dark:text-amber-500">
+                    (TTIS adjustment: {Number(booking.correction_delta) >= 0 ? "+" : ""}
+                    {Number(booking.correction_delta).toFixed(1)}h)
+                  </span>
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

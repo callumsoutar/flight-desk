@@ -75,6 +75,8 @@ type SchedulerBooking = {
   startsAt: Date
   endsAt: Date
   primaryLabel: string
+  purpose: string
+  remarks: string | null
   instructorId: string | null
   aircraftId: string
   userId: string | null
@@ -431,7 +433,10 @@ function bookingToSchedulerBooking(
     booking.student
       ? [booking.student.first_name, booking.student.last_name].filter(Boolean).join(" ").trim() || "Booked"
       : ""
-  const primaryLabel = studentName || booking.purpose || "Unassigned"
+  const isTrialFlight = booking.flight_type?.instruction_type === "trial"
+  const primaryLabel = studentName
+    ? `${studentName}${isTrialFlight ? " (trial flight)" : ""}`
+    : booking.purpose || "Unassigned"
   const aircraftLabel = booking.aircraft ? `${booking.aircraft.registration} (${booking.aircraft.type})` : undefined
   const instructorLabel = booking.instructor
     ? [booking.instructor.user?.first_name ?? booking.instructor.first_name, booking.instructor.user?.last_name ?? booking.instructor.last_name]
@@ -451,6 +456,8 @@ function bookingToSchedulerBooking(
     startsAt,
     endsAt,
     primaryLabel,
+    purpose: booking.purpose,
+    remarks: booking.remarks,
     instructorId: booking.instructor_id,
     aircraftId: booking.aircraft_id,
     userId: booking.user_id,
@@ -733,6 +740,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
       if (!isStaff) return
       if (payload.button !== 0) return
       if (pendingMove || isApplyingMove || isUpdatingStatus) return
+      if (payload.booking.status === "complete") return
 
       dragCandidateRef.current = {
         booking: payload.booking,
@@ -1473,6 +1481,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         isStaff={isStaff}
         currentUserId={user?.id ?? null}
         onCreated={handleCreatedBooking}
+        instructorRosterWindows={instructorAvailabilityById}
       />
 
       <CancelBookingModal
@@ -1629,9 +1638,11 @@ function TimelineRow({
                 key={slot.toISOString()}
                 className={cn(
                   "last:border-r-0 border-r transition-colors",
-                  available ? "cursor-pointer hover:bg-sky-500/10" : "cursor-not-allowed bg-muted/20",
+                  available ? "cursor-pointer hover:bg-sky-500/10" : "cursor-not-allowed bg-muted/90",
                   available && idx % 2 === 1 ? "bg-muted/[0.03]" : "",
-                  available && isHour ? "bg-muted/[0.05]" : ""
+                  available && isHour ? "bg-muted/[0.05]" : "",
+                  !available && idx % 2 === 1 ? "bg-muted/95" : "",
+                  !available && isHour ? "bg-muted" : ""
                 )}
               />
             )
@@ -1676,6 +1687,7 @@ function TimelineRow({
           })
           if (!layout) return null
 
+          const canDragThisBooking = canDragBookings && booking.status !== "complete"
           const label = booking.primaryLabel
           const range = formatTimeRangeLabel(item.startAt, item.endAt, timeZone)
           const previewTimeLabel = item.isPreview
@@ -1715,7 +1727,7 @@ function TimelineRow({
                         <button
                           type="button"
                           onPointerDown={(event) => {
-                            if (!canDragBookings || event.button !== 0) return
+                            if (!canDragThisBooking || event.button !== 0) return
                             if (!containerRef.current) return
 
                             const rect = containerRef.current.getBoundingClientRect()
@@ -1752,7 +1764,7 @@ function TimelineRow({
                           className={cn(
                             "group h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all hover:brightness-[1.02] hover:shadow-md focus:ring-2 focus:ring-blue-500/40 focus:outline-none",
                             statusPillClasses(booking.status),
-                            canDragBookings ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                            canDragThisBooking ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
                             item.isPreview
                               ? item.previewValid
                                 ? "cursor-grabbing ring-2 ring-emerald-300/80 shadow-lg"
@@ -1813,6 +1825,28 @@ function TimelineRow({
                               </span>
                             </div>
                           </div>
+
+                          {booking.canOpen ? (
+                            <>
+                              <Separator className="bg-border/60" />
+                              <div className="space-y-2">
+                                <div className="space-y-1">
+                                  <div className="text-[11px] font-semibold text-muted-foreground">Description</div>
+                                  <div className="text-xs leading-snug text-foreground/90 break-words line-clamp-4">
+                                    {booking.purpose}
+                                  </div>
+                                </div>
+                                {booking.remarks ? (
+                                  <div className="space-y-1">
+                                    <div className="text-[11px] font-semibold text-muted-foreground">Remarks</div>
+                                    <div className="text-xs leading-snug text-foreground/80 break-words line-clamp-3">
+                                      {booking.remarks}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </>
+                          ) : null}
 
                           <div className="pt-0.5 text-[11px] text-muted-foreground">
                             {booking.canOpen
