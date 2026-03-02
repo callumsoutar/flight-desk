@@ -156,8 +156,8 @@ function exclusiveToInclusive(unitPrice: number, taxRate: number): number {
 }
 
 function inclusiveToExclusive(rateInclusive: number, taxRate: number): number {
-  if (taxRate <= 0) return roundToTwoDecimals(rateInclusive)
-  return roundToTwoDecimals(rateInclusive / (1 + taxRate))
+  if (taxRate <= 0) return rateInclusive
+  return rateInclusive / (1 + taxRate)
 }
 
 function createLocalLineItemId(): string {
@@ -880,11 +880,11 @@ export function BookingCheckinClient({
       const nextQuantity = roundToTwoDecimals(quantity)
       const nextUnitPrice = inclusiveToExclusive(rateInclusive, itemTaxRate)
       const baseQuantity = roundToTwoDecimals(generatedBaseItem.quantity)
-      const baseUnitPrice = roundToTwoDecimals(generatedBaseItem.unit_price)
+      const baseRateInclusive = exclusiveToInclusive(generatedBaseItem.unit_price, itemTaxRate)
 
       setGeneratedItemOverrides((prev) => {
         const existing = prev[editingLineItem.itemId]
-        const isUnchanged = nextQuantity === baseQuantity && nextUnitPrice === baseUnitPrice
+        const isUnchanged = nextQuantity === baseQuantity && roundToTwoDecimals(exclusiveToInclusive(nextUnitPrice, itemTaxRate)) === roundToTwoDecimals(baseRateInclusive)
 
         if (isUnchanged) {
           if (!existing) return prev

@@ -21,6 +21,7 @@ const bookingSchema = z.object({
 })
 
 const checkoutSchema = bookingSchema.extend({
+  checked_out_aircraft_id: z.string().uuid().nullable(),
   eta: z.string().nullable(),
   fuel_on_board: z.number().nullable(),
   route: z.string().nullable(),
@@ -192,12 +193,18 @@ export async function authorizeBookingCheckoutAction(bookingId: string, input: u
     return { ok: false as const, error: "Authorization must be completed before checkout" }
   }
 
+  const { checked_out_aircraft_id: checkedOutAircraftId, ...checkoutData } = parsed.data
+  const resolvedCheckedOutAircraftId = checkedOutAircraftId ?? checkoutData.aircraft_id
+  if (!resolvedCheckedOutAircraftId) {
+    return { ok: false as const, error: "Aircraft is required before checkout" }
+  }
+
   const nowIso = new Date().toISOString()
   const payload = {
-    ...parsed.data,
+    ...checkoutData,
     status: "flying" as BookingStatus,
     checked_out_at: nowIso,
-    checked_out_aircraft_id: parsed.data.aircraft_id,
+    checked_out_aircraft_id: resolvedCheckedOutAircraftId,
     checked_out_instructor_id: parsed.data.instructor_id,
   }
 

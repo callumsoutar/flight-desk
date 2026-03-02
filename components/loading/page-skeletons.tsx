@@ -32,6 +32,56 @@ export function ListPageSkeleton({ showTabs = false }: { showTabs?: boolean }) {
   )
 }
 
+export function SettingsPageSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end" aria-hidden="true">
+        <div className="space-y-2">
+          <SkeletonBlock className="h-9 w-40" />
+          <SkeletonBlock className="h-4 w-96 max-w-full" />
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <SkeletonBlock className="h-10 w-32" />
+          <SkeletonBlock className="h-10 w-32" />
+        </div>
+      </div>
+
+      <Card className="border border-border/50 bg-card py-0 shadow-sm" aria-hidden="true">
+        <CardContent className="p-0">
+          <div className="border-b border-slate-200 bg-white px-6 pt-4 pb-3">
+            <div className="flex gap-3 overflow-hidden">
+              <SkeletonBlock className="h-6 w-24" />
+              <SkeletonBlock className="h-6 w-28" />
+              <SkeletonBlock className="h-6 w-28" />
+              <SkeletonBlock className="h-6 w-28" />
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="border border-border/50 bg-card py-0 shadow-sm">
+                <CardContent className="space-y-3 p-6">
+                  <SkeletonBlock className="h-5 w-40" />
+                  <SkeletonBlock className="h-4 w-72" />
+                  <SkeletonBlock className="h-10 w-full" />
+                  <SkeletonBlock className="h-10 w-full" />
+                </CardContent>
+              </Card>
+              <Card className="border border-border/50 bg-card py-0 shadow-sm">
+                <CardContent className="space-y-3 p-6">
+                  <SkeletonBlock className="h-5 w-44" />
+                  <SkeletonBlock className="h-4 w-64" />
+                  <SkeletonBlock className="h-10 w-full" />
+                  <SkeletonBlock className="h-10 w-full" />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export function AircraftDetailSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8" aria-busy="true" aria-live="polite">

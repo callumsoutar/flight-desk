@@ -3,12 +3,13 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
-import type { AuditLog, BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
+import type { AuditLog, AuditLookupMaps, BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 
 export type BookingPageData = {
   booking: BookingWithRelations | null
   options: BookingOptions
   auditLogs: AuditLog[]
+  auditLookupMaps: AuditLookupMaps
 }
 
 async function fetchBooking(
@@ -19,7 +20,7 @@ async function fetchBooking(
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), checked_out_instructor:instructors!bookings_checked_out_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, aircraft_type_id), checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, aircraft_type_id), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id), lesson_progress(*)"
+      "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), checked_out_instructor:instructors!bookings_checked_out_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, fuel_consumption, aircraft_type_id), checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, fuel_consumption, aircraft_type_id), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id), lesson_progress(*)"
     )
     .eq("tenant_id", tenantId)
     .eq("id", bookingId)
@@ -47,7 +48,7 @@ async function fetchOptions(
   ] = await Promise.all([
       supabase
         .from("aircraft")
-        .select("id, registration, type, model, manufacturer, aircraft_type_id")
+        .select("id, registration, type, model, manufacturer, aircraft_type_id, fuel_consumption")
         .eq("tenant_id", tenantId)
         .order("registration", { ascending: true }),
       supabase
@@ -141,7 +142,7 @@ async function fetchAuditLogs(
   supabase: SupabaseClient<Database>,
   tenantId: string,
   bookingId: string
-): Promise<AuditLog[]> {
+): Promise<{ logs: AuditLog[]; maps: AuditLookupMaps }> {
   const { data, error } = await supabase
     .from("audit_logs")
     .select("*")
@@ -153,34 +154,113 @@ async function fetchAuditLogs(
 
   if (error) throw error
 
-  const logs = data ?? []
-  const userIds = logs
-    .map((row) => row.user_id)
-    .filter((id): id is string => typeof id === "string")
+  const rawLogs = data ?? []
 
-  if (userIds.length === 0) {
-    return logs.map((row) => ({ ...row, user: null }))
+  // Collect all unique IDs needed for lookups
+  const changeAuthorIds = new Set<string>()
+  const memberIds = new Set<string>()
+  const instructorIds = new Set<string>()
+  const lessonIds = new Set<string>()
+  const flightTypeIds = new Set<string>()
+  const aircraftIds = new Set<string>()
+
+  for (const log of rawLogs) {
+    if (log.user_id) changeAuthorIds.add(log.user_id)
+    for (const dataObj of [log.new_data, log.old_data]) {
+      if (!dataObj || typeof dataObj !== "object" || Array.isArray(dataObj)) continue
+      const record = dataObj as Record<string, unknown>
+      if (typeof record.user_id === "string") memberIds.add(record.user_id)
+      if (typeof record.instructor_id === "string") instructorIds.add(record.instructor_id)
+      if (typeof record.lesson_id === "string") lessonIds.add(record.lesson_id)
+      if (typeof record.flight_type_id === "string") flightTypeIds.add(record.flight_type_id)
+      if (typeof record.aircraft_id === "string") aircraftIds.add(record.aircraft_id)
+    }
   }
 
-  const { data: users, error: usersError } = await supabase
-    .from("user_directory")
-    .select("id, first_name, last_name, email")
-    .in("id", Array.from(new Set(userIds)))
+  // Merge all user IDs (change authors + booking members)
+  const allUserIds = new Set([...changeAuthorIds, ...memberIds])
 
-  if (usersError) throw usersError
+  type UserRow = { id: string; first_name: string | null; last_name: string | null; email: string }
+  type InstructorRow = { id: string; first_name: string | null; last_name: string | null }
+  type NameRow = { id: string; name: string }
+  type AircraftRow = { id: string; registration: string }
 
-  type AuditLogUser = NonNullable<AuditLog["user"]>
-  const normalizedUsers = (users ?? []).filter(
-    (row): row is AuditLogUser =>
-      typeof row.id === "string" &&
-      typeof row.email === "string"
-  )
-  const userMap = new Map(normalizedUsers.map((row) => [row.id, row]))
+  const empty = <T,>(): Promise<{ data: T[]; error: null }> =>
+    Promise.resolve({ data: [] as T[], error: null })
 
-  return logs.map((row) => ({
+  const [usersResult, instructorsResult, lessonsResult, flightTypesResult, aircraftResult] =
+    await Promise.all([
+      allUserIds.size > 0
+        ? supabase.from("user_directory").select("id, first_name, last_name, email").in("id", Array.from(allUserIds))
+        : empty<UserRow>(),
+      instructorIds.size > 0
+        ? supabase.from("instructors").select("id, first_name, last_name").in("id", Array.from(instructorIds))
+        : empty<InstructorRow>(),
+      lessonIds.size > 0
+        ? supabase.from("lessons").select("id, name").in("id", Array.from(lessonIds))
+        : empty<NameRow>(),
+      flightTypeIds.size > 0
+        ? supabase.from("flight_types").select("id, name").in("id", Array.from(flightTypeIds))
+        : empty<NameRow>(),
+      aircraftIds.size > 0
+        ? supabase.from("aircraft").select("id, registration").in("id", Array.from(aircraftIds))
+        : empty<AircraftRow>(),
+    ])
+
+  // Build lookup maps
+  const userMap = new Map<string, UserRow>()
+  for (const u of usersResult.data ?? []) {
+    if (typeof u.id === "string" && typeof u.email === "string") {
+      userMap.set(u.id, u as UserRow)
+    }
+  }
+
+  const formatName = (first: string | null, last: string | null, fallback: string): string =>
+    [first, last].filter(Boolean).join(" ") || fallback
+
+  const usersLookup: Record<string, string> = {}
+  for (const u of usersResult.data ?? []) {
+    if (typeof u.id === "string") {
+      usersLookup[u.id] = formatName(u.first_name, u.last_name, u.email as string)
+    }
+  }
+
+  const instructorsLookup: Record<string, string> = {}
+  for (const i of instructorsResult.data ?? []) {
+    if (typeof i.id === "string") {
+      instructorsLookup[i.id] = formatName((i as InstructorRow).first_name, (i as InstructorRow).last_name, "Unknown")
+    }
+  }
+
+  const lessonsLookup: Record<string, string> = {}
+  for (const l of lessonsResult.data ?? []) {
+    if (typeof l.id === "string") lessonsLookup[l.id] = (l as NameRow).name
+  }
+
+  const flightTypesLookup: Record<string, string> = {}
+  for (const ft of flightTypesResult.data ?? []) {
+    if (typeof ft.id === "string") flightTypesLookup[ft.id] = (ft as NameRow).name
+  }
+
+  const aircraftLookup: Record<string, string> = {}
+  for (const a of aircraftResult.data ?? []) {
+    if (typeof a.id === "string") aircraftLookup[a.id] = (a as AircraftRow).registration
+  }
+
+  const logs: AuditLog[] = rawLogs.map((row) => ({
     ...row,
-    user: row.user_id ? userMap.get(row.user_id) ?? null : null,
+    user: row.user_id ? (userMap.get(row.user_id) ?? null) : null,
   }))
+
+  const maps: AuditLookupMaps = {
+    users: usersLookup,
+    instructors: instructorsLookup,
+    lessons: lessonsLookup,
+    flightTypes: flightTypesLookup,
+    aircraft: aircraftLookup,
+  }
+
+  return { logs, maps }
 }
 
 export async function fetchBookingPageData(
@@ -188,11 +268,11 @@ export async function fetchBookingPageData(
   tenantId: string,
   bookingId: string
 ): Promise<BookingPageData> {
-  const [booking, options, auditLogs] = await Promise.all([
+  const [booking, options, auditResult] = await Promise.all([
     fetchBooking(supabase, tenantId, bookingId),
     fetchOptions(supabase, tenantId),
     fetchAuditLogs(supabase, tenantId, bookingId),
   ])
 
-  return { booking, options, auditLogs }
+  return { booking, options, auditLogs: auditResult.logs, auditLookupMaps: auditResult.maps }
 }

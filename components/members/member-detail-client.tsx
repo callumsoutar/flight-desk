@@ -461,7 +461,6 @@ export function MemberDetailClient({
                         ? {
                             ...prev.user,
                             pilot_license_number: values.pilot_license_number,
-                            pilot_license_type: values.pilot_license_type,
                             pilot_license_id: values.pilot_license_id,
                             pilot_license_expiry: values.pilot_license_expiry,
                             medical_certificate_expiry: values.medical_certificate_expiry,

@@ -39,6 +39,8 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { LessonSearchDropdown } from "@/components/bookings/lesson-search-dropdown"
+import MemberSelect, { type UserResult } from "@/components/invoices/member-select"
 
 type SchedulerBookingDraft = {
   dateYyyyMmDd: string
@@ -85,6 +87,17 @@ type BookingOptionsResponse = {
       name: string
       instruction_type: string | null
     }>
+    syllabi: Array<{
+      id: string
+      name: string
+    }>
+    lessons: Array<{
+      id: string
+      name: string
+      description: string | null
+      order: number | null
+      syllabus_id: string | null
+    }>
   }
 }
 
@@ -102,6 +115,7 @@ type FormState = {
   instructorId: string | null
   memberId: string | null
   bookingType: BookingType
+  lessonId: string | null
   purpose: string
   remarks: string
   isRecurring: boolean
@@ -259,6 +273,7 @@ function buildInitialState({
     instructorId: draft.preselectedInstructorId ?? null,
     memberId: isStaff ? null : currentUserId,
     bookingType: "flight",
+    lessonId: null,
     purpose: "",
     remarks: "",
     isRecurring: false,
@@ -357,6 +372,12 @@ export function NewBookingModal({
   }, [open])
 
   const memberId = form?.memberId ?? null
+  const members = React.useMemo(() => options?.members ?? [], [options?.members])
+
+  const selectedMember = React.useMemo<UserResult | null>(() => {
+    if (!memberId) return null
+    return members.find((member) => member.id === memberId) ?? null
+  }, [memberId, members])
 
   React.useEffect(() => {
     if (!open || !isMemberOrStudent) return
@@ -795,7 +816,7 @@ export function NewBookingModal({
           remarks: form.remarks.trim() || null,
           instructor_id: shouldHideInstructor ? null : form.instructorId,
           flight_type_id: isMemberOrStudent ? null : form.flightTypeId,
-          lesson_id: null,
+          lesson_id: isMemberOrStudent ? null : form.lessonId,
           user_id: isStaff ? form.memberId : currentUserId,
           status,
         })
@@ -1335,34 +1356,26 @@ export function NewBookingModal({
                         </label>
                         {isStaff ? (
                           <>
-                            <Select
-                              value={form.memberId ?? "none"}
-                              onValueChange={(value) => updateForm("memberId", value === "none" ? null : value)}
-                              disabled={optionsLoading}
-                            >
-                              <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                                <div className="flex items-center gap-2 truncate">
-                                  <User className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                  <SelectValue placeholder="Select member" />
-                                </div>
-                              </SelectTrigger>
-                              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                                <SelectItem value="none" className="rounded-lg py-2 text-xs">
-                                  Select member
-                                </SelectItem>
-                                {(options?.members ?? []).map((member) => (
-                                  <SelectItem key={member.id} value={member.id} className="rounded-lg py-2 text-xs">
-                                    {formatName(member)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {errors.memberId ? <p className="mt-1 text-[10px] text-destructive">{errors.memberId}</p> : null}
+                            <MemberSelect
+                              members={members}
+                              value={selectedMember}
+                              onSelect={(member) => updateForm("memberId", member?.id ?? null)}
+                              disabled={optionsLoading || submitting}
+                              buttonClassName="rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                              contentClassName="rounded-xl border-slate-200 shadow-xl"
+                              inputClassName="rounded-lg border-slate-200 bg-white text-xs font-medium placeholder:text-slate-300 focus:border-blue-500"
+                              listClassName="rounded-xl border-slate-200"
+                            />
+                            {errors.memberId ? (
+                              <p className="mt-1 text-[10px] text-destructive">{errors.memberId}</p>
+                            ) : null}
                           </>
                         ) : (
                           <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs font-medium text-slate-600">
                             <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                            <span className="truncate">{options?.members?.[0] ? formatName(options.members[0]) : "your account"}</span>
+                            <span className="truncate">
+                              {optionsLoading ? "Loading..." : options?.members?.[0] ? formatName(options.members[0]) : "your account"}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1508,6 +1521,23 @@ export function NewBookingModal({
                           </SelectContent>
                         </Select>
                         {errors.bookingType ? <p className="mt-1 text-[10px] text-destructive">{errors.bookingType}</p> : null}
+                      </div>
+                    ) : null}
+
+                    {bookingMode === "regular" ? (
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          LESSON
+                        </label>
+                        <LessonSearchDropdown
+                          lessons={options?.lessons ?? []}
+                          syllabi={options?.syllabi ?? []}
+                          value={isStaff ? form.lessonId : null}
+                          onSelect={(lessonId) => updateForm("lessonId", lessonId)}
+                          disabled={optionsLoading || !isStaff}
+                          placeholder={optionsLoading ? "Loading..." : "Select lesson"}
+                          triggerClassName="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                        />
                       </div>
                     ) : null}
                   </div>

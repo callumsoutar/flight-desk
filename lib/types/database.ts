@@ -3202,7 +3202,6 @@ export type Database = {
           country: string | null
           created_at: string
           date_of_birth: string | null
-          date_of_last_flight: string | null
           DL9_due: string | null
           email: string
           emergency_contact_relationship: string | null
@@ -3221,9 +3220,7 @@ export type Database = {
           pilot_license_expiry: string | null
           pilot_license_id: string | null
           pilot_license_number: string | null
-          pilot_license_type: string | null
           postal_code: string | null
-          public_directory_opt_in: boolean
           state: string | null
           street_address: string | null
           updated_at: string
@@ -3237,7 +3234,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           date_of_birth?: string | null
-          date_of_last_flight?: string | null
           DL9_due?: string | null
           email: string
           emergency_contact_relationship?: string | null
@@ -3256,9 +3252,7 @@ export type Database = {
           pilot_license_expiry?: string | null
           pilot_license_id?: string | null
           pilot_license_number?: string | null
-          pilot_license_type?: string | null
           postal_code?: string | null
-          public_directory_opt_in?: boolean
           state?: string | null
           street_address?: string | null
           updated_at?: string
@@ -3272,7 +3266,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           date_of_birth?: string | null
-          date_of_last_flight?: string | null
           DL9_due?: string | null
           email?: string
           emergency_contact_relationship?: string | null
@@ -3291,9 +3284,7 @@ export type Database = {
           pilot_license_expiry?: string | null
           pilot_license_id?: string | null
           pilot_license_number?: string | null
-          pilot_license_type?: string | null
           postal_code?: string | null
-          public_directory_opt_in?: boolean
           state?: string | null
           street_address?: string | null
           updated_at?: string
@@ -3386,7 +3377,6 @@ export type Database = {
           id: string | null
           last_name: string | null
           phone: string | null
-          public_directory_opt_in: boolean | null
           public_email: string | null
           updated_at: string | null
         }
@@ -3397,7 +3387,6 @@ export type Database = {
           id?: string | null
           last_name?: string | null
           phone?: never
-          public_directory_opt_in?: boolean | null
           public_email?: never
           updated_at?: string | null
         }
@@ -3408,7 +3397,6 @@ export type Database = {
           id?: string | null
           last_name?: string | null
           phone?: never
-          public_directory_opt_in?: boolean | null
           public_email?: never
           updated_at?: string | null
         }

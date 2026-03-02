@@ -40,13 +40,18 @@ import type {
 
 type PilotDetailsFormValues = {
   pilot_license_number: string | null
-  pilot_license_type: string | null
   pilot_license_id: string | null
   pilot_license_expiry: string | null
   medical_certificate_expiry: string | null
 }
 
 const UNSET_LICENSE_VALUE = "__unset__"
+const DEFAULT_FORM_VALUES: PilotDetailsFormValues = {
+  pilot_license_number: null,
+  pilot_license_id: null,
+  pilot_license_expiry: null,
+  medical_certificate_expiry: null,
+}
 
 function toNullable(value: string | null | undefined) {
   if (value == null) return null
@@ -71,31 +76,24 @@ function normalizeDate(value: string | null | undefined): string | null {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function normalizeLicense(
-  values: Pick<PilotDetailsFormValues, "pilot_license_id" | "pilot_license_type">,
-  availableLicenses: LicenseLite[]
-) {
-  let pilot_license_id = toNullable(values.pilot_license_id)
-  let pilot_license_type = toNullable(values.pilot_license_type)
-
-  if (!pilot_license_id && pilot_license_type) {
-    const byName = availableLicenses.find(
-      (license) => license.name.toLowerCase() === pilot_license_type?.toLowerCase()
-    )
-    if (byName) {
-      pilot_license_id = byName.id
-      pilot_license_type = byName.name
-    }
+function toFormValues(
+  member: MemberDetailWithRelations
+): PilotDetailsFormValues {
+  return {
+    pilot_license_number: toNullable(member.user?.pilot_license_number),
+    pilot_license_id: toNullable(member.user?.pilot_license_id) ?? null,
+    pilot_license_expiry: normalizeDate(member.user?.pilot_license_expiry),
+    medical_certificate_expiry: normalizeDate(member.user?.medical_certificate_expiry),
   }
+}
 
-  if (pilot_license_id) {
-    const byId = availableLicenses.find((license) => license.id === pilot_license_id)
-    if (byId) {
-      pilot_license_type = byId.name
-    }
+function normalize(values: PilotDetailsFormValues): PilotDetailsFormValues {
+  return {
+    pilot_license_number: toNullable(values.pilot_license_number),
+    pilot_license_id: toNullable(values.pilot_license_id),
+    pilot_license_expiry: normalizeDate(values.pilot_license_expiry),
+    medical_certificate_expiry: normalizeDate(values.medical_certificate_expiry),
   }
-
-  return { pilot_license_id, pilot_license_type }
 }
 
 type Props = {
@@ -111,50 +109,8 @@ type Props = {
   formId?: string
 }
 
-function toFormValues(
-  member: MemberDetailWithRelations,
-  availableLicenses: LicenseLite[]
-): PilotDetailsFormValues {
-  const license = normalizeLicense(
-    {
-      pilot_license_id: member.user?.pilot_license_id ?? null,
-      pilot_license_type: member.user?.pilot_license_type ?? null,
-    },
-    availableLicenses
-  )
-
-  return {
-    pilot_license_number: toNullable(member.user?.pilot_license_number),
-    pilot_license_type: license.pilot_license_type,
-    pilot_license_id: license.pilot_license_id,
-    pilot_license_expiry: normalizeDate(member.user?.pilot_license_expiry),
-    medical_certificate_expiry: normalizeDate(member.user?.medical_certificate_expiry),
-  }
-}
-
-function normalize(
-  values: PilotDetailsFormValues,
-  availableLicenses: LicenseLite[]
-): PilotDetailsFormValues {
-  const license = normalizeLicense(values, availableLicenses)
-  return {
-    pilot_license_number: toNullable(values.pilot_license_number),
-    pilot_license_type: license.pilot_license_type,
-    pilot_license_id: license.pilot_license_id,
-    pilot_license_expiry: normalizeDate(values.pilot_license_expiry),
-    medical_certificate_expiry: normalizeDate(values.medical_certificate_expiry),
-  }
-}
-
-function areEqual(
-  a: PilotDetailsFormValues,
-  b: PilotDetailsFormValues,
-  availableLicenses: LicenseLite[]
-) {
-  return (
-    JSON.stringify(normalize(a, availableLicenses)) ===
-    JSON.stringify(normalize(b, availableLicenses))
-  )
+function areEqual(a: PilotDetailsFormValues, b: PilotDetailsFormValues) {
+  return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b))
 }
 
 function formatDate(value: string | null | undefined) {
@@ -207,16 +163,15 @@ export function MemberPilotDetails({
   onPilotSaved,
   formId,
 }: Props) {
+  const seedValues = React.useMemo(
+    () => (member ? toFormValues(member) : null),
+    [member]
+  )
+
   const [isSaving, setIsSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [initial, setInitial] = React.useState<PilotDetailsFormValues | null>(null)
-  const [form, setForm] = React.useState<PilotDetailsFormValues>({
-    pilot_license_number: null,
-    pilot_license_type: null,
-    pilot_license_id: null,
-    pilot_license_expiry: null,
-    medical_certificate_expiry: null,
-  })
+  const [initial, setInitial] = React.useState<PilotDetailsFormValues | null>(() => seedValues)
+  const [form, setForm] = React.useState<PilotDetailsFormValues>(() => seedValues ?? DEFAULT_FORM_VALUES)
 
   const [userEndorsements, setUserEndorsements] = React.useState<UserEndorsementWithRelation[]>(
     initialUserEndorsements
@@ -228,11 +183,11 @@ export function MemberPilotDetails({
   const [showAddEndorsement, setShowAddEndorsement] = React.useState(false)
 
   React.useEffect(() => {
-    if (!member) return
-    const values = toFormValues(member, availableLicenses)
-    setInitial(values)
-    setForm(values)
-  }, [member, availableLicenses])
+    if (!seedValues) return
+    if (initial) return
+    setInitial(seedValues)
+    setForm(seedValues)
+  }, [initial, seedValues])
 
   React.useEffect(() => {
     setUserEndorsements(initialUserEndorsements)
@@ -240,8 +195,8 @@ export function MemberPilotDetails({
 
   const isDirty = React.useMemo(() => {
     if (!initial) return false
-    return !areEqual(initial, form, availableLicenses)
-  }, [initial, form, availableLicenses])
+    return !areEqual(initial, form)
+  }, [initial, form])
 
   React.useEffect(() => {
     onDirtyChange?.(isDirty)
@@ -274,7 +229,6 @@ export function MemberPilotDetails({
     const payload: UpdateMemberPilotInput = {
       memberId,
       pilot_license_number: form.pilot_license_number?.trim() || null,
-      pilot_license_type: form.pilot_license_type?.trim() || null,
       pilot_license_id: form.pilot_license_id || null,
       pilot_license_expiry: form.pilot_license_expiry || null,
       medical_certificate_expiry: form.medical_certificate_expiry || null,
@@ -290,7 +244,6 @@ export function MemberPilotDetails({
 
       const savedValues: PilotDetailsFormValues = {
         pilot_license_number: payload.pilot_license_number,
-        pilot_license_type: payload.pilot_license_type,
         pilot_license_id: payload.pilot_license_id,
         pilot_license_expiry: payload.pilot_license_expiry,
         medical_certificate_expiry: payload.medical_certificate_expiry,
@@ -386,6 +339,10 @@ export function MemberPilotDetails({
   const medicalStatus = getExpiryStatus(form.medical_certificate_expiry)
   const PilotIcon = pilotLicenseStatus.icon
   const MedicalIcon = medicalStatus.icon
+  const selectedLicenseLabel = form.pilot_license_id
+    ? (availableLicenses.find((license) => license.id === form.pilot_license_id)?.name ??
+        "Current license")
+    : null
   const selectedLicenseExists = form.pilot_license_id
     ? availableLicenses.some((license) => license.id === form.pilot_license_id)
     : true
@@ -426,23 +383,24 @@ export function MemberPilotDetails({
                   onValueChange={(value) => {
                     if (value === UNSET_LICENSE_VALUE) {
                       setField("pilot_license_id", null)
-                      setField("pilot_license_type", null)
                       return
                     }
                     setField("pilot_license_id", value)
-                    const selected = availableLicenses.find((license) => license.id === value)
-                    if (selected) setField("pilot_license_type", selected.name)
                   }}
                 >
                   <SelectTrigger className="h-11 w-full rounded-lg border-gray-200 bg-white focus:ring-indigo-500">
-                    <SelectValue placeholder="Select license type" />
+                    <SelectValue>
+                      {selectedLicenseLabel ? (
+                        <span className="truncate">{selectedLicenseLabel}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Select license type</span>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={UNSET_LICENSE_VALUE}>Not set</SelectItem>
                     {!selectedLicenseExists && form.pilot_license_id ? (
-                      <SelectItem value={form.pilot_license_id}>
-                        {form.pilot_license_type ?? "Current license"}
-                      </SelectItem>
+                      <SelectItem value={form.pilot_license_id}>Current license</SelectItem>
                     ) : null}
                     {availableLicenses.map((license) => (
                       <SelectItem key={license.id} value={license.id}>

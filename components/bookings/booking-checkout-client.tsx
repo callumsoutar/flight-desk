@@ -12,6 +12,7 @@ import {
 import {
   BookingEditDetailsCard,
   createBookingEditInitialState,
+  normalizeBookingEditFormState,
   type BookingEditFormState,
 } from "@/components/bookings/booking-edit-details-card"
 import { BookingHeader } from "@/components/bookings/booking-header"
@@ -29,6 +30,7 @@ import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
 
 type CheckoutFormState = {
+  checked_out_aircraft_id: string | null
   eta: string
   fuel_on_board: string
   route: string
@@ -67,9 +69,19 @@ function normalizeText(value: string) {
   return trimmed.length ? trimmed : null
 }
 
+function formatDurationMinutes(totalMinutes: number): string {
+  const minutes = Math.max(0, Math.round(totalMinutes))
+  const hoursPart = Math.floor(minutes / 60)
+  const minutesPart = minutes % 60
+  if (hoursPart <= 0) return `${minutesPart}m`
+  if (minutesPart === 0) return `${hoursPart}h`
+  return `${hoursPart}h ${minutesPart}m`
+}
+
 function createCheckoutInitialState(booking: BookingWithRelations): CheckoutFormState {
   return {
-    eta: toDatetimeLocal(booking.eta),
+    checked_out_aircraft_id: booking.checked_out_aircraft_id ?? booking.aircraft_id ?? null,
+    eta: toDatetimeLocal(booking.eta ?? booking.end_time),
     fuel_on_board:
       typeof booking.fuel_on_board === "number" && Number.isFinite(booking.fuel_on_board)
         ? String(booking.fuel_on_board)
@@ -95,15 +107,120 @@ export function BookingCheckoutClient({
 }) {
   const router = useRouter()
   const [isPending, startTransition] = React.useTransition()
-  const [bookingForm, setBookingForm] = React.useState<BookingEditFormState>(() =>
-    createBookingEditInitialState(booking)
-  )
-  const [checkoutForm, setCheckoutForm] = React.useState<CheckoutFormState>(() =>
-    createCheckoutInitialState(booking)
+  const serverInitialBookingForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
+  const serverInitialCheckoutForm = React.useMemo(() => createCheckoutInitialState(booking), [booking])
+
+  const [bookingForm, setBookingForm] = React.useState<BookingEditFormState>(() => serverInitialBookingForm)
+  const [checkoutForm, setCheckoutForm] = React.useState<CheckoutFormState>(() => serverInitialCheckoutForm)
+  const [isEtaAuto, setIsEtaAuto] = React.useState(() => {
+    const endTimeLocal = toDatetimeLocal(serverInitialBookingForm.end_time)
+    return !serverInitialCheckoutForm.eta || serverInitialCheckoutForm.eta === endTimeLocal
+  })
+  const [savedBookingForm, setSavedBookingForm] = React.useState<BookingEditFormState>(() => serverInitialBookingForm)
+  const [savedCheckoutForm, setSavedCheckoutForm] = React.useState<CheckoutFormState>(() => serverInitialCheckoutForm)
+  const savedBookingFormRef = React.useRef(savedBookingForm)
+  const savedCheckoutFormRef = React.useRef(savedCheckoutForm)
+  const bookingFormRef = React.useRef(bookingForm)
+  const checkoutFormRef = React.useRef(checkoutForm)
+
+  React.useEffect(() => {
+    savedBookingFormRef.current = savedBookingForm
+  }, [savedBookingForm])
+
+  React.useEffect(() => {
+    savedCheckoutFormRef.current = savedCheckoutForm
+  }, [savedCheckoutForm])
+
+  React.useEffect(() => {
+    bookingFormRef.current = bookingForm
+  }, [bookingForm])
+
+  React.useEffect(() => {
+    checkoutFormRef.current = checkoutForm
+  }, [checkoutForm])
+
+  React.useEffect(() => {
+    const prevSavedBooking = savedBookingFormRef.current
+    const prevSavedCheckout = savedCheckoutFormRef.current
+    const currentBooking = bookingFormRef.current
+    const currentCheckout = checkoutFormRef.current
+    const shouldResetBookingForm = JSON.stringify(currentBooking) === JSON.stringify(prevSavedBooking)
+    const shouldResetCheckoutForm = JSON.stringify(currentCheckout) === JSON.stringify(prevSavedCheckout)
+
+    setSavedBookingForm(serverInitialBookingForm)
+    setSavedCheckoutForm(serverInitialCheckoutForm)
+    savedBookingFormRef.current = serverInitialBookingForm
+    savedCheckoutFormRef.current = serverInitialCheckoutForm
+
+    if (shouldResetBookingForm) setBookingForm(serverInitialBookingForm)
+    if (shouldResetCheckoutForm) setCheckoutForm(serverInitialCheckoutForm)
+    if (shouldResetCheckoutForm) {
+      const endTimeLocal = toDatetimeLocal(serverInitialBookingForm.end_time)
+      setIsEtaAuto(!serverInitialCheckoutForm.eta || serverInitialCheckoutForm.eta === endTimeLocal)
+    }
+  }, [serverInitialBookingForm, serverInitialCheckoutForm])
+
+  const bookingEndTimeLocal = React.useMemo(
+    () => toDatetimeLocal(bookingForm.end_time || null),
+    [bookingForm.end_time]
   )
 
-  const initialBookingForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
-  const initialCheckoutForm = React.useMemo(() => createCheckoutInitialState(booking), [booking])
+  const checkedOutAircraftId = checkoutForm.checked_out_aircraft_id
+
+  const selectedAircraft = React.useMemo(() => {
+    const aircraftId = checkedOutAircraftId
+    if (!aircraftId) return null
+    return options.aircraft.find((item) => item.id === aircraftId) ?? null
+  }, [checkedOutAircraftId, options.aircraft])
+
+  const fuelConsumption = React.useMemo(() => {
+    const aircraftId = checkedOutAircraftId
+    if (!aircraftId) return null
+
+    if (typeof selectedAircraft?.fuel_consumption === "number") {
+      return selectedAircraft.fuel_consumption
+    }
+
+    if (booking.aircraft?.id === aircraftId) return booking.aircraft.fuel_consumption ?? null
+    if (booking.checked_out_aircraft?.id === aircraftId) return booking.checked_out_aircraft.fuel_consumption ?? null
+
+    return null
+  }, [booking.aircraft, booking.checked_out_aircraft, checkedOutAircraftId, selectedAircraft])
+
+  const enduranceSummary = React.useMemo(() => {
+    const fuelText = checkoutForm.fuel_on_board.trim()
+    const fuel = fuelText.length ? Number.parseFloat(fuelText) : null
+    const burn = fuelConsumption
+    if (typeof burn !== "number" || !Number.isFinite(burn) || burn <= 0) {
+      return { label: "Endurance: —", detail: "Fuel consumption not set for this aircraft." }
+    }
+
+    if (fuel === null) {
+      return { label: "Endurance: —", detail: `Based on ${burn.toFixed(1)}/hr.` }
+    }
+
+    if (!Number.isFinite(fuel) || fuel < 0) {
+      return { label: "Endurance: —", detail: `Based on ${burn.toFixed(1)}/hr.` }
+    }
+
+    const totalMinutes = (fuel / burn) * 60
+    if (!Number.isFinite(totalMinutes)) {
+      return { label: "Endurance: —", detail: `Based on ${burn.toFixed(1)}/hr.` }
+    }
+
+    return {
+      label: `Est. endurance: ${formatDurationMinutes(totalMinutes)}`,
+      detail: `Based on ${burn.toFixed(1)}/hr.`,
+    }
+  }, [checkoutForm.fuel_on_board, fuelConsumption])
+
+  React.useEffect(() => {
+    if (!isEtaAuto) return
+    setCheckoutForm((current) => {
+      if (current.eta === bookingEndTimeLocal) return current
+      return { ...current, eta: bookingEndTimeLocal }
+    })
+  }, [bookingEndTimeLocal, isEtaAuto])
 
   const isStaff = role === "owner" || role === "admin" || role === "instructor"
   const isMemberOrStudent = role === "member" || role === "student"
@@ -111,8 +228,8 @@ export function BookingCheckoutClient({
   const canCheckIn = isStaff && booking.status === "flying"
   const isReadOnly = booking.status === "complete" || booking.status === "cancelled"
   const isDirty =
-    JSON.stringify(bookingForm) !== JSON.stringify(initialBookingForm) ||
-    JSON.stringify(checkoutForm) !== JSON.stringify(initialCheckoutForm)
+    JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
+    JSON.stringify(checkoutForm) !== JSON.stringify(savedCheckoutForm)
 
   const studentName = booking.student ? formatUser(booking.student) : "Booking Checkout"
   const canSubmitCheckout = canCheckOut && checkoutForm.authorization_completed
@@ -167,19 +284,25 @@ export function BookingCheckoutClient({
   }
 
   const handleUndo = () => {
-    setBookingForm(initialBookingForm)
-    setCheckoutForm(initialCheckoutForm)
+    const nextBookingForm = savedBookingFormRef.current
+    const nextCheckoutForm = savedCheckoutFormRef.current
+    setBookingForm(nextBookingForm)
+    setCheckoutForm(nextCheckoutForm)
+    const endTimeLocal = toDatetimeLocal(nextBookingForm.end_time || null)
+    setIsEtaAuto(!nextCheckoutForm.eta || nextCheckoutForm.eta === endTimeLocal)
   }
 
   const buildCheckoutPayload = React.useCallback(() => {
     const parsedFuel = checkoutForm.fuel_on_board.trim()
     const nextFuel = parsedFuel.length ? Number.parseFloat(parsedFuel) : null
+    const etaValue = isEtaAuto ? bookingEndTimeLocal : checkoutForm.eta
 
     return {
       ...bookingForm,
       start_time: toIso(bookingForm.start_time),
       end_time: toIso(bookingForm.end_time),
-      eta: toIsoOrNull(checkoutForm.eta),
+      checked_out_aircraft_id: checkoutForm.checked_out_aircraft_id,
+      eta: toIsoOrNull(etaValue),
       fuel_on_board: Number.isNaN(nextFuel ?? Number.NaN) ? null : nextFuel,
       route: normalizeText(checkoutForm.route),
       passengers: normalizeText(checkoutForm.passengers),
@@ -187,7 +310,7 @@ export function BookingCheckoutClient({
       briefing_completed: checkoutForm.briefing_completed,
       authorization_completed: checkoutForm.authorization_completed,
     }
-  }, [bookingForm, checkoutForm])
+  }, [bookingEndTimeLocal, bookingForm, checkoutForm, isEtaAuto])
 
   const handleSave = () => {
     if (isReadOnly || !isDirty) return
@@ -201,6 +324,17 @@ export function BookingCheckoutClient({
       }
 
       toast.success("Checkout details updated")
+      const nextSavedBooking = normalizeBookingEditFormState({
+        ...bookingForm,
+        start_time: toIso(bookingForm.start_time),
+        end_time: toIso(bookingForm.end_time),
+      })
+      setBookingForm(nextSavedBooking)
+      setSavedBookingForm(nextSavedBooking)
+      savedBookingFormRef.current = nextSavedBooking
+
+      setSavedCheckoutForm(checkoutForm)
+      savedCheckoutFormRef.current = checkoutForm
       router.refresh()
     })
   }
@@ -217,6 +351,17 @@ export function BookingCheckoutClient({
       }
 
       toast.success("Flight authorized and marked as flying")
+      const nextSavedBooking = normalizeBookingEditFormState({
+        ...bookingForm,
+        start_time: toIso(bookingForm.start_time),
+        end_time: toIso(bookingForm.end_time),
+      })
+      setBookingForm(nextSavedBooking)
+      setSavedBookingForm(nextSavedBooking)
+      savedBookingFormRef.current = nextSavedBooking
+
+      setSavedCheckoutForm(checkoutForm)
+      savedCheckoutFormRef.current = checkoutForm
       router.refresh()
     })
   }
@@ -296,6 +441,8 @@ export function BookingCheckoutClient({
               isAdminOrInstructor={isStaff}
               isMemberOrStudent={isMemberOrStudent}
               onFieldChange={updateBookingField}
+              aircraftValue={checkoutForm.checked_out_aircraft_id}
+              onAircraftChange={(value) => updateCheckoutField("checked_out_aircraft_id", value)}
               title="Confirm Booking Details"
             />
           </div>
@@ -312,7 +459,11 @@ export function BookingCheckoutClient({
                     type="datetime-local"
                     value={checkoutForm.eta}
                     disabled={isReadOnly}
-                    onChange={(event) => updateCheckoutField("eta", event.target.value)}
+                    onChange={(event) => {
+                      const nextValue = event.target.value
+                      updateCheckoutField("eta", nextValue)
+                      setIsEtaAuto(!nextValue || nextValue === bookingEndTimeLocal)
+                    }}
                   />
                 </div>
 
@@ -327,6 +478,9 @@ export function BookingCheckoutClient({
                     disabled={isReadOnly}
                     onChange={(event) => updateCheckoutField("fuel_on_board", event.target.value)}
                   />
+                  <p className="text-xs leading-snug text-muted-foreground" title={enduranceSummary.detail}>
+                    {enduranceSummary.label}
+                  </p>
                 </div>
 
                 <div className="space-y-2">

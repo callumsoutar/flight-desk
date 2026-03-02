@@ -29,6 +29,7 @@ import {
 } from "@/lib/utils/timezone"
 import { useAuth } from "@/contexts/auth-context"
 import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
+import { ContactDetailsModal } from "@/components/members/contact-details-modal"
 import { NewBookingModal, type SchedulerBookingDraft } from "@/components/scheduler/new-booking-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -482,6 +483,8 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const [newBookingDraft, setNewBookingDraft] = React.useState<SchedulerBookingDraft | null>(null)
   const [cancelModalOpen, setCancelModalOpen] = React.useState(false)
   const [selectedBookingForCancel, setSelectedBookingForCancel] = React.useState<BookingWithRelations | null>(null)
+  const [contactModalOpen, setContactModalOpen] = React.useState(false)
+  const [contactMemberId, setContactMemberId] = React.useState<string | null>(null)
   const [dragPreview, setDragPreview] = React.useState<SchedulerBookingDragPreview | null>(null)
   const [pendingMove, setPendingMove] = React.useState<PendingSchedulerBookingMove | null>(null)
   const [isApplyingMove, setIsApplyingMove] = React.useState(false)
@@ -510,6 +513,11 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   React.useEffect(() => {
     dragPreviewRef.current = dragPreview
   }, [dragPreview])
+
+  const openContactDetails = React.useCallback((memberId: string) => {
+    setContactMemberId(memberId)
+    setContactModalOpen(true)
+  }, [])
 
   React.useEffect(() => {
     setSelectedDateKey(data.dateYyyyMmDd)
@@ -1301,6 +1309,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                         onBookingPointerDown={handleBookingPointerDown}
                         canDragBookings={isStaff}
                         onBookingClick={handleBookingClick}
+                        onViewContactDetails={openContactDetails}
                         onStatusUpdate={(variables) => {
                           void handleStatusUpdate(variables)
                         }}
@@ -1342,6 +1351,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                         onBookingPointerDown={handleBookingPointerDown}
                         canDragBookings={isStaff}
                         onBookingClick={handleBookingClick}
+                        onViewContactDetails={openContactDetails}
                         onStatusUpdate={(variables) => {
                           void handleStatusUpdate(variables)
                         }}
@@ -1503,6 +1513,15 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
           })
         }}
       />
+
+      <ContactDetailsModal
+        open={contactModalOpen}
+        onOpenChange={(open) => {
+          setContactModalOpen(open)
+          if (!open) setContactMemberId(null)
+        }}
+        memberId={contactMemberId}
+      />
     </div>
   )
 }
@@ -1523,6 +1542,7 @@ function TimelineRow({
   onBookingPointerDown,
   canDragBookings,
   onBookingClick,
+  onViewContactDetails,
   onStatusUpdate,
   onCancelBooking,
   timeZone,
@@ -1542,6 +1562,7 @@ function TimelineRow({
   onBookingPointerDown: (payload: SchedulerBookingPointerDownPayload) => void
   canDragBookings: boolean
   onBookingClick: (booking: SchedulerBooking) => void
+  onViewContactDetails?: (memberId: string) => void
   onStatusUpdate: (variables: {
     bookingId: string
     status: BookingStatus
@@ -1866,7 +1887,17 @@ function TimelineRow({
                       View Aircraft
                     </ContextMenuItem>
                     {booking.userId && booking.canViewContact ? (
-                      <ContextMenuItem onClick={() => router.push(`/members/${booking.userId}`)}>
+                      <ContextMenuItem
+                        onClick={() => {
+                          const memberId = booking.userId
+                          if (!memberId) return
+                          if (onViewContactDetails) {
+                            onViewContactDetails(memberId)
+                            return
+                          }
+                          router.push(`/members/${memberId}`)
+                        }}
+                      >
                         <UserCircle className="h-4 w-4" />
                         View Contact Details
                       </ContextMenuItem>

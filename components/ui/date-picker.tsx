@@ -10,11 +10,13 @@ export function DatePicker({
   onChange,
   placeholder,
   className,
+  disabled,
 }: {
   date: string | null | undefined
   onChange: (value: string | null) => void
   placeholder?: string
   className?: string
+  disabled?: boolean
 }) {
   return (
     <Input
@@ -23,6 +25,7 @@ export function DatePicker({
       onChange={(event) => onChange(event.target.value || null)}
       placeholder={placeholder}
       className={cn("bg-white", className)}
+      disabled={disabled}
     />
   )
 }

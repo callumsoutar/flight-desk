@@ -1,10 +1,18 @@
-import type { ChargeablesRow, InvoiceRow, MembershipRow, MembershipTypesRow } from "@/lib/types"
+import type { ChargeablesRow, InvoiceRow, Json, MembershipRow, MembershipTypesRow } from "@/lib/types"
 
 export type MembershipTypeWithChargeable = Pick<
   MembershipTypesRow,
-  "id" | "name" | "duration_months" | "is_active"
+  | "id"
+  | "name"
+  | "code"
+  | "description"
+  | "duration_months"
+  | "benefits"
+  | "is_active"
+  | "chargeable_id"
 > & {
-  chargeables: Pick<ChargeablesRow, "id" | "rate" | "is_taxable"> | null
+  benefits: Json | null
+  chargeables: Pick<ChargeablesRow, "id" | "name" | "rate" | "is_taxable"> | null
 }
 
 export type MembershipRecord = Pick<

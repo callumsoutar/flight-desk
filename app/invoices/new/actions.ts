@@ -6,7 +6,6 @@ import { z } from "zod"
 import {
   calculateInvoiceTotals,
   calculateItemAmounts,
-  roundToTwoDecimals,
 } from "@/lib/invoices/invoice-calculations"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -120,7 +119,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
       throw new Error("Chargeable not found after validation")
     }
 
-    const unitPrice = roundToTwoDecimals(item.unitPrice)
+    const unitPrice = item.unitPrice
     const taxRate = chargeable.is_taxable ? defaultTaxRate : 0
     const amounts = calculateItemAmounts({
       quantity: item.quantity,

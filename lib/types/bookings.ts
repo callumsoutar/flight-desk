@@ -45,6 +45,7 @@ export type BookingWithRelations = BookingRow & {
         | "manufacturer"
         | "current_hobbs"
         | "current_tach"
+        | "fuel_consumption"
         | "aircraft_type_id"
       >
     | null
@@ -58,6 +59,7 @@ export type BookingWithRelations = BookingRow & {
         | "manufacturer"
         | "current_hobbs"
         | "current_tach"
+        | "fuel_consumption"
         | "aircraft_type_id"
       >
     | null
@@ -79,7 +81,10 @@ export type BookingsFilter = {
 
 export type BookingOptions = {
   aircraft: Array<
-    Pick<AircraftRow, "id" | "registration" | "type" | "model" | "manufacturer" | "aircraft_type_id">
+    Pick<
+      AircraftRow,
+      "id" | "registration" | "type" | "model" | "manufacturer" | "aircraft_type_id" | "fuel_consumption"
+    >
   >
   members: DirectoryUserLite[]
   instructors: Array<
@@ -100,4 +105,12 @@ export type BookingOptions = {
 
 export type AuditLog = AuditLogsRow & {
   user: DirectoryUserLite | null
+}
+
+export type AuditLookupMaps = {
+  users: Record<string, string>
+  instructors: Record<string, string>
+  lessons: Record<string, string>
+  flightTypes: Record<string, string>
+  aircraft: Record<string, string>
 }
