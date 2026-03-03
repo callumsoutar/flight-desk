@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   IconAddressBook,
@@ -12,6 +13,7 @@ import {
   IconCircleCheck,
   IconClock,
   IconDotsVertical,
+  IconFileDescription,
   IconPencil,
   IconPlane,
   IconPlaneDeparture,
@@ -572,61 +574,79 @@ export function BookingDetailClient({
     ]
   )
 
-  const headerActions = isAdminOrInstructor ? (
-    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-      {booking.status === "unconfirmed" ? (
-        <Button
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={() => handleStatusChange("confirmed")}
-          disabled={isPending}
-        >
-          <IconCheck className="mr-2 h-4 w-4" />
-          Confirm
-        </Button>
-      ) : null}
-      {booking.status === "confirmed" ? (
-        <Button
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={() => router.push(`/bookings/checkout/${bookingId}`)}
-          disabled={isPending}
-        >
-          <IconPlane className="mr-2 h-4 w-4" />
-          Check Out
-        </Button>
-      ) : null}
-      {booking.status === "flying" ? (
-        <Button
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={() => router.push(`/bookings/checkin/${bookingId}`)}
-          disabled={isPending}
-        >
-          <IconCheck className="mr-2 h-4 w-4" />
-          Check In
-        </Button>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-            Quick Actions
-            <IconChevronDown className="ml-2 h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
-            disabled={isReadOnly || !!booking.cancelled_at}
-            onClick={() => setCancelOpen(true)}
+  const headerActions =
+    lessonProgressExists || isAdminOrInstructor ? (
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+        {lessonProgressExists ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto"
+            asChild
           >
-            <IconTrash className="mr-2 h-4 w-4" />
-            Cancel Booking
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  ) : null
+            <Link href={`/bookings/${bookingId}/debrief`}>
+              <IconFileDescription className="mr-2 h-4 w-4" />
+              View Debrief
+            </Link>
+          </Button>
+        ) : null}
+        {isAdminOrInstructor && (
+          <>
+            {booking.status === "unconfirmed" ? (
+              <Button
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => handleStatusChange("confirmed")}
+                disabled={isPending}
+              >
+                <IconCheck className="mr-2 h-4 w-4" />
+                Confirm
+              </Button>
+            ) : null}
+            {booking.status === "confirmed" ? (
+              <Button
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => router.push(`/bookings/checkout/${bookingId}`)}
+                disabled={isPending}
+              >
+                <IconPlane className="mr-2 h-4 w-4" />
+                Check Out
+              </Button>
+            ) : null}
+            {booking.status === "flying" ? (
+              <Button
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => router.push(`/bookings/checkin/${bookingId}`)}
+                disabled={isPending}
+              >
+                <IconCheck className="mr-2 h-4 w-4" />
+                Check In
+              </Button>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                  Quick Actions
+                  <IconChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600"
+                  disabled={isReadOnly || !!booking.cancelled_at}
+                  onClick={() => setCancelOpen(true)}
+                >
+                  <IconTrash className="mr-2 h-4 w-4" />
+                  Cancel Booking
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
+      </div>
+    ) : null
 
   return (
     <div className="flex flex-1 flex-col bg-muted/30">
@@ -637,7 +657,7 @@ export function BookingDetailClient({
         actions={headerActions}
       />
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
+      <div className="w-full max-w-none flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
         <BookingStatusTracker
           stages={trackerStages}
           activeStageId={trackerState.activeStageId}

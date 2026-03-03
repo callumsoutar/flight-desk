@@ -273,7 +273,7 @@ function TrainingCommentsPanel({ memberId }: { memberId: string }) {
                 <td className="px-6 py-4 align-middle text-slate-700">{instructorName(comment)}</td>
                 <td className="px-6 py-4 align-middle">
                   <div
-                    className="line-clamp-2 leading-normal text-slate-600"
+                    className="line-clamp-2 leading-normal text-slate-600 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_b]:font-semibold [&_strong]:font-semibold [&_i]:italic [&_em]:italic"
                     dangerouslySetInnerHTML={{ __html: sanitizeHTML(comment.instructor_comments) }}
                   />
                 </td>
@@ -310,7 +310,7 @@ function TrainingCommentsPanel({ memberId }: { memberId: string }) {
             <div>
               <div className="mb-1 text-[10px] text-slate-500">Comments</div>
               <div
-                className="line-clamp-3 text-sm leading-normal text-slate-600"
+                className="line-clamp-3 text-sm leading-normal text-slate-600 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_b]:font-semibold [&_strong]:font-semibold [&_i]:italic [&_em]:italic"
                 dangerouslySetInnerHTML={{ __html: sanitizeHTML(comment.instructor_comments) }}
               />
             </div>

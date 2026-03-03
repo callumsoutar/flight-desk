@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   IconAlertCircle,
+  IconArrowRight,
   IconCalculator,
   IconCheck,
   IconClock,
@@ -38,6 +39,7 @@ import type { InvoiceRow } from "@/lib/types"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { InvoiceItem } from "@/lib/types/invoice_items"
 import type { UserRole } from "@/lib/types/roles"
+import type { LessonProgressRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
 
 type ChargeBasis = "hobbs" | "tacho" | "airswitch"
@@ -114,6 +116,22 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(message)
   }
   return (await res.json()) as T
+}
+
+function selectLatestLessonProgress(value: BookingWithRelations["lesson_progress"]): LessonProgressRow | null {
+  if (!value) return null
+  const list = Array.isArray(value) ? value : [value]
+  if (list.length === 0) return null
+  if (list.length === 1) return list[0]
+
+  const copy = [...list]
+  copy.sort((a, b) => {
+    const aTime = new Date(a.created_at).getTime()
+    const bTime = new Date(b.created_at).getTime()
+    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
+  })
+
+  return copy[0] ?? null
 }
 
 function calculateFlightHours(start: number | null | undefined, end: number | null | undefined): number {
@@ -313,12 +331,11 @@ export function BookingCheckinClient({
     () => getBookingTrackerStages(Boolean(booking.briefing_completed)),
     [booking.briefing_completed]
   )
-  const lessonProgressExists = React.useMemo(() => {
-    if (!booking.lesson_progress) return false
-    return Array.isArray(booking.lesson_progress)
-      ? booking.lesson_progress.length > 0
-      : true
-  }, [booking.lesson_progress])
+  const latestLessonProgress = React.useMemo(
+    () => selectLatestLessonProgress(booking.lesson_progress),
+    [booking.lesson_progress]
+  )
+  const lessonProgressExists = Boolean(latestLessonProgress?.id)
 
   const trackerState = React.useMemo(
     () =>
@@ -1303,7 +1320,7 @@ export function BookingCheckinClient({
     splitTimes.solo,
   ])
 
-  const approveDraft = React.useCallback(async () => {
+  const approveDraft = React.useCallback(async ({ continueToDebrief }: { continueToDebrief?: boolean } = {}) => {
     if (!isAdminOrInstructor) {
       toast.error("Only staff can approve check-in")
       return
@@ -1379,6 +1396,10 @@ export function BookingCheckinClient({
 
       setLocalInvoiceId(result.invoice.id)
       toast.success("Check-in approved and invoice created")
+      if (continueToDebrief) {
+        router.push(`/bookings/${bookingId}/debrief/write`)
+        return
+      }
       router.refresh()
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -1522,7 +1543,7 @@ export function BookingCheckinClient({
           backHref={`/bookings/${bookingId}`}
           backLabel="Back to Booking"
         />
-        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full max-w-none flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <Card>
             <CardHeader>
               <CardTitle>Check-in access required</CardTitle>
@@ -1545,7 +1566,7 @@ export function BookingCheckinClient({
           backHref={`/bookings/${bookingId}`}
           backLabel="Back to Booking"
         />
-        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full max-w-none flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <Card>
             <CardHeader>
               <CardTitle>Invalid booking type</CardTitle>
@@ -1568,14 +1589,15 @@ export function BookingCheckinClient({
         backLabel="Back to Booking"
       />
 
-      <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="w-full max-w-none flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <BookingStatusTracker
           stages={trackerStages}
           activeStageId={trackerState.activeStageId}
           completedStageIds={trackerState.completedStageIds}
         />
 
-        <Card className="border-border/60">
+          <div className="grid gap-6 xl:grid-cols-5 xl:items-start">
+            <Card className="border-border/60 xl:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <IconClock className="h-4 w-4" />
@@ -1668,7 +1690,7 @@ export function BookingCheckinClient({
             <div className="border-t border-border/50" />
 
             <div className="space-y-2">
-              <div className="hidden sm:grid sm:grid-cols-[140px_1fr_1fr_60px] max-w-xl gap-3 text-xs font-medium text-muted-foreground">
+              <div className="hidden sm:grid sm:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_70px] gap-3 text-xs font-medium text-muted-foreground">
                 <div>Meter</div>
                 <div>Start</div>
                 <div>End</div>
@@ -1693,7 +1715,7 @@ export function BookingCheckinClient({
 
                   return (
                     <React.Fragment key={meter}>
-                      <div className="grid items-center gap-3 sm:grid-cols-[140px_1fr_1fr_60px] max-w-xl">
+                      <div className="grid items-center gap-3 sm:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_70px]">
                         <label className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <MeterIcon className="h-4 w-4 text-muted-foreground" />
                           {meterLabel}
@@ -1734,7 +1756,7 @@ export function BookingCheckinClient({
                       </div>
 
                       {showSoloAtEnd ? (
-                        <div className="grid items-center gap-3 sm:grid-cols-[140px_1fr_1fr_60px] max-w-xl">
+                        <div className="grid items-center gap-3 sm:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_70px]">
                           <div />
                           <div className="flex items-center justify-between sm:col-span-2">
                             <div className="flex items-center gap-2.5">
@@ -1757,7 +1779,7 @@ export function BookingCheckinClient({
                                   value={soloEndValue}
                                   disabled={isApproved}
                                   onChange={(event) => setSoloEnd(event.target.value)}
-                                  className="h-9 w-28 tabular-nums"
+                                  className="h-9 w-32 tabular-nums"
                                 />
                               </div>
                             ) : null}
@@ -1803,7 +1825,7 @@ export function BookingCheckinClient({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60">
+            <Card className="border-border/60 xl:col-span-3">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -2147,7 +2169,7 @@ export function BookingCheckinClient({
             </div>
 
             <div className="flex justify-end border-t pt-4">
-              <Button type="button" onClick={() => void approveDraft()} disabled={!canApprove}>
+              <Button type="button" onClick={() => void approveDraft({ continueToDebrief: true })} disabled={!canApprove}>
                 {isApproving ? (
                   <>
                     <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2156,7 +2178,8 @@ export function BookingCheckinClient({
                 ) : (
                   <>
                     <IconCheck className="mr-2 h-4 w-4" />
-                    Approve Check-In & Create Invoice
+                    Save & Continue
+                    <IconArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
@@ -2164,16 +2187,18 @@ export function BookingCheckinClient({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconPlane className="h-4 w-4" />
-              Finalized Check-In
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {checkinInvoiceId ? (
-              invoiceLoading ? (
+          </div>
+
+        {checkinInvoiceId ? (
+          <Card className="border-border/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconPlane className="h-4 w-4" />
+                Finalized Invoice
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {invoiceLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <IconLoader2 className="h-4 w-4 animate-spin" />
                   Loading invoice details...
@@ -2182,15 +2207,15 @@ export function BookingCheckinClient({
                 <div className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-3">
                     <div className="rounded-md border p-3">
-                      <div className="text-xs uppercase text-muted-foreground">Invoice Number</div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Invoice Number</div>
                       <div className="mt-1 font-semibold">{invoice.invoice_number || "Draft"}</div>
                     </div>
                     <div className="rounded-md border p-3">
-                      <div className="text-xs uppercase text-muted-foreground">Total</div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Total</div>
                       <div className="mt-1 font-semibold">${Number(invoice.total_amount || 0).toFixed(2)}</div>
                     </div>
                     <div className="rounded-md border p-3">
-                      <div className="text-xs uppercase text-muted-foreground">Aircraft</div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Aircraft</div>
                       <div className="mt-1 font-semibold">{selectedAircraftLabel}</div>
                     </div>
                   </div>
@@ -2232,10 +2257,10 @@ export function BookingCheckinClient({
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                   Failed to load invoice details.
                 </div>
-              )
-            ) : null}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {isApproved && !isCorrectionMode ? (
           <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/30">
