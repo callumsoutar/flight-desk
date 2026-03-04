@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -10,12 +11,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TrainingStudentDebriefsTab } from "@/components/training/training-student-debriefs-tab"
 import { TrainingStudentFlyingTab } from "@/components/training/training-student-flying-tab"
 import { TrainingStudentOverviewTab } from "@/components/training/training-student-overview-tab"
+import { TrainingStudentProgrammeTab } from "@/components/training/training-student-programme-tab"
 import { TrainingStudentTheoryTab } from "@/components/training/training-student-theory-tab"
 import { cn, getUserInitials } from "@/lib/utils"
+import type { MemberTrainingResponse } from "@/lib/types/member-training"
 import type { TrainingOverviewRow } from "@/lib/types/training-overview"
 
 function statusBadge(status: TrainingOverviewRow["activity_status"]) {
@@ -48,10 +52,41 @@ export function TrainingStudentSheet({
   onOpenChange: (open: boolean) => void
 }) {
   const [activeTab, setActiveTab] = React.useState("overview")
+  const [programme, setProgramme] = React.useState<MemberTrainingResponse["training"] | null>(null)
+  const [programmeLoading, setProgrammeLoading] = React.useState(false)
+  const [programmeError, setProgrammeError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (row) setActiveTab("overview")
+    setProgramme(null)
+    setProgrammeError(null)
+    setProgrammeLoading(false)
   }, [row])
+
+  const loadProgramme = React.useCallback(async () => {
+    if (!row) return
+    setProgrammeLoading(true)
+    setProgrammeError(null)
+    try {
+      const res = await fetch(`/api/members/${row.user_id}/training`, { cache: "no-store" })
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null
+      if (!res.ok) throw new Error(payload?.error || "Failed to load programme data")
+      const data = payload as unknown as MemberTrainingResponse
+      setProgramme(data.training)
+    } catch (err) {
+      setProgramme(null)
+      setProgrammeError(err instanceof Error ? err.message : "Failed to load programme data")
+    } finally {
+      setProgrammeLoading(false)
+    }
+  }, [row])
+
+  React.useEffect(() => {
+    if (!row) return
+    if (activeTab !== "programme") return
+    if (programme || programmeLoading) return
+    void loadProgramme()
+  }, [activeTab, loadProgramme, programme, programmeLoading, row])
 
   const initials = row
     ? getUserInitials(row.student.first_name, row.student.last_name, row.student.email)
@@ -95,6 +130,13 @@ export function TrainingStudentSheet({
                     </div>
                   </div>
                 </div>
+                <div className="ml-auto shrink-0">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/members/${row.user_id}?tab=training&syllabus_id=${row.syllabus_id}`}>
+                      Open full record
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </SheetHeader>
 
@@ -105,6 +147,7 @@ export function TrainingStudentSheet({
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="flying">Flying</TabsTrigger>
                     <TabsTrigger value="debriefs">Debriefs</TabsTrigger>
+                    <TabsTrigger value="programme">Programme</TabsTrigger>
                     <TabsTrigger value="theory">Theory</TabsTrigger>
                   </TabsList>
                 </div>
@@ -119,6 +162,26 @@ export function TrainingStudentSheet({
 
                 <TabsContent value="debriefs">
                   <TrainingStudentDebriefsTab userId={row.user_id} syllabusId={row.syllabus_id} />
+                </TabsContent>
+
+                <TabsContent value="programme">
+                  <div className="p-6">
+                    {programmeLoading ? (
+                      <div className="text-sm text-muted-foreground">Loading programme…</div>
+                    ) : programmeError ? (
+                      <div className="text-sm text-destructive">{programmeError}</div>
+                    ) : programme ? (
+                      <TrainingStudentProgrammeTab
+                        userId={row.user_id}
+                        syllabi={programme.syllabi}
+                        enrollments={programme.enrollments}
+                        timeZone={programme.timeZone}
+                        onRefresh={loadProgramme}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Programme details unavailable.</div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="theory">

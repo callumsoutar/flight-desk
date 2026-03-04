@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import * as Tabs from "@radix-ui/react-tabs"
 import {
   IconArrowLeft,
@@ -96,11 +96,13 @@ export function MemberDetailClient({
   defaultTaxRate: TenantDefaultTaxRate
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentMember, setCurrentMember] = React.useState(member)
   const [currentUserEndorsements, setCurrentUserEndorsements] = React.useState(
     initialUserEndorsements
   )
   const [activeTab, setActiveTab] = React.useState("contact")
+  const didInitTabFromQuery = React.useRef(false)
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
@@ -203,16 +205,29 @@ export function MemberDetailClient({
     ? formatDate(currentMember.membership.start_date)
     : null
 
-  const tabItems = [
-    { id: "contact", label: "Contact", icon: IconMail },
-    { id: "pilot", label: "Pilot Details", icon: IconUser },
-    { id: "memberships", label: "Memberships", icon: IconUsers },
-    { id: "finances", label: "Finances", icon: IconCreditCard },
-    { id: "flights", label: "Bookings", icon: IconCalendar },
-    { id: "logbook", label: "Logbook", icon: IconHistory },
-    { id: "training", label: "Training", icon: IconChartBar },
-    { id: "account", label: "Account", icon: IconUser },
-  ]
+  const tabItems = React.useMemo(
+    () => [
+      { id: "contact", label: "Contact", icon: IconMail },
+      { id: "pilot", label: "Pilot Details", icon: IconUser },
+      { id: "memberships", label: "Memberships", icon: IconUsers },
+      { id: "finances", label: "Finances", icon: IconCreditCard },
+      { id: "flights", label: "Bookings", icon: IconCalendar },
+      { id: "logbook", label: "Logbook", icon: IconHistory },
+      { id: "training", label: "Training", icon: IconChartBar },
+      { id: "account", label: "Account", icon: IconUser },
+    ],
+    []
+  )
+
+  React.useEffect(() => {
+    if (didInitTabFromQuery.current) return
+    const requested = searchParams.get("tab")
+    if (!requested) return
+    const isValid = tabItems.some((t) => t.id === requested)
+    if (!isValid) return
+    didInitTabFromQuery.current = true
+    setActiveTab(requested)
+  }, [searchParams, tabItems])
 
   const onNewBooking = () => {
     toast.info("Booking flow will be wired next.")
