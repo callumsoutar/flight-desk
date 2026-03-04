@@ -42,5 +42,6 @@ export const config = {
     "/scheduler/:path*",
     "/rosters/:path*",
     "/instructors/:path*",
+    "/training/:path*",
   ],
 }

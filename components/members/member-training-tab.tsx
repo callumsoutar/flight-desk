@@ -67,6 +67,22 @@ function parseDateKey(value: string) {
   return { year, month, day }
 }
 
+function toDateKey(value: string | null | undefined) {
+  if (!value) return null
+  const parsed = parseDateKey(value)
+  if (parsed) {
+    const yyyy = String(parsed.year).padStart(4, "0")
+    const mm = String(parsed.month).padStart(2, "0")
+    const dd = String(parsed.day).padStart(2, "0")
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  const normalized = value.includes(" ") && !value.includes("T") ? value.replace(" ", "T") : value
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString().slice(0, 10)
+}
+
 function formatDateKey(value: string | null | undefined) {
   if (!value) return "-"
   const parsed = parseDateKey(value)
@@ -538,7 +554,7 @@ type EnrollmentCardProps = {
 function EnrollmentCard({ enrollment, instructors, aircraftTypes, readOnly, onUpdate }: EnrollmentCardProps) {
   const [primaryInstructorId, setPrimaryInstructorId] = React.useState<string>(enrollment.primary_instructor_id || SELECT_NONE)
   const [aircraftTypeId, setAircraftTypeId] = React.useState<string>(enrollment.aircraft_type || SELECT_NONE)
-  const [enrolledAt, setEnrolledAt] = React.useState<string>(enrollment.enrolled_at || "")
+  const [enrolledAt, setEnrolledAt] = React.useState<string>(toDateKey(enrollment.enrolled_at) || "")
   const [notes, setNotes] = React.useState<string>(enrollment.notes || "")
   const [showNotes, setShowNotes] = React.useState(false)
   const [isUpdating, setIsUpdating] = React.useState(false)
@@ -546,14 +562,14 @@ function EnrollmentCard({ enrollment, instructors, aircraftTypes, readOnly, onUp
   React.useEffect(() => {
     setPrimaryInstructorId(enrollment.primary_instructor_id || SELECT_NONE)
     setAircraftTypeId(enrollment.aircraft_type || SELECT_NONE)
-    setEnrolledAt(enrollment.enrolled_at || "")
+    setEnrolledAt(toDateKey(enrollment.enrolled_at) || "")
     setNotes(enrollment.notes || "")
   }, [enrollment.primary_instructor_id, enrollment.aircraft_type, enrollment.notes, enrollment.enrolled_at])
 
   const isDirty =
     (primaryInstructorId === SELECT_NONE ? null : primaryInstructorId) !== enrollment.primary_instructor_id ||
     (aircraftTypeId === SELECT_NONE ? null : aircraftTypeId) !== enrollment.aircraft_type ||
-    enrolledAt !== (enrollment.enrolled_at || "") ||
+    enrolledAt !== (toDateKey(enrollment.enrolled_at) || "") ||
     notes !== (enrollment.notes || "")
 
   const handleSave = async () => {
@@ -622,7 +638,7 @@ function EnrollmentCard({ enrollment, instructors, aircraftTypes, readOnly, onUp
                   onClick={() => {
                     setPrimaryInstructorId(enrollment.primary_instructor_id || SELECT_NONE)
                     setAircraftTypeId(enrollment.aircraft_type || SELECT_NONE)
-                    setEnrolledAt(enrollment.enrolled_at || "")
+                    setEnrolledAt(toDateKey(enrollment.enrolled_at) || "")
                     setNotes(enrollment.notes || "")
                   }}
                   variant="ghost"
