@@ -7,10 +7,10 @@ import { BookOpen, ChevronDown, ChevronUp, MessageSquare, Plane, Plus, Target, U
 import { useAuth } from "@/contexts/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
@@ -150,47 +150,53 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
   const label = enrollmentStatusLabel(enrollment)
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-6 shadow-sm">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="h-10 w-10 shrink-0 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 mt-0.5">
+    <div className="rounded-xl border border-border/60 bg-card p-4 sm:p-5 shadow-sm">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/40 text-muted-foreground mt-0.5">
               <BookOpen className="w-5 h-5" />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-1">
-                <h4 className="text-base font-bold text-gray-900 tracking-tight leading-tight">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold text-foreground truncate">
                   {enrollment.syllabus?.name || "Syllabus"}
                 </h4>
-                <Badge className={cn("rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide", enrollmentStatusClasses(label))}>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
+                    enrollmentStatusClasses(label)
+                  )}
+                >
                   {label}
                 </Badge>
               </div>
-              <p className="text-xs text-gray-500 font-medium">
+              <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                 Enrolled {formatDateKey(enrollment.enrolled_at)}
-                {enrollment.completion_date && (
-                  <span className="ml-1.5 pl-1.5 border-l border-gray-200">
-                    Completed {formatDateKey(enrollment.completion_date)}
+                {enrollment.completion_date ? (
+                  <span className="ml-2">
+                    · Completed {formatDateKey(enrollment.completion_date)}
                   </span>
-                )}
-              </p>
+                ) : null}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto mt-1 sm:mt-0">
+          <div className="flex items-center justify-between sm:justify-end gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowNotes(!showNotes)}
-              className="h-9 text-xs text-gray-500 hover:text-indigo-600 hover:bg-indigo-50/50 flex items-center gap-1.5 px-2 rounded-lg transition-colors"
+              className="h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 flex items-center gap-1.5 px-2 rounded-lg"
             >
               <MessageSquare className="w-3.5 h-3.5 opacity-70" />
-              <span>{showNotes ? "Hide Notes" : notes ? "Edit Notes" : "Add Notes"}</span>
+              <span>{showNotes ? "Hide notes" : notes ? "Edit notes" : "Add notes"}</span>
               {showNotes ? <ChevronUp className="w-3 h-3 opacity-50" /> : <ChevronDown className="w-3 h-3 opacity-50" />}
             </Button>
 
-            {!readOnly && isDirty && (
-              <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+            {!readOnly && isDirty ? (
+              <div className="flex items-center gap-1.5">
                 <Button
                   size="sm"
                   onClick={() => {
@@ -200,7 +206,7 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
                     setNotes(enrollment.notes || "")
                   }}
                   variant="ghost"
-                  className="h-9 text-xs text-gray-400 hover:text-gray-700 px-2 font-medium"
+                  className="h-9 text-xs text-muted-foreground hover:text-foreground px-2"
                   disabled={isUpdating}
                 >
                   Cancel
@@ -214,20 +220,22 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
                   {isUpdating ? "Saving..." : "Save"}
                 </Button>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Primary Instructor</label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Primary Instructor
+            </label>
             <Select value={primaryInstructorId} onValueChange={setPrimaryInstructorId} disabled={readOnly}>
-              <SelectTrigger className="w-full h-10 bg-white text-sm border-gray-200 focus:ring-0">
-                <SelectValue placeholder="Assign Instructor" />
+              <SelectTrigger className="w-full h-10 rounded-lg border-border bg-background px-3 text-sm">
+                <SelectValue placeholder="Assign instructor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SELECT_NONE} className="text-sm italic text-gray-400">
-                  No instructor assigned
+                <SelectItem value={SELECT_NONE} className="text-sm italic text-muted-foreground">
+                  Unassigned
                 </SelectItem>
                 {instructors.map((inst) => (
                   <SelectItem key={inst.id} value={inst.id} className="text-sm">
@@ -238,15 +246,17 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Primary Aircraft Type</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Aircraft Type
+            </label>
             <Select value={aircraftTypeId} onValueChange={setAircraftTypeId} disabled={readOnly}>
-              <SelectTrigger className="w-full h-10 bg-white text-sm border-gray-200 focus:ring-0">
-                <SelectValue placeholder="Assign Aircraft Type" />
+              <SelectTrigger className="w-full h-10 rounded-lg border-border bg-background px-3 text-sm">
+                <SelectValue placeholder="Select aircraft type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SELECT_NONE} className="text-sm italic text-gray-400">
-                  No aircraft type assigned
+                <SelectItem value={SELECT_NONE} className="text-sm italic text-muted-foreground">
+                  Not specified
                 </SelectItem>
                 {aircraftTypes.map((at) => (
                   <SelectItem key={at.id} value={at.id} className="text-sm">
@@ -257,30 +267,34 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Enrollment Date</label>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Enrollment Date
+            </label>
             <DatePicker
               date={enrolledAt}
               onChange={(date) => setEnrolledAt(date || "")}
               placeholder="Select enrollment date"
-              className="w-full h-10 bg-white"
+              className="h-10 w-full"
               disabled={readOnly}
             />
           </div>
         </div>
 
-        {showNotes && (
-          <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-            <label className="block text-sm font-medium text-gray-700">Enrollment Notes</label>
+        {showNotes ? (
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              Notes
+            </label>
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add training context, syllabus goals, or student requirements..."
-              className="min-h-[100px] bg-white text-sm border-gray-200 focus-visible:ring-0 resize-none rounded-md"
+              className="min-h-[90px] bg-background border-border text-sm resize-none rounded-lg"
               disabled={readOnly}
             />
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
@@ -383,144 +397,151 @@ export function TrainingStudentProgrammeTab({
 
   return (
     <div className="p-6 space-y-6">
-      <Card className="shadow-sm border border-border/50 bg-card overflow-hidden rounded-lg">
-        <CardHeader className="pb-4 border-b border-slate-100">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <div className="p-2 rounded-full bg-indigo-50">
-                <Target className="w-5 h-5 text-indigo-600" />
-              </div>
-              Programme
-            </CardTitle>
-            {staff ? (
-              <Button
-                size="sm"
-                onClick={() => setEnrollOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-md h-9"
-                disabled={availableSyllabi.length === 0}
-                title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Enroll
-              </Button>
-            ) : null}
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="p-4 sm:p-6 border-b border-slate-100">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 tracking-tight">Active Enrollments</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {staff ? "Manage student syllabus, assigned staff and aircraft" : "Current active syllabus enrollments"}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className="rounded-full bg-slate-50 text-slate-600 font-medium self-start sm:self-auto px-3 py-1 text-[10px] uppercase tracking-wider"
-              >
-                {activeEnrollments.length} {activeEnrollments.length === 1 ? "enrolled" : "enrollments"}
-              </Badge>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-slate-900">Syllabus</h3>
+          <p className="text-xs text-muted-foreground">
+            Manage syllabus enrollments, primary instructor and aircraft type.
+          </p>
+        </div>
+        {staff ? (
+          <Button
+            size="sm"
+            onClick={() => setEnrollOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 text-xs font-bold shadow-sm"
+            disabled={availableSyllabi.length === 0}
+            title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Enroll
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
+          <div className="text-sm font-semibold">Active Enrollments</div>
+          <Badge
+            variant="outline"
+            className="rounded-full bg-background/50 text-muted-foreground font-semibold px-3 py-1 text-[10px] uppercase tracking-wider"
+          >
+            {activeEnrollments.length} {activeEnrollments.length === 1 ? "enrollment" : "enrollments"}
+          </Badge>
+        </div>
+        <div className="p-5 space-y-4">
+          {activeEnrollments.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/10 p-10 text-center">
+              <Target className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-foreground">No active enrollments</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enroll the member to start tracking training against a syllabus.
+              </p>
             </div>
-
-            {activeEnrollments.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 p-12 text-center bg-slate-50/30">
-                <Target className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-sm font-semibold text-slate-700">No active enrollments</p>
-                <p className="text-xs text-slate-500 mt-2 max-w-[280px] mx-auto">
-                  Enroll the member to start tracking training against a syllabus.
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-6">
-                {activeEnrollments.map((e) => (
-                  <EnrollmentCard
-                    key={e.id}
-                    userId={userId}
-                    enrollment={e}
-                    instructors={instructors}
-                    aircraftTypes={aircraftTypes}
-                    readOnly={!staff}
-                    onUpdated={onRefresh}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 sm:p-6 bg-white/50">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Historical Enrollments</h3>
-                <p className="text-xs text-muted-foreground mt-1">Completed or withdrawn training records</p>
-              </div>
-              <Badge
-                variant="outline"
-                className="rounded-full bg-slate-50 text-slate-600 font-medium self-start sm:self-auto px-3 py-1 text-[10px] uppercase tracking-wider"
-              >
-                {historicalEnrollments.length} {historicalEnrollments.length === 1 ? "record" : "records"}
-              </Badge>
+          ) : (
+            <div className="grid gap-4">
+              {activeEnrollments.map((e) => (
+                <EnrollmentCard
+                  key={e.id}
+                  userId={userId}
+                  enrollment={e}
+                  instructors={instructors}
+                  aircraftTypes={aircraftTypes}
+                  readOnly={!staff}
+                  onUpdated={onRefresh}
+                />
+              ))}
             </div>
+          )}
+        </div>
+      </div>
 
-            {historicalEnrollments.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center bg-white">
-                <p className="text-sm font-medium text-slate-700">No historical enrollments</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Completed or withdrawn enrollments will remain visible here.
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-3">
+      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
+          <div className="text-sm font-semibold">Syllabus History</div>
+          <Badge
+            variant="outline"
+            className="rounded-full bg-background/50 text-muted-foreground font-semibold px-3 py-1 text-[10px] uppercase tracking-wider"
+          >
+            {historicalEnrollments.length} {historicalEnrollments.length === 1 ? "record" : "records"}
+          </Badge>
+        </div>
+
+        {historicalEnrollments.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            No historical enrollments.
+          </div>
+        ) : (
+          <div className="overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/10">
+                <TableRow className="hover:bg-muted/10">
+                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Syllabus
+                  </TableHead>
+                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Enrolled
+                  </TableHead>
+                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Completed
+                  </TableHead>
+                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Instructor
+                  </TableHead>
+                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Aircraft
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {historicalEnrollments.map((e) => {
                   const label = enrollmentStatusLabel(e)
                   const inst = e.primary_instructor_id
                     ? instructors.find((i) => i.id === e.primary_instructor_id) ?? null
                     : null
                   const at = e.aircraft_type ? aircraftTypes.find((a) => a.id === e.aircraft_type) ?? null : null
+                  const instName = inst
+                    ? `${inst.user?.first_name ?? inst.first_name ?? ""} ${inst.user?.last_name ?? inst.last_name ?? ""}`.trim()
+                    : "—"
+
                   return (
-                    <div
-                      key={e.id}
-                      className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden"
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-slate-900 text-sm">
-                                {e.syllabus?.name || "Syllabus"}
-                              </span>
-                              <Badge className={cn("rounded-md px-2 py-0.5 text-[9px] font-bold uppercase", enrollmentStatusClasses(label))}>
-                                {label}
-                              </Badge>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-slate-500 mt-1.5 font-medium">
-                              <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
-                                {formatDateKey(e.enrolled_at)} — {formatDateKey(e.completion_date)}
-                              </span>
-                              {inst ? (
-                                <span className="flex items-center gap-1 bg-indigo-50/50 px-1.5 py-0.5 rounded text-indigo-600">
-                                  <User className="w-2.5 h-2.5" />{" "}
-                                  {inst.user?.first_name ?? inst.first_name ?? ""}{" "}
-                                  {inst.user?.last_name ?? inst.last_name ?? ""}
-                                </span>
-                              ) : null}
-                              {at ? (
-                                <span className="flex items-center gap-1 bg-blue-50/50 px-1.5 py-0.5 rounded text-blue-600">
-                                  <Plane className="w-2.5 h-2.5" /> {at.name}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <TableRow key={e.id} className="hover:bg-muted/20">
+                      <TableCell className="px-5 py-3">
+                        <div className="font-medium text-foreground">{e.syllabus?.name || "Syllabus"}</div>
+                      </TableCell>
+                      <TableCell className="px-5 py-3">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
+                            enrollmentStatusClasses(label)
+                          )}
+                        >
+                          {label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
+                        {formatDateKey(e.enrolled_at)}
+                      </TableCell>
+                      <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
+                        {formatDateKey(e.completion_date)}
+                      </TableCell>
+                      <TableCell className="px-5 py-3 text-sm text-muted-foreground">
+                        {instName || "—"}
+                      </TableCell>
+                      <TableCell className="px-5 py-3 text-sm text-muted-foreground">
+                        {at?.name ?? "—"}
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-              </div>
-            )}
+              </TableBody>
+            </Table>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       <Dialog open={enrollOpen} onOpenChange={setEnrollOpen}>
         <DialogContent
@@ -685,4 +706,3 @@ export function TrainingStudentProgrammeTab({
     </div>
   )
 }
-

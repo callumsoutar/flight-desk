@@ -23,6 +23,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { TrainingTheoryResponse, TrainingTheoryRow, TrainingTheoryStatus } from "@/lib/types/training-theory"
 
+const THEORY_CACHE_TTL_MS = 30_000
+const theoryCache = new Map<string, { rows: TrainingTheoryRow[]; fetchedAt: number }>()
+
+const EXAMS_CACHE_TTL_MS = 5 * 60_000
+const examsCache = new Map<string, { exams: ExamLite[]; fetchedAt: number }>()
+
 function safeFormatDateISO(value: string | null | undefined) {
   if (!value) return "—"
   const date = new Date(value)
@@ -73,10 +79,15 @@ function todayKeyLocal() {
 type ExamLite = { id: string; name: string }
 
 async function fetchExamsForSyllabus(syllabusId: string) {
+  const cached = examsCache.get(syllabusId)
+  if (cached && Date.now() - cached.fetchedAt < EXAMS_CACHE_TTL_MS) return cached.exams
+
   const res = await fetch(`/api/exams?syllabus_id=${encodeURIComponent(syllabusId)}`, { cache: "no-store" })
   if (!res.ok) return []
   const data = (await res.json().catch(() => ({}))) as { exams?: ExamLite[] }
-  return data.exams ?? []
+  const list = data.exams ?? []
+  examsCache.set(syllabusId, { exams: list, fetchedAt: Date.now() })
+  return list
 }
 
 export function TrainingStudentTheoryTab({
@@ -91,6 +102,7 @@ export function TrainingStudentTheoryTab({
 
   const [rows, setRows] = React.useState<TrainingTheoryRow[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const [logOpen, setLogOpen] = React.useState(false)
@@ -102,40 +114,73 @@ export function TrainingStudentTheoryTab({
   const [logExamDate, setLogExamDate] = React.useState("")
   const [logExamNotes, setLogExamNotes] = React.useState("")
 
-  const loadTheory = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const url = new URL(`/api/members/${userId}/training/theory`, window.location.origin)
-      url.searchParams.set("syllabus_id", syllabusId)
+  const reloadTheory = React.useCallback(
+    async ({
+      background,
+      signal,
+    }: {
+      background: boolean
+      signal?: AbortSignal
+    }) => {
+      const cacheKey = `${userId}:${syllabusId}`
+      if (background) setRefreshing(true)
+      else setLoading(true)
+      setError(null)
+      try {
+        const url = new URL(`/api/members/${userId}/training/theory`, window.location.origin)
+        url.searchParams.set("syllabus_id", syllabusId)
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        cache: "no-store",
-        headers: { "cache-control": "no-store" },
-      })
+        const response = await fetch(url.toString(), {
+          method: "GET",
+          cache: "no-store",
+          headers: { "cache-control": "no-store" },
+          signal,
+        })
 
-      if (!response.ok) throw new Error("Failed to load theory results")
-      const json = (await response.json()) as TrainingTheoryResponse
-      setRows(Array.isArray(json.rows) ? json.rows : [])
-    } catch (err) {
-      setRows([])
-      setError(err instanceof Error ? err.message : "Failed to load theory results")
-    } finally {
-      setLoading(false)
-    }
-  }, [syllabusId, userId])
+        if (!response.ok) throw new Error("Failed to load theory results")
+        const json = (await response.json()) as TrainingTheoryResponse
+        if (signal?.aborted) return
+        const nextRows = Array.isArray(json.rows) ? json.rows : []
+        theoryCache.set(cacheKey, { rows: nextRows, fetchedAt: Date.now() })
+        setRows(nextRows)
+      } catch (err) {
+        if (signal?.aborted) return
+        if (!background) setRows([])
+        setError(err instanceof Error ? err.message : "Failed to load theory results")
+      } finally {
+        if (signal?.aborted) return
+        setRefreshing(false)
+        setLoading(false)
+      }
+    },
+    [syllabusId, userId]
+  )
 
   React.useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await loadTheory()
-      if (cancelled) return
-    })()
-    return () => {
-      cancelled = true
+    const cacheKey = `${userId}:${syllabusId}`
+    const cached = theoryCache.get(cacheKey)
+    const isFresh = cached && Date.now() - cached.fetchedAt < THEORY_CACHE_TTL_MS
+
+    setRefreshing(false)
+
+    if (cached) {
+      setRows(cached.rows)
+      setLoading(false)
+      setError(null)
     }
-  }, [loadTheory])
+
+    if (isFresh) return
+
+    const controller = new AbortController()
+
+    async function load() {
+      if (controller.signal.aborted) return
+      await reloadTheory({ background: Boolean(cached), signal: controller.signal })
+    }
+
+    void load()
+    return () => controller.abort()
+  }, [reloadTheory, syllabusId, userId])
 
   React.useEffect(() => {
     if (!logOpen) return
@@ -194,7 +239,8 @@ export function TrainingStudentTheoryTab({
       if (!res.ok) throw new Error(payload?.error || "Failed to log exam result")
       toast.success("Exam result logged successfully")
       setLogOpen(false)
-      await loadTheory()
+      theoryCache.delete(`${userId}:${syllabusId}`)
+      await reloadTheory({ background: false })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to log exam result")
     } finally {
@@ -233,6 +279,7 @@ export function TrainingStudentTheoryTab({
             Most recent passing attempt shown when available.
           </p>
         </div>
+        {refreshing ? <div className="text-xs text-muted-foreground">Updating…</div> : null}
         {staff ? (
           <Button
             size="sm"

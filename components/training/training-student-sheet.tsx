@@ -70,12 +70,12 @@ export function TrainingStudentSheet({
     try {
       const res = await fetch(`/api/members/${row.user_id}/training`, { cache: "no-store" })
       const payload = (await res.json().catch(() => null)) as { error?: string } | null
-      if (!res.ok) throw new Error(payload?.error || "Failed to load programme data")
+      if (!res.ok) throw new Error(payload?.error || "Failed to load syllabus data")
       const data = payload as unknown as MemberTrainingResponse
       setProgramme(data.training)
     } catch (err) {
       setProgramme(null)
-      setProgrammeError(err instanceof Error ? err.message : "Failed to load programme data")
+      setProgrammeError(err instanceof Error ? err.message : "Failed to load syllabus data")
     } finally {
       setProgrammeLoading(false)
     }
@@ -143,12 +143,22 @@ export function TrainingStudentSheet({
             <div className="flex-1 overflow-auto">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-0">
                 <div className="border-b px-4 py-3">
-                  <TabsList variant="line" className="w-full justify-start">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="flying">Flying</TabsTrigger>
-                    <TabsTrigger value="debriefs">Debriefs</TabsTrigger>
-                    <TabsTrigger value="programme">Programme</TabsTrigger>
-                    <TabsTrigger value="theory">Theory</TabsTrigger>
+                  <TabsList variant="line" className="w-full justify-start gap-6 h-10 p-0">
+                    <TabsTrigger value="overview" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                      Overview
+                    </TabsTrigger>
+                    <TabsTrigger value="flying" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                      Flying
+                    </TabsTrigger>
+                    <TabsTrigger value="debriefs" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                      Debriefs
+                    </TabsTrigger>
+                    <TabsTrigger value="theory" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                      Theory
+                    </TabsTrigger>
+                    <TabsTrigger value="programme" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                      Syllabus
+                    </TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -167,7 +177,7 @@ export function TrainingStudentSheet({
                 <TabsContent value="programme">
                   <div className="p-6">
                     {programmeLoading ? (
-                      <div className="text-sm text-muted-foreground">Loading programme…</div>
+                      <div className="text-sm text-muted-foreground">Loading syllabus…</div>
                     ) : programmeError ? (
                       <div className="text-sm text-destructive">{programmeError}</div>
                     ) : programme ? (
@@ -179,7 +189,7 @@ export function TrainingStudentSheet({
                         onRefresh={loadProgramme}
                       />
                     ) : (
-                      <div className="text-sm text-muted-foreground">Programme details unavailable.</div>
+                      <div className="text-sm text-muted-foreground">Syllabus details unavailable.</div>
                     )}
                   </div>
                 </TabsContent>

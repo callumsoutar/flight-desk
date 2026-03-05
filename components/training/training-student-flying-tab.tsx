@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import {
   IconCheck,
   IconChevronDown,
@@ -11,8 +10,7 @@ import {
 } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn, formatOrdinal } from "@/lib/utils"
 import type {
   TrainingFlyingResponse,
   TrainingLessonProgressRow,
@@ -24,6 +22,9 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-NZ", {
   month: "short",
   year: "numeric",
 })
+
+const FLYING_CACHE_TTL_MS = 30_000
+const flyingCache = new Map<string, { rows: TrainingLessonProgressRow[]; fetchedAt: number }>()
 
 function safeFormatDate(value: string | null | undefined) {
   if (!value) return "—"
@@ -140,8 +141,10 @@ function LessonRow({
       })
     : "—"
 
-  const attemptLabel = row.attempts > 0 ? `${row.attempts} att.` : null
+  const attemptLabel = row.attempts > 0 ? `${formatOrdinal(row.attempts)} att.` : null
   const completedLabel = row.completed_at ? safeFormatDate(row.completed_at) : null
+  const attemptValue = (latest?.attempt ?? row.attempts) || 0
+  const attemptOrdinal = attemptValue > 0 ? formatOrdinal(attemptValue) : "—"
 
   return (
     <div className="border-b border-border/50 last:border-0">
@@ -179,52 +182,52 @@ function LessonRow({
       </div>
 
       {isExpanded && canExpand ? (
-        <div className="px-4 pb-4 pl-16 space-y-2">
-          <div className="rounded-lg bg-muted/20 px-4 py-3 text-sm">
-            <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Outcome</span>
-                <span className="font-medium">{latest?.status ?? "—"}</span>
+        <div className="px-4 pb-4 pl-16">
+          <div className="border-t border-border/50 pt-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Outcome
+                </div>
+                <div className="mt-0.5 text-sm font-medium capitalize">
+                  {latest?.status ?? "—"}
+                </div>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Attempt</span>
-                <span className="font-medium tabular-nums">
-                  {(latest?.attempt ?? row.attempts) || "—"}
-                </span>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Attempt
+                </div>
+                <div className="mt-0.5 text-sm font-medium tabular-nums">
+                  {attemptOrdinal}
+                </div>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Date</span>
-                <span className="font-medium tabular-nums">{safeFormatDate(latest?.date ?? null)}</span>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Date
+                </div>
+                <div className="mt-0.5 text-sm font-medium tabular-nums">
+                  {safeFormatDate(latest?.date ?? null)}
+                </div>
               </div>
               {instructorName !== "—" ? (
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Instructor</span>
-                  <span className="font-medium truncate">{instructorName}</span>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Instructor
+                  </div>
+                  <div className="mt-0.5 text-sm font-medium truncate">
+                    {instructorName}
+                  </div>
                 </div>
               ) : null}
             </div>
 
-            <div className="mt-3 border-t border-border/50 pt-3">
+            <div className="mt-3">
               <RichText
                 value={latest?.instructor_comments}
                 placeholder="No comments recorded."
                 className="text-sm leading-relaxed text-foreground/90"
               />
             </div>
-
-            {latest?.booking_id ? (
-              <div className="mt-3 flex items-center justify-end">
-                <Button
-                  asChild
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Link href={`/bookings/${latest.booking_id}/debrief`}>Open debrief</Link>
-                </Button>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}
@@ -241,16 +244,35 @@ export function TrainingStudentFlyingTab({
 }) {
   const [rows, setRows] = React.useState<TrainingLessonProgressRow[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [expandedLessonId, setExpandedLessonId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    let cancelled = false
+    const cacheKey = `${userId}:${syllabusId}`
+    const cached = flyingCache.get(cacheKey)
+    const isFresh = cached && Date.now() - cached.fetchedAt < FLYING_CACHE_TTL_MS
+
+    if (cached) {
+      setRows(cached.rows)
+      setLoading(false)
+      setError(null)
+      setExpandedLessonId((prev) => {
+        if (!prev) return null
+        return cached.rows.some((r) => r.lesson.id === prev) ? prev : null
+      })
+    } else {
+      setExpandedLessonId(null)
+    }
+
+    if (isFresh) return
+
+    const controller = new AbortController()
 
     async function load() {
-      setLoading(true)
+      if (!cached) setLoading(true)
+      else setRefreshing(true)
       setError(null)
-      setExpandedLessonId(null)
 
       try {
         const url = new URL(`/api/members/${userId}/training/flying`, window.location.origin)
@@ -260,26 +282,34 @@ export function TrainingStudentFlyingTab({
           method: "GET",
           cache: "no-store",
           headers: { "cache-control": "no-store" },
+          signal: controller.signal,
         })
 
         if (!response.ok) throw new Error("Failed to load lessons")
         const json = (await response.json()) as TrainingFlyingResponse
-        if (cancelled) return
+        if (controller.signal.aborted) return
 
-        setRows(json.lessons ?? [])
+        const nextRows = json.lessons ?? []
+        flyingCache.set(cacheKey, { rows: nextRows, fetchedAt: Date.now() })
+        setRows(nextRows)
+        setExpandedLessonId((prev) => {
+          if (!prev) return null
+          return nextRows.some((r) => r.lesson.id === prev) ? prev : null
+        })
       } catch (err) {
-        if (cancelled) return
-        setRows([])
+        if (controller.signal.aborted) return
+        if (!cached) setRows([])
         setError(err instanceof Error ? err.message : "Failed to load lessons")
       } finally {
-        if (cancelled) return
+        if (controller.signal.aborted) return
+        setRefreshing(false)
         setLoading(false)
       }
     }
 
     void load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [syllabusId, userId])
 
@@ -308,9 +338,12 @@ export function TrainingStudentFlyingTab({
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Syllabus Lessons</h3>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {completed}/{rows.length} completed
-        </span>
+        <div className="flex items-center gap-3">
+          {refreshing ? <span className="text-xs text-muted-foreground">Updating…</span> : null}
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {completed}/{rows.length} completed
+          </span>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">

@@ -6,13 +6,12 @@ import {
   IconArrowRight,
   IconBook,
   IconCalendar,
-  IconClock,
   IconPlane,
-  IconTrendingUp,
   IconUser,
 } from "@tabler/icons-react"
 
-import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { cn, getUserInitials } from "@/lib/utils"
 import type { TrainingOverviewRow } from "@/lib/types/training-overview"
 import type { TrainingStudentOverviewResponse } from "@/lib/types/training-student-overview"
 
@@ -21,6 +20,12 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-NZ", {
   month: "short",
   year: "numeric",
 })
+
+const OVERVIEW_CACHE_TTL_MS = 30_000
+const overviewCache = new Map<
+  string,
+  { data: TrainingStudentOverviewResponse; fetchedAt: number }
+>()
 
 function daysAgo(value: string | null | undefined) {
   if (!value) return null
@@ -59,12 +64,21 @@ function fullName(row: TrainingOverviewRow) {
 function progressBar(percent: number | null) {
   const pct = percent ?? 0
   return (
-    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+    <div className="h-2 w-full rounded-full bg-muted/70 overflow-hidden">
       <div
         className="h-2 rounded-full bg-primary transition-all duration-500"
         style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
       />
     </div>
+  )
+}
+
+function percentChip(value: number | null | undefined) {
+  if (typeof value !== "number") return null
+  return (
+    <span className="rounded-full bg-muted/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground tabular-nums">
+      {Math.max(0, Math.min(100, Math.round(value)))}%
+    </span>
   )
 }
 
@@ -77,16 +91,45 @@ type TimelineEvent = {
   href?: string
 }
 
+function enrollmentBadge(statusLabel: string | null | undefined) {
+  const s = (statusLabel ?? "").toLowerCase()
+  if (s.includes("active")) {
+    return { label: "Active", className: "border-emerald-200/60 bg-emerald-50 text-emerald-700" }
+  }
+  if (s.includes("completed")) {
+    return { label: "Completed", className: "border-slate-200/60 bg-slate-50 text-slate-700" }
+  }
+  if (s.includes("withdrawn")) {
+    return { label: "Withdrawn", className: "border-amber-200/60 bg-amber-50 text-amber-800" }
+  }
+  if (!statusLabel) return null
+  return { label: statusLabel, className: "border-border bg-muted/20 text-muted-foreground" }
+}
+
 export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }) {
   const [data, setData] = React.useState<TrainingStudentOverviewResponse | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    let cancelled = false
+    const cacheKey = `${row.user_id}:${row.syllabus_id}`
+    const cached = overviewCache.get(cacheKey)
+    const isFresh = cached && Date.now() - cached.fetchedAt < OVERVIEW_CACHE_TTL_MS
+
+    if (cached) {
+      setData(cached.data)
+      setLoading(false)
+      setError(null)
+    }
+
+    if (isFresh) return
+
+    const controller = new AbortController()
 
     async function load() {
-      setLoading(true)
+      if (!cached) setLoading(true)
+      else setRefreshing(true)
       setError(null)
       try {
         const url = new URL(`/api/members/${row.user_id}/training/overview`, window.location.origin)
@@ -96,25 +139,29 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
           method: "GET",
           cache: "no-store",
           headers: { "cache-control": "no-store" },
+          signal: controller.signal,
         })
 
         if (!response.ok) throw new Error("Failed to load overview")
         const json = (await response.json()) as TrainingStudentOverviewResponse
-        if (cancelled) return
+        if (controller.signal.aborted) return
+        overviewCache.set(cacheKey, { data: json, fetchedAt: Date.now() })
         setData(json)
       } catch (err) {
-        if (cancelled) return
-        setData(null)
-        setError(err instanceof Error ? err.message : "Failed to load overview")
+        if (controller.signal.aborted) return
+        const message = err instanceof Error ? err.message : "Failed to load overview"
+        setError(message)
+        if (!cached) setData(null)
       } finally {
-        if (cancelled) return
+        if (controller.signal.aborted) return
+        setRefreshing(false)
         setLoading(false)
       }
     }
 
     void load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [row.syllabus_id, row.user_id])
 
@@ -125,6 +172,8 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
   const lastFlightDate = data?.last_activity?.date ?? row.last_flight_at ?? null
   const lastFlightAgo = daysAgo(lastFlightDate)
   const enrolledAgo = daysAgo(enrolledAt)
+  const enrollmentStatus = data?.enrollment_status ?? row.enrollment_status
+  const enrollmentChip = enrollmentBadge(enrollmentStatus)
   const instructor = row.primaryInstructor
     ? formatName({ first_name: row.primaryInstructor.first_name, last_name: row.primaryInstructor.last_name })
     : "Unassigned"
@@ -132,16 +181,6 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
   const theory = data?.theory ?? { passed: 0, required: 0 }
   const theoryPercent =
     theory.required > 0 ? Math.round((theory.passed / theory.required) * 100) : null
-
-  const flightHoursTotal = data?.flight_hours_total ?? null
-  const flightHoursLabel = Number.isFinite(flightHoursTotal) ? `${Math.round(flightHoursTotal as number)}h` : "—"
-
-  const lessonsPerMonth = data?.lessons_per_month ?? null
-  const velocityIsUnderOne =
-    typeof lessonsPerMonth === "number" && lessonsPerMonth > 0 && lessonsPerMonth < 1
-  const lessonsPerMonthLabel =
-    typeof lessonsPerMonth === "number" ? (velocityIsUnderOne ? "<1" : lessonsPerMonth.toFixed(1)) : "—"
-  const lessonsPerMonthHint = velocityIsUnderOne ? "Less than one a month" : null
 
   const timeline = React.useMemo(() => {
     const events: TimelineEvent[] = []
@@ -205,6 +244,17 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
     return withDate
   }, [data?.enrollment_status, data?.last_activity, enrolledAt, nextBooking, row.enrollment_status, row.last_flight_at])
 
+  const initials = React.useMemo(() => {
+    return getUserInitials(row.student.first_name, row.student.last_name, row.student.email)
+  }, [row.student.email, row.student.first_name, row.student.last_name])
+
+  const hasIdentity = React.useMemo(() => {
+    const first = row.student.first_name?.trim()
+    const last = row.student.last_name?.trim()
+    const email = row.student.email?.trim()
+    return Boolean(first || last || email)
+  }, [row.student.email, row.student.first_name, row.student.last_name])
+
   if (loading && !data) {
     return (
       <div className="p-6 space-y-4">
@@ -218,13 +268,39 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
   return (
     <div className="p-6 space-y-6">
       {error ? <div className="text-sm text-muted-foreground">{error}</div> : null}
+      {refreshing ? (
+        <div className="text-xs text-muted-foreground">Updating…</div>
+      ) : null}
 
-      <div className="rounded-xl border bg-muted/20 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold truncate">{fullName(row)}</h3>
-            <p className="text-sm text-muted-foreground truncate">{row.syllabus.name}</p>
+      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40 text-foreground/70 shrink-0 border border-border/60">
+              {hasIdentity ? (
+                <span className="text-xs font-bold">{initials}</span>
+              ) : (
+                <IconUser className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold truncate">{fullName(row)}</h3>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-sm text-muted-foreground truncate">{row.syllabus.name}</p>
+                {enrollmentChip ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
+                      enrollmentChip.className
+                    )}
+                  >
+                    {enrollmentChip.label}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
           </div>
+
           <div className="text-right shrink-0">
             <div className="text-xs text-muted-foreground">Enrolled</div>
             <div className="text-sm font-medium tabular-nums">{safeFormatDate(enrolledAt)}</div>
@@ -234,7 +310,7 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="border-t border-border/60 flex flex-wrap bg-muted/10">
           {[
             { icon: IconUser, label: "Instructor", value: instructor },
             {
@@ -249,30 +325,46 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
               value: nextBooking ? safeFormatDate(nextBooking.start_time) : "Not booked",
             },
             { icon: IconBook, label: "Next lesson", value: nextLesson },
-          ].map((item) => (
-            <div key={item.label} className="flex items-start gap-2 min-w-0">
-              <item.icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">{item.label}</div>
-                <div className="text-sm font-medium truncate">{item.value}</div>
+          ].map((item, idx, all) => {
+            const isTopRow = idx < 2
+            const isLeft = idx % 2 === 0
+            const isLast = idx === all.length - 1
+            return (
+              <div
+                key={item.label}
+                className={cn(
+                  "w-full sm:w-1/2 px-5 py-4 border-border/60",
+                  !isLast ? "border-b" : "",
+                  isTopRow ? "sm:border-b" : "sm:border-b-0",
+                  isLeft ? "sm:border-r" : ""
+                )}
+              >
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </div>
+                <div className="mt-1 text-sm font-semibold truncate">{item.value}</div>
                 {"sub" in item && item.sub ? (
                   <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">{item.sub}</div>
                 ) : null}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-card p-5">
+        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <IconPlane className="h-4 w-4 text-muted-foreground" />
               <div className="text-sm font-semibold">Syllabus Completion</div>
             </div>
-            <div className="text-xs text-muted-foreground tabular-nums">
-              {progress.completed}/{progress.total}
+            <div className="flex items-center gap-2">
+              {percentChip(progress.percent)}
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {progress.completed}/{progress.total}
+              </div>
             </div>
           </div>
           <div className="mt-3">{progressBar(progress.percent)}</div>
@@ -281,14 +373,17 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
           </div>
         </div>
 
-        <div className="rounded-xl border bg-card p-5">
+        <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <IconBook className="h-4 w-4 text-muted-foreground" />
               <div className="text-sm font-semibold">Theory Exams</div>
             </div>
-            <div className="text-xs text-muted-foreground tabular-nums">
-              {theory.required > 0 ? `${theory.passed}/${theory.required}` : "—"}
+            <div className="flex items-center gap-2">
+              {percentChip(theoryPercent)}
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {theory.required > 0 ? `${theory.passed}/${theory.required}` : "—"}
+              </div>
             </div>
           </div>
           <div className="mt-3">{progressBar(theoryPercent)}</div>
@@ -298,19 +393,24 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card p-5">
-        <div className="text-sm font-semibold">Timeline</div>
-        <div className="mt-4 relative">
-          <div className="absolute left-2 top-1 bottom-1 w-px bg-border" />
-          <div className="space-y-4">
+      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
+          <div className="text-sm font-semibold">Timeline</div>
+          <div className="text-xs text-muted-foreground tabular-nums">
+            {timeline.length ? `${timeline.length} event${timeline.length === 1 ? "" : "s"}` : "—"}
+          </div>
+        </div>
+        <div className="px-5 py-5 relative">
+          <div className="absolute left-7 top-6 bottom-6 w-px bg-border" />
+          <div className="space-y-5">
             {timeline.map((event, idx) => {
               const Icon = event.icon
               const isFirst = idx === 0
               return (
-                <div key={event.id} className="relative pl-8">
+                <div key={event.id} className="relative pl-10">
                   <div
                     className={cn(
-                      "absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 bg-background",
+                      "absolute left-5 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-background",
                       isFirst ? "border-primary" : "border-border"
                     )}
                   />
@@ -324,8 +424,13 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
                         <div className="mt-0.5 text-xs text-muted-foreground truncate">{event.detail}</div>
                       ) : null}
                     </div>
-                    <div className="text-xs text-muted-foreground tabular-nums shrink-0">
-                      {safeFormatDate(event.date)}
+                    <div className="text-right shrink-0">
+                      <div className="text-xs text-muted-foreground tabular-nums">{safeFormatDate(event.date)}</div>
+                      {daysAgo(event.date) ? (
+                        <div className="mt-0.5 text-[11px] text-muted-foreground/80 tabular-nums">
+                          {daysAgo(event.date)}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                   {event.href ? (
@@ -344,31 +449,6 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
             {!timeline.length ? (
               <div className="text-sm text-muted-foreground">No activity yet.</div>
             ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <IconClock className="h-4 w-4 text-muted-foreground" />
-            <div className="text-sm font-semibold">Flight Hours</div>
-          </div>
-          <div className="mt-3 text-3xl font-semibold tabular-nums">{flightHoursLabel}</div>
-          <div className="mt-1 text-xs text-muted-foreground">Total logged hours</div>
-        </div>
-
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <IconTrendingUp className="h-4 w-4 text-muted-foreground" />
-            <div className="text-sm font-semibold">Training Velocity</div>
-          </div>
-          <div className="mt-3 text-3xl font-semibold tabular-nums">{lessonsPerMonthLabel}</div>
-          {lessonsPerMonthHint ? (
-            <div className="mt-1 text-xs text-muted-foreground">{lessonsPerMonthHint}</div>
-          ) : null}
-          <div className={cn("mt-1 text-xs text-muted-foreground", lessonsPerMonthHint ? "mt-0.5" : "")}>
-            Lessons per month
           </div>
         </div>
       </div>

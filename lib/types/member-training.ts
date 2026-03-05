@@ -44,34 +44,18 @@ export type MemberTrainingEnrollment = {
   aircraft_types: { id: string; name: string } | null
 }
 
-export type MemberTrainingExam = {
+export type MemberTrainingInstructorLite = {
   id: string
-  name: string
-  passing_score: number
-  syllabus_id: string | null
-  syllabus: { id: string; name: string } | null
-}
-
-export type MemberTrainingExamResult = {
-  id: string
-  exam_id: string
-  exam_date: string
-  result: "PASS" | "FAIL"
-  score: number
-  notes: string | null
-  exam: MemberTrainingExam | null
-}
-
-export type MemberTrainingFlightExperience = {
-  id: string
-  occurred_at: string
-  value: number
-  unit: string
-  notes: string | null
-  conditions: string | null
-  experience_type: { id: string; name: string } | null
-  instructor: { user: { first_name: string | null; last_name: string | null } | null } | null
-  booking: { aircraft: { registration: string | null } | null } | null
+  user_id: string
+  first_name: string | null
+  last_name: string | null
+  user:
+    | {
+        first_name: string | null
+        last_name: string | null
+        email: string | null
+      }
+    | null
 }
 
 export type MemberTrainingResponse = {
@@ -79,7 +63,6 @@ export type MemberTrainingResponse = {
     timeZone: string
     syllabi: MemberTrainingSyllabusLite[]
     enrollments: MemberTrainingEnrollment[]
-    examResults: MemberTrainingExamResult[]
-    flightExperience: MemberTrainingFlightExperience[]
+    primaryInstructors: MemberTrainingInstructorLite[]
   }
 }

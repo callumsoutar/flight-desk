@@ -45,8 +45,6 @@ export async function GET(
       tenantResult,
       syllabiResult,
       enrollmentsResult,
-      examResultsResult,
-      flightExperienceResult,
     ] = await Promise.all([
       supabase.from("tenants").select("timezone").eq("id", tenantId).maybeSingle(),
       supabase
@@ -64,37 +62,34 @@ export async function GET(
         .eq("tenant_id", tenantId)
         .eq("user_id", targetUserId)
         .order("created_at", { ascending: false }),
-      supabase
-        .from("exam_results")
-        .select(
-          "id, exam_id, exam_date, result, score, notes, exam:exam!exam_results_exam_id_fkey(id, name, passing_score, syllabus_id, syllabus:syllabus!exam_syllabus_id_fkey(id, name))"
-        )
-        .eq("tenant_id", tenantId)
-        .eq("user_id", targetUserId)
-        .order("exam_date", { ascending: false }),
-      supabase
-        .from("flight_experience")
-        .select(
-          "id, occurred_at, value, unit, notes, conditions, experience_type:experience_types!flight_experience_experience_type_id_fkey(id, name), instructor:instructors!flight_experience_instructor_id_fkey(user:user_directory!instructors_user_id_fkey(first_name, last_name)), booking:bookings!flight_experience_booking_id_fkey(aircraft:aircraft!bookings_aircraft_id_fkey(registration))"
-        )
-        .eq("tenant_id", tenantId)
-        .eq("user_id", targetUserId)
-        .order("occurred_at", { ascending: false }),
     ])
 
     if (tenantResult.error) throw tenantResult.error
     if (syllabiResult.error) throw syllabiResult.error
     if (enrollmentsResult.error) throw enrollmentsResult.error
-    if (examResultsResult.error) throw examResultsResult.error
-    if (flightExperienceResult.error) throw flightExperienceResult.error
+
+    const instructorIds = [
+      ...new Set((enrollmentsResult.data ?? []).map((e) => e.primary_instructor_id).filter(Boolean)),
+    ] as string[]
+
+    let primaryInstructors: MemberTrainingResponse["training"]["primaryInstructors"] = []
+    if (instructorIds.length) {
+      const { data, error } = await supabase
+        .from("instructors")
+        .select("id, user_id, first_name, last_name, user:user_directory!instructors_user_id_fkey(first_name, last_name, email)")
+        .eq("tenant_id", tenantId)
+        .in("id", instructorIds)
+
+      if (error) throw error
+      primaryInstructors = (data ?? []) as MemberTrainingResponse["training"]["primaryInstructors"]
+    }
 
     const payload: MemberTrainingResponse = {
       training: {
         timeZone: tenantResult.data?.timezone ?? "Pacific/Auckland",
         syllabi: syllabiResult.data ?? [],
         enrollments: enrollmentsResult.data ?? [],
-        examResults: examResultsResult.data ?? [],
-        flightExperience: flightExperienceResult.data ?? [],
+        primaryInstructors,
       },
     }
 
@@ -106,4 +101,3 @@ export async function GET(
     )
   }
 }
-

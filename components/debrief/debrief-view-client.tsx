@@ -22,6 +22,7 @@ import type {
   FlightExperienceEntryWithType,
   LessonProgressWithInstructor,
 } from "@/lib/types/debrief"
+import { formatOrdinal } from "@/lib/utils"
 
 function formatName(user: { first_name: string | null; last_name: string | null; email?: string | null }) {
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || "—"
@@ -331,7 +332,7 @@ export function DebriefViewClient({
                   {lessonProgress.attempt != null ? (
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">Attempt</span>
-                      <span className="font-medium tabular-nums text-foreground">#{lessonProgress.attempt}</span>
+                      <span className="font-medium text-foreground">{formatOrdinal(lessonProgress.attempt)}</span>
                     </div>
                   ) : null}
                   <div className="flex items-center gap-2">

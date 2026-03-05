@@ -129,16 +129,17 @@ export async function fetchTrainingOverview(
   if (primaryInstructorIds.length) {
     const { data: instructors, error } = await supabase
       .from("instructors")
-      .select("id, first_name, last_name, user_id")
+      .select("id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(first_name, last_name)")
       .eq("tenant_id", tenantId)
       .in("id", primaryInstructorIds)
 
     if (error) throw error
     for (const i of instructors ?? []) {
+      const user = (i as unknown as { user: { first_name: string | null; last_name: string | null } | null }).user
       primaryInstructorById.set(i.id, {
         id: i.id,
-        first_name: i.first_name,
-        last_name: i.last_name,
+        first_name: user?.first_name ?? i.first_name,
+        last_name: user?.last_name ?? i.last_name,
         user_id: i.user_id,
       })
     }
