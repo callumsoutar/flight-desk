@@ -16,6 +16,7 @@ import {
   type BookingEditFormState,
 } from "@/components/bookings/booking-edit-details-card"
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
   deriveBookingTrackerState,
@@ -410,62 +411,63 @@ export function BookingCheckoutClient({
           className="mb-6"
         />
 
-        {!isStaff ? (
-          <Card className="mb-6 border border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Checkout access required</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Only staff users can check bookings out and in.
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {isStaff && !canCheckOut && !canCheckIn && !isReadOnly ? (
-          <Card className="mb-6 border border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Status actions unavailable</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Check out is available when status is confirmed. Check in is available when status is flying.
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          <div className="space-y-6 lg:col-span-2">
-            <BookingEditDetailsCard
-              form={bookingForm}
-              options={options}
-              isReadOnly={isReadOnly}
-              isAdminOrInstructor={isStaff}
-              isMemberOrStudent={isMemberOrStudent}
-              onFieldChange={updateBookingField}
-              aircraftValue={checkoutForm.checked_out_aircraft_id}
-              onAircraftChange={(value) => updateCheckoutField("checked_out_aircraft_id", value)}
-              title="Confirm Booking Details"
-            />
-          </div>
-
-          <div className="space-y-6">
-            <Card className="border border-border/50 shadow-sm">
-              <CardHeader className="border-b border-border/20 pb-5">
-                <CardTitle className="text-xl font-bold">Checkout Details</CardTitle>
+        <BookingPageContent>
+          {!isStaff ? (
+            <Card className="mb-6 border border-border/50">
+              <CardHeader>
+                <CardTitle className="text-lg">Checkout access required</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5 pt-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">ETA</label>
-                  <Input
-                    type="datetime-local"
-                    value={checkoutForm.eta}
-                    disabled={isReadOnly}
-                    onChange={(event) => {
-                      const nextValue = event.target.value
-                      updateCheckoutField("eta", nextValue)
-                      setIsEtaAuto(!nextValue || nextValue === bookingEndTimeLocal)
-                    }}
-                  />
-                </div>
+              <CardContent className="text-sm text-muted-foreground">
+                Only staff users can check bookings out and in.
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isStaff && !canCheckOut && !canCheckIn && !isReadOnly ? (
+            <Card className="mb-6 border border-border/50">
+              <CardHeader>
+                <CardTitle className="text-lg">Status actions unavailable</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Check out is available when status is confirmed. Check in is available when status is flying.
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            <div className="space-y-6 lg:col-span-2">
+              <BookingEditDetailsCard
+                form={bookingForm}
+                options={options}
+                isReadOnly={isReadOnly}
+                isAdminOrInstructor={isStaff}
+                isMemberOrStudent={isMemberOrStudent}
+                onFieldChange={updateBookingField}
+                aircraftValue={checkoutForm.checked_out_aircraft_id}
+                onAircraftChange={(value) => updateCheckoutField("checked_out_aircraft_id", value)}
+                title="Confirm Booking Details"
+              />
+            </div>
+
+            <div className="space-y-6">
+              <Card className="border border-border/50 shadow-sm">
+                <CardHeader className="border-b border-border/20 pb-5">
+                  <CardTitle className="text-xl font-bold">Checkout Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5 pt-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">ETA</label>
+                    <Input
+                      type="datetime-local"
+                      value={checkoutForm.eta}
+                      disabled={isReadOnly}
+                      onChange={(event) => {
+                        const nextValue = event.target.value
+                        updateCheckoutField("eta", nextValue)
+                        setIsEtaAuto(!nextValue || nextValue === bookingEndTimeLocal)
+                      }}
+                    />
+                  </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Fuel On Board</label>
@@ -532,10 +534,11 @@ export function BookingCheckoutClient({
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        </BookingPageContent>
       </div>
 
       {!isReadOnly ? (

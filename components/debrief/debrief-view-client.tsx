@@ -7,6 +7,7 @@ import { ChevronDown, FileText, Link2, Mail, Pencil, Plane, Printer } from "luci
 import { toast } from "sonner"
 
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -263,35 +264,37 @@ export function DebriefViewClient({
 
       <div className="w-full max-w-none flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:pt-0 print:pb-0">
         {!lessonProgress ? (
-          <Card className="overflow-hidden border border-border/50 bg-card shadow-sm print:shadow-none">
-            <CardContent className="p-8 md:p-10">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/30 text-muted-foreground">
-                    <Plane className="h-5 w-5" />
+          <BookingPageContent>
+            <Card className="overflow-hidden border border-border/50 bg-card shadow-sm print:shadow-none">
+              <CardContent className="p-8 md:p-10">
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/30 text-muted-foreground">
+                      <Plane className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-base font-semibold text-foreground">No debrief yet</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Write the lesson debrief for this booking. A debrief record will be created when you save.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-base font-semibold text-foreground">No debrief yet</p>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      Write the lesson debrief for this booking. A debrief record will be created when you save.
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                  <Button className="w-full gap-2 sm:w-auto" asChild>
-                    <Link href={`/bookings/${bookingId}/debrief/write`}>
-                      <Pencil className="h-4 w-4" />
-                      Write Debrief
-                    </Link>
-                  </Button>
-                  <Button variant="outline" className="w-full sm:w-auto" asChild>
-                    <Link href={`/bookings/${bookingId}`}>Back to Booking</Link>
-                  </Button>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <Button className="w-full gap-2 sm:w-auto" asChild>
+                      <Link href={`/bookings/${bookingId}/debrief/write`}>
+                        <Pencil className="h-4 w-4" />
+                        Write Debrief
+                      </Link>
+                    </Button>
+                    <Button variant="outline" className="w-full sm:w-auto" asChild>
+                      <Link href={`/bookings/${bookingId}`}>Back to Booking</Link>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </BookingPageContent>
         ) : (
           <article
             className="mx-auto min-h-[50vh] w-full max-w-4xl rounded-xl border border-border/50 bg-card px-6 py-8 shadow-sm print:min-h-0 print:max-w-none print:rounded-none print:border-0 print:shadow-none print:bg-white sm:px-8 sm:py-10 lg:px-10 lg:py-12"

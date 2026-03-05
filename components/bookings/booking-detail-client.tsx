@@ -33,6 +33,7 @@ import {
   type BookingEditFormState,
 } from "@/components/bookings/booking-edit-details-card"
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
   deriveBookingTrackerState,
@@ -665,104 +666,106 @@ export function BookingDetailClient({
           className="mb-6"
         />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          <div className="space-y-6 lg:col-span-2">
-            <BookingEditDetailsCard
-              form={form}
-              options={options}
-              isReadOnly={isReadOnly}
-              isAdminOrInstructor={isAdminOrInstructor}
-              isMemberOrStudent={isMemberOrStudent}
-              onFieldChange={updateField}
-            />
-          </div>
+        <BookingPageContent className="space-y-8">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            <div className="space-y-6 lg:col-span-2">
+              <BookingEditDetailsCard
+                form={form}
+                options={options}
+                isReadOnly={isReadOnly}
+                isAdminOrInstructor={isAdminOrInstructor}
+                isMemberOrStudent={isMemberOrStudent}
+                onFieldChange={updateField}
+              />
+            </div>
 
-          <div className="space-y-6">
-            <Card className="rounded-xl border border-border/50 shadow-md">
-              <CardHeader className="border-b border-border/20 pb-5">
-                <CardTitle className="text-xl font-bold">Resources</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <IconUsers className="h-4 w-4" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider">People</h3>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/50">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">Member</span>
-                      <div className="flex items-center gap-1.5">
-                        {canViewContact && studentMemberId ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openContactDetails(studentMemberId)}
-                            aria-label="View contact details"
-                          >
-                            <IconAddressBook className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                        <Badge variant="outline" className="text-xs">Student</Badge>
-                      </div>
+            <div className="space-y-6">
+              <Card className="rounded-xl border border-border/50 shadow-md">
+                <CardHeader className="border-b border-border/20 pb-5">
+                  <CardTitle className="text-xl font-bold">Resources</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <IconUsers className="h-4 w-4" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider">People</h3>
                     </div>
-                    <div className="font-bold">{studentName}</div>
-                    {booking.student?.email ? <div className="text-sm text-muted-foreground">{booking.student.email}</div> : null}
-                  </div>
-                  {booking.instructor ? (
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/50">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-medium">Instructor</span>
-                        <Badge variant="outline" className="text-xs">Staff</Badge>
-                      </div>
-                      <div className="font-bold">{instructorName}</div>
-                      {booking.instructor.user?.email ? (
-                        <div className="text-sm text-muted-foreground">{booking.instructor.user.email}</div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <IconPlane className="h-4 w-4" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider">Aircraft</h3>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/50">
-                    {booking.aircraft ? (
-                      <>
-                        <div className="font-bold">{booking.aircraft.registration} ({booking.aircraft.type})</div>
-                        <div className="text-sm text-muted-foreground">
-                          {booking.aircraft.manufacturer}{booking.aircraft.model ? `, ${booking.aircraft.model}` : ""}
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">Member</span>
+                        <div className="flex items-center gap-1.5">
+                          {canViewContact && studentMemberId ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openContactDetails(studentMemberId)}
+                              aria-label="View contact details"
+                            >
+                              <IconAddressBook className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                          <Badge variant="outline" className="text-xs">Student</Badge>
                         </div>
-                      </>
-                    ) : (
-                      <div className="text-sm text-muted-foreground">No aircraft assigned</div>
-                    )}
+                      </div>
+                      <div className="font-bold">{studentName}</div>
+                      {booking.student?.email ? <div className="text-sm text-muted-foreground">{booking.student.email}</div> : null}
+                    </div>
+                    {booking.instructor ? (
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/50">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-sm font-medium">Instructor</span>
+                          <Badge variant="outline" className="text-xs">Staff</Badge>
+                        </div>
+                        <div className="font-bold">{instructorName}</div>
+                        {booking.instructor.user?.email ? (
+                          <div className="text-sm text-muted-foreground">{booking.instructor.user.email}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
 
-        <Card className="mt-8 rounded-xl border border-border/50 shadow-md">
-          <CardHeader className="border-b border-border/20 p-0">
-            <Button
-              variant="ghost"
-              className="h-auto w-full justify-start gap-2 rounded-none px-6 py-4 text-left"
-              onClick={() => setAuditOpen((prev) => !prev)}
-            >
-              <IconChevronDown className={cn("h-4 w-4 transition-transform", !auditOpen && "-rotate-90")} />
-              <CardTitle className="text-base sm:text-lg">Booking History</CardTitle>
-            </Button>
-          </CardHeader>
-          {auditOpen ? (
-            <CardContent className="px-0 pt-4 pb-2">
-              <AuditTimeline logs={auditLogs} maps={auditLookupMaps} />
-            </CardContent>
-          ) : null}
-        </Card>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <IconPlane className="h-4 w-4" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider">Aircraft</h3>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/50">
+                      {booking.aircraft ? (
+                        <>
+                          <div className="font-bold">{booking.aircraft.registration} ({booking.aircraft.type})</div>
+                          <div className="text-sm text-muted-foreground">
+                            {booking.aircraft.manufacturer}{booking.aircraft.model ? `, ${booking.aircraft.model}` : ""}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">No aircraft assigned</div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <Card className="rounded-xl border border-border/50 shadow-md">
+            <CardHeader className="border-b border-border/20 p-0">
+              <Button
+                variant="ghost"
+                className="h-auto w-full justify-start gap-2 rounded-none px-6 py-4 text-left"
+                onClick={() => setAuditOpen((prev) => !prev)}
+              >
+                <IconChevronDown className={cn("h-4 w-4 transition-transform", !auditOpen && "-rotate-90")} />
+                <CardTitle className="text-base sm:text-lg">Booking History</CardTitle>
+              </Button>
+            </CardHeader>
+            {auditOpen ? (
+              <CardContent className="px-0 pt-4 pb-2">
+                <AuditTimeline logs={auditLogs} maps={auditLookupMaps} />
+              </CardContent>
+            ) : null}
+          </Card>
+        </BookingPageContent>
       </div>
 
       {!isReadOnly ? (

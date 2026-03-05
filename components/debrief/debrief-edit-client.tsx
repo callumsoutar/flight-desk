@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
   deriveBookingTrackerState,
@@ -121,14 +122,14 @@ export function DebriefEditClient({
         }
       />
 
-      <div className="mx-auto w-full max-w-7xl px-4 pt-6 pb-10 sm:px-6 lg:px-8">
+      <div className="w-full px-4 pt-6 pb-10 sm:px-6 lg:px-8">
         <BookingStatusTracker
           stages={trackerStages}
           activeStageId={trackerState.activeStageId}
           completedStageIds={trackerState.completedStageIds}
           className="mb-6"
         />
-        <div className="space-y-6">
+        <BookingPageContent className="space-y-6">
           <CheckinDebriefEditor
             bookingId={bookingId}
             instructionType={instructionType}
@@ -150,7 +151,7 @@ export function DebriefEditClient({
             showMeta={false}
             defaultOpen
           />
-        </div>
+        </BookingPageContent>
       </div>
     </div>
   )

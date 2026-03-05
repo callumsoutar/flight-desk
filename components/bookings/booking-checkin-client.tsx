@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner"
 
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
   deriveBookingTrackerState,
@@ -1544,14 +1545,16 @@ export function BookingCheckinClient({
           backLabel="Back to Booking"
         />
         <div className="w-full max-w-none flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Check-in access required</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Only staff users can complete flight check-ins.
-            </CardContent>
-          </Card>
+          <BookingPageContent>
+            <Card>
+              <CardHeader>
+                <CardTitle>Check-in access required</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Only staff users can complete flight check-ins.
+              </CardContent>
+            </Card>
+          </BookingPageContent>
         </div>
       </div>
     )
@@ -1567,14 +1570,16 @@ export function BookingCheckinClient({
           backLabel="Back to Booking"
         />
         <div className="w-full max-w-none flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Invalid booking type</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Flight check-in is only available for flight bookings.
-            </CardContent>
-          </Card>
+          <BookingPageContent>
+            <Card>
+              <CardHeader>
+                <CardTitle>Invalid booking type</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Flight check-in is only available for flight bookings.
+              </CardContent>
+            </Card>
+          </BookingPageContent>
         </div>
       </div>
     )
@@ -1596,6 +1601,7 @@ export function BookingCheckinClient({
           completedStageIds={trackerState.completedStageIds}
         />
 
+        <BookingPageContent>
           <div className="grid gap-6 xl:grid-cols-5 xl:items-start">
             <Card className="border-border/60 xl:col-span-2">
           <CardHeader>
@@ -2454,6 +2460,7 @@ export function BookingCheckinClient({
             </div>
           </div>
         ) : null}
+        </BookingPageContent>
       </div>
     </div>
   )
