@@ -249,16 +249,16 @@ export function TrainingStudentTheoryTab({
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading theory exams…</div>
+    return <div className="px-4 py-5 sm:p-6 text-sm text-muted-foreground">Loading theory exams…</div>
   }
 
   if (error) {
-    return <div className="p-6 text-sm text-destructive">{error}</div>
+    return <div className="px-4 py-5 sm:p-6 text-sm text-destructive">{error}</div>
   }
 
   if (rows.length === 0) {
     return (
-      <div className="p-6">
+      <div className="px-4 py-5 sm:p-6">
         <div className="rounded-xl border border-dashed border-border bg-muted/10 p-10 text-center">
           <IconSchool className="mx-auto h-10 w-10 text-muted-foreground/40" />
           <div className="mt-4 text-sm font-semibold">No exams configured</div>
@@ -271,8 +271,8 @@ export function TrainingStudentTheoryTab({
   }
 
   return (
-    <div className="p-6 space-y-3">
-      <div className="flex items-center justify-between gap-4">
+    <div className="px-4 py-5 sm:p-6 space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-sm font-semibold">Theory Examinations</h3>
           <p className="text-xs text-muted-foreground mt-1">
@@ -284,7 +284,7 @@ export function TrainingStudentTheoryTab({
           <Button
             size="sm"
             onClick={() => setLogOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 font-bold text-xs shadow-sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 font-bold text-xs shadow-sm w-full sm:w-auto"
           >
             <IconPlus className="w-4 h-4 mr-2" />
             Log Result
@@ -292,7 +292,48 @@ export function TrainingStudentTheoryTab({
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="space-y-3 sm:hidden">
+        {rows.map((row) => {
+          const badge = statusBadge(row.status)
+          return (
+            <div key={row.exam_id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground shrink-0">
+                    <IconBook className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium leading-tight truncate">{row.exam_name}</div>
+                    <div className="mt-1">
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wide", badge.className)}
+                      >
+                        {badge.label}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-muted-foreground tabular-nums">
+                  {safeFormatDateISO(row.exam_date)}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Score</div>
+                  <div className="mt-0.5 font-medium tabular-nums">{formatScore(row)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attempts</div>
+                  <div className="mt-0.5 font-medium tabular-nums">{row.attempts || "—"}</div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="hidden sm:block overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow className="hover:bg-muted/30">

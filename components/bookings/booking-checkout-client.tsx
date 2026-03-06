@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { IconCheck, IconPlane } from "@tabler/icons-react"
+import { IconCheck, IconChevronDown, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import {
   authorizeBookingCheckoutAction,
   updateBookingCheckoutDetailsAction,
 } from "@/app/bookings/actions"
+import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import {
   BookingEditDetailsCard,
   createBookingEditInitialState,
@@ -22,12 +23,20 @@ import {
   deriveBookingTrackerState,
   getBookingTrackerStages,
 } from "@/components/bookings/booking-status-tracker"
+import { BookingCheckoutWarnings } from "@/components/bookings/booking-checkout-warnings"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
+import type { BookingWarningsResponse } from "@/lib/types/booking-warnings"
 import type { UserRole } from "@/lib/types/roles"
 
 type CheckoutFormState = {
@@ -79,6 +88,42 @@ function formatDurationMinutes(totalMinutes: number): string {
   return `${hoursPart}h ${minutesPart}m`
 }
 
+function buildWarningsFingerprint(payload: {
+  userId: string | null
+  instructorId: string | null
+  aircraftId: string | null
+  warnings: BookingWarningsResponse
+}) {
+  return JSON.stringify({
+    userId: payload.userId,
+    instructorId: payload.instructorId,
+    aircraftId: payload.aircraftId,
+    summary: payload.warnings.summary,
+    groups: payload.warnings.groups.map((group) => ({
+      category: group.category,
+      warnings: group.warnings.map((warning) => ({
+        id: warning.id,
+        severity: warning.severity,
+        blocking: warning.blocking,
+      })),
+    })),
+  })
+}
+
+function buildWarningsUrl(params: {
+  bookingId: string
+  userId: string | null
+  instructorId: string | null
+  aircraftId: string | null
+}) {
+  const searchParams = new URLSearchParams()
+  if (params.userId) searchParams.set("user_id", params.userId)
+  if (params.instructorId) searchParams.set("instructor_id", params.instructorId)
+  if (params.aircraftId) searchParams.set("aircraft_id", params.aircraftId)
+  const query = searchParams.toString()
+  return query.length > 0 ? `/api/bookings/${params.bookingId}/warnings?${query}` : `/api/bookings/${params.bookingId}/warnings`
+}
+
 function createCheckoutInitialState(booking: BookingWithRelations): CheckoutFormState {
   return {
     checked_out_aircraft_id: booking.checked_out_aircraft_id ?? booking.aircraft_id ?? null,
@@ -98,11 +143,13 @@ function createCheckoutInitialState(booking: BookingWithRelations): CheckoutForm
 export function BookingCheckoutClient({
   bookingId,
   booking,
+  initialWarnings,
   options,
   role,
 }: {
   bookingId: string
   booking: BookingWithRelations
+  initialWarnings: BookingWarningsResponse
   options: BookingOptions
   role: UserRole | null
 }) {
@@ -119,6 +166,13 @@ export function BookingCheckoutClient({
   })
   const [savedBookingForm, setSavedBookingForm] = React.useState<BookingEditFormState>(() => serverInitialBookingForm)
   const [savedCheckoutForm, setSavedCheckoutForm] = React.useState<CheckoutFormState>(() => serverInitialCheckoutForm)
+  const [warnings, setWarnings] = React.useState<BookingWarningsResponse>(() => initialWarnings)
+  const [warningsAcknowledged, setWarningsAcknowledged] = React.useState(
+    () => !initialWarnings.summary.requires_acknowledgement
+  )
+  const [warningsRefreshError, setWarningsRefreshError] = React.useState<string | null>(null)
+  const [isWarningsRefreshing, setIsWarningsRefreshing] = React.useState(false)
+  const [cancelOpen, setCancelOpen] = React.useState(false)
   const savedBookingFormRef = React.useRef(savedBookingForm)
   const savedCheckoutFormRef = React.useRef(savedCheckoutForm)
   const bookingFormRef = React.useRef(bookingForm)
@@ -160,6 +214,96 @@ export function BookingCheckoutClient({
       setIsEtaAuto(!serverInitialCheckoutForm.eta || serverInitialCheckoutForm.eta === endTimeLocal)
     }
   }, [serverInitialBookingForm, serverInitialCheckoutForm])
+
+  React.useEffect(() => {
+    setWarnings(initialWarnings)
+    setWarningsRefreshError(null)
+  }, [initialWarnings])
+
+  const warningUserId = bookingForm.user_id ?? null
+  const warningInstructorId = bookingForm.instructor_id ?? null
+  const warningAircraftId = checkoutForm.checked_out_aircraft_id ?? bookingForm.aircraft_id ?? null
+
+  const warningsAcknowledgementKey = React.useMemo(
+    () =>
+      buildWarningsFingerprint({
+        userId: warningUserId,
+        instructorId: warningInstructorId,
+        aircraftId: warningAircraftId,
+        warnings,
+      }),
+    [warningAircraftId, warningInstructorId, warningUserId, warnings]
+  )
+
+  React.useEffect(() => {
+    setWarningsAcknowledged(!warnings.summary.requires_acknowledgement)
+  }, [warningsAcknowledgementKey, warnings.summary.requires_acknowledgement])
+
+  React.useEffect(() => {
+    const matchesCurrentContext =
+      warnings.context.user_id === warningUserId &&
+      warnings.context.instructor_id === warningInstructorId &&
+      warnings.context.aircraft_id === warningAircraftId
+
+    if (matchesCurrentContext) {
+      setWarningsRefreshError((current) => (current ? null : current))
+      setIsWarningsRefreshing((current) => (current ? false : current))
+      return
+    }
+
+    const controller = new AbortController()
+    setIsWarningsRefreshing(true)
+    setWarningsRefreshError(null)
+
+    const loadWarnings = async () => {
+      try {
+        const response = await fetch(
+          buildWarningsUrl({
+            bookingId,
+            userId: warningUserId,
+            instructorId: warningInstructorId,
+            aircraftId: warningAircraftId,
+          }),
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error("Warning checks could not be refreshed for the current booking details.")
+        }
+
+        const payload = (await response.json()) as BookingWarningsResponse
+        setWarnings(payload)
+      } catch (error) {
+        if (controller.signal.aborted) return
+        setWarningsRefreshError(
+          error instanceof Error
+            ? error.message
+            : "Warning checks could not be refreshed for the current booking details."
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsWarningsRefreshing(false)
+        }
+      }
+    }
+
+    void loadWarnings()
+
+    return () => {
+      controller.abort()
+    }
+  }, [
+    bookingId,
+    warningAircraftId,
+    warningInstructorId,
+    warningUserId,
+    warnings.context.aircraft_id,
+    warnings.context.instructor_id,
+    warnings.context.user_id,
+  ])
 
   const bookingEndTimeLocal = React.useMemo(
     () => toDatetimeLocal(bookingForm.end_time || null),
@@ -228,15 +372,30 @@ export function BookingCheckoutClient({
   const canCheckOut = isStaff && booking.status === "confirmed"
   const canCheckIn = isStaff && booking.status === "flying"
   const isReadOnly = booking.status === "complete" || booking.status === "cancelled"
+  const hasBlockingWarnings = warnings.summary.has_blockers
+  const requiresWarningsAcknowledgement = warnings.summary.requires_acknowledgement
+  const warningGateBlocked =
+    isWarningsRefreshing || Boolean(warningsRefreshError) || hasBlockingWarnings || (requiresWarningsAcknowledgement && !warningsAcknowledged)
   const isDirty =
     JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
     JSON.stringify(checkoutForm) !== JSON.stringify(savedCheckoutForm)
 
   const studentName = booking.student ? formatUser(booking.student) : "Booking Checkout"
-  const canSubmitCheckout = canCheckOut && checkoutForm.authorization_completed
+  const canSubmitCheckout =
+    canCheckOut &&
+    checkoutForm.authorization_completed &&
+    !warningGateBlocked
   const stickySaveLabel = canCheckOut ? "Check Flight Out" : "Save Changes"
   const stickyMessage = canCheckOut
-    ? "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
+    ? isWarningsRefreshing
+      ? "Refreshing booking warnings before checkout."
+      : warningsRefreshError
+        ? "Warning checks could not be refreshed. Resolve the warning fetch issue before checkout."
+        : hasBlockingWarnings
+          ? "Critical booking warnings are blocking checkout. Resolve them before marking this booking as flying."
+          : requiresWarningsAcknowledgement && !warningsAcknowledged
+            ? "Review and acknowledge the non-blocking warnings before checkout."
+            : "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
     : "You have unsaved checkout details."
   const lessonProgressExists = React.useMemo(() => {
     if (!booking.lesson_progress) return false
@@ -310,8 +469,9 @@ export function BookingCheckoutClient({
       flight_remarks: normalizeText(checkoutForm.flight_remarks),
       briefing_completed: checkoutForm.briefing_completed,
       authorization_completed: checkoutForm.authorization_completed,
+      warnings_acknowledged: requiresWarningsAcknowledgement ? warningsAcknowledged : true,
     }
-  }, [bookingEndTimeLocal, bookingForm, checkoutForm, isEtaAuto])
+  }, [bookingEndTimeLocal, bookingForm, checkoutForm, isEtaAuto, requiresWarningsAcknowledgement, warningsAcknowledged])
 
   const handleSave = () => {
     if (isReadOnly || !isDirty) return
@@ -372,24 +532,57 @@ export function BookingCheckoutClient({
     router.push(`/bookings/checkin/${bookingId}`)
   }
 
+  const handleCancel = (payload: CancelBookingPayload) => {
+    startTransition(async () => {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellation_category_id: payload.cancellationCategoryId,
+          cancellation_reason: payload.cancellationReason,
+          cancelled_notes: payload.cancelledNotes,
+        }),
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string }
+        toast.error(json.error || "Failed to cancel booking")
+        return
+      }
+
+      toast.success("Booking cancelled")
+      setCancelOpen(false)
+      router.refresh()
+    })
+  }
+
   const headerActions = isStaff ? (
     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-      {canCheckOut ? (
-        <Button
-          className="w-full sm:w-auto"
-          onClick={handleAuthorize}
-          disabled={isPending || !canSubmitCheckout}
-        >
-          <IconPlane className="mr-2 h-4 w-4" />
-          {isPending ? "Checking Out..." : "Check Out"}
-        </Button>
-      ) : null}
       {canCheckIn ? (
         <Button className="w-full sm:w-auto" onClick={handleOpenCheckIn} disabled={isPending}>
           <IconCheck className="mr-2 h-4 w-4" />
           Check In
         </Button>
       ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            More
+            <IconChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            className="text-red-600 focus:text-red-600"
+            disabled={isReadOnly || !!booking.cancelled_at}
+            onClick={() => setCancelOpen(true)}
+          >
+            <IconTrash className="mr-2 h-4 w-4" />
+            Cancel Booking
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   ) : null
 
@@ -433,6 +626,17 @@ export function BookingCheckoutClient({
               </CardContent>
             </Card>
           ) : null}
+
+          <div className="mb-6">
+            <BookingCheckoutWarnings
+              warnings={warnings}
+              isRefreshing={isWarningsRefreshing}
+              refreshError={warningsRefreshError}
+              acknowledgementChecked={warningsAcknowledged}
+              onAcknowledgementChange={setWarningsAcknowledged}
+              disabled={isReadOnly}
+            />
+          </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
             <div className="space-y-6 lg:col-span-2">
@@ -553,6 +757,14 @@ export function BookingCheckoutClient({
           saveLabel={stickySaveLabel}
         />
       ) : null}
+
+      <CancelBookingModal
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        booking={booking}
+        onConfirm={handleCancel}
+        pending={isPending}
+      />
     </div>
   )
 }

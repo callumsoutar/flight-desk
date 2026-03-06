@@ -219,7 +219,7 @@ export function TrainingStudentDebriefsTab({
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="px-4 py-5 sm:p-6">
         <div className="space-y-3">
           <div className="h-6 w-40 rounded bg-muted/50" />
           <div className="h-20 w-full rounded-xl border bg-card" />
@@ -231,7 +231,7 @@ export function TrainingStudentDebriefsTab({
 
   if (error) {
     return (
-      <div className="p-6 text-sm text-muted-foreground">
+      <div className="px-4 py-5 sm:p-6 text-sm text-muted-foreground">
         {error}
       </div>
     )
@@ -248,8 +248,8 @@ export function TrainingStudentDebriefsTab({
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="px-4 py-5 sm:p-6 space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-semibold">Recent Debriefs</h3>
         {refreshing ? <div className="text-xs text-muted-foreground">Updating…</div> : null}
       </div>

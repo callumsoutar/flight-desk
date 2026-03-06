@@ -396,8 +396,8 @@ export function TrainingStudentProgrammeTab({
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-start justify-between gap-3">
+    <div className="px-4 py-5 sm:p-6 space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-slate-900">Syllabus</h3>
           <p className="text-xs text-muted-foreground">
@@ -408,7 +408,7 @@ export function TrainingStudentProgrammeTab({
           <Button
             size="sm"
             onClick={() => setEnrollOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 text-xs font-bold shadow-sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 text-xs font-bold shadow-sm w-full sm:w-auto"
             disabled={availableSyllabi.length === 0}
             title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
           >
@@ -419,7 +419,7 @@ export function TrainingStudentProgrammeTab({
       </div>
 
       <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
           <div className="text-sm font-semibold">Active Enrollments</div>
           <Badge
             variant="outline"
@@ -471,75 +471,128 @@ export function TrainingStudentProgrammeTab({
             No historical enrollments.
           </div>
         ) : (
-          <div className="overflow-hidden">
-            <Table>
-              <TableHeader className="bg-muted/10">
-                <TableRow className="hover:bg-muted/10">
-                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Syllabus
-                  </TableHead>
-                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </TableHead>
-                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Enrolled
-                  </TableHead>
-                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Completed
-                  </TableHead>
-                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Instructor
-                  </TableHead>
-                  <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Aircraft
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {historicalEnrollments.map((e) => {
-                  const label = enrollmentStatusLabel(e)
-                  const inst = e.primary_instructor_id
-                    ? instructors.find((i) => i.id === e.primary_instructor_id) ?? null
-                    : null
-                  const at = e.aircraft_type ? aircraftTypes.find((a) => a.id === e.aircraft_type) ?? null : null
-                  const instName = inst
-                    ? `${inst.user?.first_name ?? inst.first_name ?? ""} ${inst.user?.last_name ?? inst.last_name ?? ""}`.trim()
-                    : "—"
+          <>
+            <div className="p-5 space-y-3 sm:hidden">
+              {historicalEnrollments.map((e) => {
+                const label = enrollmentStatusLabel(e)
+                const inst = e.primary_instructor_id
+                  ? instructors.find((i) => i.id === e.primary_instructor_id) ?? null
+                  : null
+                const at = e.aircraft_type ? aircraftTypes.find((a) => a.id === e.aircraft_type) ?? null : null
+                const instName = inst
+                  ? `${inst.user?.first_name ?? inst.first_name ?? ""} ${inst.user?.last_name ?? inst.last_name ?? ""}`.trim()
+                  : "—"
 
-                  return (
-                    <TableRow key={e.id} className="hover:bg-muted/20">
-                      <TableCell className="px-5 py-3">
-                        <div className="font-medium text-foreground">{e.syllabus?.name || "Syllabus"}</div>
-                      </TableCell>
-                      <TableCell className="px-5 py-3">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
-                            enrollmentStatusClasses(label)
-                          )}
-                        >
-                          {label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
+                return (
+                  <div key={e.id} className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground truncate">{e.syllabus?.name || "Syllabus"}</div>
+                        <div className="mt-2">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
+                              enrollmentStatusClasses(label)
+                            )}
+                          >
+                            {label}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground tabular-nums">
                         {formatDateKey(e.enrolled_at)}
-                      </TableCell>
-                      <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
-                        {formatDateKey(e.completion_date)}
-                      </TableCell>
-                      <TableCell className="px-5 py-3 text-sm text-muted-foreground">
-                        {instName || "—"}
-                      </TableCell>
-                      <TableCell className="px-5 py-3 text-sm text-muted-foreground">
-                        {at?.name ?? "—"}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</div>
+                        <div className="mt-0.5 font-medium tabular-nums">{formatDateKey(e.completion_date)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Instructor</div>
+                        <div className="mt-0.5 font-medium truncate">{instName || "—"}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Aircraft</div>
+                        <div className="mt-0.5 font-medium truncate">{at?.name ?? "—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="hidden sm:block overflow-hidden">
+              <Table>
+                <TableHeader className="bg-muted/10">
+                  <TableRow className="hover:bg-muted/10">
+                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Syllabus
+                    </TableHead>
+                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Status
+                    </TableHead>
+                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Enrolled
+                    </TableHead>
+                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Completed
+                    </TableHead>
+                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Instructor
+                    </TableHead>
+                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Aircraft
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historicalEnrollments.map((e) => {
+                    const label = enrollmentStatusLabel(e)
+                    const inst = e.primary_instructor_id
+                      ? instructors.find((i) => i.id === e.primary_instructor_id) ?? null
+                      : null
+                    const at = e.aircraft_type ? aircraftTypes.find((a) => a.id === e.aircraft_type) ?? null : null
+                    const instName = inst
+                      ? `${inst.user?.first_name ?? inst.first_name ?? ""} ${inst.user?.last_name ?? inst.last_name ?? ""}`.trim()
+                      : "—"
+
+                    return (
+                      <TableRow key={e.id} className="hover:bg-muted/20">
+                        <TableCell className="px-5 py-3">
+                          <div className="font-medium text-foreground">{e.syllabus?.name || "Syllabus"}</div>
+                        </TableCell>
+                        <TableCell className="px-5 py-3">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
+                              enrollmentStatusClasses(label)
+                            )}
+                          >
+                            {label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
+                          {formatDateKey(e.enrolled_at)}
+                        </TableCell>
+                        <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
+                          {formatDateKey(e.completion_date)}
+                        </TableCell>
+                        <TableCell className="px-5 py-3 text-sm text-muted-foreground">
+                          {instName || "—"}
+                        </TableCell>
+                        <TableCell className="px-5 py-3 text-sm text-muted-foreground">
+                          {at?.name ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </div>
 

@@ -1,39 +1,94 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { DataTable } from "@/components/data-table"
-import { SectionCards } from "@/components/section-cards"
-import { SiteHeader } from "@/components/site-header"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
+import * as React from "react"
+import { redirect } from "next/navigation"
 
-import data from "./data.json"
+import { DashboardPageClient } from "@/components/dashboard/dashboard-page-client"
+import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton"
+import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getAuthSession } from "@/lib/auth/session"
+import { fetchDashboardPageData } from "@/lib/dashboard/fetch-dashboard-page-data"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 
-export default function Page() {
+function MessageCard({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "16rem",
-        } as React.CSSProperties
-      }
-    >
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards />
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive />
-              </div>
-              <DataTable data={data} />
-            </div>
-          </div>
+    <AppRouteShell>
+      <AppRouteListContainer>
+        <Card>
+          <CardHeader>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+        </Card>
+      </AppRouteListContainer>
+    </AppRouteShell>
+  )
+}
+
+async function DashboardContent({ tenantId }: { tenantId: string }) {
+  const supabase = await createSupabaseServerClient()
+
+  let data: Awaited<ReturnType<typeof fetchDashboardPageData>>["data"] | null = null
+  let loadErrors: string[] = []
+  let loadFailed = false
+
+  try {
+    const result = await fetchDashboardPageData(supabase, tenantId)
+    data = result.data
+    loadErrors = result.loadErrors
+  } catch {
+    loadFailed = true
+  }
+
+  if (loadFailed || !data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Dashboard</CardTitle>
+          <CardDescription>Failed to load dashboard data. Please try again.</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {loadErrors.length ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          Some dashboard data couldn&apos;t be loaded: {loadErrors.join(", ")}.
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      ) : null}
+      <DashboardPageClient data={data} />
+    </div>
+  )
+}
+
+export default async function DashboardPage() {
+  const supabase = await createSupabaseServerClient()
+  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+
+  if (!user) redirect("/login")
+  if (!tenantId) {
+    return (
+      <MessageCard
+        title="Dashboard"
+        description="Your account isn&apos;t linked to a tenant yet."
+      />
+    )
+  }
+
+  return (
+    <AppRouteShell>
+      <AppRouteListContainer>
+        <React.Suspense fallback={<DashboardPageSkeleton />}>
+          <DashboardContent tenantId={tenantId} />
+        </React.Suspense>
+      </AppRouteListContainer>
+    </AppRouteShell>
   )
 }

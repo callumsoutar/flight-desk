@@ -105,7 +105,7 @@ export function TrainingStudentSheet({
         {row ? (
           <div className="flex h-full flex-col">
             <SheetHeader className="gap-3 border-b">
-              <div className="flex items-start gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="flex items-center gap-3 min-w-0">
                   <Avatar className="h-10 w-10 rounded-full border border-slate-200/50 shadow-sm ring-2 ring-white">
                     <AvatarFallback className="bg-slate-100 text-slate-500 text-[11px] font-bold">
@@ -130,8 +130,8 @@ export function TrainingStudentSheet({
                     </div>
                   </div>
                 </div>
-                <div className="ml-auto shrink-0">
-                  <Button variant="outline" size="sm" asChild>
+                <div className="sm:ml-auto shrink-0">
+                  <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
                     <Link href={`/members/${row.user_id}?tab=training&syllabus_id=${row.syllabus_id}`}>
                       Open full record
                     </Link>
@@ -143,20 +143,23 @@ export function TrainingStudentSheet({
             <div className="flex-1 overflow-auto">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-0">
                 <div className="border-b px-4 py-3">
-                  <TabsList variant="line" className="w-full justify-start gap-6 h-10 p-0">
-                    <TabsTrigger value="overview" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                  <TabsList
+                    variant="line"
+                    className="w-full justify-start gap-4 h-10 p-0 overflow-x-auto sm:overflow-visible"
+                  >
+                    <TabsTrigger value="overview" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
                       Overview
                     </TabsTrigger>
-                    <TabsTrigger value="flying" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                    <TabsTrigger value="flying" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
                       Flying
                     </TabsTrigger>
-                    <TabsTrigger value="debriefs" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                    <TabsTrigger value="debriefs" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
                       Debriefs
                     </TabsTrigger>
-                    <TabsTrigger value="theory" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                    <TabsTrigger value="theory" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
                       Theory
                     </TabsTrigger>
-                    <TabsTrigger value="programme" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
+                    <TabsTrigger value="programme" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
                       Syllabus
                     </TabsTrigger>
                   </TabsList>

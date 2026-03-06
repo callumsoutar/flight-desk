@@ -320,7 +320,7 @@ export function TrainingStudentFlyingTab({
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="px-4 py-5 sm:p-6">
         <div className="space-y-3">
           <div className="h-6 w-48 rounded bg-muted/50" />
           <div className="h-20 w-full rounded-xl border bg-card" />
@@ -331,12 +331,12 @@ export function TrainingStudentFlyingTab({
   }
 
   if (error) {
-    return <div className="p-6 text-sm text-muted-foreground">{error}</div>
+    return <div className="px-4 py-5 sm:p-6 text-sm text-muted-foreground">{error}</div>
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-5 sm:p-6 space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-semibold">Syllabus Lessons</h3>
         <div className="flex items-center gap-3">
           {refreshing ? <span className="text-xs text-muted-foreground">Updating…</span> : null}

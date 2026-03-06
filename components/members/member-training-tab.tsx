@@ -210,6 +210,13 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
   }, [enrollments, instructorsById, memberId, snapshotSyllabusId, syllabi])
 
   const snapshotLoading = trainingLoading && !snapshotRow
+  const snapshotTabs = [
+    { id: "overview", label: "Overview" },
+    { id: "flying", label: "Flying" },
+    { id: "debriefs", label: "Debriefs" },
+    { id: "theory", label: "Theory" },
+    { id: "programme", label: "Syllabus" },
+  ] as const
 
   return (
     <div className="space-y-4">
@@ -221,76 +228,97 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
           </p>
           {trainingError ? <p className="text-sm text-destructive">{trainingError}</p> : null}
         </div>
+        {snapshotSyllabusOptions.length > 1 ? (
+          <div className="w-full sm:w-auto sm:ml-auto">
+            <Select
+              value={snapshotSyllabusId || ""}
+              onValueChange={setSnapshotSyllabusId}
+              disabled={trainingLoading || snapshotSyllabusOptions.length === 0}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-9 w-full sm:min-w-[240px] sm:w-[280px] rounded-lg border-border/50 bg-muted/20 shadow-none hover:bg-muted/30"
+              >
+                <SelectValue placeholder="Select syllabus" />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                {snapshotSyllabusOptions.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-[13px] py-2">
+                    <div className="flex w-full items-center justify-between gap-4">
+                      <span>{s.name}</span>
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        {s.isActive ? "Active" : "Past"}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
       </div>
 
       {snapshotRow ? (
-        <SnapshotTabs value={snapshotTab} onValueChange={setSnapshotTab} className="gap-0">
+        <SnapshotTabs value={snapshotTab} onValueChange={setSnapshotTab} className="gap-0 w-full">
           <div className="border-b border-border/60 px-1">
-            <div className="flex items-center gap-3">
-              <SnapshotTabsList variant="line" className="flex-1 justify-start gap-6 h-10 p-0">
-                <SnapshotTabsTrigger value="overview" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
-                  Overview
-                </SnapshotTabsTrigger>
-                <SnapshotTabsTrigger value="flying" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
-                  Flying
-                </SnapshotTabsTrigger>
-                <SnapshotTabsTrigger value="debriefs" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
-                  Debriefs
-                </SnapshotTabsTrigger>
-                <SnapshotTabsTrigger value="theory" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
-                  Theory
-                </SnapshotTabsTrigger>
-                <SnapshotTabsTrigger value="programme" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold">
-                  Syllabus
-                </SnapshotTabsTrigger>
-              </SnapshotTabsList>
-
-              {snapshotSyllabusOptions.length > 1 ? (
-                <Select
-                  value={snapshotSyllabusId || ""}
-                  onValueChange={setSnapshotSyllabusId}
-                  disabled={trainingLoading || snapshotSyllabusOptions.length === 0}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="max-w-[min(320px,90vw)] rounded-full border-border/60 bg-muted/20 shadow-none hover:bg-muted/30"
-                  >
-                    <SelectValue placeholder="Select syllabus" />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="sm:hidden">
+                <Select value={snapshotTab} onValueChange={setSnapshotTab}>
+                  <SelectTrigger className="h-10 w-full border-border/60 bg-muted/20 shadow-none hover:bg-muted/30">
+                    <SelectValue>
+                      {snapshotTabs.find((tab) => tab.id === snapshotTab)?.label ?? "Overview"}
+                    </SelectValue>
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {snapshotSyllabusOptions.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="text-[13px] py-2">
-                        {s.name}
-                        {s.isActive ? (
-                          <span className="ml-2 text-[10px] font-semibold text-emerald-600">Active</span>
-                        ) : (
-                          <span className="ml-2 text-[10px] font-semibold text-slate-400">Past</span>
-                        )}
+                  <SelectContent>
+                    {snapshotTabs.map((tab) => (
+                      <SelectItem key={tab.id} value={tab.id}>
+                        {tab.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              ) : null}
+              </div>
+              <SnapshotTabsList
+                variant="line"
+                className="hidden sm:flex w-full flex-1 justify-start gap-4 h-10 p-0 overflow-x-auto sm:overflow-visible"
+              >
+                <SnapshotTabsTrigger value="overview" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Overview
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="flying" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Flying
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="debriefs" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Debriefs
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="theory" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Theory
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="programme" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Syllabus
+                </SnapshotTabsTrigger>
+              </SnapshotTabsList>
+
             </div>
           </div>
 
-          <SnapshotTabsContent value="overview">
+          <SnapshotTabsContent value="overview" className="w-full">
             <TrainingStudentOverviewTab row={snapshotRow} />
           </SnapshotTabsContent>
 
-          <SnapshotTabsContent value="flying">
+          <SnapshotTabsContent value="flying" className="w-full">
             <TrainingStudentFlyingTab userId={memberId} syllabusId={snapshotRow.syllabus_id} />
           </SnapshotTabsContent>
 
-          <SnapshotTabsContent value="debriefs">
+          <SnapshotTabsContent value="debriefs" className="w-full">
             <TrainingStudentDebriefsTab userId={memberId} syllabusId={snapshotRow.syllabus_id} />
           </SnapshotTabsContent>
 
-          <SnapshotTabsContent value="theory">
+          <SnapshotTabsContent value="theory" className="w-full">
             <TrainingStudentTheoryTab userId={memberId} syllabusId={snapshotRow.syllabus_id} />
           </SnapshotTabsContent>
 
-          <SnapshotTabsContent value="programme">
+          <SnapshotTabsContent value="programme" className="w-full">
             <TrainingStudentProgrammeTab
               userId={memberId}
               syllabi={syllabi}

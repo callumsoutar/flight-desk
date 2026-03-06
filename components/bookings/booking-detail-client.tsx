@@ -628,8 +628,8 @@ export function BookingDetailClient({
             ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                  Quick Actions
+                <Button variant="outline" size="sm" className="hidden w-full sm:inline-flex sm:w-auto">
+                  More
                   <IconChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -784,7 +784,12 @@ export function BookingDetailClient({
         <div className="fixed bottom-0 right-0 z-40 p-4">
           <Drawer>
             <DrawerTrigger asChild>
-              <Button variant="outline" size="icon" className="rounded-full shadow-lg">
+              <Button
+                variant="default"
+                size="icon"
+                className="h-12 w-12 rounded-full shadow-xl ring-1 ring-border/40"
+                aria-label="Open booking actions"
+              >
                 <IconDotsVertical className="h-5 w-5" />
               </Button>
             </DrawerTrigger>

@@ -257,7 +257,7 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
 
   if (loading && !data) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="px-4 py-5 sm:p-6 space-y-4">
         <div className="h-5 w-56 rounded bg-muted/50" />
         <div className="h-24 w-full rounded-xl border bg-card" />
         <div className="h-32 w-full rounded-xl border bg-card" />
@@ -266,14 +266,14 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="px-4 py-5 sm:p-6 space-y-6">
       {error ? <div className="text-sm text-muted-foreground">{error}</div> : null}
       {refreshing ? (
         <div className="text-xs text-muted-foreground">Updating…</div>
       ) : null}
 
       <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-        <div className="flex items-start justify-between gap-4 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between p-5">
           <div className="flex items-start gap-3 min-w-0">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/40 text-foreground/70 shrink-0 border border-border/60">
               {hasIdentity ? (
@@ -301,7 +301,7 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
             </div>
           </div>
 
-          <div className="text-right shrink-0">
+          <div className="text-left sm:text-right shrink-0">
             <div className="text-xs text-muted-foreground">Enrolled</div>
             <div className="text-sm font-medium tabular-nums">{safeFormatDate(enrolledAt)}</div>
             {enrolledAgo ? (

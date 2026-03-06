@@ -2,15 +2,15 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { IconClock, IconLoader2 } from "@tabler/icons-react"
+import * as Tabs from "@radix-ui/react-tabs"
+import { IconClock, IconListDetails, IconLoader2, IconSettings } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { CancellationCategoriesConfig } from "@/components/settings/bookings/cancellation-categories-config"
+import { CancellationCategoriesTab } from "@/components/settings/bookings/cancellation-categories-tab"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import type { BookingsSettings } from "@/lib/settings/bookings-settings"
 
@@ -65,13 +65,25 @@ function createFormState(settings: BookingsSettings | null) {
   }
 }
 
+const bookingTabs = [
+  { id: "defaults", label: "Defaults", icon: IconSettings },
+  { id: "cancellations", label: "Cancellation categories", icon: IconListDetails },
+] as const
+
 export function BookingsTab() {
   const router = useRouter()
+  const [activeTab, setActiveTab] =
+    React.useState<(typeof bookingTabs)[number]["id"]>("defaults")
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
   const [baseSettings, setBaseSettings] = React.useState<BookingsSettings | null>(null)
   const [form, setForm] = React.useState(() => createFormState(null))
+  const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
+  const tabsListRef = React.useRef<HTMLDivElement>(null)
+  const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
+  const [showScrollLeft, setShowScrollLeft] = React.useState(false)
+  const [showScrollRight, setShowScrollRight] = React.useState(false)
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -123,6 +135,36 @@ export function BookingsTab() {
     }
   }
 
+  React.useEffect(() => {
+    const activeElement = tabRefs.current[activeTab]
+    if (activeElement && tabsListRef.current) {
+      const listRect = tabsListRef.current.getBoundingClientRect()
+      const activeRect = activeElement.getBoundingClientRect()
+      setUnderlineStyle({
+        left: activeRect.left - listRect.left,
+        width: activeRect.width,
+      })
+    }
+  }, [activeTab])
+
+  React.useEffect(() => {
+    const checkScroll = () => {
+      if (!tabsListRef.current) return
+      const { scrollLeft, scrollWidth, clientWidth } = tabsListRef.current
+      setShowScrollLeft(scrollLeft > 0)
+      setShowScrollRight(scrollLeft + clientWidth < scrollWidth)
+    }
+
+    checkScroll()
+    const listElement = tabsListRef.current
+    listElement?.addEventListener("scroll", checkScroll)
+    window.addEventListener("resize", checkScroll)
+    return () => {
+      listElement?.removeEventListener("scroll", checkScroll)
+      window.removeEventListener("resize", checkScroll)
+    }
+  }, [])
+
   if (loading) {
     return (
       <Card className="border border-border/50 bg-card shadow-sm">
@@ -167,83 +209,140 @@ export function BookingsTab() {
         </div>
       </div>
 
-      <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-border/40">
-          <div className="space-y-1">
-            <CardTitle className="text-lg text-slate-900">Booking duration</CardTitle>
-            <CardDescription>
-              Defaults that apply when creating new bookings.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <IconClock className="h-4 w-4 text-slate-500" />
-            Duration defaults
-          </div>
+      <Tabs.Root
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as typeof activeTab)}
+        className="flex w-full flex-col"
+      >
+        <div className="relative -mx-4 border-b border-slate-200 px-4 pb-1 pt-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="relative flex items-center">
+            {showScrollLeft ? (
+              <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-8 bg-gradient-to-r from-muted/30 to-transparent" />
+            ) : null}
+            {showScrollRight ? (
+              <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-8 bg-gradient-to-l from-muted/30 to-transparent" />
+            ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="default-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Default duration (hours)
-              </Label>
-              <Input
-                id="default-booking-duration"
-                type="number"
-                min={0}
-                step={0.5}
-                value={form.default_booking_duration_hours}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    default_booking_duration_hours: Number.parseFloat(e.target.value) || 0,
-                  }))
-                }
-                className="h-11 rounded-xl border-slate-200 bg-white"
-              />
-              <p className="text-[11px] font-medium text-slate-500">
-                Used to prefill the end time when staff create bookings.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="minimum-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Minimum duration (minutes)
-              </Label>
-              <Input
-                id="minimum-booking-duration"
-                type="number"
-                min={0}
-                step={5}
-                value={form.minimum_booking_duration_minutes}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    minimum_booking_duration_minutes: Number.parseInt(e.target.value, 10) || 0,
-                  }))
-                }
-                className="h-11 rounded-xl border-slate-200 bg-white"
-              />
-              <p className="text-[11px] font-medium text-slate-500">
-                Helps prevent very short bookings from being created accidentally.
-              </p>
+            <div className="w-full overflow-x-auto scrollbar-hide scroll-smooth">
+              <Tabs.List
+                ref={tabsListRef}
+                className="relative flex min-h-[44px] min-w-max flex-row gap-1"
+                aria-label="Booking settings categories"
+              >
+                <div
+                  className="absolute bottom-0 h-0.5 bg-indigo-700 transition-all duration-300 ease-out"
+                  style={{
+                    left: `${underlineStyle.left}px`,
+                    width: `${underlineStyle.width}px`,
+                  }}
+                />
+                {bookingTabs.map((tab) => {
+                  const Icon = tab.icon
+                  return (
+                    <Tabs.Trigger
+                      key={tab.id}
+                      ref={(el) => {
+                        tabRefs.current[tab.id] = el
+                      }}
+                      value={tab.id}
+                      className="inline-flex min-h-[44px] min-w-[44px] flex-shrink-0 cursor-pointer touch-manipulation items-center gap-2 border-b-2 border-transparent px-3 py-2.5 pb-1 text-sm font-semibold whitespace-nowrap text-slate-600 transition-all duration-200 hover:text-indigo-600 data-[state=active]:text-indigo-800"
+                      style={{ background: "none", boxShadow: "none", borderRadius: 0 }}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{tab.label}</span>
+                    </Tabs.Trigger>
+                  )
+                })}
+              </Tabs.List>
             </div>
           </div>
+        </div>
 
-          <Separator />
-          <CancellationCategoriesConfig />
-        </CardContent>
-      </Card>
+        <div className="w-full pt-6">
+          <Tabs.Content value="defaults" className="outline-none">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+              <CardHeader className="border-b border-border/40">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Booking defaults</CardTitle>
+                  <CardDescription>
+                    Defaults that apply when creating new bookings.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <IconClock className="h-4 w-4 text-slate-500" />
+                  Duration defaults
+                </div>
 
-      <StickyFormActions
-        isDirty={dirty}
-        isSaving={isSaving}
-        isSaveDisabled={!dirty || isSaving}
-        onUndo={onUndo}
-        onSave={onSave}
-        message="You have unsaved booking duration changes."
-        saveLabel="Save booking settings"
-      />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="default-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Default duration (hours)
+                    </Label>
+                    <Input
+                      id="default-booking-duration"
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={form.default_booking_duration_hours}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          default_booking_duration_hours: Number.parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                      className="h-11 rounded-xl border-slate-200 bg-white"
+                    />
+                    <p className="text-[11px] font-medium text-slate-500">
+                      Used to prefill the end time when staff create bookings.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="minimum-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Minimum duration (minutes)
+                    </Label>
+                    <Input
+                      id="minimum-booking-duration"
+                      type="number"
+                      min={0}
+                      step={5}
+                      value={form.minimum_booking_duration_minutes}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          minimum_booking_duration_minutes: Number.parseInt(e.target.value, 10) || 0,
+                        }))
+                      }
+                      className="h-11 rounded-xl border-slate-200 bg-white"
+                    />
+                    <p className="text-[11px] font-medium text-slate-500">
+                      Helps prevent very short bookings from being created accidentally.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+
+          <Tabs.Content value="cancellations" className="outline-none">
+            <CancellationCategoriesTab />
+          </Tabs.Content>
+        </div>
+      </Tabs.Root>
+
+      {activeTab === "defaults" ? (
+        <StickyFormActions
+          isDirty={dirty}
+          isSaving={isSaving}
+          isSaveDisabled={!dirty || isSaving}
+          onUndo={onUndo}
+          onSave={onSave}
+          message="You have unsaved booking duration changes."
+          saveLabel="Save booking settings"
+        />
+      ) : null}
     </div>
   )
 }

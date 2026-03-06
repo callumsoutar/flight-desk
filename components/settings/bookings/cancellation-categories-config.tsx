@@ -63,7 +63,7 @@ async function fetchCategories(): Promise<CancellationCategory[]> {
   return Array.isArray(data?.categories) ? (data?.categories as CancellationCategory[]) : []
 }
 
-export function CancellationCategoriesConfig() {
+export function CancellationCategoriesConfig({ showHeader = true }: { showHeader?: boolean }) {
   const [categories, setCategories] = React.useState<CancellationCategory[]>([])
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
@@ -252,17 +252,19 @@ export function CancellationCategoriesConfig() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <IconBan className="h-5 w-5 text-indigo-600" />
-            <h3 className="text-lg font-semibold text-slate-900">Cancellation categories</h3>
+      {showHeader ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <IconBan className="h-5 w-5 text-indigo-600" />
+              <h3 className="text-lg font-semibold text-slate-900">Cancellation categories</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Global categories are available to all tenants and can&apos;t be modified.
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Global categories are available to all tenants and can&apos;t be modified.
-          </p>
         </div>
-      </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -483,4 +485,3 @@ export function CancellationCategoriesConfig() {
     </div>
   )
 }
-

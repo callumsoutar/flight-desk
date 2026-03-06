@@ -6,11 +6,9 @@ import { IconCashBanknote, IconPlane, IconReceiptTax } from "@tabler/icons-react
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FlightTypesConfig } from "@/components/settings/charges/flight-types-config"
 import { LandingFeesConfig } from "@/components/settings/charges/landing-fees-config"
 import { ChargeablesConfig } from "@/components/settings/charges/chargeables-config"
-import { cn } from "@/lib/utils"
 
 const chargeTabs = [
   { id: "aircraft", label: "Aircraft rates", icon: IconPlane },
@@ -73,47 +71,8 @@ export function ChargesTab() {
       </div>
 
       <Tabs.Root value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="flex w-full flex-col">
-        <div className="relative -mx-4 border-b border-slate-200 px-4 pb-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-          <div className="md:hidden pt-3 pb-2">
-            <Select value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-              <SelectTrigger className="h-11 w-full border-2 border-slate-200 hover:border-slate-300 focus:border-slate-400 rounded-xl bg-white">
-                <SelectValue>
-                  {(() => {
-                    const active = chargeTabs.find((t) => t.id === activeTab) ?? chargeTabs[0]
-                    const Icon = active.icon
-                    return (
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-indigo-600" />
-                        <span className="font-semibold text-indigo-900">{active.label}</span>
-                      </div>
-                    )
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-slate-200">
-                {chargeTabs.map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = tab.id === activeTab
-                  return (
-                    <SelectItem
-                      key={tab.id}
-                      value={tab.id}
-                      className={cn("rounded-lg mx-1 my-0.5", isActive ? "bg-indigo-50" : "")}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className={cn("h-4 w-4", isActive ? "text-indigo-600" : "text-slate-500")} />
-                        <span className={cn(isActive ? "font-semibold text-indigo-900" : "text-slate-700")}>
-                          {tab.label}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="relative hidden items-center pt-2 md:flex">
+        <div className="relative -mx-4 border-b border-slate-200 px-4 pb-1 pt-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="relative flex items-center">
             {showScrollLeft ? (
               <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-8 bg-gradient-to-r from-muted/30 to-transparent" />
             ) : null}

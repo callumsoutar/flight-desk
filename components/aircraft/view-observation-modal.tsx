@@ -174,10 +174,10 @@ export function ViewObservationModal({
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent
         className={cn(
-          "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] top-[calc(env(safe-area-inset-top)+1rem)] h-[calc(100dvh-2rem)] translate-y-0 overflow-hidden rounded-[20px] border-none p-0 shadow-2xl sm:top-[50%] sm:h-[min(calc(100dvh-4rem),700px)] sm:w-full sm:max-w-[700px] sm:translate-y-[-50%]"
+          "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] top-[calc(env(safe-area-inset-top)+1rem)] h-[calc(100dvh-2rem)] translate-y-0 overflow-hidden rounded-[20px] border-none p-0 shadow-2xl sm:top-[50%] sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:w-full sm:max-w-[640px] sm:translate-y-[-50%]"
         )}
       >
-        <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="flex h-full min-h-0 flex-col bg-white sm:h-auto sm:max-h-[calc(100dvh-4rem)]">
           <DialogHeader className="px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] pb-3 text-left sm:pt-5">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-orange-600">
