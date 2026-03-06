@@ -256,7 +256,7 @@ export function AircraftOverviewTab({
                         </div>
                       </div>
                       <p className="text-muted-foreground text-sm font-semibold">
-                        {formatTotalHours(flight.flight_time)}
+                        {formatTotalHours(flight.billing_hours)}
                       </p>
                     </div>
                     {index < recentFlights.length - 1 ? <Separator className="my-1" /> : null}

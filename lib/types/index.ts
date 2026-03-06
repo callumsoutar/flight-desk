@@ -12,6 +12,18 @@ export type { Database, Json } from "./database"
 export type { UserRole } from "./roles"
 export { ROLE_HIERARCHY, isRoleAtLeast } from "./roles"
 
+// Dashboard types
+export type { DashboardData, DashboardMetrics, DashboardBookingLite, DashboardAircraftStatus } from "./dashboard"
+export type {
+  BookingWarningCategory,
+  BookingWarningGroup,
+  BookingWarningItem,
+  BookingWarningsResponse,
+  BookingWarningsStatus,
+  BookingWarningsSummary,
+  BookingWarningSeverity,
+} from "./booking-warnings"
+
 // Convenience: public schema tables — use Tables<"aircraft"> for Row, TablesInsert<"aircraft"> for Insert, etc.
 export type Tables<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Row"]

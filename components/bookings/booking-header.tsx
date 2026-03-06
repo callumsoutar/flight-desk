@@ -102,7 +102,7 @@ export function BookingHeader({
 
   return (
     <div className={cn("border-b border-border/40 bg-background py-4 sm:py-6", className)}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
           <Link
             href={backHref}

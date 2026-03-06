@@ -2,33 +2,45 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { IconCheck, IconPlane } from "@tabler/icons-react"
+import { IconCheck, IconChevronDown, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import {
   authorizeBookingCheckoutAction,
   updateBookingCheckoutDetailsAction,
 } from "@/app/bookings/actions"
+import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import {
   BookingEditDetailsCard,
   createBookingEditInitialState,
+  normalizeBookingEditFormState,
   type BookingEditFormState,
 } from "@/components/bookings/booking-edit-details-card"
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
   deriveBookingTrackerState,
   getBookingTrackerStages,
 } from "@/components/bookings/booking-status-tracker"
+import { BookingCheckoutWarnings } from "@/components/bookings/booking-checkout-warnings"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
+import type { BookingWarningsResponse } from "@/lib/types/booking-warnings"
 import type { UserRole } from "@/lib/types/roles"
 
 type CheckoutFormState = {
+  checked_out_aircraft_id: string | null
   eta: string
   fuel_on_board: string
   route: string
@@ -67,9 +79,55 @@ function normalizeText(value: string) {
   return trimmed.length ? trimmed : null
 }
 
+function formatDurationMinutes(totalMinutes: number): string {
+  const minutes = Math.max(0, Math.round(totalMinutes))
+  const hoursPart = Math.floor(minutes / 60)
+  const minutesPart = minutes % 60
+  if (hoursPart <= 0) return `${minutesPart}m`
+  if (minutesPart === 0) return `${hoursPart}h`
+  return `${hoursPart}h ${minutesPart}m`
+}
+
+function buildWarningsFingerprint(payload: {
+  userId: string | null
+  instructorId: string | null
+  aircraftId: string | null
+  warnings: BookingWarningsResponse
+}) {
+  return JSON.stringify({
+    userId: payload.userId,
+    instructorId: payload.instructorId,
+    aircraftId: payload.aircraftId,
+    summary: payload.warnings.summary,
+    groups: payload.warnings.groups.map((group) => ({
+      category: group.category,
+      warnings: group.warnings.map((warning) => ({
+        id: warning.id,
+        severity: warning.severity,
+        blocking: warning.blocking,
+      })),
+    })),
+  })
+}
+
+function buildWarningsUrl(params: {
+  bookingId: string
+  userId: string | null
+  instructorId: string | null
+  aircraftId: string | null
+}) {
+  const searchParams = new URLSearchParams()
+  if (params.userId) searchParams.set("user_id", params.userId)
+  if (params.instructorId) searchParams.set("instructor_id", params.instructorId)
+  if (params.aircraftId) searchParams.set("aircraft_id", params.aircraftId)
+  const query = searchParams.toString()
+  return query.length > 0 ? `/api/bookings/${params.bookingId}/warnings?${query}` : `/api/bookings/${params.bookingId}/warnings`
+}
+
 function createCheckoutInitialState(booking: BookingWithRelations): CheckoutFormState {
   return {
-    eta: toDatetimeLocal(booking.eta),
+    checked_out_aircraft_id: booking.checked_out_aircraft_id ?? booking.aircraft_id ?? null,
+    eta: toDatetimeLocal(booking.eta ?? booking.end_time),
     fuel_on_board:
       typeof booking.fuel_on_board === "number" && Number.isFinite(booking.fuel_on_board)
         ? String(booking.fuel_on_board)
@@ -85,40 +143,259 @@ function createCheckoutInitialState(booking: BookingWithRelations): CheckoutForm
 export function BookingCheckoutClient({
   bookingId,
   booking,
+  initialWarnings,
   options,
   role,
 }: {
   bookingId: string
   booking: BookingWithRelations
+  initialWarnings: BookingWarningsResponse
   options: BookingOptions
   role: UserRole | null
 }) {
   const router = useRouter()
   const [isPending, startTransition] = React.useTransition()
-  const [bookingForm, setBookingForm] = React.useState<BookingEditFormState>(() =>
-    createBookingEditInitialState(booking)
+  const serverInitialBookingForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
+  const serverInitialCheckoutForm = React.useMemo(() => createCheckoutInitialState(booking), [booking])
+
+  const [bookingForm, setBookingForm] = React.useState<BookingEditFormState>(() => serverInitialBookingForm)
+  const [checkoutForm, setCheckoutForm] = React.useState<CheckoutFormState>(() => serverInitialCheckoutForm)
+  const [isEtaAuto, setIsEtaAuto] = React.useState(() => {
+    const endTimeLocal = toDatetimeLocal(serverInitialBookingForm.end_time)
+    return !serverInitialCheckoutForm.eta || serverInitialCheckoutForm.eta === endTimeLocal
+  })
+  const [savedBookingForm, setSavedBookingForm] = React.useState<BookingEditFormState>(() => serverInitialBookingForm)
+  const [savedCheckoutForm, setSavedCheckoutForm] = React.useState<CheckoutFormState>(() => serverInitialCheckoutForm)
+  const [warnings, setWarnings] = React.useState<BookingWarningsResponse>(() => initialWarnings)
+  const [warningsAcknowledged, setWarningsAcknowledged] = React.useState(
+    () => !initialWarnings.summary.requires_acknowledgement
   )
-  const [checkoutForm, setCheckoutForm] = React.useState<CheckoutFormState>(() =>
-    createCheckoutInitialState(booking)
+  const [warningsRefreshError, setWarningsRefreshError] = React.useState<string | null>(null)
+  const [isWarningsRefreshing, setIsWarningsRefreshing] = React.useState(false)
+  const [cancelOpen, setCancelOpen] = React.useState(false)
+  const savedBookingFormRef = React.useRef(savedBookingForm)
+  const savedCheckoutFormRef = React.useRef(savedCheckoutForm)
+  const bookingFormRef = React.useRef(bookingForm)
+  const checkoutFormRef = React.useRef(checkoutForm)
+
+  React.useEffect(() => {
+    savedBookingFormRef.current = savedBookingForm
+  }, [savedBookingForm])
+
+  React.useEffect(() => {
+    savedCheckoutFormRef.current = savedCheckoutForm
+  }, [savedCheckoutForm])
+
+  React.useEffect(() => {
+    bookingFormRef.current = bookingForm
+  }, [bookingForm])
+
+  React.useEffect(() => {
+    checkoutFormRef.current = checkoutForm
+  }, [checkoutForm])
+
+  React.useEffect(() => {
+    const prevSavedBooking = savedBookingFormRef.current
+    const prevSavedCheckout = savedCheckoutFormRef.current
+    const currentBooking = bookingFormRef.current
+    const currentCheckout = checkoutFormRef.current
+    const shouldResetBookingForm = JSON.stringify(currentBooking) === JSON.stringify(prevSavedBooking)
+    const shouldResetCheckoutForm = JSON.stringify(currentCheckout) === JSON.stringify(prevSavedCheckout)
+
+    setSavedBookingForm(serverInitialBookingForm)
+    setSavedCheckoutForm(serverInitialCheckoutForm)
+    savedBookingFormRef.current = serverInitialBookingForm
+    savedCheckoutFormRef.current = serverInitialCheckoutForm
+
+    if (shouldResetBookingForm) setBookingForm(serverInitialBookingForm)
+    if (shouldResetCheckoutForm) setCheckoutForm(serverInitialCheckoutForm)
+    if (shouldResetCheckoutForm) {
+      const endTimeLocal = toDatetimeLocal(serverInitialBookingForm.end_time)
+      setIsEtaAuto(!serverInitialCheckoutForm.eta || serverInitialCheckoutForm.eta === endTimeLocal)
+    }
+  }, [serverInitialBookingForm, serverInitialCheckoutForm])
+
+  React.useEffect(() => {
+    setWarnings(initialWarnings)
+    setWarningsRefreshError(null)
+  }, [initialWarnings])
+
+  const warningUserId = bookingForm.user_id ?? null
+  const warningInstructorId = bookingForm.instructor_id ?? null
+  const warningAircraftId = checkoutForm.checked_out_aircraft_id ?? bookingForm.aircraft_id ?? null
+
+  const warningsAcknowledgementKey = React.useMemo(
+    () =>
+      buildWarningsFingerprint({
+        userId: warningUserId,
+        instructorId: warningInstructorId,
+        aircraftId: warningAircraftId,
+        warnings,
+      }),
+    [warningAircraftId, warningInstructorId, warningUserId, warnings]
   )
 
-  const initialBookingForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
-  const initialCheckoutForm = React.useMemo(() => createCheckoutInitialState(booking), [booking])
+  React.useEffect(() => {
+    setWarningsAcknowledged(!warnings.summary.requires_acknowledgement)
+  }, [warningsAcknowledgementKey, warnings.summary.requires_acknowledgement])
+
+  React.useEffect(() => {
+    const matchesCurrentContext =
+      warnings.context.user_id === warningUserId &&
+      warnings.context.instructor_id === warningInstructorId &&
+      warnings.context.aircraft_id === warningAircraftId
+
+    if (matchesCurrentContext) {
+      setWarningsRefreshError((current) => (current ? null : current))
+      setIsWarningsRefreshing((current) => (current ? false : current))
+      return
+    }
+
+    const controller = new AbortController()
+    setIsWarningsRefreshing(true)
+    setWarningsRefreshError(null)
+
+    const loadWarnings = async () => {
+      try {
+        const response = await fetch(
+          buildWarningsUrl({
+            bookingId,
+            userId: warningUserId,
+            instructorId: warningInstructorId,
+            aircraftId: warningAircraftId,
+          }),
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error("Warning checks could not be refreshed for the current booking details.")
+        }
+
+        const payload = (await response.json()) as BookingWarningsResponse
+        setWarnings(payload)
+      } catch (error) {
+        if (controller.signal.aborted) return
+        setWarningsRefreshError(
+          error instanceof Error
+            ? error.message
+            : "Warning checks could not be refreshed for the current booking details."
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsWarningsRefreshing(false)
+        }
+      }
+    }
+
+    void loadWarnings()
+
+    return () => {
+      controller.abort()
+    }
+  }, [
+    bookingId,
+    warningAircraftId,
+    warningInstructorId,
+    warningUserId,
+    warnings.context.aircraft_id,
+    warnings.context.instructor_id,
+    warnings.context.user_id,
+  ])
+
+  const bookingEndTimeLocal = React.useMemo(
+    () => toDatetimeLocal(bookingForm.end_time || null),
+    [bookingForm.end_time]
+  )
+
+  const checkedOutAircraftId = checkoutForm.checked_out_aircraft_id
+
+  const selectedAircraft = React.useMemo(() => {
+    const aircraftId = checkedOutAircraftId
+    if (!aircraftId) return null
+    return options.aircraft.find((item) => item.id === aircraftId) ?? null
+  }, [checkedOutAircraftId, options.aircraft])
+
+  const fuelConsumption = React.useMemo(() => {
+    const aircraftId = checkedOutAircraftId
+    if (!aircraftId) return null
+
+    if (typeof selectedAircraft?.fuel_consumption === "number") {
+      return selectedAircraft.fuel_consumption
+    }
+
+    if (booking.aircraft?.id === aircraftId) return booking.aircraft.fuel_consumption ?? null
+    if (booking.checked_out_aircraft?.id === aircraftId) return booking.checked_out_aircraft.fuel_consumption ?? null
+
+    return null
+  }, [booking.aircraft, booking.checked_out_aircraft, checkedOutAircraftId, selectedAircraft])
+
+  const enduranceSummary = React.useMemo(() => {
+    const fuelText = checkoutForm.fuel_on_board.trim()
+    const fuel = fuelText.length ? Number.parseFloat(fuelText) : null
+    const burn = fuelConsumption
+    if (typeof burn !== "number" || !Number.isFinite(burn) || burn <= 0) {
+      return { label: "Endurance: —", detail: "Fuel consumption not set for this aircraft." }
+    }
+
+    if (fuel === null) {
+      return { label: "Endurance: —", detail: `Based on ${burn.toFixed(1)}/hr.` }
+    }
+
+    if (!Number.isFinite(fuel) || fuel < 0) {
+      return { label: "Endurance: —", detail: `Based on ${burn.toFixed(1)}/hr.` }
+    }
+
+    const totalMinutes = (fuel / burn) * 60
+    if (!Number.isFinite(totalMinutes)) {
+      return { label: "Endurance: —", detail: `Based on ${burn.toFixed(1)}/hr.` }
+    }
+
+    return {
+      label: `Est. endurance: ${formatDurationMinutes(totalMinutes)}`,
+      detail: `Based on ${burn.toFixed(1)}/hr.`,
+    }
+  }, [checkoutForm.fuel_on_board, fuelConsumption])
+
+  React.useEffect(() => {
+    if (!isEtaAuto) return
+    setCheckoutForm((current) => {
+      if (current.eta === bookingEndTimeLocal) return current
+      return { ...current, eta: bookingEndTimeLocal }
+    })
+  }, [bookingEndTimeLocal, isEtaAuto])
 
   const isStaff = role === "owner" || role === "admin" || role === "instructor"
   const isMemberOrStudent = role === "member" || role === "student"
   const canCheckOut = isStaff && booking.status === "confirmed"
   const canCheckIn = isStaff && booking.status === "flying"
   const isReadOnly = booking.status === "complete" || booking.status === "cancelled"
+  const hasBlockingWarnings = warnings.summary.has_blockers
+  const requiresWarningsAcknowledgement = warnings.summary.requires_acknowledgement
+  const warningGateBlocked =
+    isWarningsRefreshing || Boolean(warningsRefreshError) || hasBlockingWarnings || (requiresWarningsAcknowledgement && !warningsAcknowledged)
   const isDirty =
-    JSON.stringify(bookingForm) !== JSON.stringify(initialBookingForm) ||
-    JSON.stringify(checkoutForm) !== JSON.stringify(initialCheckoutForm)
+    JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
+    JSON.stringify(checkoutForm) !== JSON.stringify(savedCheckoutForm)
 
   const studentName = booking.student ? formatUser(booking.student) : "Booking Checkout"
-  const canSubmitCheckout = canCheckOut && checkoutForm.authorization_completed
+  const canSubmitCheckout =
+    canCheckOut &&
+    checkoutForm.authorization_completed &&
+    !warningGateBlocked
   const stickySaveLabel = canCheckOut ? "Check Flight Out" : "Save Changes"
   const stickyMessage = canCheckOut
-    ? "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
+    ? isWarningsRefreshing
+      ? "Refreshing booking warnings before checkout."
+      : warningsRefreshError
+        ? "Warning checks could not be refreshed. Resolve the warning fetch issue before checkout."
+        : hasBlockingWarnings
+          ? "Critical booking warnings are blocking checkout. Resolve them before marking this booking as flying."
+          : requiresWarningsAcknowledgement && !warningsAcknowledged
+            ? "Review and acknowledge the non-blocking warnings before checkout."
+            : "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
     : "You have unsaved checkout details."
   const lessonProgressExists = React.useMemo(() => {
     if (!booking.lesson_progress) return false
@@ -167,27 +444,34 @@ export function BookingCheckoutClient({
   }
 
   const handleUndo = () => {
-    setBookingForm(initialBookingForm)
-    setCheckoutForm(initialCheckoutForm)
+    const nextBookingForm = savedBookingFormRef.current
+    const nextCheckoutForm = savedCheckoutFormRef.current
+    setBookingForm(nextBookingForm)
+    setCheckoutForm(nextCheckoutForm)
+    const endTimeLocal = toDatetimeLocal(nextBookingForm.end_time || null)
+    setIsEtaAuto(!nextCheckoutForm.eta || nextCheckoutForm.eta === endTimeLocal)
   }
 
   const buildCheckoutPayload = React.useCallback(() => {
     const parsedFuel = checkoutForm.fuel_on_board.trim()
     const nextFuel = parsedFuel.length ? Number.parseFloat(parsedFuel) : null
+    const etaValue = isEtaAuto ? bookingEndTimeLocal : checkoutForm.eta
 
     return {
       ...bookingForm,
       start_time: toIso(bookingForm.start_time),
       end_time: toIso(bookingForm.end_time),
-      eta: toIsoOrNull(checkoutForm.eta),
+      checked_out_aircraft_id: checkoutForm.checked_out_aircraft_id,
+      eta: toIsoOrNull(etaValue),
       fuel_on_board: Number.isNaN(nextFuel ?? Number.NaN) ? null : nextFuel,
       route: normalizeText(checkoutForm.route),
       passengers: normalizeText(checkoutForm.passengers),
       flight_remarks: normalizeText(checkoutForm.flight_remarks),
       briefing_completed: checkoutForm.briefing_completed,
       authorization_completed: checkoutForm.authorization_completed,
+      warnings_acknowledged: requiresWarningsAcknowledgement ? warningsAcknowledged : true,
     }
-  }, [bookingForm, checkoutForm])
+  }, [bookingEndTimeLocal, bookingForm, checkoutForm, isEtaAuto, requiresWarningsAcknowledgement, warningsAcknowledged])
 
   const handleSave = () => {
     if (isReadOnly || !isDirty) return
@@ -201,6 +485,17 @@ export function BookingCheckoutClient({
       }
 
       toast.success("Checkout details updated")
+      const nextSavedBooking = normalizeBookingEditFormState({
+        ...bookingForm,
+        start_time: toIso(bookingForm.start_time),
+        end_time: toIso(bookingForm.end_time),
+      })
+      setBookingForm(nextSavedBooking)
+      setSavedBookingForm(nextSavedBooking)
+      savedBookingFormRef.current = nextSavedBooking
+
+      setSavedCheckoutForm(checkoutForm)
+      savedCheckoutFormRef.current = checkoutForm
       router.refresh()
     })
   }
@@ -217,6 +512,17 @@ export function BookingCheckoutClient({
       }
 
       toast.success("Flight authorized and marked as flying")
+      const nextSavedBooking = normalizeBookingEditFormState({
+        ...bookingForm,
+        start_time: toIso(bookingForm.start_time),
+        end_time: toIso(bookingForm.end_time),
+      })
+      setBookingForm(nextSavedBooking)
+      setSavedBookingForm(nextSavedBooking)
+      savedBookingFormRef.current = nextSavedBooking
+
+      setSavedCheckoutForm(checkoutForm)
+      savedCheckoutFormRef.current = checkoutForm
       router.refresh()
     })
   }
@@ -226,24 +532,57 @@ export function BookingCheckoutClient({
     router.push(`/bookings/checkin/${bookingId}`)
   }
 
+  const handleCancel = (payload: CancelBookingPayload) => {
+    startTransition(async () => {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellation_category_id: payload.cancellationCategoryId,
+          cancellation_reason: payload.cancellationReason,
+          cancelled_notes: payload.cancelledNotes,
+        }),
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string }
+        toast.error(json.error || "Failed to cancel booking")
+        return
+      }
+
+      toast.success("Booking cancelled")
+      setCancelOpen(false)
+      router.refresh()
+    })
+  }
+
   const headerActions = isStaff ? (
     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-      {canCheckOut ? (
-        <Button
-          className="w-full sm:w-auto"
-          onClick={handleAuthorize}
-          disabled={isPending || !canSubmitCheckout}
-        >
-          <IconPlane className="mr-2 h-4 w-4" />
-          {isPending ? "Checking Out..." : "Check Out"}
-        </Button>
-      ) : null}
       {canCheckIn ? (
         <Button className="w-full sm:w-auto" onClick={handleOpenCheckIn} disabled={isPending}>
           <IconCheck className="mr-2 h-4 w-4" />
           Check In
         </Button>
       ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            More
+            <IconChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            className="text-red-600 focus:text-red-600"
+            disabled={isReadOnly || !!booking.cancelled_at}
+            onClick={() => setCancelOpen(true)}
+          >
+            <IconTrash className="mr-2 h-4 w-4" />
+            Cancel Booking
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   ) : null
 
@@ -257,7 +596,7 @@ export function BookingCheckoutClient({
         actions={headerActions}
       />
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
+      <div className="w-full max-w-none flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
         <BookingStatusTracker
           stages={trackerStages}
           activeStageId={trackerState.activeStageId}
@@ -265,56 +604,74 @@ export function BookingCheckoutClient({
           className="mb-6"
         />
 
-        {!isStaff ? (
-          <Card className="mb-6 border border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Checkout access required</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Only staff users can check bookings out and in.
-            </CardContent>
-          </Card>
-        ) : null}
+        <BookingPageContent>
+          {!isStaff ? (
+            <Card className="mb-6 border border-border/50">
+              <CardHeader>
+                <CardTitle className="text-lg">Checkout access required</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Only staff users can check bookings out and in.
+              </CardContent>
+            </Card>
+          ) : null}
 
-        {isStaff && !canCheckOut && !canCheckIn && !isReadOnly ? (
-          <Card className="mb-6 border border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Status actions unavailable</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Check out is available when status is confirmed. Check in is available when status is flying.
-            </CardContent>
-          </Card>
-        ) : null}
+          {isStaff && !canCheckOut && !canCheckIn && !isReadOnly ? (
+            <Card className="mb-6 border border-border/50">
+              <CardHeader>
+                <CardTitle className="text-lg">Status actions unavailable</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Check out is available when status is confirmed. Check in is available when status is flying.
+              </CardContent>
+            </Card>
+          ) : null}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          <div className="space-y-6 lg:col-span-2">
-            <BookingEditDetailsCard
-              form={bookingForm}
-              options={options}
-              isReadOnly={isReadOnly}
-              isAdminOrInstructor={isStaff}
-              isMemberOrStudent={isMemberOrStudent}
-              onFieldChange={updateBookingField}
-              title="Confirm Booking Details"
+          <div className="mb-6">
+            <BookingCheckoutWarnings
+              warnings={warnings}
+              isRefreshing={isWarningsRefreshing}
+              refreshError={warningsRefreshError}
+              acknowledgementChecked={warningsAcknowledged}
+              onAcknowledgementChange={setWarningsAcknowledged}
+              disabled={isReadOnly}
             />
           </div>
 
-          <div className="space-y-6">
-            <Card className="border border-border/50 shadow-sm">
-              <CardHeader className="border-b border-border/20 pb-5">
-                <CardTitle className="text-xl font-bold">Checkout Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">ETA</label>
-                  <Input
-                    type="datetime-local"
-                    value={checkoutForm.eta}
-                    disabled={isReadOnly}
-                    onChange={(event) => updateCheckoutField("eta", event.target.value)}
-                  />
-                </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            <div className="space-y-6 lg:col-span-2">
+              <BookingEditDetailsCard
+                form={bookingForm}
+                options={options}
+                isReadOnly={isReadOnly}
+                isAdminOrInstructor={isStaff}
+                isMemberOrStudent={isMemberOrStudent}
+                onFieldChange={updateBookingField}
+                aircraftValue={checkoutForm.checked_out_aircraft_id}
+                onAircraftChange={(value) => updateCheckoutField("checked_out_aircraft_id", value)}
+                title="Confirm Booking Details"
+              />
+            </div>
+
+            <div className="space-y-6">
+              <Card className="border border-border/50 shadow-sm">
+                <CardHeader className="border-b border-border/20 pb-5">
+                  <CardTitle className="text-xl font-bold">Checkout Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5 pt-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">ETA</label>
+                    <Input
+                      type="datetime-local"
+                      value={checkoutForm.eta}
+                      disabled={isReadOnly}
+                      onChange={(event) => {
+                        const nextValue = event.target.value
+                        updateCheckoutField("eta", nextValue)
+                        setIsEtaAuto(!nextValue || nextValue === bookingEndTimeLocal)
+                      }}
+                    />
+                  </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Fuel On Board</label>
@@ -327,6 +684,9 @@ export function BookingCheckoutClient({
                     disabled={isReadOnly}
                     onChange={(event) => updateCheckoutField("fuel_on_board", event.target.value)}
                   />
+                  <p className="text-xs leading-snug text-muted-foreground" title={enduranceSummary.detail}>
+                    {enduranceSummary.label}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -378,10 +738,11 @@ export function BookingCheckoutClient({
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        </BookingPageContent>
       </div>
 
       {!isReadOnly ? (
@@ -396,6 +757,14 @@ export function BookingCheckoutClient({
           saveLabel={stickySaveLabel}
         />
       ) : null}
+
+      <CancelBookingModal
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        booking={booking}
+        onConfirm={handleCancel}
+        pending={isPending}
+      />
     </div>
   )
 }

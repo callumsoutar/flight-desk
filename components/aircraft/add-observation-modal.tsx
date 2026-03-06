@@ -115,10 +115,10 @@ export function AddObservationModal({
     >
       <DialogContent
         className={cn(
-          "top-[calc(env(safe-area-inset-top)+1rem)] h-[calc(100dvh-2rem)] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden rounded-[24px] border-none p-0 shadow-2xl sm:top-[50%] sm:h-[min(calc(100dvh-4rem),700px)] sm:w-full sm:max-w-[600px] sm:translate-y-[-50%]"
+          "top-[calc(env(safe-area-inset-top)+1rem)] h-[calc(100dvh-2rem)] max-w-[calc(100vw-1rem)] translate-y-0 overflow-hidden rounded-[24px] border-none p-0 shadow-2xl sm:top-[50%] sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:w-full sm:max-w-[600px] sm:translate-y-[-50%]"
         )}
       >
-        <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="flex h-full min-h-0 flex-col bg-white sm:h-auto sm:max-h-[calc(100dvh-4rem)]">
           <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">

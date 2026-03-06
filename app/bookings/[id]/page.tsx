@@ -84,6 +84,7 @@ async function BookingDetailContent({
       booking={pageData.booking}
       options={pageData.options}
       auditLogs={pageData.auditLogs}
+      auditLookupMaps={pageData.auditLookupMaps}
       role={role}
     />
   )

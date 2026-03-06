@@ -26,7 +26,7 @@ const BOOKING_DETAIL_SELECT = `
   hobbs_end,
   tach_start,
   tach_end,
-  flight_time,
+  billing_hours,
   created_at
 ` as const
 
@@ -101,7 +101,7 @@ export async function fetchAircraftDetail(
     hobbs_end: row.hobbs_end,
     tach_start: row.tach_start,
     tach_end: row.tach_end,
-    flight_time: row.flight_time,
+    billing_hours: row.billing_hours,
     created_at: row.created_at,
     student: null,
     instructor: null,

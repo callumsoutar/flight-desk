@@ -286,20 +286,20 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
           </div>
-          <div className="h-9 w-24 animate-pulse rounded bg-gray-200" />
+          <div className="h-9 w-24 animate-pulse rounded bg-slate-200" />
         </div>
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="space-y-3 p-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="grid grid-cols-4 items-center gap-4">
-                <div className="h-4 animate-pulse rounded bg-gray-200" />
-                <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
-                <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 animate-pulse rounded bg-slate-200" />
+                <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
                 <div className="flex justify-end gap-2">
-                  <div className="h-8 w-16 animate-pulse rounded bg-gray-200" />
-                  <div className="h-8 w-16 animate-pulse rounded bg-gray-200" />
+                  <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
+                  <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
                 </div>
               </div>
             ))}
@@ -320,7 +320,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-gray-600">
+        <div className="flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-slate-600">
           <Info className="h-4 w-4 text-indigo-500" />
           <p className="text-sm">
             Rates include{" "}
@@ -331,7 +331,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
           type="button"
           onClick={handleAddRate}
           size="sm"
-          className="w-full rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition-all hover:bg-indigo-700 sm:w-auto"
+          className="w-full rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition-all hover:bg-indigo-700 sm:w-auto"
           disabled={addingNewRate || !!editingRate}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -340,14 +340,14 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
       </div>
 
       {rates.length === 0 && !addingNewRate ? (
-        <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-12 text-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <Plus className="h-8 w-8 text-indigo-500" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-gray-900">No rates configured</h3>
-              <p className="mx-auto mt-1 max-w-[240px] text-sm text-gray-500">
+              <h3 className="text-base font-semibold text-slate-900">No rates configured</h3>
+              <p className="mx-auto mt-1 max-w-[240px] text-sm text-slate-500">
                 Set up your first flight type rate to begin tracking charges.
               </p>
             </div>
@@ -363,21 +363,21 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="block divide-y divide-gray-100 sm:hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="block divide-y divide-slate-100 sm:hidden">
             {rates.map((rate) => (
               <div key={rate.id} className={`p-4 ${isEditing(rate.id) ? "bg-indigo-50/50" : ""}`}>
                 {isEditing(rate.id) ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-gray-500">Flight Type</label>
+                      <label className="text-xs font-medium text-slate-500">Flight Type</label>
                       <Select
                         value={editingRate?.flight_type_id}
                         onValueChange={(value) =>
                           setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
                         }
                       >
-                        <SelectTrigger className="w-full bg-white">
+                        <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -390,9 +390,9 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-gray-500">Rate (Inc. Tax)</label>
+                      <label className="text-xs font-medium text-slate-500">Rate (Inc. Tax)</label>
                       <div className="relative">
-                        <span className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">$</span>
+                        <span className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">$</span>
                         <Input
                           type="number"
                           step="0.01"
@@ -400,12 +400,12 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                           onChange={(e) =>
                             setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
                           }
-                          className="bg-white pl-7"
+                          className="h-10 rounded-xl border-slate-200 bg-white pl-7"
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-gray-500">Charge Method</label>
+                      <label className="text-xs font-medium text-slate-500">Charge Method</label>
                       <Select
                         value={editingRate?.charge_method}
                         onValueChange={(value) =>
@@ -416,7 +416,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                           )
                         }
                       >
-                        <SelectTrigger className="w-full bg-white">
+                        <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -596,20 +596,20 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
 
           <div className="hidden overflow-x-auto sm:block">
             <Table>
-              <TableHeader className="bg-gray-50/50">
+              <TableHeader className="bg-slate-50/60">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-1/3 px-6 py-4 font-semibold text-gray-900">Flight Type</TableHead>
-                  <TableHead className="w-1/4 px-6 py-4 font-semibold text-gray-900">Rate (Inc. Tax)</TableHead>
-                  <TableHead className="w-1/4 px-6 py-4 font-semibold text-gray-900">Charge Method</TableHead>
-                  <TableHead className="w-1/6 px-6 py-4 text-right font-semibold text-gray-900">Actions</TableHead>
+                  <TableHead className="w-1/3 px-6 py-4 font-semibold text-slate-900">Flight Type</TableHead>
+                  <TableHead className="w-1/4 px-6 py-4 font-semibold text-slate-900">Rate (Inc. Tax)</TableHead>
+                  <TableHead className="w-1/4 px-6 py-4 font-semibold text-slate-900">Charge Method</TableHead>
+                  <TableHead className="w-1/6 px-6 py-4 text-right font-semibold text-slate-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rates.map((rate) => (
                   <TableRow
                     key={rate.id}
-                    className={`group border-b border-gray-100 transition-colors ${
-                      isEditing(rate.id) ? "bg-indigo-50/50" : "hover:bg-gray-50/50"
+                    className={`group border-b border-slate-100 transition-colors ${
+                      isEditing(rate.id) ? "bg-indigo-50/50" : "hover:bg-slate-50/60"
                     }`}
                   >
                     <TableCell className="px-6 py-4">
@@ -634,7 +634,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                       ) : (
                         <div className="flex items-center gap-3">
                           <div className="h-2 w-2 rounded-full bg-indigo-500 opacity-0 transition-opacity group-hover:opacity-100" />
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-slate-900">
                             {flightTypes.find((ft) => ft.id === rate.flight_type_id)?.name || "Unknown"}
                           </span>
                         </div>
@@ -655,7 +655,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                           />
                         </div>
                       ) : (
-                        <span className="font-semibold text-gray-900">
+                        <span className="font-semibold text-slate-900">
                           ${calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour)).toFixed(2)}
                         </span>
                       )}
@@ -720,7 +720,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                             size="sm"
                             onClick={handleCancelEdit}
                             disabled={saving}
-                            className="h-8 w-8 p-0 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                            className="h-8 w-8 p-0 text-slate-400 hover:bg-slate-100 hover:text-slate-500"
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -732,7 +732,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditRate(rate)}
-                            className="h-8 w-8 p-0 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600"
+                            className="h-8 w-8 p-0 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
@@ -741,7 +741,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteRate(rate.id)}
-                            className="h-8 w-8 p-0 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                            className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

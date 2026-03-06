@@ -30,7 +30,7 @@ export type FlightEntry = Pick<
   | "hobbs_end"
   | "tach_start"
   | "tach_end"
-  | "flight_time"
+  | "billing_hours"
   | "created_at"
 > & {
   student: DirectoryUserLite | null

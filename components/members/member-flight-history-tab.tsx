@@ -68,14 +68,14 @@ function getInstructorName(flight: MemberFlightHistoryEntry): string {
 }
 
 function getFlightHours(flight: MemberFlightHistoryEntry): number {
-  const value = flight.flight_time
+  const value = flight.billing_hours
   if (value == null) return 0
   const hours = typeof value === "string" ? Number(value) : value
   return Number.isFinite(hours) ? hours : 0
 }
 
 function getFlightHoursDisplay(flight: MemberFlightHistoryEntry): string {
-  const value = flight.flight_time
+  const value = flight.billing_hours
   if (value == null) return "-"
   const raw = String(value)
   return raw.includes(".") ? raw : `${raw}.0`

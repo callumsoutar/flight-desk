@@ -58,8 +58,8 @@ function exclusiveToInclusive(unitPrice: number, taxRate: number): number {
 }
 
 function inclusiveToExclusive(rateInclusive: number, taxRate: number): number {
-  if (taxRate <= 0) return roundToTwoDecimals(rateInclusive)
-  return roundToTwoDecimals(rateInclusive / (1 + taxRate))
+  if (taxRate <= 0) return rateInclusive
+  return rateInclusive / (1 + taxRate)
 }
 
 export function InvoiceCreateClient({

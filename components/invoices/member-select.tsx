@@ -19,11 +19,19 @@ export default function MemberSelect({
   value,
   onSelect,
   disabled,
+  buttonClassName,
+  contentClassName,
+  inputClassName,
+  listClassName,
 }: {
   members: UserResult[]
   value: UserResult | null
   onSelect: (user: UserResult | null) => void
   disabled?: boolean
+  buttonClassName?: string
+  contentClassName?: string
+  inputClassName?: string
+  listClassName?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
@@ -51,20 +59,26 @@ export default function MemberSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className="h-10 w-full justify-between"
+          className={cn("h-10 w-full justify-between", buttonClassName)}
         >
           <span className="truncate text-left">{displayName}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+      <PopoverContent
+        align="start"
+        className={cn("w-[var(--radix-popover-trigger-width)] p-2", contentClassName)}
+      >
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search members..."
-          className="mb-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring"
+          className={cn(
+            "mb-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring",
+            inputClassName
+          )}
         />
-        <div className="max-h-64 overflow-y-auto rounded-md border border-border/60">
+        <div className={cn("max-h-64 overflow-y-auto rounded-md border border-border/60", listClassName)}>
           <button
             type="button"
             className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted/60"

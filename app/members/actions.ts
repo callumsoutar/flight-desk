@@ -29,7 +29,6 @@ export type UpdateMemberContactInput = z.infer<typeof updateContactSchema>
 const updatePilotSchema = z.object({
   memberId: z.string().uuid(),
   pilot_license_number: z.string().nullable(),
-  pilot_license_type: z.string().nullable(),
   pilot_license_id: z.string().uuid().nullable(),
   pilot_license_expiry: z.string().nullable(),
   medical_certificate_expiry: z.string().nullable(),

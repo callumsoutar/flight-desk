@@ -32,7 +32,7 @@ export async function fetchMemberMembershipsData(
     supabase
       .from("memberships")
       .select(
-        "id, is_active, start_date, expiry_date, grace_period_days, invoice_id, notes, membership_type_id, membership_types:membership_types!memberships_membership_type_id_fkey(id, name, duration_months, is_active, chargeables:chargeables!fk_membership_chargeable(id, rate, is_taxable)), invoices:invoices!memberships_invoice_id_fkey(id, status)"
+        "id, is_active, start_date, expiry_date, grace_period_days, invoice_id, notes, membership_type_id, membership_types:membership_types!memberships_membership_type_id_fkey(id, name, code, description, duration_months, benefits, is_active, chargeable_id, chargeables:chargeables!fk_membership_chargeable(id, name, rate, is_taxable)), invoices:invoices!memberships_invoice_id_fkey(id, status)"
       )
       .eq("tenant_id", tenantId)
       .eq("user_id", userId)
@@ -40,7 +40,7 @@ export async function fetchMemberMembershipsData(
     supabase
       .from("membership_types")
       .select(
-        "id, name, duration_months, is_active, chargeables:chargeables!fk_membership_chargeable(id, rate, is_taxable)"
+        "id, name, code, description, duration_months, benefits, is_active, chargeable_id, chargeables:chargeables!fk_membership_chargeable(id, name, rate, is_taxable)"
       )
       .eq("tenant_id", tenantId)
       .eq("is_active", true)
@@ -88,8 +88,12 @@ export async function fetchMemberMembershipsData(
   ).map((row) => ({
     id: row.id,
     name: row.name,
+    code: row.code,
+    description: row.description,
     duration_months: row.duration_months,
+    benefits: row.benefits ?? null,
     is_active: row.is_active,
+    chargeable_id: row.chargeable_id,
     chargeables: pickMaybeOne(row.chargeables),
   }))
 

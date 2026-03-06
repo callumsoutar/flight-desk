@@ -1,302 +1,363 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
-import { AlertCircle, Loader2, MessageSquare } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
-import { Button } from "@/components/ui/button"
-import type {
-  MemberTrainingComment,
-  MemberTrainingCommentsResponse,
-} from "@/lib/types/member-training"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Tabs as SnapshotTabs,
+  TabsContent as SnapshotTabsContent,
+  TabsList as SnapshotTabsList,
+  TabsTrigger as SnapshotTabsTrigger,
+} from "@/components/ui/tabs"
+import { TrainingStudentDebriefsTab } from "@/components/training/training-student-debriefs-tab"
+import { TrainingStudentFlyingTab } from "@/components/training/training-student-flying-tab"
+import { TrainingStudentOverviewTab } from "@/components/training/training-student-overview-tab"
+import { TrainingStudentProgrammeTab } from "@/components/training/training-student-programme-tab"
+import { TrainingStudentTheoryTab } from "@/components/training/training-student-theory-tab"
+import type { MemberTrainingEnrollment, MemberTrainingResponse } from "@/lib/types/member-training"
+import type { TrainingOverviewRow } from "@/lib/types/training-overview"
 
 type MemberTrainingTabProps = {
   memberId: string
 }
 
-const PAGE_SIZE = 5
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("en-NZ", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })
+function cleanSyllabusId(value: string | null) {
+  const v = (value ?? "").trim()
+  if (!v || v === "all") return null
+  return v
 }
 
-function sanitizeHTML(html: string | null): string {
-  if (!html) return "-"
-  let sanitized = html
-  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-  sanitized = sanitized.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
-  sanitized = sanitized.replace(
-    /<(object|embed)\b[^<]*(?:(?!<\/(object|embed)>)<[^<]*)*<\/(object|embed)>/gi,
-    ""
-  )
-  sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, "")
-  return sanitized
+function daysSince(value: string | null | undefined) {
+  if (!value) return 0
+  const normalized = value.includes(" ") && !value.includes("T") ? value.replace(" ", "T") : value
+  const dt = new Date(normalized)
+  if (Number.isNaN(dt.getTime())) return 0
+  const diffMs = Date.now() - dt.getTime()
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return 0
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
 }
 
-function instructorName(comment: MemberTrainingComment): string {
-  const first = comment.instructor?.user?.first_name ?? ""
-  const last = comment.instructor?.user?.last_name ?? ""
-  const full = `${first} ${last}`.trim()
-  return full || "-"
+async function fetchMemberTraining(memberId: string): Promise<MemberTrainingResponse> {
+  const res = await fetch(`/api/members/${memberId}/training`, { cache: "no-store" })
+  const payload = (await res.json().catch(() => null)) as { error?: string } | null
+  if (!res.ok) throw new Error(payload?.error || "Failed to load training data")
+  return payload as unknown as MemberTrainingResponse
 }
 
-async function fetchComments(
-  memberId: string,
-  offset: number,
-  limit: number
-): Promise<MemberTrainingCommentsResponse> {
-  const response = await fetch(
-    `/api/members/${memberId}/training/comments?offset=${offset}&limit=${limit}`,
-    {
-      method: "GET",
-      cache: "no-store",
-    }
-  )
+type InstructorLite = MemberTrainingResponse["training"]["primaryInstructors"][number]
 
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    throw new Error(payload?.error || "Failed to load training comments")
-  }
-
-  return payload as MemberTrainingCommentsResponse
+function enrollmentStatusLabel(enrollment: MemberTrainingEnrollment) {
+  const status = (enrollment.status || "").toLowerCase()
+  if (status === "active") return "Active"
+  if (status === "completed" || enrollment.completion_date) return "Completed"
+  if (status === "withdrawn") return "Withdrawn"
+  return enrollment.status || "Unknown"
 }
 
 export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
-  const [comments, setComments] = React.useState<MemberTrainingComment[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [isFetchingMore, setIsFetchingMore] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [nextOffset, setNextOffset] = React.useState<number | null>(0)
+  const [training, setTraining] = React.useState<MemberTrainingResponse["training"] | null>(null)
+  const [trainingLoading, setTrainingLoading] = React.useState(true)
+  const [trainingError, setTrainingError] = React.useState<string | null>(null)
+  const [instructorsById, setInstructorsById] = React.useState<Record<string, InstructorLite>>({})
 
-  const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
+  const searchParams = useSearchParams()
+  const requestedSyllabusId = React.useMemo(() => cleanSyllabusId(searchParams.get("syllabus_id")), [searchParams])
+  const [snapshotSyllabusId, setSnapshotSyllabusId] = React.useState<string>("")
+  const [snapshotTab, setSnapshotTab] = React.useState("overview")
 
-  const loadPage = React.useCallback(
-    async (offset: number, replace: boolean) => {
-      if (!memberId) return
+  const loadTraining = React.useCallback(async () => {
+    if (!memberId) {
+      setTraining(null)
+      setTrainingLoading(false)
+      setTrainingError(null)
+      return
+    }
 
-      if (replace) {
-        setIsLoading(true)
-      } else {
-        setIsFetchingMore(true)
-      }
+    setTrainingLoading(true)
+    setTrainingError(null)
+    try {
+      const data = await fetchMemberTraining(memberId)
+      setTraining(data.training)
+    } catch (err) {
+      setTraining(null)
+      setTrainingError(err instanceof Error ? err.message : "Failed to load training data")
+    } finally {
+      setTrainingLoading(false)
+    }
+  }, [memberId])
 
-      try {
-        const result = await fetchComments(memberId, offset, PAGE_SIZE)
+  React.useEffect(() => {
+    void loadTraining()
+  }, [loadTraining])
 
-        setComments((prev) => {
-          if (replace) return result.comments
-          const existingIds = new Set(prev.map((item) => item.id))
-          const merged = [...prev]
-          for (const item of result.comments) {
-            if (!existingIds.has(item.id)) merged.push(item)
-          }
-          return merged
-        })
+  React.useEffect(() => {
+    const list = training?.primaryInstructors ?? []
+    const next: Record<string, InstructorLite> = {}
+    for (const inst of list) next[inst.id] = inst
+    setInstructorsById(next)
+  }, [training?.primaryInstructors])
 
-        setNextOffset(result.next_offset)
-        setError(null)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load training comments")
-      } finally {
-        if (replace) {
-          setIsLoading(false)
-        } else {
-          setIsFetchingMore(false)
-        }
-      }
-    },
-    [memberId]
+  const timeZone = training?.timeZone ?? "Pacific/Auckland"
+  const syllabi = React.useMemo(() => training?.syllabi ?? [], [training])
+  const enrollments = React.useMemo(() => training?.enrollments ?? [], [training])
+
+  const activeEnrollments = enrollments.filter(
+    (e) => (e.status || "").toLowerCase() === "active" && !e.completion_date
   )
 
   React.useEffect(() => {
-    setComments([])
-    setNextOffset(0)
-    setError(null)
-    if (!memberId) {
-      setIsLoading(false)
+    if (trainingLoading) return
+
+    if (!enrollments.length) {
+      setSnapshotSyllabusId("")
       return
     }
-    void loadPage(0, true)
-  }, [memberId, loadPage])
+
+    setSnapshotSyllabusId((prev) => {
+      if (prev && enrollments.some((e) => e.syllabus_id === prev)) return prev
+      if (requestedSyllabusId && enrollments.some((e) => e.syllabus_id === requestedSyllabusId)) return requestedSyllabusId
+      if (activeEnrollments[0]?.syllabus_id) return activeEnrollments[0].syllabus_id
+      return enrollments[0]?.syllabus_id ?? ""
+    })
+  }, [activeEnrollments, enrollments, requestedSyllabusId, trainingLoading])
 
   React.useEffect(() => {
-    const node = loadMoreRef.current
-    if (!node) return
+    if (!snapshotSyllabusId) return
+    setSnapshotTab("overview")
+  }, [snapshotSyllabusId])
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries[0]?.isIntersecting) return
-        if (isLoading || isFetchingMore) return
-        if (nextOffset == null) return
-        void loadPage(nextOffset, false)
-      },
-      { threshold: 0.1 }
-    )
+  const snapshotSyllabusOptions = React.useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; isActive: boolean; lastEnrolledAt: string | null }>()
 
-    observer.observe(node)
-    return () => {
-      observer.disconnect()
+    for (const enrollment of enrollments) {
+      const id = enrollment.syllabus_id
+      const name = enrollment.syllabus?.name || syllabi.find((s) => s.id === id)?.name || "Syllabus"
+
+      const isActive = (enrollment.status || "").toLowerCase() === "active" && !enrollment.completion_date
+      const existing = byId.get(id)
+      const lastEnrolledAt = enrollment.enrolled_at ?? null
+
+      if (!existing) {
+        byId.set(id, { id, name, isActive, lastEnrolledAt })
+        continue
+      }
+
+      byId.set(id, {
+        id,
+        name: existing.name || name,
+        isActive: existing.isActive || isActive,
+        lastEnrolledAt:
+          existing.lastEnrolledAt && lastEnrolledAt
+            ? existing.lastEnrolledAt > lastEnrolledAt
+              ? existing.lastEnrolledAt
+              : lastEnrolledAt
+            : existing.lastEnrolledAt ?? lastEnrolledAt,
+      })
     }
-  }, [isLoading, isFetchingMore, nextOffset, loadPage])
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/30 py-20">
-        <Loader2 className="mb-4 h-6 w-6 animate-spin text-slate-400" />
-        <p className="text-sm text-slate-500">Loading instructor comments...</p>
-      </div>
-    )
-  }
+    return [...byId.values()].sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
+      return (b.lastEnrolledAt ?? "").localeCompare(a.lastEnrolledAt ?? "")
+    })
+  }, [enrollments, syllabi])
 
-  if (error && comments.length === 0) {
-    return (
-      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-        <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-          <AlertCircle className="h-5 w-5 text-slate-400" />
-        </div>
-        <h4 className="mb-1 text-sm font-semibold text-slate-900">Unable to load comments</h4>
-        <p className="mx-auto mb-6 max-w-[300px] text-xs text-slate-500">
-          {error}
-        </p>
-        <button
-          onClick={() => {
-            setComments([])
-            setNextOffset(0)
-            setError(null)
-            void loadPage(0, true)
-          }}
-          className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-        >
-          Try Again
-        </button>
-      </div>
-    )
-  }
+  const snapshotRow = React.useMemo<TrainingOverviewRow | null>(() => {
+    if (!snapshotSyllabusId) return null
 
-  if (comments.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/30 p-16 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-          <MessageSquare className="h-6 w-6 text-slate-300" />
-        </div>
-        <h3 className="text-sm font-semibold text-slate-900">No instructor comments found</h3>
-        <p className="mx-auto mt-2 max-w-[280px] text-xs leading-relaxed text-slate-500">
-          Instructor comments recorded during flight lessons will appear here automatically.
-        </p>
-      </div>
-    )
-  }
+    const enrollment = [...enrollments]
+      .filter((e) => e.syllabus_id === snapshotSyllabusId)
+      .sort((a, b) => (b.enrolled_at ?? "").localeCompare(a.enrolled_at ?? ""))[0]
+
+    const syllabusName = enrollment?.syllabus?.name || syllabi.find((s) => s.id === snapshotSyllabusId)?.name || "Syllabus"
+    const enrolledAt = enrollment?.enrolled_at ?? new Date().toISOString()
+    const enrollmentStatus = enrollment ? enrollmentStatusLabel(enrollment) : "Active"
+    const primaryInstructor =
+      enrollment?.primary_instructor_id ? instructorsById[enrollment.primary_instructor_id] ?? null : null
+
+    return {
+      enrollment_id: enrollment?.id ?? `enrollment:${memberId}:${snapshotSyllabusId}`,
+      enrolled_at: enrolledAt,
+      completion_date: enrollment?.completion_date ?? null,
+      enrollment_status: enrollmentStatus,
+      user_id: memberId,
+      syllabus_id: snapshotSyllabusId,
+      primary_instructor_id: enrollment?.primary_instructor_id ?? null,
+      student: {
+        id: memberId,
+        first_name: null,
+        last_name: null,
+        email: null,
+      },
+      syllabus: {
+        id: snapshotSyllabusId,
+        name: syllabusName,
+      },
+      primaryInstructor: primaryInstructor
+        ? {
+            id: primaryInstructor.id,
+            first_name: primaryInstructor.user?.first_name ?? primaryInstructor.first_name ?? null,
+            last_name: primaryInstructor.user?.last_name ?? primaryInstructor.last_name ?? null,
+            user_id: primaryInstructor.user_id,
+          }
+        : null,
+      last_flight_at: null,
+      days_since_last_flight: null,
+      days_since_enrolled: daysSince(enrolledAt),
+      progress: { completed: 0, total: 0, percent: null },
+      activity_status: "active",
+    }
+  }, [enrollments, instructorsById, memberId, snapshotSyllabusId, syllabi])
+
+  const snapshotLoading = trainingLoading && !snapshotRow
+  const snapshotTabs = [
+    { id: "overview", label: "Overview" },
+    { id: "flying", label: "Flying" },
+    { id: "debriefs", label: "Debriefs" },
+    { id: "theory", label: "Theory" },
+    { id: "programme", label: "Syllabus" },
+  ] as const
 
   return (
-    <div className="animate-in fade-in space-y-4 duration-500">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h3 className="text-sm font-semibold text-slate-900">Instructor Feedback</h3>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-          {comments.length} Records
-        </span>
-      </div>
-
-      <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/50">
-              <th className="w-[160px] px-6 py-3 text-left text-xs font-semibold text-slate-500">Date</th>
-              <th className="w-[140px] px-6 py-3 text-left text-xs font-semibold text-slate-500">Aircraft</th>
-              <th className="w-[200px] px-6 py-3 text-left text-xs font-semibold text-slate-500">Instructor</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">Comments</th>
-              <th className="w-[120px] px-6 py-3 text-right text-xs font-semibold text-slate-500">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {comments.map((comment) => (
-              <tr key={comment.id} className="transition-colors hover:bg-slate-50/50">
-                <td className="px-6 py-4 align-middle whitespace-nowrap text-slate-700">
-                  {formatDateTime(comment.date)}
-                </td>
-                <td className="px-6 py-4 align-middle font-medium text-slate-900">
-                  {comment.booking?.aircraft?.registration || "-"}
-                </td>
-                <td className="px-6 py-4 align-middle text-slate-700">{instructorName(comment)}</td>
-                <td className="px-6 py-4 align-middle">
-                  <div
-                    className="line-clamp-2 leading-normal text-slate-600"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(comment.instructor_comments) }}
-                  />
-                </td>
-                <td className="px-6 py-4 text-right align-middle">
-                  {comment.booking_id ? (
-                    <Button variant="ghost" size="sm" asChild className="h-8 px-2 hover:bg-primary/10">
-                      <Link href={`/bookings/${comment.booking_id}`}>View Booking</Link>
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-slate-400">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="space-y-3 md:hidden">
-        {comments.map((comment) => (
-          <div key={comment.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 flex items-start justify-between">
-              <span className="text-xs font-semibold text-slate-900">{formatDateTime(comment.date)}</span>
-              <span className="text-[10px] font-semibold text-slate-600">
-                {comment.booking?.aircraft?.registration || "-"}
-              </span>
-            </div>
-
-            <div className="mb-2">
-              <div className="mb-0.5 text-[10px] text-slate-500">Instructor</div>
-              <div className="text-xs font-medium text-slate-900">{instructorName(comment)}</div>
-            </div>
-
-            <div>
-              <div className="mb-1 text-[10px] text-slate-500">Comments</div>
-              <div
-                className="line-clamp-3 text-sm leading-normal text-slate-600"
-                dangerouslySetInnerHTML={{ __html: sanitizeHTML(comment.instructor_comments) }}
-              />
-            </div>
-
-            <div className="mt-4 border-t border-slate-100 pt-3">
-              {comment.booking_id ? (
-                <Button variant="outline" size="sm" className="h-9 w-full text-xs font-semibold" asChild>
-                  <Link href={`/bookings/${comment.booking_id}`}>View Booking</Link>
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" className="h-9 w-full text-xs font-semibold" disabled>
-                  No booking linked
-                </Button>
-              )}
-            </div>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900">Training Snapshot</h2>
+          <p className="text-sm text-muted-foreground">
+            Quick handover view plus syllabus management for instructors.
+          </p>
+          {trainingError ? <p className="text-sm text-destructive">{trainingError}</p> : null}
+        </div>
+        {snapshotSyllabusOptions.length > 1 ? (
+          <div className="w-full sm:w-auto sm:ml-auto">
+            <Select
+              value={snapshotSyllabusId || ""}
+              onValueChange={setSnapshotSyllabusId}
+              disabled={trainingLoading || snapshotSyllabusOptions.length === 0}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-9 w-full sm:min-w-[240px] sm:w-[280px] rounded-lg border-border/50 bg-muted/20 shadow-none hover:bg-muted/30"
+              >
+                <SelectValue placeholder="Select syllabus" />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                {snapshotSyllabusOptions.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-[13px] py-2">
+                    <div className="flex w-full items-center justify-between gap-4">
+                      <span>{s.name}</span>
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        {s.isActive ? "Active" : "Past"}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ))}
-      </div>
-
-      <div ref={loadMoreRef} className="flex h-12 w-full items-center justify-center pt-4">
-        {isFetchingMore ? (
-          <div className="flex items-center gap-2 text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-[10px] font-medium tracking-widest uppercase">Loading more...</span>
-          </div>
-        ) : nextOffset != null ? (
-          <div className="h-1 w-full overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full w-full animate-pulse bg-slate-200" />
-          </div>
-        ) : comments.length > 0 ? (
-          <p className="text-[10px] font-medium tracking-widest text-slate-300 uppercase">End of records</p>
         ) : null}
       </div>
+
+      {snapshotRow ? (
+        <SnapshotTabs value={snapshotTab} onValueChange={setSnapshotTab} className="gap-0 w-full">
+          <div className="border-b border-border/60 px-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="sm:hidden">
+                <Select value={snapshotTab} onValueChange={setSnapshotTab}>
+                  <SelectTrigger className="h-10 w-full border-border/60 bg-muted/20 shadow-none hover:bg-muted/30">
+                    <SelectValue>
+                      {snapshotTabs.find((tab) => tab.id === snapshotTab)?.label ?? "Overview"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {snapshotTabs.map((tab) => (
+                      <SelectItem key={tab.id} value={tab.id}>
+                        {tab.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <SnapshotTabsList
+                variant="line"
+                className="hidden sm:flex w-full flex-1 justify-start gap-4 h-10 p-0 overflow-x-auto sm:overflow-visible"
+              >
+                <SnapshotTabsTrigger value="overview" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Overview
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="flying" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Flying
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="debriefs" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Debriefs
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="theory" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Theory
+                </SnapshotTabsTrigger>
+                <SnapshotTabsTrigger value="programme" className="h-10 px-1 rounded-none after:bottom-[-1px] data-[state=active]:font-semibold shrink-0">
+                  Syllabus
+                </SnapshotTabsTrigger>
+              </SnapshotTabsList>
+
+            </div>
+          </div>
+
+          <SnapshotTabsContent value="overview" className="w-full">
+            <TrainingStudentOverviewTab row={snapshotRow} />
+          </SnapshotTabsContent>
+
+          <SnapshotTabsContent value="flying" className="w-full">
+            <TrainingStudentFlyingTab userId={memberId} syllabusId={snapshotRow.syllabus_id} />
+          </SnapshotTabsContent>
+
+          <SnapshotTabsContent value="debriefs" className="w-full">
+            <TrainingStudentDebriefsTab userId={memberId} syllabusId={snapshotRow.syllabus_id} />
+          </SnapshotTabsContent>
+
+          <SnapshotTabsContent value="theory" className="w-full">
+            <TrainingStudentTheoryTab userId={memberId} syllabusId={snapshotRow.syllabus_id} />
+          </SnapshotTabsContent>
+
+          <SnapshotTabsContent value="programme" className="w-full">
+            <TrainingStudentProgrammeTab
+              userId={memberId}
+              syllabi={syllabi}
+              enrollments={enrollments}
+              timeZone={timeZone}
+              onRefresh={loadTraining}
+            />
+          </SnapshotTabsContent>
+        </SnapshotTabs>
+      ) : snapshotLoading ? (
+        <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+          <div className="border-b border-border/60 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {["Overview", "Flying", "Debriefs", "Theory", "Syllabus"].map((label) => (
+                  <div
+                    key={label}
+                    className="h-8 w-20 rounded-md bg-muted/40 animate-pulse"
+                  />
+                ))}
+              </div>
+              <div className="ml-auto h-8 w-56 rounded-full bg-muted/40 animate-pulse" />
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="h-5 w-56 rounded bg-muted/40 animate-pulse" />
+            <div className="h-28 w-full rounded-xl border border-border/60 bg-muted/10 animate-pulse" />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="h-28 w-full rounded-xl border border-border/60 bg-muted/10 animate-pulse" />
+              <div className="h-28 w-full rounded-xl border border-border/60 bg-muted/10 animate-pulse" />
+            </div>
+            <div className="h-44 w-full rounded-xl border border-border/60 bg-muted/10 animate-pulse" />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border/60 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
+          No syllabus enrollments found for this member.
+        </div>
+      )}
     </div>
   )
 }

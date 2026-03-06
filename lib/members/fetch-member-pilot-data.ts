@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/lib/types"
 import type { EndorsementLite, LicenseLite, UserEndorsementWithRelation } from "@/lib/types/members"
 
@@ -19,15 +20,30 @@ export type MemberPilotData = {
 async function fetchAvailableLicenses(
   supabase: SupabaseClient<Database>
 ): Promise<LicenseLite[]> {
-  const sessionResult = await supabase
-    .from("licenses")
-    .select("id, name, is_active")
-    .eq("is_active", true)
-    .order("name", { ascending: true })
+  const query = (client: SupabaseClient<Database>) =>
+    client
+      .from("licenses")
+      .select("id, name, is_active")
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+
+  const sessionResult = await query(supabase)
 
   if (sessionResult.error) throw sessionResult.error
 
-  return (sessionResult.data ?? []) as LicenseLite[]
+  const sessionData = (sessionResult.data ?? []) as LicenseLite[]
+  if (sessionData.length > 0) return sessionData
+
+  // Licenses are global (no tenant_id). If RLS blocks reads for authenticated users,
+  // fall back to a service-role client on the server to populate the dropdown.
+  try {
+    const admin = createSupabaseAdminClient()
+    const adminResult = await query(admin)
+    if (adminResult.error) throw adminResult.error
+    return (adminResult.data ?? []) as LicenseLite[]
+  } catch {
+    return sessionData
+  }
 }
 
 export async function fetchMemberPilotData(

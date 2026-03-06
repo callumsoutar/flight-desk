@@ -75,7 +75,7 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, profile } = useAuth()
+  const { user, role, profile } = useAuth()
   const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>
   const name =
     (typeof profile === "object" && profile
@@ -89,6 +89,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const email = user?.email ?? ""
   const avatar =
     (metadata["avatar_url"] as string | undefined) ?? "/avatars/shadcn.jpg"
+
+  const canAccessTraining = role === "owner" || role === "admin" || role === "instructor"
+  const navMainSections = React.useMemo(() => {
+    if (canAccessTraining) return data.navMainSections
+
+    return data.navMainSections.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => item.url !== "/training"),
+    }))
+  }, [canAccessTraining])
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -108,7 +118,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain sections={data.navMainSections} />
+        <NavMain sections={navMainSections} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

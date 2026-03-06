@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { LessonSearchDropdown } from "@/components/bookings/lesson-search-dropdown"
 import { cn } from "@/lib/utils"
 import type { BookingOptions, BookingType, BookingWithRelations } from "@/lib/types/bookings"
 
@@ -25,6 +26,22 @@ export type BookingEditFormState = {
   booking_type: BookingType
   purpose: string
   remarks: string | null
+}
+
+function toIso(value: string) {
+  if (!value) return ""
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString()
+}
+
+export function normalizeBookingEditFormState(state: BookingEditFormState): BookingEditFormState {
+  return {
+    ...state,
+    start_time: toIso(state.start_time),
+    end_time: toIso(state.end_time),
+    purpose: state.purpose ?? "",
+    remarks: state.remarks ?? null,
+  }
 }
 
 function generateTimeOptions(): string[] {
@@ -69,12 +86,25 @@ function combineDateAndTime(dateValue: string, timeValue: string): string {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString()
 }
 
+function parseIsoDate(value: string): Date | null {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function isAfter(a: string, b: string): boolean {
+  const aDate = parseIsoDate(a)
+  const bDate = parseIsoDate(b)
+  if (!aDate || !bDate) return false
+  return aDate.getTime() > bDate.getTime()
+}
+
 function formatUser(user: { first_name: string | null; last_name: string | null; email: string | null }) {
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || "Unknown"
 }
 
 export function createBookingEditInitialState(booking: BookingWithRelations): BookingEditFormState {
-  return {
+  return normalizeBookingEditFormState({
     start_time: booking.start_time,
     end_time: booking.end_time,
     aircraft_id: booking.aircraft_id,
@@ -85,7 +115,7 @@ export function createBookingEditInitialState(booking: BookingWithRelations): Bo
     booking_type: booking.booking_type,
     purpose: booking.purpose ?? "",
     remarks: booking.remarks,
-  }
+  })
 }
 
 export function BookingEditDetailsCard({
@@ -96,6 +126,8 @@ export function BookingEditDetailsCard({
   isMemberOrStudent,
   onFieldChange,
   title,
+  aircraftValue,
+  onAircraftChange,
 }: {
   form: BookingEditFormState
   options: BookingOptions
@@ -104,6 +136,8 @@ export function BookingEditDetailsCard({
   isMemberOrStudent: boolean
   onFieldChange: <K extends keyof BookingEditFormState>(key: K, value: BookingEditFormState[K]) => void
   title?: string
+  aircraftValue?: string | null
+  onAircraftChange?: (value: string | null) => void
 }) {
   const startParts = parseIsoParts(form.start_time)
   const endParts = parseIsoParts(form.end_time)
@@ -112,6 +146,17 @@ export function BookingEditDetailsCard({
     key: K,
     value: BookingEditFormState[K]
   ) => onFieldChange(key, value)
+
+  const aircraftSelectValue = aircraftValue !== undefined ? aircraftValue : form.aircraft_id
+  const handleAircraftChange =
+    onAircraftChange ?? ((value: string | null) => updateField("aircraft_id", value))
+
+  const updateStartTime = (nextStartIso: string) => {
+    updateField("start_time", nextStartIso)
+    if (nextStartIso && isAfter(nextStartIso, form.end_time)) {
+      updateField("end_time", nextStartIso)
+    }
+  }
 
   const fieldLabelClass = "text-sm font-medium leading-none text-foreground"
   const controlClass = "h-10 w-full"
@@ -137,7 +182,14 @@ export function BookingEditDetailsCard({
                 onChange={(event) => {
                   const nextDate = event.target.value
                   const nextTime = startParts.time || "00:00"
-                  updateField("start_time", combineDateAndTime(nextDate, nextTime))
+                  const nextStartIso = combineDateAndTime(nextDate, nextTime)
+                  updateField("start_time", nextStartIso)
+
+                  if (nextStartIso && isAfter(nextStartIso, form.end_time)) {
+                    const nextEndTime = endParts.time || nextTime || "00:00"
+                    const nextEndIso = combineDateAndTime(nextDate, nextEndTime) || nextStartIso
+                    updateField("end_time", isAfter(nextStartIso, nextEndIso) ? nextStartIso : nextEndIso)
+                  }
                 }}
               />
               <div className="w-32">
@@ -145,7 +197,7 @@ export function BookingEditDetailsCard({
                   value={startParts.time || "none"}
                   onValueChange={(value) => {
                     const nextTime = value === "none" ? "" : value
-                    updateField("start_time", combineDateAndTime(startParts.date, nextTime))
+                    updateStartTime(combineDateAndTime(startParts.date, nextTime))
                   }}
                   disabled={isReadOnly}
                 >
@@ -177,7 +229,11 @@ export function BookingEditDetailsCard({
                 onChange={(event) => {
                   const nextDate = event.target.value
                   const nextTime = endParts.time || "00:00"
-                  updateField("end_time", combineDateAndTime(nextDate, nextTime))
+                  const nextEndIso = combineDateAndTime(nextDate, nextTime)
+                  updateField("end_time", nextEndIso)
+                  if (nextEndIso && isAfter(form.start_time, nextEndIso)) {
+                    updateField("end_time", form.start_time)
+                  }
                 }}
               />
               <div className="w-32">
@@ -185,7 +241,11 @@ export function BookingEditDetailsCard({
                   value={endParts.time || "none"}
                   onValueChange={(value) => {
                     const nextTime = value === "none" ? "" : value
-                    updateField("end_time", combineDateAndTime(endParts.date, nextTime))
+                    const nextEndIso = combineDateAndTime(endParts.date, nextTime)
+                    updateField("end_time", nextEndIso)
+                    if (nextEndIso && isAfter(form.start_time, nextEndIso)) {
+                      updateField("end_time", form.start_time)
+                    }
                   }}
                   disabled={isReadOnly}
                 >
@@ -267,8 +327,8 @@ export function BookingEditDetailsCard({
               Aircraft
             </label>
             <Select
-              value={form.aircraft_id ?? "none"}
-              onValueChange={(value) => updateField("aircraft_id", value === "none" ? null : value)}
+              value={aircraftSelectValue ?? "none"}
+              onValueChange={(value) => handleAircraftChange(value === "none" ? null : value)}
               disabled={isReadOnly}
             >
               <SelectTrigger className={controlClass}>
@@ -331,21 +391,15 @@ export function BookingEditDetailsCard({
               <IconBook className="h-4 w-4" />
               Lesson
             </label>
-            <Select
-              value={form.lesson_id ?? "none"}
-              onValueChange={(value) => updateField("lesson_id", value === "none" ? null : value)}
+            <LessonSearchDropdown
+              lessons={options.lessons}
+              syllabi={options.syllabi}
+              value={form.lesson_id}
+              onSelect={(lessonId) => updateField("lesson_id", lessonId)}
               disabled={isReadOnly || isMemberOrStudent}
-            >
-              <SelectTrigger className={controlClass}>
-                <SelectValue placeholder="Select lesson" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No lesson</SelectItem>
-                {options.lessons.map((lesson) => (
-                  <SelectItem key={lesson.id} value={lesson.id}>{lesson.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select lesson"
+              triggerClassName={cn(controlClass, "justify-between")}
+            />
           </div>
 
           <div className="space-y-2">

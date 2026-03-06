@@ -6,6 +6,7 @@ import { BookingDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
 import { fetchBookingPageData } from "@/lib/bookings/fetch-booking-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types/roles"
@@ -47,8 +48,14 @@ async function BookingCheckoutContent({
   const supabase = await createSupabaseServerClient()
 
   let pageData: Awaited<ReturnType<typeof fetchBookingPageData>>
+  let initialWarnings: Awaited<ReturnType<typeof fetchBookingCheckoutWarnings>>
   try {
-    pageData = await fetchBookingPageData(supabase, tenantId, bookingId)
+    const [resolvedPageData, resolvedWarnings] = await Promise.all([
+      fetchBookingPageData(supabase, tenantId, bookingId),
+      fetchBookingCheckoutWarnings(supabase, tenantId, { bookingId }),
+    ])
+    pageData = resolvedPageData
+    initialWarnings = resolvedWarnings
   } catch {
     return (
       <AppRouteNarrowDetailContainer>
@@ -79,6 +86,7 @@ async function BookingCheckoutContent({
     <BookingCheckoutClient
       bookingId={bookingId}
       booking={pageData.booking}
+      initialWarnings={initialWarnings}
       options={pageData.options}
       role={role}
     />

@@ -21,8 +21,16 @@ export type MemberUpcomingBookingsTableProps = {
 
 const FUTURE_STATUSES: BookingStatus[] = ["unconfirmed", "confirmed", "briefing", "flying"]
 
+function safeDate(value: string) {
+  const normalized = value.includes(" ") && !value.includes("T") ? value.replace(" ", "T") : value
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
 function formatDate(value: string) {
-  const date = new Date(value)
+  const date = safeDate(value)
+  if (!date) return "—"
   return date.toLocaleDateString("en-NZ", {
     day: "2-digit",
     month: "short",
@@ -31,7 +39,8 @@ function formatDate(value: string) {
 }
 
 function formatTime(value: string) {
-  const date = new Date(value)
+  const date = safeDate(value)
+  if (!date) return "—"
   return date.toLocaleTimeString("en-NZ", {
     hour: "2-digit",
     minute: "2-digit",
@@ -83,10 +92,13 @@ function getStatusBadge(status: BookingStatus) {
 
 async function fetchMemberUpcomingBookings(memberId: string): Promise<BookingWithRelations[]> {
   const statusQuery = FUTURE_STATUSES.join(",")
-  const response = await fetch(`/api/bookings?user_id=${memberId}&status=${statusQuery}`, {
+  const response = await fetch(
+    `/api/bookings?user_id=${encodeURIComponent(memberId)}&status=${encodeURIComponent(statusQuery)}`,
+    {
     method: "GET",
     cache: "no-store",
-  })
+    }
+  )
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
@@ -154,8 +166,16 @@ export function MemberUpcomingBookingsTable({ memberId }: MemberUpcomingBookings
 
   const now = Date.now()
   const upcomingBookings = bookings
-    .filter((booking) => new Date(booking.end_time).getTime() >= now)
-    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    .filter((booking) => {
+      const end = safeDate(booking.end_time)?.getTime() ?? null
+      if (end === null) return true
+      return end >= now
+    })
+    .sort((a, b) => {
+      const aStart = safeDate(a.start_time)?.getTime() ?? 0
+      const bStart = safeDate(b.start_time)?.getTime() ?? 0
+      return aStart - bStart
+    })
 
   if (upcomingBookings.length === 0) {
     return (

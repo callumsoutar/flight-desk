@@ -365,8 +365,6 @@ export type Database = {
       bookings: {
         Row: {
           aircraft_id: string | null
-          actual_end: string | null
-          actual_start: string | null
           airswitch_end: number | null
           airswitch_start: number | null
           applied_aircraft_delta: number | null
@@ -399,7 +397,6 @@ export type Database = {
           equipment: Json | null
           eta: string | null
           flight_remarks: string | null
-          flight_time: number | null
           flight_time_airswitch: number | null
           flight_time_hobbs: number | null
           flight_time_tach: number | null
@@ -410,7 +407,6 @@ export type Database = {
           id: string
           instructor_id: string | null
           lesson_id: string | null
-          notes: string | null
           passengers: string | null
           purpose: string
           remarks: string | null
@@ -430,8 +426,6 @@ export type Database = {
           voucher_number: string | null
         }
         Insert: {
-          actual_end?: string | null
-          actual_start?: string | null
           aircraft_id?: string | null
           airswitch_end?: number | null
           airswitch_start?: number | null
@@ -465,7 +459,6 @@ export type Database = {
           equipment?: Json | null
           eta?: string | null
           flight_remarks?: string | null
-          flight_time?: number | null
           flight_time_airswitch?: number | null
           flight_time_hobbs?: number | null
           flight_time_tach?: number | null
@@ -476,7 +469,6 @@ export type Database = {
           id?: string
           instructor_id?: string | null
           lesson_id?: string | null
-          notes?: string | null
           passengers?: string | null
           purpose?: string
           remarks?: string | null
@@ -496,8 +488,6 @@ export type Database = {
           voucher_number?: string | null
         }
         Update: {
-          actual_end?: string | null
-          actual_start?: string | null
           aircraft_id?: string | null
           airswitch_end?: number | null
           airswitch_start?: number | null
@@ -531,7 +521,6 @@ export type Database = {
           equipment?: Json | null
           eta?: string | null
           flight_remarks?: string | null
-          flight_time?: number | null
           flight_time_airswitch?: number | null
           flight_time_hobbs?: number | null
           flight_time_tach?: number | null
@@ -542,7 +531,6 @@ export type Database = {
           id?: string
           instructor_id?: string | null
           lesson_id?: string | null
-          notes?: string | null
           passengers?: string | null
           purpose?: string
           remarks?: string | null
@@ -3214,7 +3202,6 @@ export type Database = {
           country: string | null
           created_at: string
           date_of_birth: string | null
-          date_of_last_flight: string | null
           DL9_due: string | null
           email: string
           emergency_contact_relationship: string | null
@@ -3233,9 +3220,7 @@ export type Database = {
           pilot_license_expiry: string | null
           pilot_license_id: string | null
           pilot_license_number: string | null
-          pilot_license_type: string | null
           postal_code: string | null
-          public_directory_opt_in: boolean
           state: string | null
           street_address: string | null
           updated_at: string
@@ -3249,7 +3234,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           date_of_birth?: string | null
-          date_of_last_flight?: string | null
           DL9_due?: string | null
           email: string
           emergency_contact_relationship?: string | null
@@ -3268,9 +3252,7 @@ export type Database = {
           pilot_license_expiry?: string | null
           pilot_license_id?: string | null
           pilot_license_number?: string | null
-          pilot_license_type?: string | null
           postal_code?: string | null
-          public_directory_opt_in?: boolean
           state?: string | null
           street_address?: string | null
           updated_at?: string
@@ -3284,7 +3266,6 @@ export type Database = {
           country?: string | null
           created_at?: string
           date_of_birth?: string | null
-          date_of_last_flight?: string | null
           DL9_due?: string | null
           email?: string
           emergency_contact_relationship?: string | null
@@ -3303,9 +3284,7 @@ export type Database = {
           pilot_license_expiry?: string | null
           pilot_license_id?: string | null
           pilot_license_number?: string | null
-          pilot_license_type?: string | null
           postal_code?: string | null
-          public_directory_opt_in?: boolean
           state?: string | null
           street_address?: string | null
           updated_at?: string
@@ -3398,7 +3377,6 @@ export type Database = {
           id: string | null
           last_name: string | null
           phone: string | null
-          public_directory_opt_in: boolean | null
           public_email: string | null
           updated_at: string | null
         }
@@ -3409,7 +3387,6 @@ export type Database = {
           id?: string | null
           last_name?: string | null
           phone?: never
-          public_directory_opt_in?: boolean | null
           public_email?: never
           updated_at?: string | null
         }
@@ -3420,7 +3397,6 @@ export type Database = {
           id?: string | null
           last_name?: string | null
           phone?: never
-          public_directory_opt_in?: boolean | null
           public_email?: never
           updated_at?: string | null
         }

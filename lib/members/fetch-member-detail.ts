@@ -18,7 +18,7 @@ export async function fetchMemberDetail(
   const { data: tenantUser, error: tenantUserError } = await supabase
     .from("tenant_users")
     .select(
-      "id, user_id, is_active, granted_at, role:roles!tenant_users_role_id_fkey(id, name), user:users!tenant_users_user_id_fkey(id, first_name, last_name, email, phone, street_address, gender, date_of_birth, notes, next_of_kin_name, next_of_kin_phone, company_name, occupation, employer, pilot_license_number, pilot_license_type, pilot_license_id, pilot_license_expiry, medical_certificate_expiry)"
+      "id, user_id, is_active, granted_at, role:roles!tenant_users_role_id_fkey(id, name), user:users!tenant_users_user_id_fkey(id, first_name, last_name, email, phone, street_address, gender, date_of_birth, notes, next_of_kin_name, next_of_kin_phone, company_name, occupation, employer, pilot_license_number, pilot_license_id, pilot_license_expiry, medical_certificate_expiry)"
     )
     .eq("tenant_id", tenantId)
     .eq("user_id", userId)

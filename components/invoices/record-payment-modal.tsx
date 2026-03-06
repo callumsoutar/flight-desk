@@ -198,20 +198,27 @@ export default function RecordPaymentModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[560px] overflow-hidden rounded-2xl border border-border p-0 shadow-xl">
         <div className="flex max-h-[88dvh] flex-col bg-background">
-          <DialogHeader className="space-y-2 border-b px-5 py-4 text-left">
+          <DialogHeader className="space-y-1.5 border-b px-5 py-4 text-left">
             <DialogTitle className="text-base font-semibold">Record Payment</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Invoice {invoiceNumber || `#${invoiceId.slice(0, 8)}`}
             </DialogDescription>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium">
-                Remaining {formatCurrency(computedRemaining)}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+              <span>
+                <span className="font-semibold text-foreground">
+                  {formatCurrency(computedRemaining)}
+                </span>{" "}
+                remaining
               </span>
-              <span className="inline-flex items-center rounded-md border px-2.5 py-1 text-xs text-muted-foreground">
-                Paid {formatCurrency(totalPaid ?? 0)}
+              <span>
+                <span className="font-medium text-foreground">{formatCurrency(totalPaid ?? 0)}</span>{" "}
+                paid
               </span>
-              <span className="inline-flex items-center rounded-md border px-2.5 py-1 text-xs text-muted-foreground">
-                Total {formatCurrency(totalAmount ?? null)}
+              <span>
+                <span className="font-medium text-foreground">
+                  {formatCurrency(totalAmount ?? null)}
+                </span>{" "}
+                total
               </span>
             </div>
           </DialogHeader>
@@ -234,11 +241,21 @@ export default function RecordPaymentModal({
           ) : (
             <form onSubmit={onSubmit} className="flex-1 overflow-y-auto">
               <div className="space-y-4 px-5 py-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_3fr]">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Amount <span className="text-destructive">*</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Amount <span className="text-destructive">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setAmount(roundToTwoDecimals(computedRemaining))}
+                        disabled={loading}
+                        className="text-[11px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      >
+                        Use full balance
+                      </button>
+                    </div>
                     <div className="relative">
                       <DollarSign className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -255,19 +272,11 @@ export default function RecordPaymentModal({
                           const numeric = Number.parseFloat(value)
                           setAmount(Number.isFinite(numeric) ? numeric : 0)
                         }}
-                        className="h-9 pl-8 text-sm"
+                        className="h-10 pl-8 text-sm"
                         required
                         disabled={loading}
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setAmount(roundToTwoDecimals(computedRemaining))}
-                      disabled={loading}
-                      className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                    >
-                      Use full balance
-                    </button>
                   </div>
 
                   <div className="space-y-1.5">
@@ -279,7 +288,7 @@ export default function RecordPaymentModal({
                       onValueChange={(value) => setMethod(value as PaymentMethod)}
                       disabled={loading}
                     >
-                      <SelectTrigger className="h-9 text-sm">
+                      <SelectTrigger className="h-10 w-full text-sm">
                         <SelectValue placeholder="Select method" />
                       </SelectTrigger>
                       <SelectContent>

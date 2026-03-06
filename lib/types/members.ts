@@ -56,7 +56,6 @@ export type MemberDetailWithRelations = Pick<
         | "occupation"
         | "employer"
         | "pilot_license_number"
-        | "pilot_license_type"
         | "pilot_license_id"
         | "pilot_license_expiry"
         | "medical_certificate_expiry"

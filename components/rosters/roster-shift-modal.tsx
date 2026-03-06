@@ -447,7 +447,7 @@ export function RosterShiftModal({
         )}
       >
         <div className="flex h-full min-h-0 flex-col bg-white">
-          <DialogHeader className="px-6 sm:px-8 pt-[calc(2rem+env(safe-area-inset-top))] sm:pt-8 pb-6 text-left flex-shrink-0">
+          <DialogHeader className="px-6 sm:px-8 pt-[calc(1.5rem+env(safe-area-inset-top))] sm:pt-7 pb-5 text-left flex-shrink-0">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                 {mode === "create" ? (
@@ -471,8 +471,8 @@ export function RosterShiftModal({
             </div>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 sm:px-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pb-8">
-            <div className="mb-6 flex items-center gap-4 rounded-[20px] bg-blue-50 p-4 text-blue-700 ring-1 ring-blue-100/50">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 sm:px-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
+            <div className="mb-5 flex items-center gap-3 rounded-[18px] bg-blue-50 p-3.5 text-blue-700 ring-1 ring-blue-100/50">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-blue-100">
                 <Calendar className="h-6 w-6" />
               </div>
@@ -486,9 +486,9 @@ export function RosterShiftModal({
               </div>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-8">
+            <form onSubmit={onSubmit} className="space-y-6">
               <section>
-                <div className="mb-4 flex items-center gap-2">
+                <div className="mb-3 flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-slate-400" />
                   <span className="text-sm font-semibold tracking-tight text-slate-900">
                     Instructor
@@ -529,7 +529,7 @@ export function RosterShiftModal({
               </section>
 
               <section>
-                <div className="mb-4 flex items-center gap-2">
+                <div className="mb-3 flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-blue-500" />
                   <span className="text-sm font-semibold tracking-tight text-slate-900">
                     Assignment Type
@@ -587,7 +587,7 @@ export function RosterShiftModal({
 
                 {isRecurringNow ? (
                   <div className="mt-4">
-                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       REPEAT ON
                     </label>
                     <div className="flex justify-between gap-1">
@@ -633,7 +633,7 @@ export function RosterShiftModal({
 
               {!isRecurringNow ? (
                 <section>
-                  <div className="mb-4 flex items-center gap-2">
+                  <div className="mb-3 flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-emerald-500" />
                     <span className="text-sm font-semibold tracking-tight text-slate-900">
                       Assignment Options
@@ -642,7 +642,7 @@ export function RosterShiftModal({
 
                   <div className="grid gap-6">
                     <div>
-                      <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         OVERRIDE TYPE
                       </label>
                       <Select value={overrideType} onValueChange={setOverrideType}>
@@ -667,7 +667,7 @@ export function RosterShiftModal({
               ) : null}
 
               <section>
-                <div className="mb-4 flex items-center gap-2">
+                <div className="mb-3 flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-blue-500" />
                   <span className="text-sm font-semibold tracking-tight text-slate-900">
                     Schedule Times
@@ -676,7 +676,7 @@ export function RosterShiftModal({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       START TIME
                     </label>
                     <Select
@@ -702,7 +702,7 @@ export function RosterShiftModal({
                     </Select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       END TIME
                     </label>
                     <Select
@@ -743,31 +743,33 @@ export function RosterShiftModal({
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-between gap-4 pt-4 pb-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                  disabled={isSubmitting}
-                  className="h-12 flex-1 rounded-xl border-slate-200 text-sm font-bold shadow-none hover:bg-slate-50"
-                >
-                  Cancel
-                </Button>
-                {mode === "edit" ? (
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 pb-1 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                   <Button
                     type="button"
-                    variant="ghost"
-                    onClick={handleDelete}
+                    variant="outline"
+                    onClick={handleClose}
                     disabled={isSubmitting}
-                    className="h-12 px-4 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    className="h-12 w-full rounded-xl border-slate-200 text-sm font-bold shadow-none hover:bg-slate-50 sm:w-auto"
                   >
-                    Archive
+                    Cancel
                   </Button>
-                ) : null}
+                  {mode === "edit" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleDelete}
+                      disabled={isSubmitting}
+                      className="h-12 w-full rounded-xl px-4 text-sm font-semibold text-destructive hover:bg-destructive/5 hover:text-destructive sm:w-auto"
+                    >
+                      Archive
+                    </Button>
+                  ) : null}
+                </div>
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="h-12 flex-[1.5] rounded-xl bg-slate-900 text-sm font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                  className="h-12 w-full rounded-xl bg-slate-900 text-sm font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800 sm:w-auto sm:min-w-[190px]"
                 >
                   {mode === "create" ? <Plus className="mr-2 h-4 w-4" /> : null}
                   {mode === "create" ? "Create Assignment" : "Update Assignment"}

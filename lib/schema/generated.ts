@@ -576,8 +576,6 @@ export const publicAuditLogsRelationshipsSchema = z.tuple([
 ]);
 
 export const publicBookingsRowSchema = z.object({
-  actual_end: z.string().nullable(),
-  actual_start: z.string().nullable(),
   aircraft_id: z.string().nullable(),
   airswitch_end: z.number().nullable(),
   airswitch_start: z.number().nullable(),
@@ -611,7 +609,6 @@ export const publicBookingsRowSchema = z.object({
   equipment: jsonSchema.nullable(),
   eta: z.string().nullable(),
   flight_remarks: z.string().nullable(),
-  flight_time: z.number().nullable(),
   flight_time_airswitch: z.number().nullable(),
   flight_time_hobbs: z.number().nullable(),
   flight_time_tach: z.number().nullable(),
@@ -622,7 +619,6 @@ export const publicBookingsRowSchema = z.object({
   id: z.string(),
   instructor_id: z.string().nullable(),
   lesson_id: z.string().nullable(),
-  notes: z.string().nullable(),
   passengers: z.string().nullable(),
   purpose: z.string(),
   remarks: z.string().nullable(),
@@ -643,8 +639,6 @@ export const publicBookingsRowSchema = z.object({
 });
 
 export const publicBookingsInsertSchema = z.object({
-  actual_end: z.string().optional().nullable(),
-  actual_start: z.string().optional().nullable(),
   aircraft_id: z.string().optional().nullable(),
   airswitch_end: z.number().optional().nullable(),
   airswitch_start: z.number().optional().nullable(),
@@ -678,7 +672,6 @@ export const publicBookingsInsertSchema = z.object({
   equipment: jsonSchema.optional().nullable(),
   eta: z.string().optional().nullable(),
   flight_remarks: z.string().optional().nullable(),
-  flight_time: z.number().optional().nullable(),
   flight_time_airswitch: z.number().optional().nullable(),
   flight_time_hobbs: z.number().optional().nullable(),
   flight_time_tach: z.number().optional().nullable(),
@@ -689,7 +682,6 @@ export const publicBookingsInsertSchema = z.object({
   id: z.string().optional(),
   instructor_id: z.string().optional().nullable(),
   lesson_id: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
   passengers: z.string().optional().nullable(),
   purpose: z.string().optional(),
   remarks: z.string().optional().nullable(),
@@ -710,8 +702,6 @@ export const publicBookingsInsertSchema = z.object({
 });
 
 export const publicBookingsUpdateSchema = z.object({
-  actual_end: z.string().optional().nullable(),
-  actual_start: z.string().optional().nullable(),
   aircraft_id: z.string().optional().nullable(),
   airswitch_end: z.number().optional().nullable(),
   airswitch_start: z.number().optional().nullable(),
@@ -745,7 +735,6 @@ export const publicBookingsUpdateSchema = z.object({
   equipment: jsonSchema.optional().nullable(),
   eta: z.string().optional().nullable(),
   flight_remarks: z.string().optional().nullable(),
-  flight_time: z.number().optional().nullable(),
   flight_time_airswitch: z.number().optional().nullable(),
   flight_time_hobbs: z.number().optional().nullable(),
   flight_time_tach: z.number().optional().nullable(),
@@ -756,7 +745,6 @@ export const publicBookingsUpdateSchema = z.object({
   id: z.string().optional(),
   instructor_id: z.string().optional().nullable(),
   lesson_id: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
   passengers: z.string().optional().nullable(),
   purpose: z.string().optional(),
   remarks: z.string().optional().nullable(),
@@ -3496,7 +3484,6 @@ export const publicUsersRowSchema = z.object({
   country: z.string().nullable(),
   created_at: z.string(),
   date_of_birth: z.string().nullable(),
-  date_of_last_flight: z.string().nullable(),
   DL9_due: z.string().nullable(),
   email: z.string(),
   emergency_contact_relationship: z.string().nullable(),
@@ -3515,9 +3502,7 @@ export const publicUsersRowSchema = z.object({
   pilot_license_expiry: z.string().nullable(),
   pilot_license_id: z.string().nullable(),
   pilot_license_number: z.string().nullable(),
-  pilot_license_type: z.string().nullable(),
   postal_code: z.string().nullable(),
-  public_directory_opt_in: z.boolean(),
   state: z.string().nullable(),
   street_address: z.string().nullable(),
   updated_at: z.string(),
@@ -3532,7 +3517,6 @@ export const publicUsersInsertSchema = z.object({
   country: z.string().optional().nullable(),
   created_at: z.string().optional(),
   date_of_birth: z.string().optional().nullable(),
-  date_of_last_flight: z.string().optional().nullable(),
   DL9_due: z.string().optional().nullable(),
   email: z.string(),
   emergency_contact_relationship: z.string().optional().nullable(),
@@ -3551,9 +3535,7 @@ export const publicUsersInsertSchema = z.object({
   pilot_license_expiry: z.string().optional().nullable(),
   pilot_license_id: z.string().optional().nullable(),
   pilot_license_number: z.string().optional().nullable(),
-  pilot_license_type: z.string().optional().nullable(),
   postal_code: z.string().optional().nullable(),
-  public_directory_opt_in: z.boolean().optional(),
   state: z.string().optional().nullable(),
   street_address: z.string().optional().nullable(),
   updated_at: z.string().optional(),
@@ -3568,7 +3550,6 @@ export const publicUsersUpdateSchema = z.object({
   country: z.string().optional().nullable(),
   created_at: z.string().optional(),
   date_of_birth: z.string().optional().nullable(),
-  date_of_last_flight: z.string().optional().nullable(),
   DL9_due: z.string().optional().nullable(),
   email: z.string().optional(),
   emergency_contact_relationship: z.string().optional().nullable(),
@@ -3587,9 +3568,7 @@ export const publicUsersUpdateSchema = z.object({
   pilot_license_expiry: z.string().optional().nullable(),
   pilot_license_id: z.string().optional().nullable(),
   pilot_license_number: z.string().optional().nullable(),
-  pilot_license_type: z.string().optional().nullable(),
   postal_code: z.string().optional().nullable(),
-  public_directory_opt_in: z.boolean().optional(),
   state: z.string().optional().nullable(),
   street_address: z.string().optional().nullable(),
   updated_at: z.string().optional(),
@@ -3682,7 +3661,6 @@ export const publicUserDirectoryRowSchema = z.object({
   id: z.string().nullable(),
   last_name: z.string().nullable(),
   phone: z.string().nullable(),
-  public_directory_opt_in: z.boolean().nullable(),
   public_email: z.string().nullable(),
   updated_at: z.string().nullable(),
 });
@@ -3694,7 +3672,6 @@ export const publicUserDirectoryInsertSchema = z.object({
   id: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
   phone: z.never().optional(),
-  public_directory_opt_in: z.boolean().optional().nullable(),
   public_email: z.never().optional(),
   updated_at: z.string().optional().nullable(),
 });
@@ -3706,7 +3683,6 @@ export const publicUserDirectoryUpdateSchema = z.object({
   id: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
   phone: z.never().optional(),
-  public_directory_opt_in: z.boolean().optional().nullable(),
   public_email: z.never().optional(),
   updated_at: z.string().optional().nullable(),
 });
