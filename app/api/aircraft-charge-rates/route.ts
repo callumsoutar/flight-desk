@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   }
 
   const aircraftId = request.nextUrl.searchParams.get("aircraft_id")
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   }
 
   const raw = await request.json().catch(() => null)
@@ -178,7 +178,7 @@ export async function PATCH(request: NextRequest) {
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   }
 
   const raw = await request.json().catch(() => null)
@@ -244,7 +244,7 @@ export async function DELETE(request: NextRequest) {
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   }
 
   const raw = await request.json().catch(() => null)

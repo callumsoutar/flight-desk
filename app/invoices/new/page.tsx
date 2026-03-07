@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { InvoiceCreateClient } from "@/components/invoices/invoice-create-client"
 import { InvoiceDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceCreateData } from "@/lib/invoices/fetch-invoice-create-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -19,27 +19,6 @@ function pickSearchParam(
   if (typeof value === "string") return value
   if (Array.isArray(value)) return value[0] ?? null
   return null
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    </AppRouteShell>
-  )
 }
 
 async function NewInvoiceContent({
@@ -75,20 +54,30 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="New Invoice"
-        description="Your account isn't linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 
   const isStaff = role === "owner" || role === "admin" || role === "instructor"
   if (!isStaff) {
     return (
-      <MessageCard
-        title="New Invoice"
-        description="Only staff can create invoices."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Access denied"
+            message="You don't have permission to access this page."
+            backHref="/invoices"
+            backLabel="Back to invoices"
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 

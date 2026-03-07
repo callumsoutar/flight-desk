@@ -3,33 +3,12 @@ import { redirect } from "next/navigation"
 
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteLoadingState } from "@/components/loading/route-loading-state"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { RostersPageClient } from "@/components/rosters/rosters-page-client"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchRosterPageData } from "@/lib/rosters/fetch-roster-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { RosterInstructor, RosterRule, TimelineConfig } from "@/lib/types/roster"
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
-}
 
 async function RostersContent({ tenantId }: { tenantId: string }) {
   const supabase = await createSupabaseServerClient()
@@ -73,10 +52,14 @@ export default async function RostersPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Rosters"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

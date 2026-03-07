@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const componentId = request.nextUrl.searchParams.get("id")
   if (componentId) {
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
@@ -172,7 +172,7 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
