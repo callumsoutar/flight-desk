@@ -14,20 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/types/account-statement"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 export type MemberFinancesProps = {
   memberId: string
 }
 const EMPTY_STATEMENT: AccountStatementEntry[] = []
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString)
-  return date.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
 
 function formatMoney(amount: number) {
   return `$${Math.abs(amount).toFixed(2)}`
@@ -63,6 +56,7 @@ async function fetchAccountStatement(memberId: string): Promise<AccountStatement
 }
 
 export function MemberFinances({ memberId }: MemberFinancesProps) {
+  const { timeZone } = useTimezone()
   const router = useRouter()
   const [page, setPage] = React.useState(0)
   const pageSize = 10
@@ -194,7 +188,7 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
                             }
                           }}
                         >
-                          <TableCell className="whitespace-nowrap">{formatDate(entry.date)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatDate(entry.date, timeZone)}</TableCell>
                           <TableCell className="whitespace-nowrap font-medium">
                             <div className="flex items-center gap-2">
                               <span>{entry.reference}</span>

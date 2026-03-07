@@ -19,6 +19,8 @@ import type {
   TenantDefaultTaxRate,
 } from "@/lib/types/memberships"
 import { calculateMembershipFee } from "@/lib/utils/membership-utils"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 interface CreateMembershipModalProps {
   open: boolean
@@ -42,15 +44,6 @@ function calculateDefaultExpiry(durationMonths: number) {
   return end
 }
 
-function formatDate(value: Date | null) {
-  if (!value) return ""
-  return value.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  })
-}
-
 export function CreateMembershipModal({
   open,
   onClose,
@@ -59,6 +52,7 @@ export function CreateMembershipModal({
   defaultTaxRate,
   onCreateMembership,
 }: CreateMembershipModalProps) {
+  const { timeZone } = useTimezone()
   const [selectedTypeId, setSelectedTypeId] = React.useState<string>("")
   const [notes, setNotes] = React.useState("")
   const [createInvoice, setCreateInvoice] = React.useState(true)
@@ -157,7 +151,7 @@ export function CreateMembershipModal({
                   </p>
                   {expiryDate ? (
                     <p className="text-sm text-slate-600">
-                      Expires: {formatDate(expiryDate)}
+                      Expires: {formatDate(expiryDate, timeZone)}
                     </p>
                   ) : null}
                 </div>

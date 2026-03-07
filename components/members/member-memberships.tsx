@@ -35,16 +35,8 @@ import {
   getStatusText,
   isMembershipExpiringSoon,
 } from "@/lib/utils/membership-utils"
-
-function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Invalid date"
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  })
-}
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 export function MemberMemberships({
   memberId,
@@ -57,6 +49,7 @@ export function MemberMemberships({
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
 }) {
+  const { timeZone } = useTimezone()
   const [membershipSummary, setMembershipSummary] =
     React.useState<MembershipSummary | null>(initialSummary)
   const [error, setError] = React.useState<string | null>(null)
@@ -188,7 +181,7 @@ export function MemberMemberships({
                   Started
                 </p>
                 <p className="text-sm font-semibold text-slate-900">
-                  {formatDate(currentMembership.start_date)}
+                  {formatDate(currentMembership.start_date, timeZone)}
                 </p>
               </div>
               <div className="space-y-0.5">
@@ -202,7 +195,7 @@ export function MemberMemberships({
                       : "text-sm font-semibold text-slate-900"
                   }
                 >
-                  {formatDate(currentMembership.expiry_date)}
+                  {formatDate(currentMembership.expiry_date, timeZone)}
                 </p>
                 {status === "active" ? (
                   <p className="text-xs text-slate-500">
@@ -327,9 +320,9 @@ export function MemberMemberships({
                         </td>
                         <td className="py-3 pr-4 text-sm text-slate-600">
                           <div className="flex flex-col">
-                            <span>{formatDate(membership.start_date)}</span>
+                            <span>{formatDate(membership.start_date, timeZone)}</span>
                             <span className="text-xs text-slate-500">
-                              to {formatDate(membership.expiry_date)}
+                              to {formatDate(membership.expiry_date, timeZone)}
                             </span>
                           </div>
                         </td>
@@ -403,7 +396,7 @@ export function MemberMemberships({
                       <div className="flex justify-between">
                         <span className="text-slate-500">Period:</span>
                         <span className="font-medium text-slate-900">
-                          {formatDate(membership.start_date)} - {formatDate(membership.expiry_date)}
+                          {formatDate(membership.start_date, timeZone)} - {formatDate(membership.expiry_date, timeZone)}
                         </span>
                       </div>
                       {membership.notes ? (
