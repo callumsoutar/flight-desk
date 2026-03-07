@@ -25,7 +25,8 @@ export type MemberMembershipsData = {
 export async function fetchMemberMembershipsData(
   supabase: SupabaseClient<Database>,
   tenantId: string,
-  userId: string
+  userId: string,
+  timeZone: string
 ): Promise<MemberMembershipsData> {
   const today = new Date().toISOString().slice(0, 10)
   const [membershipsResult, membershipTypesResult, taxResult] = await Promise.all([
@@ -78,7 +79,7 @@ export async function fetchMemberMembershipsData(
 
   const currentMembership = membershipHistory[0] ?? null
   const summary: MembershipSummary = {
-    status: calculateMembershipStatus(currentMembership),
+    status: calculateMembershipStatus(currentMembership, timeZone),
     current_membership: currentMembership,
     membership_history: membershipHistory,
   }

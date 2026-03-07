@@ -190,7 +190,7 @@ export function MemberMemberships({
                 </p>
                 <p
                   className={
-                    isMembershipExpiringSoon(currentMembership)
+                    isMembershipExpiringSoon(currentMembership, timeZone)
                       ? "text-sm font-semibold text-orange-600"
                       : "text-sm font-semibold text-slate-900"
                   }
@@ -199,12 +199,12 @@ export function MemberMemberships({
                 </p>
                 {status === "active" ? (
                   <p className="text-xs text-slate-500">
-                    {getDaysUntilExpiry(currentMembership)} days remaining
+                    {getDaysUntilExpiry(currentMembership, timeZone)} days remaining
                   </p>
                 ) : null}
                 {status === "grace" ? (
                   <p className="text-xs text-orange-600">
-                    Grace period: {getGracePeriodRemaining(currentMembership)} days left
+                    Grace period: {getGracePeriodRemaining(currentMembership, timeZone)} days left
                   </p>
                 ) : null}
               </div>
@@ -221,7 +221,7 @@ export function MemberMemberships({
               </div>
             ) : null}
 
-            {status !== "unpaid" && isMembershipExpiringSoon(currentMembership) ? (
+            {status !== "unpaid" && isMembershipExpiringSoon(currentMembership, timeZone) ? (
               <div className="rounded-md border border-orange-200 bg-orange-50 p-3">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-600" />
@@ -304,7 +304,7 @@ export function MemberMemberships({
                 </thead>
                 <tbody>
                   {membershipSummary.membership_history.map((membership) => {
-                    const rowStatus = calculateMembershipStatus(membership)
+                    const rowStatus = calculateMembershipStatus(membership, timeZone)
                     return (
                       <tr
                         key={membership.id}
@@ -360,7 +360,7 @@ export function MemberMemberships({
 
             <div className="space-y-3 md:hidden">
               {membershipSummary.membership_history.map((membership) => {
-                const rowStatus = calculateMembershipStatus(membership)
+                const rowStatus = calculateMembershipStatus(membership, timeZone)
                 return (
                   <div
                     key={membership.id}

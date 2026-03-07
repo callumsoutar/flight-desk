@@ -8,6 +8,7 @@ import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availabilit
 import type { Database } from "@/lib/types"
 import type { BookingStatus } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
+import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
 
 export const createBookingPayloadSchema = z.object({
   start_time: z.string(),
@@ -192,7 +193,7 @@ export async function createBookingInTenant({
       const bookingDow = getDow(startParts)
       const bookingStartMin = getMinutes(startParts)
       const bookingEndMin = getMinutes(endParts)
-      const dateStr = startDate.toLocaleDateString("sv-SE", { timeZone: tz })
+      const dateStr = getZonedYyyyMmDdAndHHmm(startDate, tz).yyyyMmDd
 
       const { data: rosterRules, error: rosterRulesError } = await supabase
         .from("roster_rules")

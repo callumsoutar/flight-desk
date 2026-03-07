@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
 import type { BookingWarningsResponse, BookingWarningCategory, BookingWarningItem, BookingWarningSeverity } from "@/lib/types/booking-warnings"
+import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 type CheckoutWarningOverrides = {
   bookingId: string
@@ -74,15 +75,21 @@ function formatDateLabel(value: string) {
   }).format(date)
 }
 
-function startOfDay(value: Date) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate())
-}
-
-function diffCalendarDays(targetIso: string, now = new Date()) {
+function diffCalendarDays(targetIso: string, todayKey: string) {
   const target = new Date(targetIso)
   if (Number.isNaN(target.getTime())) return null
-  const diffMs = startOfDay(target).getTime() - startOfDay(now).getTime()
-  return Math.round(diffMs / (1000 * 60 * 60 * 24))
+  const targetKey = targetIso.slice(0, 10)
+  const msTarget = Date.UTC(
+    parseInt(targetKey.slice(0, 4)),
+    parseInt(targetKey.slice(5, 7)) - 1,
+    parseInt(targetKey.slice(8, 10))
+  )
+  const msToday = Date.UTC(
+    parseInt(todayKey.slice(0, 4)),
+    parseInt(todayKey.slice(5, 7)) - 1,
+    parseInt(todayKey.slice(8, 10))
+  )
+  return Math.round((msTarget - msToday) / 86_400_000)
 }
 
 function getDateSeverity(daysRemaining: number): BookingWarningSeverity | null {
@@ -141,10 +148,11 @@ function buildExpiryWarning(params: {
   title: string
   sourceLabel: string
   dueAt: string | null | undefined
+  todayKey: string
 }): BookingWarningItem | null {
   if (!params.dueAt) return null
 
-  const daysRemaining = diffCalendarDays(params.dueAt)
+  const daysRemaining = diffCalendarDays(params.dueAt, params.todayKey)
   if (daysRemaining === null) return null
 
   const severity = getDateSeverity(daysRemaining)
@@ -267,6 +275,14 @@ export async function fetchBookingCheckoutWarnings(
 
   if (bookingError) throw bookingError
   if (!booking) throw new Error("Booking not found")
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+  const timeZone = tenant?.timezone ?? "Pacific/Auckland"
+  const todayKey = zonedTodayYyyyMmDd(timeZone)
 
   const context = {
     user_id: overrides.userId ?? booking.user_id ?? null,
@@ -453,6 +469,7 @@ export async function fetchBookingCheckoutWarnings(
         title: "Medical certificate",
         sourceLabel: "Medical certificate",
         dueAt: medicalDue,
+        todayKey,
       }),
       buildExpiryWarning({
         id: "pilot-bfr-expiry",
@@ -461,6 +478,7 @@ export async function fetchBookingCheckoutWarnings(
         title: "Flight review (BFR)",
         sourceLabel: "Biennial flight review",
         dueAt: memberUser.BFR_due,
+        todayKey,
       }),
       buildExpiryWarning({
         id: "pilot-licence-expiry",
@@ -469,6 +487,7 @@ export async function fetchBookingCheckoutWarnings(
         title: "Pilot licence",
         sourceLabel: "Pilot licence",
         dueAt: memberUser.pilot_license_expiry,
+        todayKey,
       }),
     ]
 
@@ -554,6 +573,7 @@ export async function fetchBookingCheckoutWarnings(
         title: "Instructor licence",
         sourceLabel: "Instructor licence",
         dueAt: instructor.expires_at,
+        todayKey,
       }),
       buildExpiryWarning({
         id: "instructor-medical-expiry",
@@ -562,6 +582,7 @@ export async function fetchBookingCheckoutWarnings(
         title: "Class 1 medical",
         sourceLabel: "Class 1 medical",
         dueAt: instructor.class_1_medical_due_date,
+        todayKey,
       }),
       buildExpiryWarning({
         id: "instructor-check-expiry",
@@ -570,6 +591,7 @@ export async function fetchBookingCheckoutWarnings(
         title: "Instructor proficiency check",
         sourceLabel: "Instructor proficiency check",
         dueAt: instructor.instructor_check_due_date,
+        todayKey,
       }),
     ]
 
@@ -655,7 +677,7 @@ export async function fetchBookingCheckoutWarnings(
         : `${visit.description} is still open in maintenance.`,
       source_label: "Maintenance visit",
       due_at: startDate,
-      days_remaining: startDate ? diffCalendarDays(startDate) : null,
+      days_remaining: startDate ? diffCalendarDays(startDate, todayKey) : null,
       hours_remaining: null,
       countdown_label: null,
       action_href: aircraft?.id ? `/aircraft/${aircraft.id}` : null,
@@ -666,7 +688,7 @@ export async function fetchBookingCheckoutWarnings(
 
   const totalTimeInService = Number(aircraft?.total_time_in_service ?? 0)
   for (const component of componentsResult.data ?? []) {
-    const dueDateDays = component.current_due_date ? diffCalendarDays(component.current_due_date) : null
+    const dueDateDays = component.current_due_date ? diffCalendarDays(component.current_due_date, todayKey) : null
     const dueHoursRemaining =
       typeof component.current_due_hours === "number"
         ? component.current_due_hours - totalTimeInService
@@ -731,7 +753,7 @@ export async function fetchBookingCheckoutWarnings(
       }.`,
       source_label: observation.priority ? `${observation.priority} priority observation` : "Aircraft observation",
       due_at: observation.reported_date,
-      days_remaining: observation.reported_date ? diffCalendarDays(observation.reported_date) : null,
+      days_remaining: observation.reported_date ? diffCalendarDays(observation.reported_date, todayKey) : null,
       hours_remaining: null,
       countdown_label: null,
       action_href: aircraft?.id ? `/aircraft/${aircraft.id}` : null,
