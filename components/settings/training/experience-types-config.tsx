@@ -161,9 +161,9 @@ export function ExperienceTypesConfig() {
   }, [experienceTypes, searchTerm])
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 w-full min-w-0">
       {loading ? (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 w-full min-w-0">
           <div className="flex items-center justify-center py-12">
             <div className="text-slate-500">Loading experience types...</div>
           </div>
@@ -331,13 +331,13 @@ export function ExperienceTypesConfig() {
               </p>
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <Table>
+            <div className="border border-slate-200 rounded-xl overflow-hidden w-full min-w-0">
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="bg-slate-50 hover:bg-slate-50">
                     <TableHead className="font-semibold text-slate-700">Name</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                    <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+                    <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-700 whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -345,7 +345,7 @@ export function ExperienceTypesConfig() {
                     const isActive = experienceType.is_active ?? true
                     return (
                       <TableRow key={experienceType.id} className="hover:bg-slate-50">
-                        <TableCell className="font-medium text-slate-900">
+                        <TableCell className="font-medium text-slate-900 whitespace-normal min-w-0 align-top">
                           <div>
                             <div>{experienceType.name}</div>
                             {experienceType.description ? (

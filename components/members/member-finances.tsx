@@ -11,6 +11,7 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/types/account-statement"
@@ -48,8 +49,27 @@ function getEntryTypeBadge(type: AccountStatementEntry["entry_type"]) {
   }
 }
 
-async function fetchAccountStatement(memberId: string): Promise<AccountStatementResponse> {
-  const response = await fetch(`/api/account-statement?user_id=${memberId}`, {
+function getStartOfMonth(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  return `${y}-${m}-01`
+}
+
+function getEndOfMonth(date: Date): string {
+  const d = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+async function fetchAccountStatement(
+  memberId: string,
+  startDate: string,
+  endDate: string
+): Promise<AccountStatementResponse> {
+  const params = new URLSearchParams({ user_id: memberId, start_date: startDate, end_date: endDate })
+  const response = await fetch(`/api/account-statement?${params.toString()}`, {
     method: "GET",
     cache: "no-store",
   })
@@ -62,10 +82,12 @@ async function fetchAccountStatement(memberId: string): Promise<AccountStatement
   return payload as AccountStatementResponse
 }
 
+const now = new Date()
+
 export function MemberFinances({ memberId }: MemberFinancesProps) {
   const router = useRouter()
-  const [page, setPage] = React.useState(0)
-  const pageSize = 10
+  const [startDate, setStartDate] = React.useState(() => getStartOfMonth(now))
+  const [endDate, setEndDate] = React.useState(() => getEndOfMonth(now))
   const [statement, setStatement] = React.useState<AccountStatementEntry[]>(EMPTY_STATEMENT)
   const [closingBalance, setClosingBalance] = React.useState(0)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -86,7 +108,7 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
       setIsLoading(true)
       setError(null)
       try {
-        const data = await fetchAccountStatement(memberId)
+        const data = await fetchAccountStatement(memberId, startDate, endDate)
         if (cancelled) return
         setStatement(data.statement ?? EMPTY_STATEMENT)
         setClosingBalance(data.closing_balance ?? 0)
@@ -106,15 +128,9 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
     return () => {
       cancelled = true
     }
-  }, [memberId])
+  }, [memberId, startDate, endDate])
 
-  const pageCount = Math.max(1, Math.ceil(statement.length / pageSize))
-  const paginated = statement.slice(page * pageSize, (page + 1) * pageSize)
   const outstandingBalance = Math.max(closingBalance, 0)
-
-  React.useEffect(() => {
-    setPage(0)
-  }, [memberId, statement.length])
 
   return (
     <div className="space-y-6">
@@ -143,10 +159,32 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
 
       <Card className="border border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-            <DollarSign className="h-4 w-4 text-slate-500" />
-            Account Statement
-          </CardTitle>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
+              <DollarSign className="h-4 w-4 text-slate-500" />
+              Account Statement
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-600">From</span>
+                <DatePicker
+                  date={startDate}
+                  onChange={(value) => value && setStartDate(value)}
+                  className="w-[140px]"
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-600">To</span>
+                <DatePicker
+                  date={endDate}
+                  onChange={(value) => value && setEndDate(value)}
+                  className="w-[140px]"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -176,7 +214,7 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginated.map((entry, idx) => {
+                    {statement.map((entry, idx) => {
                       const isInvoice = entry.entry_type === "invoice"
                       const isOpening = entry.entry_type === "opening_balance"
                       const isDebit = entry.amount > 0
@@ -248,36 +286,6 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
                   </TableBody>
                 </Table>
               </div>
-
-              {statement.length > pageSize ? (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, statement.length)} of{" "}
-                    {statement.length} transactions
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="rounded-md border px-3 py-1.5 text-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      onClick={() => setPage((current) => Math.max(0, current - 1))}
-                      disabled={page === 0}
-                      type="button"
-                    >
-                      Previous
-                    </button>
-                    <span className="px-1 text-sm text-muted-foreground">
-                      Page {page + 1} of {pageCount}
-                    </span>
-                    <button
-                      className="rounded-md border px-3 py-1.5 text-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
-                      disabled={page >= pageCount - 1}
-                      type="button"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              ) : null}
             </>
           )}
         </CardContent>

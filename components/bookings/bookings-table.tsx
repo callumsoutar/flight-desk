@@ -23,6 +23,7 @@ import {
   IconSearch,
   IconUser,
 } from "@tabler/icons-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { getBookingOpenPath } from "@/lib/bookings/navigation"
@@ -63,6 +64,7 @@ interface BookingsTableProps {
     flying: number
     unconfirmed: number
   }
+  onApprove?: (bookingId: string) => void
 }
 
 function getStatusBadgeVariant(status: BookingStatus) {
@@ -95,7 +97,7 @@ function getBookingTypeLabel(type: BookingType) {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
-const columns: ColumnDef<BookingWithRelations>[] = [
+const baseColumns: ColumnDef<BookingWithRelations>[] = [
   {
     id: "aircraft",
     header: () => (
@@ -248,18 +250,50 @@ const columns: ColumnDef<BookingWithRelations>[] = [
   },
 ]
 
+function createActionsColumn(
+  onApprove: (bookingId: string) => void
+): ColumnDef<BookingWithRelations> {
+  return {
+    id: "actions",
+    header: () => <span className="text-right">Actions</span>,
+    cell: ({ row }) => {
+      const booking = row.original
+      return (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={(e) => {
+              e.stopPropagation()
+              onApprove(booking.id)
+            }}
+          >
+            Approve
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700">
+            <Link href={`/bookings/${booking.id}`}>View</Link>
+          </Button>
+        </div>
+      )
+    },
+  }
+}
+
 function BookingCard({
   booking,
   onOpen,
+  onApprove,
 }: {
   booking: BookingWithRelations
   onOpen: (booking: BookingWithRelations) => void
+  onApprove?: (bookingId: string) => void
 }) {
   const start = new Date(booking.start_time)
   const end = new Date(booking.end_time)
   const status = booking.status
   const variant = getStatusBadgeVariant(status)
   const label = getStatusLabel(status)
+  const showActions = status === "unconfirmed" && onApprove
 
   const studentName = booking.student
     ? `${booking.student.first_name ?? ""} ${booking.student.last_name ?? ""}`.trim() || booking.student.email
@@ -322,6 +356,27 @@ function BookingCard({
               <IconSchool className="h-4 w-4 shrink-0" />
               <span className="truncate">{getBookingTypeLabel(booking.booking_type)}</span>
             </div>
+
+            {showActions ? (
+              <div
+                className="flex items-center gap-2 pt-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onApprove?.(booking.id)
+                  }}
+                >
+                  Approve
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700">
+                  <Link href={`/bookings/${booking.id}`}>View</Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -335,6 +390,7 @@ export function BookingsTable({
   activeTab,
   onTabChange,
   tabCounts,
+  onApprove,
 }: BookingsTableProps) {
   const isMobile = useIsMobile()
   const [isNavigating, startNavigation] = React.useTransition()
@@ -380,6 +436,13 @@ export function BookingsTable({
 
     return filtered
   }, [bookings, statusFilter, typeFilter])
+
+  const columns = React.useMemo(() => {
+    if (onApprove) {
+      return [...baseColumns, createActionsColumn(onApprove)]
+    }
+    return baseColumns
+  }, [onApprove])
 
   const table = useReactTable({
     data: filteredBookings,
@@ -522,6 +585,7 @@ export function BookingsTable({
                   key={booking.id}
                   booking={booking}
                   onOpen={(item) => navigate(getBookingOpenPath(item.id, item.status))}
+                  onApprove={onApprove}
                 />
               ))
           ) : (

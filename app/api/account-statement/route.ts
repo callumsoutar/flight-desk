@@ -75,6 +75,8 @@ export async function GET(request: NextRequest) {
 
   const userIdParam = request.nextUrl.searchParams.get("user_id")
   const targetUserId = userIdParam ?? user.id
+  const startDateParam = request.nextUrl.searchParams.get("start_date")
+  const endDateParam = request.nextUrl.searchParams.get("end_date")
 
   const canViewOtherMembers = role === "owner" || role === "admin" || role === "instructor"
   if (targetUserId !== user.id && !canViewOtherMembers) {
@@ -185,23 +187,85 @@ export async function GET(request: NextRequest) {
     return a.entry_id.localeCompare(b.entry_id)
   })
 
-  let runningBalance = 0
-  const statement = entries.map((entry) => {
-    runningBalance += entry.amount
-    return {
-      entry_id: entry.entry_id,
-      entry_type: entry.entry_type,
-      date: entry.date,
-      reference: entry.reference,
-      description: entry.description,
-      amount: entry.amount,
-      balance: Number(runningBalance.toFixed(2)),
+  function toDateOnly(isoOrDate: string): string {
+    const d = new Date(isoOrDate)
+    if (Number.isNaN(d.getTime())) return ""
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
+  }
+
+  const useDateRange =
+    typeof startDateParam === "string" &&
+    startDateParam.trim() !== "" &&
+    typeof endDateParam === "string" &&
+    endDateParam.trim() !== ""
+
+  let statement: AccountStatementEntry[]
+  let closingBalance: number
+
+  if (useDateRange) {
+    const startDate = startDateParam.trim()
+    const endDate = endDateParam.trim()
+
+    let openingBalance = 0
+    const filtered: SortableAccountStatementEntry[] = []
+    for (const entry of entries) {
+      const dateOnly = toDateOnly(entry.date)
+      if (dateOnly < startDate) {
+        openingBalance += entry.amount
+      } else if (dateOnly >= startDate && dateOnly <= endDate) {
+        filtered.push(entry)
+      }
     }
-  })
+
+    const openingRow: AccountStatementEntry = {
+      entry_id: `opening-${startDate}`,
+      entry_type: "opening_balance",
+      date: `${startDate}T00:00:00.000Z`,
+      reference: "Opening balance",
+      description: "Balance at start of period",
+      amount: 0,
+      balance: Number(openingBalance.toFixed(2)),
+    }
+
+    let runningBalance = openingBalance
+    const rangedRows = filtered.map((entry) => {
+      runningBalance += entry.amount
+      return {
+        entry_id: entry.entry_id,
+        entry_type: entry.entry_type,
+        date: entry.date,
+        reference: entry.reference,
+        description: entry.description,
+        amount: entry.amount,
+        balance: Number(runningBalance.toFixed(2)),
+      }
+    })
+
+    statement = [openingRow, ...rangedRows]
+    closingBalance = Number(runningBalance.toFixed(2))
+  } else {
+    let runningBalance = 0
+    statement = entries.map((entry) => {
+      runningBalance += entry.amount
+      return {
+        entry_id: entry.entry_id,
+        entry_type: entry.entry_type,
+        date: entry.date,
+        reference: entry.reference,
+        description: entry.description,
+        amount: entry.amount,
+        balance: Number(runningBalance.toFixed(2)),
+      }
+    })
+    closingBalance = Number(runningBalance.toFixed(2))
+  }
 
   const payload: AccountStatementResponse = {
     statement,
-    closing_balance: Number(runningBalance.toFixed(2)),
+    closing_balance: closingBalance,
   }
 
   return NextResponse.json(payload, {

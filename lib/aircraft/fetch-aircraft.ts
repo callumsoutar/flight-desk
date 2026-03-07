@@ -19,10 +19,6 @@ export async function fetchAircraft(
     .order("order", { ascending: true })
     .order("registration", { ascending: true })
 
-  if (filters?.status) {
-    query = query.eq("status", filters.status)
-  }
-
   if (filters?.aircraft_type_id) {
     query = query.eq("aircraft_type_id", filters.aircraft_type_id)
   }

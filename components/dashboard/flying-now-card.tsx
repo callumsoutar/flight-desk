@@ -94,7 +94,7 @@ export function FlyingNowCard({
           </div>
 
           <Button asChild variant="ghost" size="sm" className="h-8 gap-1">
-            <Link href="/bookings">
+            <Link href="/bookings?tab=flying">
               Bookings <IconChevronRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -112,9 +112,9 @@ export function FlyingNowCard({
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border/60 bg-background">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/60 bg-muted/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/60 bg-muted/30 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <div>Flight</div>
-              <div>Timing</div>
+              <div className="text-right">Time</div>
               <div className="text-right">Actions</div>
             </div>
 
@@ -128,40 +128,37 @@ export function FlyingNowCard({
               return (
                 <div
                   key={booking.id}
-                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/50 px-4 py-3 last:border-0 hover:bg-muted/20"
+                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/50 px-4 py-2 last:border-0 hover:bg-muted/20"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/40">
-                        <IconPlane className="h-3.5 w-3.5 text-muted-foreground" />
-                      </span>
-                      <p className="truncate text-sm font-semibold text-foreground">{studentName}</p>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <p className="truncate text-xs font-medium text-muted-foreground">{aircraft}</p>
-                    </div>
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                      {booking.purpose || "—"}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/40">
+                      <IconPlane className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {studentName}
+                      <span className="ml-1.5 text-muted-foreground">·</span>
+                      <span className="ml-1 truncate text-xs text-muted-foreground">{aircraft}</span>
                     </p>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-foreground tabular-nums">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span className="text-xs tabular-nums text-foreground">
                       {formatTime(booking.start_time, timeZone)}–{eta.label}
-                    </p>
-                    <p
+                    </span>
+                    <span
                       className={cn(
                         "text-[11px] tabular-nums",
                         status.overdue ? "text-rose-600" : "text-muted-foreground"
                       )}
                     >
                       {status.label}
-                    </p>
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-end">
                     <Link
                       href={href}
-                      className="text-xs font-semibold text-blue-600 underline underline-offset-4 hover:text-blue-700"
+                      className="text-xs font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
                     >
                       Check in
                     </Link>

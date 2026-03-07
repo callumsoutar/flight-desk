@@ -46,7 +46,6 @@ type AircraftFormState = {
   model: string
   year_manufactured: string
   registration: string
-  status: string
   capacity: string
   on_line: boolean
   for_ato: boolean
@@ -79,7 +78,6 @@ function toFormState(aircraft: AircraftWithType): AircraftFormState {
     model: aircraft.model ?? "",
     year_manufactured: aircraft.year_manufactured?.toString() ?? "",
     registration: aircraft.registration ?? "",
-    status: aircraft.status ?? "active",
     capacity: aircraft.capacity?.toString() ?? "",
     on_line: aircraft.on_line ?? true,
     for_ato: aircraft.for_ato ?? false,
@@ -235,7 +233,6 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
         model: formState.model.trim() || null,
         year_manufactured: year,
         registration: formState.registration.trim(),
-        status: formState.status.trim() || null,
         capacity: parseNumber(formState.capacity),
         on_line: formState.on_line,
         for_ato: formState.for_ato,
@@ -415,10 +412,6 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
                 value={formState.current_hobbs}
                 onChange={(e) => updateField("current_hobbs", e.target.value)}
               />
-            </div>
-            <div>
-              <Label className="mb-1 block text-sm font-medium text-gray-800">Status</Label>
-              <Input value={formState.status} onChange={(e) => updateField("status", e.target.value)} />
             </div>
           </div>
         </div>

@@ -43,7 +43,6 @@ export type Database = {
           record_hobbs: boolean
           record_tacho: boolean
           registration: string
-          status: string | null
           tenant_id: string
           total_time_in_service: number
           total_time_method:
@@ -74,7 +73,6 @@ export type Database = {
           record_hobbs?: boolean
           record_tacho?: boolean
           registration: string
-          status?: string | null
           tenant_id?: string
           total_time_in_service?: number
           total_time_method?:
@@ -105,7 +103,6 @@ export type Database = {
           record_hobbs?: boolean
           record_tacho?: boolean
           registration?: string
-          status?: string | null
           tenant_id?: string
           total_time_in_service?: number
           total_time_method?:
@@ -3972,7 +3969,7 @@ export type Database = {
       shift_override_type: "add" | "replace" | "cancel"
       syllabus_stage:
         | "basic syllabus"
-        | "advances syllabus"
+        | "advanced syllabus"
         | "circuit training"
         | "terrain and weather awareness"
         | "instrument flying and flight test revision"
@@ -4201,7 +4198,7 @@ export const Constants = {
       shift_override_type: ["add", "replace", "cancel"],
       syllabus_stage: [
         "basic syllabus",
-        "advances syllabus",
+        "advanced syllabus",
         "circuit training",
         "terrain and weather awareness",
         "instrument flying and flight test revision",

@@ -352,7 +352,7 @@ export async function fetchBookingCheckoutWarnings(
     context.aircraft_id
       ? supabase
           .from("aircraft")
-          .select("id, registration, status, on_line, total_time_in_service")
+          .select("id, registration, on_line, total_time_in_service")
           .eq("tenant_id", tenantId)
           .eq("id", context.aircraft_id)
           .maybeSingle()
@@ -619,26 +619,6 @@ export async function fetchBookingCheckoutWarnings(
       })
     }
 
-    const normalizedStatus = (aircraft.status ?? "").trim().toLowerCase()
-    if (normalizedStatus && normalizedStatus !== "active") {
-      addWarning(groups, {
-        id: "aircraft-status",
-        code: "aircraft_status",
-        category: "aircraft",
-        severity: "critical",
-        blocking: true,
-        title: "Aircraft status prevents checkout",
-        detail: `${aircraft.registration} is marked as ${aircraft.status}.`,
-        source_label: "Aircraft status",
-        due_at: null,
-        days_remaining: null,
-        hours_remaining: null,
-        countdown_label: null,
-        action_href: `/aircraft/${aircraft.id}`,
-        action_label: "Open aircraft",
-        observation_id: null,
-      })
-    }
   }
 
   for (const visit of maintenanceVisitsResult.data ?? []) {

@@ -37,7 +37,6 @@ const formSchema = z.object({
   model: z.string().trim().max(100, "Model too long").optional(),
   manufacturer: z.string().trim().max(100, "Manufacturer too long").optional(),
   year_manufactured: z.number().int().min(1900, "Invalid year").max(2100, "Invalid year").optional(),
-  status: z.string().trim().max(50, "Status too long").optional(),
   aircraft_type_id: z.string().uuid("Invalid aircraft type").optional(),
   total_time_method: z.enum(totalTimeMethods, { message: "Total time method is required" }),
   current_hobbs: z.number({ message: "Current hobbs is required" }).min(0, "Must be >= 0"),
@@ -58,7 +57,6 @@ const initialValues: FormValues = {
   model: "",
   manufacturer: "",
   year_manufactured: undefined,
-  status: "active",
   aircraft_type_id: undefined,
   total_time_method: "hobbs",
   current_hobbs: 0,
@@ -134,7 +132,6 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
           model: values.model?.trim() ? values.model : null,
           manufacturer: values.manufacturer?.trim() ? values.manufacturer : null,
           year_manufactured: values.year_manufactured ?? null,
-          status: values.status?.trim() ? values.status : "active",
           aircraft_type_id: values.aircraft_type_id ?? null,
           total_time_method: values.total_time_method,
           current_hobbs: values.current_hobbs,
@@ -286,25 +283,6 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
                     {errors.year_manufactured ? (
                       <p className="mt-1 text-[10px] text-destructive">{errors.year_manufactured}</p>
                     ) : null}
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-[9px] font-bold tracking-wider text-slate-400 uppercase">
-                      STATUS
-                    </label>
-                    <Select
-                      value={values.status || "active"}
-                      onValueChange={(v) => update("status", v)}
-                    >
-                      <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                        <SelectValue placeholder="Select status..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
 
                   <div>

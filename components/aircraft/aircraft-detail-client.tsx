@@ -66,8 +66,7 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
   const model = aircraft.model || ""
   const type = aircraft.type || ""
   const imageUrl = aircraft.aircraft_image_url
-  const status = aircraft.status || "active"
-  const isActive = status.toLowerCase() === "active"
+  const availableForBookings = aircraft.on_line ?? true
   const totalHours = aircraft.total_time_in_service || 0
 
   const activeObservations = observations.filter((o) => !o.resolved_at).length
@@ -183,12 +182,12 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                     <h1 className="text-2xl font-bold text-gray-900">{registration}</h1>
                     <Badge
                       className={`rounded-md border-0 px-2 py-1 text-xs font-medium ${
-                        isActive
+                        availableForBookings
                           ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-700"
                       }`}
                     >
-                      {isActive ? "Active" : "Inactive"}
+                      {availableForBookings ? "Available for bookings" : "Not available"}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 sm:gap-4 sm:text-sm">

@@ -4,7 +4,6 @@ import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconCalendar, IconCreditCard, IconFileInvoice, IconGift } from "@tabler/icons-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
@@ -77,9 +76,6 @@ export function MembershipsTab() {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Memberships</h2>
-            <Badge className="border-slate-200 bg-white text-slate-600" variant="outline">
-              Configure
-            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">Define plans, billing, and membership access policies.</p>
         </div>
@@ -198,14 +194,9 @@ export function MembershipsTab() {
           <Tabs.Content value="invoicing" className="outline-none">
             <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Invoicing</CardTitle>
-                    <CardDescription>Billing rules for membership invoices and renewals.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Invoicing</CardTitle>
+                  <CardDescription>Billing rules for membership invoices and renewals.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -220,14 +211,9 @@ export function MembershipsTab() {
           <Tabs.Content value="benefits" className="outline-none">
             <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Benefits</CardTitle>
-                    <CardDescription>Configure benefits and feature access tied to plans.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Benefits</CardTitle>
+                  <CardDescription>Configure benefits and feature access tied to plans.</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">

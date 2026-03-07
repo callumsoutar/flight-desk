@@ -158,7 +158,7 @@ export const publicShiftOverrideTypeSchema = z.union([
 
 export const publicSyllabusStageSchema = z.union([
   z.literal("basic syllabus"),
-  z.literal("advances syllabus"),
+  z.literal("advanced syllabus"),
   z.literal("circuit training"),
   z.literal("terrain and weather awareness"),
   z.literal("instrument flying and flight test revision"),
@@ -251,7 +251,6 @@ export const publicAircraftRowSchema = z.object({
   record_hobbs: z.boolean(),
   record_tacho: z.boolean(),
   registration: z.string(),
-  status: z.string().nullable(),
   tenant_id: z.string(),
   total_time_in_service: z.number(),
   total_time_method: publicTotalTimeMethodSchema.nullable(),
@@ -281,7 +280,6 @@ export const publicAircraftInsertSchema = z.object({
   record_hobbs: z.boolean().optional(),
   record_tacho: z.boolean().optional(),
   registration: z.string(),
-  status: z.string().optional().nullable(),
   tenant_id: z.string().optional(),
   total_time_in_service: z.number().optional(),
   total_time_method: publicTotalTimeMethodSchema.optional().nullable(),
@@ -311,7 +309,6 @@ export const publicAircraftUpdateSchema = z.object({
   record_hobbs: z.boolean().optional(),
   record_tacho: z.boolean().optional(),
   registration: z.string().optional(),
-  status: z.string().optional().nullable(),
   tenant_id: z.string().optional(),
   total_time_in_service: z.number().optional(),
   total_time_method: publicTotalTimeMethodSchema.optional().nullable(),

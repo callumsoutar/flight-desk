@@ -19,29 +19,6 @@ function formatUser(user: DashboardBookingLite["student"]) {
   return name || user.email || "—"
 }
 
-function formatInstructor(booking: DashboardBookingLite) {
-  const inst = booking.instructor
-  if (!inst) return "—"
-  const name = [
-    inst.user?.first_name ?? inst.first_name,
-    inst.user?.last_name ?? inst.last_name,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .trim()
-  return name || inst.user?.email || "—"
-}
-
-function formatDate(value: string, timeZone: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    month: "short",
-    day: "2-digit",
-  }).format(date)
-}
-
 function formatTime(value: string, timeZone: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
@@ -100,14 +77,14 @@ export function BookingRequestsCard({
           </div>
 
           <Button asChild variant="ghost" size="sm" className="h-8 gap-1">
-            <Link href="/bookings">
+            <Link href="/bookings?tab=unconfirmed">
               View all <IconChevronRight className="h-4 w-4" />
             </Link>
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="pb-4">
+      <CardContent className="pb-2">
         {count === 0 ? (
           <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 py-8 text-center">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
@@ -118,49 +95,46 @@ export function BookingRequestsCard({
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border/60 bg-background">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/60 bg-muted/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <div>Request</div>
-              <div>When</div>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/60 bg-muted/30 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div>Flight</div>
+              <div className="text-right">Time</div>
               <div className="text-right">Actions</div>
             </div>
 
             {bookings.map((booking) => {
               const studentName = formatUser(booking.student)
               const aircraft = booking.aircraft?.registration ?? "No aircraft"
-              const instructorName = formatInstructor(booking)
               const disabled = pending && pendingId === booking.id
 
               return (
                 <div
                   key={booking.id}
-                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/50 px-4 py-3 last:border-0 hover:bg-muted/20"
+                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/50 px-4 py-2 last:border-0 hover:bg-muted/20"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{studentName}</p>
-                    </div>
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                      {aircraft} • {booking.purpose || instructorName || "—"}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {studentName}
+                      <span className="ml-1.5 text-muted-foreground">·</span>
+                      <span className="ml-1 truncate text-xs text-muted-foreground">{aircraft}</span>
                     </p>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-foreground">
+                  <div className="flex items-center justify-end">
+                    <span className="text-xs tabular-nums text-foreground">
                       {formatTime(booking.start_time, timeZone)}–{formatTime(booking.end_time, timeZone)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">{formatDate(booking.start_time, timeZone)}</p>
+                    </span>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1.5">
                     <Button
                       size="sm"
-                      className="h-7 px-2 text-xs"
+                      className="h-6 px-2 text-[11px]"
                       disabled={disabled}
                       onClick={() => approve(booking.id)}
                     >
-                      {disabled ? "Approving..." : "Approve"}
+                      {disabled ? "…" : "Approve"}
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
+                    <Button asChild variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-blue-600 hover:text-blue-700">
                       <Link href={`/bookings/${booking.id}`}>Review</Link>
                     </Button>
                   </div>

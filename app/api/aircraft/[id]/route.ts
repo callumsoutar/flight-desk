@@ -24,7 +24,6 @@ const aircraftUpdateSchema = z.object({
   model: z.string().nullable().optional(),
   year_manufactured: z.number().int().min(1900).max(2100).nullable().optional(),
   registration: z.string().min(1).optional(),
-  status: z.string().nullable().optional(),
   capacity: z.number().int().min(1).nullable().optional(),
   on_line: z.boolean().optional(),
   for_ato: z.boolean().optional(),

@@ -305,11 +305,7 @@ export function GeneralTab({
               <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
                 Unsaved changes
               </Badge>
-            ) : (
-              <Badge className="border-slate-200 bg-white text-slate-600" variant="outline">
-                Up to date
-              </Badge>
-            )}
+            ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
             Update your school profile, contact information, and system defaults.

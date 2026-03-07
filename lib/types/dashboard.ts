@@ -43,7 +43,6 @@ export type DashboardAircraftStatus = {
   type: string | null
   model: string | null
   manufacturer: string | null
-  status: string | null
   openObservations: number
   isFlying: boolean
 }

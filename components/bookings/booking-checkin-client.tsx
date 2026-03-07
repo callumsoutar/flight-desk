@@ -1397,6 +1397,11 @@ export function BookingCheckinClient({
 
       setLocalInvoiceId(result.invoice.id)
       toast.success("Check-in approved and invoice created")
+      // Solo flights skip debrief; go straight to the invoice
+      if (instructionType === "solo") {
+        router.push(`/invoices/${result.invoice.id}`)
+        return
+      }
       if (continueToDebrief) {
         router.push(`/bookings/${bookingId}/debrief/write`)
         return
@@ -1416,6 +1421,7 @@ export function BookingCheckinClient({
     hasSoloAtEnd,
     hobbsEnd,
     hobbsStart,
+    instructionType,
     isAdminOrInstructor,
     isDraftStale,
     router,
@@ -2175,11 +2181,21 @@ export function BookingCheckinClient({
             </div>
 
             <div className="flex justify-end border-t pt-4">
-              <Button type="button" onClick={() => void approveDraft({ continueToDebrief: true })} disabled={!canApprove}>
+              <Button
+                type="button"
+                onClick={() => void approveDraft({ continueToDebrief: instructionType !== "solo" })}
+                disabled={!canApprove}
+              >
                 {isApproving ? (
                   <>
                     <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                     Approving...
+                  </>
+                ) : instructionType === "solo" ? (
+                  <>
+                    <IconCheck className="mr-2 h-4 w-4" />
+                    Approve & View Invoice
+                    <IconArrowRight className="ml-2 h-4 w-4" />
                   </>
                 ) : (
                   <>

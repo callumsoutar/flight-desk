@@ -168,19 +168,6 @@ export function AircraftOverviewTab({
                 <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Model</p>
                 <p className="text-sm font-semibold">{aircraft.model || "—"}</p>
               </div>
-              <div className="space-y-1.5">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Status</p>
-                <Badge
-                  variant={aircraft.status === "active" ? "default" : "secondary"}
-                  className={`font-medium ${
-                    aircraft.status === "active"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {aircraft.status || "Unknown"}
-                </Badge>
-              </div>
               {aircraft.year_manufactured ? (
                 <div className="space-y-1.5">
                   <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
