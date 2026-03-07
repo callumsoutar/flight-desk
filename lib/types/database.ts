@@ -3401,6 +3401,10 @@ export type Database = {
       }
     }
     Functions: {
+      create_tenant_for_new_user: {
+        Args: { p_user_id: string; p_tenant_name: string }
+        Returns: string
+      }
       apply_credit_note_atomic: {
         Args: { p_applied_by: string; p_credit_note_id: string }
         Returns: Json
