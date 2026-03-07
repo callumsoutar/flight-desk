@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button"
 import { AddObservationModal } from "@/components/aircraft/add-observation-modal"
 import { ResolveObservationModal } from "@/components/aircraft/resolve-observation-modal"
 import { ViewObservationModal } from "@/components/aircraft/view-observation-modal"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import type { ObservationWithUsers } from "@/lib/types/aircraft-detail"
 
@@ -44,17 +46,6 @@ const stageBadge: Record<string, { label: string; className: string }> = {
   closed: { label: "CLOSED", className: "border-slate-200 bg-slate-100 text-slate-600" },
 }
 
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—"
-  const parsed = new Date(dateString)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 function getUserName(observation: ObservationWithUsers) {
   if (!observation.reported_by_user) return "Unknown"
   const name = [observation.reported_by_user.first_name, observation.reported_by_user.last_name]
@@ -72,6 +63,7 @@ function getAssignedName(observation: ObservationWithUsers) {
 }
 
 export function AircraftObservationsTable({ aircraftId, observations }: Props) {
+  const { timeZone } = useTimezone()
   const [allObservations, setAllObservations] = React.useState<ObservationWithUsers[]>(observations)
   const [view, setView] = React.useState<"open" | "all">("open")
   const [addModalOpen, setAddModalOpen] = React.useState(false)
@@ -112,7 +104,7 @@ export function AircraftObservationsTable({ aircraftId, observations }: Props) {
           <div className="relative pl-2">
             <span className="font-semibold text-slate-900">{row.original.name}</span>
             <p className="mt-0.5 text-xs text-slate-600">
-              {formatDate(row.original.reported_date || row.original.created_at)}
+              {formatDate(row.original.reported_date || row.original.created_at, timeZone) || "—"}
             </p>
           </div>
         ),
@@ -149,7 +141,7 @@ export function AircraftObservationsTable({ aircraftId, observations }: Props) {
         accessorFn: (row) => row.reported_date || row.created_at,
         cell: ({ row }) => (
           <span className="font-medium text-slate-600">
-            {formatDate(row.original.reported_date || row.original.created_at)}
+            {formatDate(row.original.reported_date || row.original.created_at, timeZone) || "—"}
           </span>
         ),
       },
@@ -187,7 +179,7 @@ export function AircraftObservationsTable({ aircraftId, observations }: Props) {
         ),
       },
     ],
-    []
+    [timeZone]
   )
 
   const table = useReactTable({
@@ -353,7 +345,7 @@ export function AircraftObservationsTable({ aircraftId, observations }: Props) {
                       <IconCalendar className="h-3 w-3" /> Reported
                     </div>
                     <div className="text-sm font-semibold text-slate-700">
-                      {formatDate(observation.reported_date || observation.created_at)}
+                      {formatDate(observation.reported_date || observation.created_at, timeZone) || "—"}
                     </div>
                   </div>
                   <div className="space-y-1">

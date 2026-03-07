@@ -15,6 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate, formatTime } from "@/lib/utils/date-format"
 import type { FlightEntry } from "@/lib/types/aircraft-detail"
 
 type Props = {
@@ -37,28 +39,6 @@ function subDays(date: Date, days: number): Date {
   const result = new Date(date)
   result.setDate(result.getDate() - days)
   return result
-}
-
-function formatDate(value: Date | string | null | undefined): string {
-  if (!value) return ""
-  const parsed = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ""
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function formatTime(value: Date | string | null | undefined): string {
-  if (!value) return "—"
-  const parsed = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleTimeString("en-NZ", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
 }
 
 function toInputDate(value: Date): string {
@@ -104,6 +84,7 @@ function getFlightHoursDisplay(flight: FlightEntry): string {
 }
 
 export function AircraftFlightHistoryTab({ flights }: Props) {
+  const { timeZone } = useTimezone()
   const [dateFrom, setDateFrom] = React.useState<Date>(() => startOfDay(subDays(new Date(), 30)))
   const [dateTo, setDateTo] = React.useState<Date>(() => endOfDay(new Date()))
 
@@ -244,11 +225,11 @@ export function AircraftFlightHistoryTab({ flights }: Props) {
                     <td className="px-4 py-3.5 align-middle">
                       <div className="flex flex-col">
                         <span className="font-semibold text-slate-900">
-                          {flightDate ? formatDate(flightDate) : "—"}
+                          {flightDate ? formatDate(flightDate, timeZone) : "—"}
                         </span>
                         {flight.start_time && flight.end_time ? (
                           <span className="text-xs text-slate-500">
-                            {formatTime(flight.start_time)}-{formatTime(flight.end_time)}
+                            {formatTime(flight.start_time, timeZone)}-{formatTime(flight.end_time, timeZone)}
                           </span>
                         ) : null}
                       </div>
@@ -368,11 +349,11 @@ export function AircraftFlightHistoryTab({ flights }: Props) {
                       <IconCalendar className="h-3 w-3" /> Date
                     </div>
                     <div className="text-sm font-semibold text-slate-900">
-                      {flightDate ? formatDate(flightDate) : "—"}
+                      {flightDate ? formatDate(flightDate, timeZone) : "—"}
                     </div>
                     {flight.start_time && flight.end_time ? (
                       <div className="text-xs text-slate-500">
-                        {formatTime(flight.start_time)}-{formatTime(flight.end_time)}
+                        {formatTime(flight.start_time, timeZone)}-{formatTime(flight.end_time, timeZone)}
                       </div>
                     ) : null}
                   </div>

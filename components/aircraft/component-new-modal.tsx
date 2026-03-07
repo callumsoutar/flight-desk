@@ -17,6 +17,8 @@ import type { Database } from "@/lib/types"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
 import { Plus, Info, Repeat, Settings, FileText, Tag, Clock, Calendar, CalendarIcon } from "lucide-react"
 import { toast } from "sonner"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 
 type ComponentType = Database["public"]["Enums"]["component_type_enum"]
@@ -53,16 +55,8 @@ function toYyyyMmDd(date: Date | null): string | null {
   return `${year}-${month}-${day}`
 }
 
-function toDisplayDate(date: Date | null): string {
-  if (!date) return "Pick a date"
-  return date.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChange, onSave }) => {
+  const { timeZone } = useTimezone()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [componentType, setComponentType] = useState<ComponentType>("inspection")
@@ -266,7 +260,7 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                         )}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500">{toDisplayDate(lastCompletedDate)}</p>
+                    <p className="text-[10px] text-slate-500">{lastCompletedDate ? formatDate(lastCompletedDate, timeZone) : "Pick a date"}</p>
                   </div>
                 </div>
 
@@ -297,7 +291,7 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                           )}
                         />
                       </div>
-                      <p className="text-[10px] text-slate-500">{toDisplayDate(currentDueDate)}</p>
+                      <p className="text-[10px] text-slate-500">{currentDueDate ? formatDate(currentDueDate, timeZone) : "Pick a date"}</p>
                     </div>
                   </div>
                 </div>

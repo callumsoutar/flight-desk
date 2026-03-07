@@ -6,6 +6,8 @@ import { IconClipboard, IconPlus } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
@@ -27,17 +29,6 @@ type ComponentWithComputed = AircraftComponentsRow & {
     dueScore: number
     dueIn: string
   }
-}
-
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—"
-  const parsed = new Date(dateString)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
 }
 
 function getExtendedDueHours(component: AircraftComponentsRow): number | null {
@@ -143,6 +134,7 @@ function getComponentStatus(component: ComponentWithComputed, currentHours: numb
 }
 
 export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
+  const { timeZone } = useTimezone()
   const [rows, setRows] = React.useState<AircraftComponentsRow[]>(components)
   const [selectedComponent, setSelectedComponent] = React.useState<AircraftComponentsRow | null>(null)
   const [modalOpen, setModalOpen] = React.useState(false)
@@ -357,7 +349,7 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
                     {component.current_due_date ? (
                       <div className="flex flex-col items-center">
                         <span className="text-xs font-semibold text-slate-700">
-                          {formatDate(component.current_due_date)}
+                          {formatDate(component.current_due_date, timeZone) || "—"}
                         </span>
                         {daysDiff !== null &&
                         (status === "Overdue" || status === "Due Soon" || status === "Within Extension") ? (
@@ -464,7 +456,7 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
                   <p className="mt-1 font-semibold text-slate-800">
                     {component.current_due_hours !== null
                       ? `${component.current_due_hours}h`
-                      : formatDate(component.current_due_date)}
+                      : (formatDate(component.current_due_date, timeZone) || "—")}
                   </p>
                   {daysDiff !== null &&
                   component.current_due_hours === null &&

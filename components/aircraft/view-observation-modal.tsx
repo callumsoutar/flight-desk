@@ -24,6 +24,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import type {
   ObservationPriority,
@@ -34,17 +36,6 @@ import { toast } from "sonner"
 
 const OBSERVATION_PRIORITIES: ObservationPriority[] = ["low", "medium", "high"]
 const OBSERVATION_STAGES: ObservationStage[] = ["open", "investigation", "resolution", "closed"]
-
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—"
-  const parsed = new Date(dateString)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
 
 const getPriorityColor = (priority: string): string => {
   switch (priority) {
@@ -87,6 +78,7 @@ export function ViewObservationModal({
   observationId,
   refresh,
 }: ViewObservationModalProps) {
+  const { timeZone } = useTimezone()
   const [observation, setObservation] = useState<ObservationWithUser | null>(null)
   const [loadingObs, setLoadingObs] = useState(false)
 
@@ -216,7 +208,7 @@ export function ViewObservationModal({
               <div className="mt-3 flex items-center gap-4 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                 <div className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
-                  Created {formatDate(observation.created_at)}
+                  Created {formatDate(observation.created_at, timeZone) || "—"}
                 </div>
                 {observation.reported_by_user ? (
                   <div className="flex items-center gap-1.5">

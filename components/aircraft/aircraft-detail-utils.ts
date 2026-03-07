@@ -1,27 +1,15 @@
+import {
+  formatDate as centralFormatDate,
+  formatDateTime as centralFormatDateTime,
+} from "@/lib/utils/date-format"
 import type { FlightEntry } from "@/lib/types/aircraft-detail"
 
-export function formatDate(value: string | null | undefined): string {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(date)
+export function formatDate(value: string | null | undefined, timeZone: string): string {
+  return centralFormatDate(value, timeZone, "medium") || "—"
 }
 
-export function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date)
+export function formatDateTime(value: string | null | undefined, timeZone: string): string {
+  return centralFormatDateTime(value, timeZone, "medium") || "—"
 }
 
 export function formatTotalHours(hours: number | null | undefined): string {

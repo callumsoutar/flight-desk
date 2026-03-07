@@ -16,6 +16,8 @@ import { DatePicker } from "@/components/ui/date-picker"
 import type { Database } from "@/lib/types"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
 import { toast } from "sonner"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import {
   CalendarIcon,
   Pencil,
@@ -65,15 +67,6 @@ function toDate(dateString: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-function formatDate(date: Date | null): string {
-  if (!date) return "Pick a date"
-  return date.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 function toYyyyMmDd(date: Date | null): string | null {
   if (!date) return null
   const year = date.getFullYear()
@@ -88,6 +81,7 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
   component,
   onSave,
 }) => {
+  const { timeZone } = useTimezone()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [componentType, setComponentType] = useState<ComponentType>("inspection")
@@ -351,7 +345,7 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                         )}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500">{formatDate(lastCompletedDate)}</p>
+                    <p className="text-[10px] text-slate-500">{lastCompletedDate ? formatDate(lastCompletedDate, timeZone) : "Pick a date"}</p>
                   </div>
                 </div>
 
@@ -382,7 +376,7 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                           )}
                         />
                       </div>
-                      <p className="text-[10px] text-slate-500">{formatDate(currentDueDate)}</p>
+                      <p className="text-[10px] text-slate-500">{currentDueDate ? formatDate(currentDueDate, timeZone) : "Pick a date"}</p>
                     </div>
                   </div>
 

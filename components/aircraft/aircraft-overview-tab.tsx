@@ -12,6 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 import type { FlightEntry, ObservationWithUsers } from "@/lib/types/aircraft-detail"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
@@ -30,17 +32,6 @@ function formatTotalHours(hours: number | null | undefined): string {
   return `${hours.toFixed(1)}h`
 }
 
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—"
-  const parsed = new Date(dateString)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 function getUserName(user: FlightEntry["student"]): string {
   if (!user) return "—"
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
@@ -54,6 +45,7 @@ export function AircraftOverviewTab({
   activeObservations,
   overdueComponents,
 }: Props) {
+  const { timeZone } = useTimezone()
   const nowTime = new Date().getTime()
   const totalHours = aircraft.total_time_in_service || 0
   const currentHobbs = aircraft.current_hobbs || 0
@@ -251,7 +243,7 @@ export function AircraftOverviewTab({
                         <div>
                           <p className="text-sm font-medium">{getUserName(flight.student)}</p>
                           <p className="text-muted-foreground text-xs">
-                            {flight.created_at ? formatDate(flight.created_at) : "—"}
+                            {flight.created_at ? (formatDate(flight.created_at, timeZone) || "—") : "—"}
                           </p>
                         </div>
                       </div>

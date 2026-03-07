@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import type {
   AircraftMaintenanceVisitEntry,
@@ -37,17 +39,6 @@ import LogMaintenanceModal from "@/components/aircraft/log-maintenance-modal"
 type Props = {
   aircraftId: string
   initialVisits?: AircraftMaintenanceVisitEntry[]
-}
-
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—"
-  const parsed = new Date(dateString)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
 }
 
 function formatCurrency(amount: number | null | undefined): string {
@@ -126,6 +117,7 @@ async function fetchMaintenanceVisits(aircraftId: string): Promise<AircraftMaint
 }
 
 export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }: Props) {
+  const { timeZone } = useTimezone()
   const [visits, setVisits] = React.useState<AircraftMaintenanceVisitEntry[]>(initialVisits)
   const [isLoading, setIsLoading] = React.useState(initialVisits.length === 0)
   const [error, setError] = React.useState<string | null>(null)
@@ -190,10 +182,10 @@ export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }
           const visit = row.original
           return (
             <div className="flex flex-col">
-              <span className="font-semibold text-slate-900">{formatDate(visit.visit_date)}</span>
+              <span className="font-semibold text-slate-900">{formatDate(visit.visit_date, timeZone) || "—"}</span>
               {visit.date_out_of_maintenance ? (
                 <span className="text-xs text-slate-600">
-                  Out: {formatDate(visit.date_out_of_maintenance)}
+                  Out: {formatDate(visit.date_out_of_maintenance, timeZone) || "—"}
                 </span>
               ) : null}
             </div>
@@ -276,7 +268,7 @@ export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }
         ),
       },
     ],
-    []
+    [timeZone]
   )
 
   const table = useReactTable({
@@ -423,7 +415,7 @@ export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }
                     <h3 className="font-semibold text-slate-900">
                       {visit.visit_type || "Maintenance Visit"}
                     </h3>
-                    <span className="text-xs text-slate-600">{formatDate(visit.visit_date)}</span>
+                    <span className="text-xs text-slate-600">{formatDate(visit.visit_date, timeZone) || "—"}</span>
                   </div>
                   <Badge variant="outline" className={cn("px-2 py-0.5 text-xs font-medium", className)}>
                     {label}
