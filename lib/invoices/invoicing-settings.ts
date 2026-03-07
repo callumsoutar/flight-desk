@@ -30,7 +30,6 @@ type ResolveInvoicingSettingsInput = {
   tenantContactPhone: string | null
   tenantGstNumber: string | null
   tenantSettings: Json | null
-  legacyTenantSettings: Json | null
 }
 
 function isJsonObject(value: Json | null | undefined): value is JsonObject {
@@ -88,7 +87,6 @@ function addSettingsContainer(value: Json | null, target: JsonObject[]) {
 export function resolveInvoicingSettings(input: ResolveInvoicingSettingsInput): InvoicingSettings {
   const containers: JsonObject[] = []
   addSettingsContainer(input.tenantSettings, containers)
-  addSettingsContainer(input.legacyTenantSettings, containers)
 
   const schoolName =
     readStringSetting(containers, ["school_name", "schoolName", "business_name", "businessName"]) ??

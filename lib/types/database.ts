@@ -3035,7 +3035,6 @@ export type Database = {
           logo_url: string | null
           name: string
           registration_number: string | null
-          settings: Json | null
           slug: string
           timezone: string | null
           updated_at: string
@@ -3055,7 +3054,6 @@ export type Database = {
           logo_url?: string | null
           name: string
           registration_number?: string | null
-          settings?: Json | null
           slug: string
           timezone?: string | null
           updated_at?: string
@@ -3075,7 +3073,6 @@ export type Database = {
           logo_url?: string | null
           name?: string
           registration_number?: string | null
-          settings?: Json | null
           slug?: string
           timezone?: string | null
           updated_at?: string
