@@ -12,8 +12,10 @@ import {
 } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
 import { cn } from "@/lib/utils"
+import { formatDate } from "@/lib/utils/date-format"
 
 interface BookingHeaderProps {
   booking: BookingWithRelations
@@ -76,6 +78,7 @@ export function BookingHeader({
   actions,
   extra,
 }: BookingHeaderProps) {
+  const { timeZone } = useTimezone()
   const status = booking.status
   const badgeLabel = getStatusLabel(status)
   const badgeStyles = getStatusBadgeStyles(status)
@@ -92,13 +95,7 @@ export function BookingHeader({
 
   const aircraftLabel = booking.aircraft?.registration || "TBD"
 
-  const dateLabel = booking.start_time
-    ? new Date(booking.start_time).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "TBD"
+  const dateLabel = formatDate(booking.start_time, timeZone) || "TBD"
 
   return (
     <div className={cn("border-b border-border/40 bg-background py-4 sm:py-6", className)}>

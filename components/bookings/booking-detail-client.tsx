@@ -61,8 +61,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { useAuth } from "@/contexts/auth-context"
+import { useTimezone } from "@/contexts/timezone-context"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { formatDateTime } from "@/lib/utils/date-format"
 import type { AuditLog, AuditLookupMaps, BookingOptions, BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
 
@@ -94,15 +96,9 @@ const BOOKING_TYPE_LABELS: Record<string, string> = {
   unavailable: "Unavailable",
 }
 
-function formatAuditDateTime(value: string | null | undefined): string {
+function formatAuditDateTime(value: string | null | undefined, timeZone: string): string {
   if (!value) return "—"
-  return new Date(value).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  })
+  return formatDateTime(value, timeZone) || "—"
 }
 
 type AuditChangeEntry = {
@@ -121,7 +117,8 @@ type AuditEntryData = {
 
 function computeAuditEntries(
   logs: AuditLog[],
-  maps: AuditLookupMaps
+  maps: AuditLookupMaps,
+  timeZone: string
 ): AuditEntryData[] {
   return logs
     .map((log): AuditEntryData | null => {
@@ -187,8 +184,8 @@ function computeAuditEntries(
       if (newData.start_time !== oldData.start_time) {
         changes.push({
           label: "Start Time",
-          oldValue: formatAuditDateTime(str(oldData.start_time)),
-          newValue: formatAuditDateTime(str(newData.start_time)),
+          oldValue: formatAuditDateTime(str(oldData.start_time), timeZone),
+          newValue: formatAuditDateTime(str(newData.start_time), timeZone),
           icon: <IconClock className="h-4 w-4" />,
           colorClass: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
         })
@@ -196,8 +193,8 @@ function computeAuditEntries(
       if (newData.end_time !== oldData.end_time) {
         changes.push({
           label: "End Time",
-          oldValue: formatAuditDateTime(str(oldData.end_time)),
-          newValue: formatAuditDateTime(str(newData.end_time)),
+          oldValue: formatAuditDateTime(str(oldData.end_time), timeZone),
+          newValue: formatAuditDateTime(str(newData.end_time), timeZone),
           icon: <IconClock className="h-4 w-4" />,
           colorClass: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
         })
@@ -305,7 +302,7 @@ function computeAuditEntries(
       if (newData.checked_out_at !== oldData.checked_out_at && newData.checked_out_at && !statusChanged) {
         changes.push({
           label: "Checked Out",
-          newValue: formatAuditDateTime(str(newData.checked_out_at)),
+          newValue: formatAuditDateTime(str(newData.checked_out_at), timeZone),
           icon: <IconPlaneDeparture className="h-4 w-4" />,
           colorClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
         })
@@ -315,7 +312,7 @@ function computeAuditEntries(
       if (newData.checked_in_at !== oldData.checked_in_at && newData.checked_in_at && !statusChanged) {
         changes.push({
           label: "Checked In",
-          newValue: formatAuditDateTime(str(newData.checked_in_at)),
+          newValue: formatAuditDateTime(str(newData.checked_in_at), timeZone),
           icon: <IconPlaneArrival className="h-4 w-4" />,
           colorClass: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
         })
@@ -325,7 +322,7 @@ function computeAuditEntries(
       if (newData.checkin_approved_at !== oldData.checkin_approved_at && newData.checkin_approved_at) {
         changes.push({
           label: "Check-In Approved",
-          newValue: formatAuditDateTime(str(newData.checkin_approved_at)),
+          newValue: formatAuditDateTime(str(newData.checkin_approved_at), timeZone),
           icon: <IconCircleCheck className="h-4 w-4" />,
           colorClass: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
         })
@@ -338,7 +335,8 @@ function computeAuditEntries(
 }
 
 function AuditTimeline({ logs, maps }: { logs: AuditLog[]; maps: AuditLookupMaps }) {
-  const entries = computeAuditEntries(logs, maps)
+  const { timeZone } = useTimezone()
+  const entries = computeAuditEntries(logs, maps, timeZone)
 
   if (entries.length === 0) {
     return (
@@ -393,13 +391,7 @@ function AuditTimeline({ logs, maps }: { logs: AuditLog[]; maps: AuditLookupMaps
                 </div>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
-                {new Date(entry.log.created_at).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                {formatDateTime(entry.log.created_at, timeZone)}
                 {" · "}
                 {entry.log.user ? formatUser(entry.log.user) : "System"}
               </p>
