@@ -9,6 +9,8 @@ import {
   deleteInstructorRateAction,
   updateInstructorRateAction,
 } from "@/app/instructors/actions"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -39,11 +41,10 @@ function toDateInput(value: string | null | undefined) {
   return value.slice(0, 10)
 }
 
-function toDateLabel(value: string | null | undefined) {
+function toDateLabel(value: string | null | undefined, timeZone: string) {
   if (!value) return "Immediate"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Immediate"
-  return date.toLocaleDateString()
+  const formatted = formatDate(value, timeZone, "medium")
+  return formatted || "Immediate"
 }
 
 export function InstructorChargeRatesTable({
@@ -52,6 +53,7 @@ export function InstructorChargeRatesTable({
   flightTypes,
   defaultTaxRate,
 }: InstructorChargeRatesTableProps) {
+  const { timeZone } = useTimezone()
   const [rates, setRates] = React.useState<InstructorRateWithFlightType[]>(initialRates)
   const [editingRate, setEditingRate] = React.useState<EditingRate | null>(null)
   const [saving, setSaving] = React.useState(false)
@@ -362,7 +364,7 @@ export function InstructorChargeRatesTable({
 
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500">
-                        Effective {toDateLabel(rate.effective_from)}
+                        Effective {toDateLabel(rate.effective_from, timeZone)}
                       </span>
                       <div className="flex gap-1">
                         <Button
@@ -526,7 +528,7 @@ export function InstructorChargeRatesTable({
                           className="max-w-[180px] bg-white"
                         />
                       ) : (
-                        <span className="text-gray-600">{toDateLabel(rate.effective_from)}</span>
+                        <span className="text-gray-600">{toDateLabel(rate.effective_from, timeZone)}</span>
                       )}
                     </TableCell>
                     <TableCell className="px-6 py-4">

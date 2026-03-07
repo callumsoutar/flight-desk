@@ -19,6 +19,8 @@ import {
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn, getUserInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -40,19 +42,6 @@ function formatLabel(value: string | null | undefined): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ")
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "-"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
 }
 
 function getDisplayName(instructor: InstructorWithRelations) {
@@ -114,6 +103,7 @@ function getTeachingBadge(isActivelyInstructing: boolean): { label: string; clas
 }
 
 export function InstructorsTable({ instructors }: InstructorsTableProps) {
+  const { timeZone } = useTimezone()
   const [search, setSearch] = React.useState("")
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [isNavigating, startNavigation] = React.useTransition()
@@ -231,7 +221,7 @@ export function InstructorsTable({ instructors }: InstructorsTableProps) {
         header: () => <div className="text-right">Expires</div>,
         cell: ({ row }) => (
           <div className="text-right text-sm font-medium text-slate-700">
-            {formatDate(row.original.expires_at)}
+            {formatDate(row.original.expires_at, timeZone) || "-"}
           </div>
         ),
       },
@@ -244,7 +234,7 @@ export function InstructorsTable({ instructors }: InstructorsTableProps) {
         ),
       },
     ],
-    []
+    [timeZone]
   )
 
   const table = useReactTable<InstructorWithRelations>({
@@ -404,7 +394,7 @@ export function InstructorsTable({ instructors }: InstructorsTableProps) {
                 </div>
 
                 <div className="mt-3 pl-2 text-xs text-slate-500">
-                  Employment: {formatLabel(instructor.employment_type)} | Expires: {formatDate(instructor.expires_at)}
+                  Employment: {formatLabel(instructor.employment_type)} | Expires: {formatDate(instructor.expires_at, timeZone) || "-"}
                 </div>
 
                 <div className="absolute bottom-4 right-4">

@@ -1,3 +1,7 @@
+import {
+  formatDate as centralFormatDate,
+  formatDateTime as centralFormatDateTime,
+} from "@/lib/utils/date-format"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { InstructorDetailWithRelations } from "@/lib/types/instructors"
 
@@ -13,33 +17,18 @@ export function formatEnumLabel(value: string | null | undefined): string {
     .join(" ")
 }
 
-export function formatDate(value: string | null | undefined): string {
-  if (!value) return "-"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-
-  return date.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
+export function formatDate(
+  value: string | null | undefined,
+  timeZone: string
+): string {
+  return centralFormatDate(value, timeZone, "medium") || "-"
 }
 
-export function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "-"
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-
-  return date.toLocaleString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
+export function formatDateTime(
+  value: string | null | undefined,
+  timeZone: string
+): string {
+  return centralFormatDateTime(value, timeZone, "medium") || "-"
 }
 
 export function formatHours(value: number | null | undefined): string {
