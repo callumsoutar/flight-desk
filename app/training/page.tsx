@@ -3,8 +3,8 @@ import { redirect } from "next/navigation"
 
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { TrainingPageClient } from "@/components/training/training-page-client"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { fetchTrainingOverview } from "@/lib/training/fetch-training-overview"
@@ -12,27 +12,6 @@ import type { UserRole } from "@/lib/types/roles"
 import type { TrainingOverviewResponse } from "@/lib/types/training-overview"
 
 const TRAINING_ALLOWED_ROLES: UserRole[] = ["owner", "admin", "instructor"]
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
-}
 
 async function TrainingContent({
   tenantId,
@@ -80,10 +59,14 @@ export default async function TrainingPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Training"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

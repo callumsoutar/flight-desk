@@ -1,5 +1,5 @@
 import * as React from "react"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { MemberDetailClient } from "@/components/members/member-detail-client"
 import { MemberDetailSkeleton } from "@/components/loading/page-skeletons"
@@ -7,6 +7,7 @@ import {
   AppRouteDetailContainer,
   AppRouteShell,
 } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchMemberDetail } from "@/lib/members/fetch-member-detail"
@@ -16,27 +17,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteDetailContainer>
-    </AppRouteShell>
-  )
 }
 
 async function MemberDetailContent({
@@ -71,16 +51,7 @@ async function MemberDetailContent({
   }
 
   if (!member) {
-    return (
-      <AppRouteDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>Member Not Found</CardTitle>
-            <CardDescription>This member does not exist in your tenant.</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteDetailContainer>
-    )
+    notFound()
   }
 
   return (
@@ -107,10 +78,14 @@ export default async function MemberDetailPage({ params }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Member"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteDetailContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteDetailContainer>
+      </AppRouteShell>
     )
   }
 

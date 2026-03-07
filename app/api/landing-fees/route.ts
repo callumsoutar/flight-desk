@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   }
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const landingFeeTypeId = await getLandingFeeTypeId(supabase, tenantId)
   if (!landingFeeTypeId) {
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
   if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
@@ -182,7 +182,7 @@ export async function PATCH(request: NextRequest) {
   if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
@@ -240,7 +240,7 @@ export async function DELETE(request: NextRequest) {
   if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
 
   const url = new URL(request.url)
   const idFromQuery = url.searchParams.get("id")

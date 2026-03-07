@@ -21,7 +21,7 @@ export async function GET() {
   }
   if (!tenantId) {
     return NextResponse.json(
-      { error: "Tenant not found" },
+      { error: "Account not configured" },
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }

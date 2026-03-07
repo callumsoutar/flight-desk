@@ -4,32 +4,12 @@ import { redirect } from "next/navigation"
 import { AircraftTable } from "@/components/aircraft/aircraft-table"
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { AircraftWithType } from "@/lib/types/aircraft"
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
-}
 
 async function AircraftContent({ tenantId }: { tenantId: string }) {
   const supabase = await createSupabaseServerClient()
@@ -47,7 +27,7 @@ async function AircraftContent({ tenantId }: { tenantId: string }) {
     <Card className="overflow-hidden">
       <CardHeader className="border-b">
         <CardTitle>Aircraft</CardTitle>
-        <CardDescription>Fleet overview for your tenant.</CardDescription>
+        <CardDescription>Fleet overview.</CardDescription>
       </CardHeader>
       <CardContent>
         {loadError ? <div className="mb-4 text-sm text-muted-foreground">{loadError}</div> : null}
@@ -64,10 +44,14 @@ export default async function AircraftPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Aircraft"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

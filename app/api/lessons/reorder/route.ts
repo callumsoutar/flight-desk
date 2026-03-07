@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest) {
   })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const raw = await request.json().catch(() => null)

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
   }
   if (!tenantId) {
     return NextResponse.json(
-      { error: "Tenant not found" },
+      { error: "Account not configured" },
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
   }
   if (!tenantId) {
     return NextResponse.json(
-      { error: "Tenant not found" },
+      { error: "Account not configured" },
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
