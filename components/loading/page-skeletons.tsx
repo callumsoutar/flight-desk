@@ -438,6 +438,59 @@ export function InvoiceDetailSkeleton() {
   )
 }
 
+export function ReportsPageSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" aria-live="polite">
+      <div className="space-y-2" aria-hidden="true">
+        <SkeletonBlock className="h-8 w-32" />
+        <SkeletonBlock className="h-4 w-80" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="border border-border/50 bg-card py-0 shadow-sm">
+            <CardContent className="space-y-2 p-4 sm:p-6">
+              <SkeletonBlock className="h-4 w-24" />
+              <SkeletonBlock className="h-7 w-16" />
+              <SkeletonBlock className="h-3 w-36" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="space-y-4" aria-hidden="true">
+        <div className="flex gap-2">
+          <SkeletonBlock className="h-8 w-24" />
+          <SkeletonBlock className="h-8 w-20" />
+          <SkeletonBlock className="h-8 w-20" />
+          <SkeletonBlock className="h-8 w-24" />
+        </div>
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardContent className="space-y-3 p-4 sm:p-6">
+            <SkeletonBlock className="h-5 w-40" />
+            <SkeletonBlock className="h-4 w-72" />
+            <SkeletonBlock className="h-[280px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="border border-border/50 bg-card py-0 shadow-sm">
+            <CardContent className="space-y-3 p-4 sm:p-6">
+              <SkeletonBlock className="h-5 w-36" />
+              <SkeletonBlock className="h-[220px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+          <Card className="border border-border/50 bg-card py-0 shadow-sm">
+            <CardContent className="space-y-3 p-4 sm:p-6">
+              <SkeletonBlock className="h-5 w-44" />
+              <SkeletonBlock className="h-[220px] w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function EquipmentDetailSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8" aria-busy="true" aria-live="polite">

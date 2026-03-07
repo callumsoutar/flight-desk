@@ -43,5 +43,6 @@ export const config = {
     "/rosters/:path*",
     "/instructors/:path*",
     "/training/:path*",
+    "/reports/:path*",
   ],
 }
