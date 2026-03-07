@@ -3,9 +3,11 @@
 import * as React from "react"
 import { IconCalendar, IconChevronRight, IconCircleCheck } from "@tabler/icons-react"
 
+import { useTimezone } from "@/contexts/timezone-context"
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { Equipment, EquipmentIssuance } from "@/lib/types/equipment"
+import { formatDate } from "@/lib/utils/date-format"
 
 interface EquipmentIssuanceTableProps {
   issuances: EquipmentIssuance[]
@@ -16,23 +18,14 @@ interface EquipmentIssuanceTableProps {
   refresh?: () => void
 }
 
-function formatShortDate(value: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 export function EquipmentIssuanceTable({
   issuances,
   userMap,
   loading,
   error,
 }: EquipmentIssuanceTableProps) {
+  const { timeZone } = useTimezone()
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -85,9 +78,9 @@ export function EquipmentIssuanceTable({
               </tr>
             ) : (
               issuances.map((row) => {
-                const issuedDate = formatShortDate(row.issued_at)
-                const expectedReturn = formatShortDate(row.expected_return)
-                const returnedDate = formatShortDate(row.returned_at)
+                const issuedDate = formatDate(row.issued_at, timeZone, "medium") || null
+                const expectedReturn = formatDate(row.expected_return, timeZone, "medium") || null
+                const returnedDate = formatDate(row.returned_at, timeZone, "medium") || null
                 const notesTruncated =
                   row.notes && row.notes.length > 50 ? `${row.notes.slice(0, 50)}...` : row.notes
 
@@ -175,9 +168,9 @@ export function EquipmentIssuanceTable({
           </div>
         ) : (
           issuances.map((row) => {
-            const issuedDate = formatShortDate(row.issued_at)
-            const expectedReturn = formatShortDate(row.expected_return)
-            const returnedDate = formatShortDate(row.returned_at)
+            const issuedDate = formatDate(row.issued_at, timeZone, "medium") || null
+            const expectedReturn = formatDate(row.expected_return, timeZone, "medium") || null
+            const returnedDate = formatDate(row.returned_at, timeZone, "medium") || null
 
             return (
               <div

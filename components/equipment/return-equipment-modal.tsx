@@ -5,6 +5,7 @@ import { FileText, LogIn } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { useTimezone } from "@/contexts/timezone-context"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import type { EquipmentWithIssuance } from "@/lib/types/equipment"
 import { cn } from "@/lib/utils"
+import { formatDate } from "@/lib/utils/date-format"
 
 interface ReturnEquipmentModalProps {
   open: boolean
@@ -34,6 +36,7 @@ export function ReturnEquipmentModal({
   equipment,
   onSuccess,
 }: ReturnEquipmentModalProps) {
+  const { timeZone } = useTimezone()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [notes, setNotes] = React.useState("")
 
@@ -145,11 +148,7 @@ export function ReturnEquipmentModal({
                     <div className="flex justify-between items-center text-sm gap-2">
                       <span className="text-slate-500 font-medium">Issued On</span>
                       <span className="font-bold text-slate-900 text-right">
-                        {new Date(currentIssuance.issued_at).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {formatDate(currentIssuance.issued_at, timeZone, "medium") || "-"}
                       </span>
                     </div>
                   ) : null}

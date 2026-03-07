@@ -23,11 +23,13 @@ import {
 import { useRouter } from "next/navigation"
 
 import { useAuth } from "@/contexts/auth-context"
+import { useTimezone } from "@/contexts/timezone-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { InvoiceStatus, InvoiceWithRelations } from "@/lib/types/invoices"
+import { formatDate } from "@/lib/utils/date-format"
 
 interface InvoicesTableProps {
   invoices: InvoiceWithRelations[]
@@ -72,124 +74,6 @@ function formatMoney(value: number | null) {
   return `$${amount.toFixed(2)}`
 }
 
-function formatShortDate(value: string | null) {
-  if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function formatYear(value: string | null) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleDateString("en-US", { year: "numeric" })
-}
-
-const columns: ColumnDef<InvoiceWithRelations>[] = [
-  {
-    accessorKey: "invoice_number",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconFileText className="h-4 w-4 text-muted-foreground" />
-        <span>Invoice #</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const invoiceNumber = row.original.invoice_number
-      return (
-        <div className="font-mono font-medium">
-          {invoiceNumber || `#${row.original.id.slice(0, 8)}`}
-        </div>
-      )
-    },
-  },
-  {
-    id: "user",
-    accessorFn: (row) => {
-      const user = row.user
-      if (!user) return ""
-      const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
-      return name || user.email || ""
-    },
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconUser className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden md:inline">Bill To</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const user = row.original.user
-      if (!user) return <span className="text-muted-foreground">-</span>
-      const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
-      return <div className="font-medium">{name || user.email || "-"}</div>
-    },
-  },
-  {
-    accessorKey: "issue_date",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconCalendar className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden sm:inline">Issue Date</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const value = row.original.issue_date
-      return (
-        <div>
-          <div className="font-medium">{formatShortDate(value)}</div>
-          <div className="hidden text-xs text-muted-foreground sm:block">{formatYear(value)}</div>
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "due_date",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconCalendar className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden lg:inline">Due Date</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const dueDate = row.original.due_date
-      const isOverdue =
-        row.original.status === "overdue" ||
-        (row.original.status === "pending" && dueDate !== null && new Date(dueDate) < new Date())
-
-      return (
-        <div>
-          <div className={cn("font-medium", isOverdue && "text-destructive")}>{formatShortDate(dueDate)}</div>
-          <div className="hidden text-xs text-muted-foreground lg:block">{formatYear(dueDate)}</div>
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.original.status
-      return (
-        <Badge variant={getStatusBadgeVariant(status)} className="font-medium">
-          {getStatusLabel(status)}
-        </Badge>
-      )
-    },
-  },
-  {
-    accessorKey: "total_amount",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconCurrencyDollar className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden sm:inline">Total</span>
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="text-right font-medium">{formatMoney(row.original.total_amount)}</div>
-    ),
-  },
-]
 
 export function InvoicesTable({
   invoices,
@@ -199,6 +83,7 @@ export function InvoicesTable({
   onFiltersChange,
 }: InvoicesTableProps) {
   const { role } = useAuth()
+  const { timeZone } = useTimezone()
   const router = useRouter()
   const [isNavigating, startNavigation] = React.useTransition()
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -212,6 +97,120 @@ export function InvoicesTable({
     },
     [router]
   )
+
+  const columns = React.useMemo<ColumnDef<InvoiceWithRelations>[]>(() => {
+    const yearOnly = (v: string | null) => {
+      if (!v) return ""
+      const d = new Date(v)
+      if (Number.isNaN(d.getTime())) return ""
+      return new Intl.DateTimeFormat("en-NZ", { year: "numeric", timeZone }).format(d)
+    }
+
+    return [
+      {
+        accessorKey: "invoice_number",
+        header: () => (
+          <div className="flex items-center gap-2">
+            <IconFileText className="h-4 w-4 text-muted-foreground" />
+            <span>Invoice #</span>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const invoiceNumber = row.original.invoice_number
+          return (
+            <div className="font-mono font-medium">
+              {invoiceNumber || `#${row.original.id.slice(0, 8)}`}
+            </div>
+          )
+        },
+      },
+      {
+        id: "user",
+        accessorFn: (row) => {
+          const user = row.user
+          if (!user) return ""
+          const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
+          return name || user.email || ""
+        },
+        header: () => (
+          <div className="flex items-center gap-2">
+            <IconUser className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden md:inline">Bill To</span>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const user = row.original.user
+          if (!user) return <span className="text-muted-foreground">-</span>
+          const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
+          return <div className="font-medium">{name || user.email || "-"}</div>
+        },
+      },
+      {
+        accessorKey: "issue_date",
+        header: () => (
+          <div className="flex items-center gap-2">
+            <IconCalendar className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden sm:inline">Issue Date</span>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const value = row.original.issue_date
+          return (
+            <div>
+              <div className="font-medium">{formatDate(value, timeZone, "short") || "-"}</div>
+              <div className="hidden text-xs text-muted-foreground sm:block">{yearOnly(value)}</div>
+            </div>
+          )
+        },
+      },
+      {
+        accessorKey: "due_date",
+        header: () => (
+          <div className="flex items-center gap-2">
+            <IconCalendar className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden lg:inline">Due Date</span>
+          </div>
+        ),
+        cell: ({ row }) => {
+          const dueDate = row.original.due_date
+          const isOverdue =
+            row.original.status === "overdue" ||
+            (row.original.status === "pending" && dueDate !== null && new Date(dueDate) < new Date())
+
+          return (
+            <div>
+              <div className={cn("font-medium", isOverdue && "text-destructive")}>{formatDate(dueDate, timeZone, "short") || "-"}</div>
+              <div className="hidden text-xs text-muted-foreground lg:block">{yearOnly(dueDate)}</div>
+            </div>
+          )
+        },
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const status = row.original.status
+          return (
+            <Badge variant={getStatusBadgeVariant(status)} className="font-medium">
+              {getStatusLabel(status)}
+            </Badge>
+          )
+        },
+      },
+      {
+        accessorKey: "total_amount",
+        header: () => (
+          <div className="flex items-center gap-2">
+            <IconCurrencyDollar className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden sm:inline">Total</span>
+          </div>
+        ),
+        cell: ({ row }) => (
+          <div className="text-right font-medium">{formatMoney(row.original.total_amount)}</div>
+        ),
+      },
+    ]
+  }, [timeZone])
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -409,7 +408,7 @@ export function InvoicesTable({
                 <div className="grid grid-cols-2 gap-4 pl-2">
                   <div className="space-y-1">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date</div>
-                    <div className="text-sm font-semibold text-slate-700">{formatShortDate(invoice.issue_date)}</div>
+                    <div className="text-sm font-semibold text-slate-700">{formatDate(invoice.issue_date, timeZone, "short") || "-"}</div>
                   </div>
                   <div className="space-y-1">
                     <div className="text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Total</div>

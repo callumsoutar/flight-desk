@@ -28,7 +28,9 @@ import { MoreVertical } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { useAuth } from "@/contexts/auth-context"
+import { useTimezone } from "@/contexts/timezone-context"
 import { cn } from "@/lib/utils"
+import { formatDate } from "@/lib/utils/date-format"
 import {
   EQUIPMENT_TYPE_OPTIONS,
   type EquipmentType,
@@ -102,7 +104,7 @@ function formatIssuedTo(equipment: EquipmentWithIssuance): string {
   return user.email ?? "-"
 }
 
-function formatOverdueableDate(date: Date | string | null): React.ReactNode {
+function formatOverdueableDate(date: Date | string | null, timeZone: string): React.ReactNode {
   if (!date) return <span className="text-slate-500">-</span>
 
   const d = new Date(date)
@@ -122,11 +124,7 @@ function formatOverdueableDate(date: Date | string | null): React.ReactNode {
       <div className="flex items-center gap-1.5">
         {isOverdue ? <IconAlertCircle className="h-3.5 w-3.5 text-red-600" /> : null}
         <span className={cn("text-sm font-medium", isOverdue ? "text-red-600" : "text-slate-700")}>
-          {d.toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
+          {formatDate(d, timeZone, "medium")}
         </span>
       </div>
       {isOverdue ? (
@@ -138,12 +136,12 @@ function formatOverdueableDate(date: Date | string | null): React.ReactNode {
   )
 }
 
-function formatExpectedReturn(equipment: EquipmentWithIssuance): React.ReactNode {
-  return formatOverdueableDate(equipment.current_issuance?.expected_return || null)
+function formatExpectedReturn(equipment: EquipmentWithIssuance, timeZone: string): React.ReactNode {
+  return formatOverdueableDate(equipment.current_issuance?.expected_return || null, timeZone)
 }
 
-function formatNextDue(equipment: EquipmentWithIssuance): React.ReactNode {
-  return formatOverdueableDate(equipment.latest_update?.next_due_at || null)
+function formatNextDue(equipment: EquipmentWithIssuance, timeZone: string): React.ReactNode {
+  return formatOverdueableDate(equipment.latest_update?.next_due_at || null, timeZone)
 }
 
 export function EquipmentTable({
@@ -160,6 +158,7 @@ export function EquipmentTable({
   const [showIssuedOnly, setShowIssuedOnly] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const { role } = useAuth()
+  const { timeZone } = useTimezone()
   const navigate = React.useCallback(
     (href: string) => {
       startNavigation(() => {
@@ -240,12 +239,12 @@ export function EquipmentTable({
       {
         id: "expected_return",
         header: "Expected Return",
-        cell: ({ row }) => <div>{formatExpectedReturn(row.original)}</div>,
+        cell: ({ row }) => <div>{formatExpectedReturn(row.original, timeZone)}</div>,
       },
       {
         id: "next_due",
         header: "Next Update Due",
-        cell: ({ row }) => <div>{formatNextDue(row.original)}</div>,
+        cell: ({ row }) => <div>{formatNextDue(row.original, timeZone)}</div>,
         sortingFn: (rowA, rowB) => {
           const a = rowA.original.latest_update?.next_due_at
             ? new Date(rowA.original.latest_update.next_due_at).getTime()
@@ -294,7 +293,7 @@ export function EquipmentTable({
         },
       },
     ],
-    [navigate, onIssue, onLogUpdate, onReturn]
+    [navigate, onIssue, onLogUpdate, onReturn, timeZone]
   )
 
   const table = useReactTable<EquipmentWithIssuance>({
@@ -527,11 +526,11 @@ export function EquipmentTable({
                 <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-50 pt-3 pl-2">
                   <div className="space-y-1">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Expected Return</div>
-                    <div className="text-sm font-medium">{formatExpectedReturn(item)}</div>
+                    <div className="text-sm font-medium">{formatExpectedReturn(item, timeZone)}</div>
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next Update Due</div>
-                    <div className="text-sm font-medium">{formatNextDue(item)}</div>
+                    <div className="text-sm font-medium">{formatNextDue(item, timeZone)}</div>
                   </div>
                 </div>
 
