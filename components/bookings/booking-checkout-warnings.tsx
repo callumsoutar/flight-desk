@@ -7,8 +7,10 @@ import { IconAlertTriangle } from "@tabler/icons-react"
 import { ViewObservationModal } from "@/components/aircraft/view-observation-modal"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWarningItem, BookingWarningsResponse, BookingWarningSeverity } from "@/lib/types/booking-warnings"
 import { cn } from "@/lib/utils"
+import { formatDate } from "@/lib/utils/date-format"
 
 type BookingCheckoutWarningsProps = {
   warnings: BookingWarningsResponse
@@ -54,20 +56,13 @@ function formatCountLabel(value: number) {
   return `${value} issue${value === 1 ? "" : "s"}`
 }
 
-function formatShortDate(value: string | null | undefined) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat("en-NZ", { day: "2-digit", month: "short", year: "numeric" }).format(date)
-}
-
 function WarningLine({ warning }: { warning: BookingWarningItem }) {
+  const { timeZone } = useTimezone()
   const styles = SEVERITY_STYLES[warning.severity]
+  const formattedDueAt = warning.due_at ? formatDate(warning.due_at, timeZone) : ""
   const secondaryDate = warning.countdown_label
     ? warning.countdown_label
-    : warning.due_at
-      ? formatShortDate(warning.due_at)
-      : null
+    : formattedDueAt || null
   const prefix = warning.blocking ? "Blocker" : "Warning"
 
   return (
