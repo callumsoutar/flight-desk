@@ -4,32 +4,11 @@ import { redirect } from "next/navigation"
 import { MembersPageClient } from "@/components/members/members-page-client"
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchMembers } from "@/lib/members/fetch-members"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { MemberWithRelations } from "@/lib/types/members"
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
-}
 
 async function MembersContent({ tenantId }: { tenantId: string }) {
   const supabase = await createSupabaseServerClient()
@@ -59,10 +38,14 @@ export default async function MembersPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Members"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

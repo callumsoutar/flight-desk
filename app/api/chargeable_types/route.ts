@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   }
 
   const url = new URL(request.url)

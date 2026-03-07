@@ -51,7 +51,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
   }
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400, headers: NO_STORE })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
   }
 
   const { id: bookingId } = await context.params

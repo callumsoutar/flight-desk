@@ -1,9 +1,10 @@
 import * as React from "react"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { AircraftDetailClient } from "@/components/aircraft/aircraft-detail-client"
 import { AircraftDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchAircraftDetail } from "@/lib/aircraft/fetch-aircraft-detail"
 import { getAuthSession } from "@/lib/auth/session"
@@ -11,27 +12,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    </AppRouteShell>
-  )
 }
 
 async function AircraftDetailContent({ tenantId, id }: { tenantId: string; id: string }) {
@@ -54,16 +34,7 @@ async function AircraftDetailContent({ tenantId, id }: { tenantId: string; id: s
   }
 
   if (!detail.data) {
-    return (
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>Aircraft Not Found</CardTitle>
-            <CardDescription>This aircraft does not exist in your tenant.</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    )
+    notFound()
   }
 
   return <AircraftDetailClient aircraftId={id} data={detail.data} loadErrors={detail.loadErrors} />
@@ -78,10 +49,14 @@ export default async function AircraftDetailPage({ params }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Aircraft"
-        description="Your account isn't linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 

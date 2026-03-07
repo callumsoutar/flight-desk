@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { SchedulerPageClient } from "@/components/scheduler/scheduler-page-client"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteLoadingState } from "@/components/loading/route-loading-state"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { fetchSchedulerPageData } from "@/lib/scheduler/fetch-scheduler-page-data"
 import { resolveDateKey } from "@/lib/utils/timezone"
 import { getAuthSession } from "@/lib/auth/session"
@@ -15,27 +15,6 @@ const DEFAULT_SCHEDULER_TIME_ZONE = "Pacific/Auckland"
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
 }
 
 function firstQueryValue(value: string | string[] | undefined) {
@@ -93,10 +72,14 @@ export default async function SchedulerPage({ searchParams }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Scheduler"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

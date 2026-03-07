@@ -4,31 +4,11 @@ import { redirect } from "next/navigation"
 import { DashboardPageClient } from "@/components/dashboard/dashboard-page-client"
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchDashboardPageData } from "@/lib/dashboard/fetch-dashboard-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
-}
 
 async function DashboardContent({ tenantId }: { tenantId: string }) {
   const supabase = await createSupabaseServerClient()
@@ -75,10 +55,14 @@ export default async function DashboardPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Dashboard"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

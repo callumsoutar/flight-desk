@@ -95,7 +95,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
   }
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
   if (!isStaff(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
@@ -137,7 +137,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
   }
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
   if (!isStaff(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
