@@ -41,6 +41,8 @@ import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { InvoiceItem } from "@/lib/types/invoice_items"
 import type { UserRole } from "@/lib/types/roles"
 import type { LessonProgressRow } from "@/lib/types/tables"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDateTime } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 
 type ChargeBasis = "hobbs" | "tacho" | "airswitch"
@@ -234,6 +236,7 @@ export function BookingCheckinClient({
   role: UserRole | null
 }) {
   const router = useRouter()
+  const { timeZone } = useTimezone()
   const isAdminOrInstructor = role === "owner" || role === "admin" || role === "instructor"
 
   const [selectedAircraftId] = React.useState<string | null>(
@@ -2438,13 +2441,7 @@ export function BookingCheckinClient({
               <div>
                 <span className="font-medium">Readings corrected</span>
                 {" on "}
-                {new Date(booking.corrected_at).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                {formatDateTime(booking.corrected_at, timeZone)}
                 {booking.correction_reason ? (
                   <span className="text-amber-700 dark:text-amber-400">
                     {" — "}{booking.correction_reason}
