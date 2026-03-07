@@ -5,6 +5,8 @@ import Link from "next/link"
 import { ArrowUpRight, BookOpen, ChevronRight, GraduationCap, Plane, UserRound } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { formatDateTime } from "@/lib/utils/date-format"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { MemberTrainingPeekResponse } from "@/lib/types/member-training-peek"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -36,6 +38,9 @@ export function MemberTrainingPeek({
   timeZone?: string
   className?: string
 }) {
+  const { timeZone: contextTimeZone } = useTimezone()
+  const resolvedTimeZone = timeZone || contextTimeZone
+
   const [data, setData] = React.useState<MemberTrainingPeekResponse | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -112,10 +117,10 @@ export function MemberTrainingPeek({
         month: "short",
         hour: "2-digit",
         minute: "2-digit",
-        timeZone: timeZone || undefined,
+        timeZone: resolvedTimeZone,
       }).format(dt)
     } catch {
-      return dt.toLocaleString()
+      return formatDateTime(startIso, resolvedTimeZone, "short")
     }
   }
 

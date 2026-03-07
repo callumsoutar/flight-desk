@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { TrainingTheoryResponse, TrainingTheoryRow, TrainingTheoryStatus } from "@/lib/types/training-theory"
 
 const THEORY_CACHE_TTL_MS = 30_000
@@ -68,13 +70,6 @@ function isStaff(role: string | null) {
   return role === "owner" || role === "admin" || role === "instructor"
 }
 
-function todayKeyLocal() {
-  const d = new Date()
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  return `${yyyy}-${mm}-${dd}`
-}
 
 type ExamLite = { id: string; name: string }
 
@@ -98,6 +93,7 @@ export function TrainingStudentTheoryTab({
   syllabusId: string
 }) {
   const { role } = useAuth()
+  const { timeZone } = useTimezone()
   const staff = isStaff(role)
 
   const [rows, setRows] = React.useState<TrainingTheoryRow[]>([])
@@ -188,9 +184,9 @@ export function TrainingStudentTheoryTab({
     setLogExamId("")
     setLogExamResult("PASS")
     setLogExamScore(null)
-    setLogExamDate(todayKeyLocal())
+    setLogExamDate(zonedTodayYyyyMmDd(timeZone))
     setLogExamNotes("")
-  }, [logOpen])
+  }, [logOpen, timeZone])
 
   React.useEffect(() => {
     if (!logOpen) return

@@ -6,11 +6,12 @@ export function withTime(baseDate: Date, hours: number, minutes: number) {
   return next
 }
 
-export function formatTimeLabel(value: Date) {
+export function formatTimeLabel(value: Date, timeZone?: string) {
   return value.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone,
   })
 }
 
