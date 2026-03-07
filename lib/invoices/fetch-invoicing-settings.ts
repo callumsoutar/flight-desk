@@ -16,7 +16,7 @@ export async function fetchInvoicingSettings(
   const [tenantResult, tenantSettingsResult] = await Promise.all([
     supabase
       .from("tenants")
-      .select("name, billing_address, address, contact_email, contact_phone, gst_number, settings")
+      .select("name, billing_address, address, contact_email, contact_phone, gst_number")
       .eq("id", tenantId)
       .maybeSingle(),
     supabase
@@ -40,6 +40,5 @@ export async function fetchInvoicingSettings(
     tenantContactPhone: tenant.contact_phone ?? null,
     tenantGstNumber: tenant.gst_number ?? null,
     tenantSettings: tenantSettingsResult.data?.settings ?? null,
-    legacyTenantSettings: tenant.settings ?? null,
   })
 }
