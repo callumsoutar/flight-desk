@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
   if (!tenantId) {
     return NextResponse.json(
-      { error: "Tenant not found" },
+      { error: "Account not configured" },
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
   }
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
   if (!isSettingsAdmin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
   }
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
   if (!isSettingsAdmin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
@@ -223,7 +223,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
   }
   if (!tenantId) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
   if (!isSettingsAdmin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })

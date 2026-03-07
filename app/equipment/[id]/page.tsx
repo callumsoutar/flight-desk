@@ -1,9 +1,10 @@
 import * as React from "react"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { EquipmentDetailClient } from "@/components/equipment/equipment-detail-client"
 import { EquipmentDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchEquipmentDetail } from "@/lib/equipment/fetch-equipment-detail"
@@ -15,27 +16,6 @@ import type { EquipmentIssuanceMember } from "@/lib/types/equipment"
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    </AppRouteShell>
-  )
 }
 
 async function EquipmentDetailContent({
@@ -70,16 +50,7 @@ async function EquipmentDetailContent({
   }
 
   if (!equipment) {
-    return (
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>Equipment Not Found</CardTitle>
-            <CardDescription>This equipment does not exist in your tenant.</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    )
+    notFound()
   }
 
   let issuances: Awaited<ReturnType<typeof fetchEquipmentIssuanceHistory>>["issuances"] = []
@@ -151,19 +122,29 @@ export default async function EquipmentDetailPage({ params }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Equipment"
-        description="Your account isn't linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 
   if (id === "new") {
     return (
-      <MessageCard
-        title="New Equipment"
-        description="Equipment creation is not available on this route yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Not available"
+            message="Equipment creation is not available on this route yet."
+            backHref="/equipment"
+            backLabel="Back to equipment"
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 

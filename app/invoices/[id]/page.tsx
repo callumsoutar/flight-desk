@@ -1,9 +1,10 @@
 import * as React from "react"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { InvoiceDetailClient } from "@/components/invoices/invoice-detail-client"
 import { InvoiceDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceDetail } from "@/lib/invoices/fetch-invoice-detail"
@@ -13,27 +14,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    </AppRouteShell>
-  )
 }
 
 async function InvoiceDetailContent({
@@ -72,16 +52,7 @@ async function InvoiceDetailContent({
   }
 
   if (!detail.invoice) {
-    return (
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Not Found</CardTitle>
-            <CardDescription>This invoice does not exist in your tenant.</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    )
+    notFound()
   }
 
   return (
@@ -109,19 +80,29 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Invoice"
-        description="Your account isn't linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 
   if (id === "new") {
     return (
-      <MessageCard
-        title="New Invoice"
-        description="Invoice creation is not available on this route yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Not available"
+            message="Invoice creation is not available on this route yet."
+            backHref="/invoices"
+            backLabel="Back to invoices"
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 

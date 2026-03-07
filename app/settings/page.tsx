@@ -4,32 +4,11 @@ import { redirect } from "next/navigation"
 import { SettingsPageClient } from "@/components/settings/settings-page-client"
 import { SettingsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteListContainer>
-    </AppRouteShell>
-  )
-}
 
 async function SettingsContent({
   tenantId,
@@ -83,20 +62,28 @@ export default async function SettingsPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Settings"
-        description="Your account isn&apos;t linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 
   const canManageSettings = role === "owner" || role === "admin"
   if (!canManageSettings) {
     return (
-      <MessageCard
-        title="Settings"
-        description="You do not have permission to access settings. Only owners and admins can configure company settings."
-      />
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <RouteNotFoundState
+            heading="Access denied"
+            message="You do not have permission to access settings. Only owners and admins can configure company settings."
+          />
+        </AppRouteListContainer>
+      </AppRouteShell>
     )
   }
 

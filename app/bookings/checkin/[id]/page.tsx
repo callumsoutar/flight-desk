@@ -1,9 +1,10 @@
 import * as React from "react"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { BookingCheckinClient } from "@/components/bookings/booking-checkin-client"
 import { BookingDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingPageData } from "@/lib/bookings/fetch-booking-page-data"
@@ -12,27 +13,6 @@ import type { UserRole } from "@/lib/types/roles"
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-function MessageCard({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <AppRouteShell>
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    </AppRouteShell>
-  )
 }
 
 async function BookingCheckinContent({
@@ -63,16 +43,7 @@ async function BookingCheckinContent({
   }
 
   if (!pageData.booking) {
-    return (
-      <AppRouteNarrowDetailContainer>
-        <Card>
-          <CardHeader>
-            <CardTitle>Booking Not Found</CardTitle>
-            <CardDescription>This booking does not exist in your tenant.</CardDescription>
-          </CardHeader>
-        </Card>
-      </AppRouteNarrowDetailContainer>
-    )
+    notFound()
   }
 
   return (
@@ -97,10 +68,14 @@ export default async function BookingCheckinPage({ params }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <MessageCard
-        title="Flight Check-In"
-        description="Your account isn't linked to a tenant yet."
-      />
+      <AppRouteShell>
+        <AppRouteNarrowDetailContainer>
+          <RouteNotFoundState
+            heading="Account not set up"
+            message="Your account hasn't been fully set up yet. Please contact your administrator."
+          />
+        </AppRouteNarrowDetailContainer>
+      </AppRouteShell>
     )
   }
 
