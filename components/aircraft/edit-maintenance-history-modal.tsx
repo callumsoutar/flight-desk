@@ -16,6 +16,8 @@ import { DatePicker } from "@/components/ui/date-picker"
 import { CalendarIcon, Wrench, Clock, FileText, Settings, DollarSign, Info } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 type VisitType = "Scheduled" | "Unscheduled" | "Inspection" | "Repair" | "Modification"
 
@@ -41,15 +43,6 @@ function parseDateOnlyFieldToLocalDate(value: string | null | undefined): Date |
   return isValidDate(fallback) ? fallback : null
 }
 
-function formatDate(date: Date | null): string {
-  if (!date) return "Pick a date"
-  return date.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 function toYyyyMmDd(date: Date | null): string | null {
   if (!date) return null
   const year = date.getFullYear()
@@ -72,6 +65,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
   maintenanceVisitId,
   onSuccess,
 }) => {
+  const { timeZone } = useTimezone()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [initialLoaded, setInitialLoaded] = useState(false)
@@ -299,7 +293,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
                         )}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500">{formatDate(visitDate)}</p>
+                    <p className="text-[10px] text-slate-500">{visitDate ? formatDate(visitDate, timeZone) : "Pick a date"}</p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
@@ -412,7 +406,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
                             )}
                           />
                         </div>
-                        <p className="text-[10px] text-slate-500">{formatDate(componentDueDate)}</p>
+                        <p className="text-[10px] text-slate-500">{componentDueDate ? formatDate(componentDueDate, timeZone) : "Pick a date"}</p>
                       </div>
                     </div>
                   </section>
@@ -451,7 +445,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
                               )}
                             />
                           </div>
-                          <p className="text-[10px] text-slate-500">{formatDate(nextDueDate)}</p>
+                          <p className="text-[10px] text-slate-500">{nextDueDate ? formatDate(nextDueDate, timeZone) : "Pick a date"}</p>
                         </div>
                       </div>
                       <p className="text-[10px] text-slate-500 italic px-1">
@@ -481,7 +475,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
                         )}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-500">{formatDate(dateOutOfMaintenance)}</p>
+                    <p className="text-[10px] text-slate-500">{dateOutOfMaintenance ? formatDate(dateOutOfMaintenance, timeZone) : "Pick a date"}</p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Internal Notes</label>

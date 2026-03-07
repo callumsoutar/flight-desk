@@ -1,4 +1,5 @@
 import type { TimelineConfig } from "@/lib/types/roster"
+import { formatTime } from "@/lib/utils/date-format"
 
 export function withTime(baseDate: Date, hours: number, minutes: number) {
   const next = new Date(baseDate)
@@ -6,12 +7,11 @@ export function withTime(baseDate: Date, hours: number, minutes: number) {
   return next
 }
 
-export function formatTimeLabel(value: Date) {
-  return value.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
+export function formatTimeLabel(value: Date, timeZone?: string) {
+  if (timeZone) return formatTime(value, timeZone)
+  const hh = String(value.getHours()).padStart(2, "0")
+  const mm = String(value.getMinutes()).padStart(2, "0")
+  return `${hh}:${mm}`
 }
 
 export function buildTimeSlots(date: Date, config: TimelineConfig) {

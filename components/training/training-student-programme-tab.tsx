@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { formatDate } from "@/lib/utils/date-format"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { AircraftTypesRow } from "@/lib/types"
 import type { InstructorWithRelations } from "@/lib/types/instructors"
 import type { MemberTrainingEnrollment, MemberTrainingSyllabusLite } from "@/lib/types/member-training"
@@ -52,17 +54,6 @@ function toDateKey(value: string | null | undefined) {
   return date.toISOString().slice(0, 10)
 }
 
-function formatDateKey(value: string | null | undefined) {
-  if (!value) return "-"
-  const parsed = parseDateKey(value)
-  if (parsed) {
-    const safe = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day, 12, 0, 0))
-    return safe.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })
-}
 
 function enrollmentStatusLabel(enrollment: MemberTrainingEnrollment) {
   const status = (enrollment.status || "").toLowerCase()
@@ -104,6 +95,7 @@ type EnrollmentCardProps = {
 }
 
 function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOnly, onUpdated }: EnrollmentCardProps) {
+  const { timeZone } = useTimezone()
   const [primaryInstructorId, setPrimaryInstructorId] = React.useState<string>(enrollment.primary_instructor_id || SELECT_NONE)
   const [aircraftTypeId, setAircraftTypeId] = React.useState<string>(enrollment.aircraft_type || SELECT_NONE)
   const [enrolledAt, setEnrolledAt] = React.useState<string>(toDateKey(enrollment.enrolled_at) || "")
@@ -173,10 +165,10 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
                 </Badge>
               </div>
               <div className="mt-1 text-xs text-muted-foreground tabular-nums">
-                Enrolled {formatDateKey(enrollment.enrolled_at)}
+                Enrolled {formatDate(enrollment.enrolled_at, timeZone) || "-"}
                 {enrollment.completion_date ? (
                   <span className="ml-2">
-                    · Completed {formatDateKey(enrollment.completion_date)}
+                    · Completed {formatDate(enrollment.completion_date, timeZone) || "-"}
                   </span>
                 ) : null}
               </div>
@@ -314,6 +306,8 @@ export function TrainingStudentProgrammeTab({
   onRefresh: () => Promise<void>
 }) {
   const { role } = useAuth()
+  const { timeZone: contextTimeZone } = useTimezone()
+  const resolvedTimeZone = timeZone || contextTimeZone
   const staff = isStaff(role)
 
   const [instructors, setInstructors] = React.useState<InstructorWithRelations[]>([])
@@ -342,7 +336,7 @@ export function TrainingStudentProgrammeTab({
     }
   }, [staff])
 
-  const todayKey = React.useMemo(() => zonedTodayYyyyMmDd(timeZone || "Pacific/Auckland"), [timeZone])
+  const todayKey = React.useMemo(() => zonedTodayYyyyMmDd(resolvedTimeZone), [resolvedTimeZone])
 
   React.useEffect(() => {
     if (!enrollOpen) return
@@ -501,13 +495,13 @@ export function TrainingStudentProgrammeTab({
                         </div>
                       </div>
                       <div className="text-right text-xs text-muted-foreground tabular-nums">
-                        {formatDateKey(e.enrolled_at)}
+                        {formatDate(e.enrolled_at, resolvedTimeZone) || "-"}
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                       <div>
                         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</div>
-                        <div className="mt-0.5 font-medium tabular-nums">{formatDateKey(e.completion_date)}</div>
+                        <div className="mt-0.5 font-medium tabular-nums">{formatDate(e.completion_date, resolvedTimeZone) || "-"}</div>
                       </div>
                       <div>
                         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Instructor</div>
@@ -575,10 +569,10 @@ export function TrainingStudentProgrammeTab({
                           </Badge>
                         </TableCell>
                         <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
-                          {formatDateKey(e.enrolled_at)}
+                          {formatDate(e.enrolled_at, resolvedTimeZone) || "-"}
                         </TableCell>
                         <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
-                          {formatDateKey(e.completion_date)}
+                          {formatDate(e.completion_date, resolvedTimeZone) || "-"}
                         </TableCell>
                         <TableCell className="px-5 py-3 text-sm text-muted-foreground">
                           {instName || "—"}

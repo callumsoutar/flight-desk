@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import type { ObservationWithUser } from "@/lib/types/observations"
 import { toast } from "sonner"
@@ -24,23 +26,13 @@ type ResolveObservationModalProps = {
   refresh: () => void
 }
 
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return "—"
-  const parsed = new Date(dateString)
-  if (Number.isNaN(parsed.getTime())) return "—"
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 export function ResolveObservationModal({
   open,
   onClose,
   observationId,
   refresh,
 }: ResolveObservationModalProps) {
+  const { timeZone } = useTimezone()
   const [observation, setObservation] = useState<ObservationWithUser | null>(null)
   const [loadingObs, setLoadingObs] = useState(false)
   const [resolutionComments, setResolutionComments] = useState("")
@@ -153,7 +145,7 @@ export function ResolveObservationModal({
                     <div className="border-slate-200 pt-2">
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <Calendar className="h-3.5 w-3.5" />
-                        <span>Created {formatDate(observation.created_at)}</span>
+                        <span>Created {formatDate(observation.created_at, timeZone) || "—"}</span>
                       </div>
                     </div>
                   </div>

@@ -55,17 +55,8 @@ import type {
   MembershipTypeWithChargeable,
 } from "@/lib/types/memberships"
 import { getUserInitials } from "@/lib/utils"
-
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return ""
-  const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 function EmptyTabPanel({ title }: { title: string }) {
   return (
@@ -95,6 +86,7 @@ export function MemberDetailClient({
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
 }) {
+  const { timeZone } = useTimezone()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [currentMember, setCurrentMember] = React.useState(member)
@@ -202,7 +194,7 @@ export function MemberDetailClient({
   const initials = getUserInitials(firstName, lastName, currentMember.user?.email)
   const isActive = currentMember.is_active
   const membershipStartDate = currentMember.membership?.start_date
-    ? formatDate(currentMember.membership.start_date)
+    ? formatDate(currentMember.membership.start_date, timeZone)
     : null
 
   const tabItems = React.useMemo(

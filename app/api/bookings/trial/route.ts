@@ -7,6 +7,7 @@ import { getAuthSession } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
 
 export const dynamic = "force-dynamic"
 
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
     const bookingDow = getDow(startParts)
     const bookingStartMin = getMinutes(startParts)
     const bookingEndMin = getMinutes(endParts)
-    const dateStr = startDate.toLocaleDateString("sv-SE", { timeZone: tz })
+    const dateStr = getZonedYyyyMmDdAndHHmm(startDate, tz).yyyyMmDd
 
     const { data: rosterRules } = await supabase
       .from("roster_rules")

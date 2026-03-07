@@ -2,18 +2,29 @@ import type {
   MembershipRecord,
   MembershipStatus,
 } from "@/lib/types/memberships"
+import {
+  addDaysYyyyMmDd,
+  isValidDateKey,
+  zonedTodayYyyyMmDd,
+} from "@/lib/utils/timezone"
 
-function asDate(value: string) {
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function startOfDay(value: Date) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate())
+function daysBetweenDateKeys(a: string, b: string): number {
+  const msA = Date.UTC(
+    parseInt(a.slice(0, 4)),
+    parseInt(a.slice(5, 7)) - 1,
+    parseInt(a.slice(8, 10))
+  )
+  const msB = Date.UTC(
+    parseInt(b.slice(0, 4)),
+    parseInt(b.slice(5, 7)) - 1,
+    parseInt(b.slice(8, 10))
+  )
+  return Math.round((msA - msB) / 86_400_000)
 }
 
 export function calculateMembershipStatus(
-  membership: MembershipRecord | null
+  membership: MembershipRecord | null,
+  timeZone: string
 ): MembershipStatus {
   if (!membership) return "none"
 
@@ -22,44 +33,46 @@ export function calculateMembershipStatus(
     return "unpaid"
   }
 
-  const expiry = asDate(membership.expiry_date)
-  if (!expiry) return "expired"
+  const expiryKey = membership.expiry_date
+  if (!expiryKey || !isValidDateKey(expiryKey)) return "expired"
 
-  const today = startOfDay(new Date())
-  const expiryDay = startOfDay(expiry)
+  const todayKey = zonedTodayYyyyMmDd(timeZone)
 
-  if (expiryDay >= today && membership.is_active) {
+  if (expiryKey >= todayKey && membership.is_active) {
     return "active"
   }
 
   const graceDays = membership.grace_period_days ?? 0
-  const graceEnd = new Date(expiryDay)
-  graceEnd.setDate(graceEnd.getDate() + graceDays)
-
-  if (graceDays > 0 && graceEnd >= today) {
-    return "grace"
+  if (graceDays > 0) {
+    const graceEndKey = addDaysYyyyMmDd(expiryKey, graceDays)
+    if (graceEndKey >= todayKey) {
+      return "grace"
+    }
   }
 
   return "expired"
 }
 
-export function getDaysUntilExpiry(membership: MembershipRecord): number {
-  const expiry = asDate(membership.expiry_date)
-  if (!expiry) return 0
-  const today = startOfDay(new Date())
-  const expiryDay = startOfDay(expiry)
-  const diffMs = expiryDay.getTime() - today.getTime()
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+export function getDaysUntilExpiry(
+  membership: MembershipRecord,
+  timeZone: string
+): number {
+  const expiryKey = membership.expiry_date
+  if (!expiryKey || !isValidDateKey(expiryKey)) return 0
+  const todayKey = zonedTodayYyyyMmDd(timeZone)
+  return Math.max(0, daysBetweenDateKeys(expiryKey, todayKey))
 }
 
-export function getGracePeriodRemaining(membership: MembershipRecord): number {
-  const expiry = asDate(membership.expiry_date)
-  if (!expiry) return 0
-  const today = startOfDay(new Date())
-  const graceEnd = startOfDay(expiry)
-  graceEnd.setDate(graceEnd.getDate() + (membership.grace_period_days ?? 0))
-  const diffMs = graceEnd.getTime() - today.getTime()
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+export function getGracePeriodRemaining(
+  membership: MembershipRecord,
+  timeZone: string
+): number {
+  const expiryKey = membership.expiry_date
+  if (!expiryKey || !isValidDateKey(expiryKey)) return 0
+  const graceDays = membership.grace_period_days ?? 0
+  const graceEndKey = addDaysYyyyMmDd(expiryKey, graceDays)
+  const todayKey = zonedTodayYyyyMmDd(timeZone)
+  return Math.max(0, daysBetweenDateKeys(graceEndKey, todayKey))
 }
 
 export function getStatusBadgeClasses(status: MembershipStatus): string {
@@ -78,8 +91,11 @@ export function getStatusText(status: MembershipStatus): string {
   return "No Membership"
 }
 
-export function isMembershipExpiringSoon(membership: MembershipRecord): boolean {
-  const days = getDaysUntilExpiry(membership)
+export function isMembershipExpiringSoon(
+  membership: MembershipRecord,
+  timeZone: string
+): boolean {
+  const days = getDaysUntilExpiry(membership, timeZone)
   return days > 0 && days <= 30
 }
 

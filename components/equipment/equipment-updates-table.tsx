@@ -3,10 +3,12 @@
 import * as React from "react"
 import { IconCalendar, IconChevronRight, IconPlus } from "@tabler/icons-react"
 
+import { useTimezone } from "@/contexts/timezone-context"
 import { UpdateEquipmentModal } from "@/components/equipment/update-equipment-modal"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { Equipment, EquipmentUpdate } from "@/lib/types/equipment"
+import { formatDate } from "@/lib/utils/date-format"
 
 interface EquipmentUpdatesTableProps {
   updates: EquipmentUpdate[]
@@ -17,17 +19,6 @@ interface EquipmentUpdatesTableProps {
   refresh?: () => void
 }
 
-function formatShortDate(value: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 export function EquipmentUpdatesTable({
   updates,
   userMap,
@@ -36,6 +27,7 @@ export function EquipmentUpdatesTable({
   equipment,
   refresh,
 }: EquipmentUpdatesTableProps) {
+  const { timeZone } = useTimezone()
   const [modalOpen, setModalOpen] = React.useState(false)
 
   return (
@@ -104,8 +96,8 @@ export function EquipmentUpdatesTable({
               </tr>
             ) : (
               updates.map((row) => {
-                const updateDate = formatShortDate(row.updated_at)
-                const nextDueAt = formatShortDate(row.next_due_at)
+                const updateDate = formatDate(row.updated_at, timeZone, "medium") || null
+                const nextDueAt = formatDate(row.next_due_at, timeZone, "medium") || null
                 const notesTruncated =
                   row.notes && row.notes.length > 50 ? `${row.notes.slice(0, 50)}...` : row.notes
 
@@ -173,8 +165,8 @@ export function EquipmentUpdatesTable({
           </div>
         ) : (
           updates.map((row) => {
-            const updateDate = formatShortDate(row.updated_at)
-            const nextDueAt = formatShortDate(row.next_due_at)
+            const updateDate = formatDate(row.updated_at, timeZone, "medium") || null
+            const nextDueAt = formatDate(row.next_due_at, timeZone, "medium") || null
 
             return (
               <div

@@ -17,12 +17,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type {
   FlightExperienceEntryWithType,
   LessonProgressWithInstructor,
 } from "@/lib/types/debrief"
 import { formatOrdinal } from "@/lib/utils"
+import { formatDate } from "@/lib/utils/date-format"
 
 function formatName(user: { first_name: string | null; last_name: string | null; email?: string | null }) {
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || "—"
@@ -44,19 +46,6 @@ function isLikelyHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value)
 }
 
-function formatDateLong(value: string | null | undefined) {
-  if (!value) return "Date not set"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Date not set"
-  return date.toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-}
-
-function formatDateShort(value: string | null | undefined) {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return date.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })
-}
 
 function resolveFlightTimeHours(booking: BookingWithRelations): number | null {
   const candidates = [
@@ -128,6 +117,7 @@ export function DebriefViewClient({
   flightExperiences,
 }: DebriefViewClientProps) {
   const router = useRouter()
+  const { timeZone } = useTimezone()
   const studentName = booking.student ? formatName(booking.student) : "Student"
 
   const instructorName = lessonProgress?.instructor
@@ -145,8 +135,8 @@ export function DebriefViewClient({
       : "—"
 
   const lessonName = booking.lesson?.name ?? "Training Flight"
-  const sessionDateLong = formatDateLong(booking.start_time ?? null)
-  const sessionDateShort = formatDateShort(booking.start_time ?? null)
+  const sessionDateLong = formatDate(booking.start_time ?? null, timeZone, "long") || "Date not set"
+  const sessionDateShort = formatDate(booking.start_time ?? null, timeZone, "medium") || "—"
 
   const outcomeStatus = lessonProgress?.status ?? null
   const statusLabel = outcomeStatus === "pass" ? "Pass" : "Not Yet Competent"

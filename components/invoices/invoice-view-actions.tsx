@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { useTimezone } from "@/contexts/timezone-context"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ export default function InvoiceViewActions({
   onPaymentSuccess,
 }: InvoiceViewActionsProps) {
   const router = useRouter()
+  const { timeZone } = useTimezone()
   const [paymentOpen, setPaymentOpen] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
   const [isPrinting, setIsPrinting] = React.useState(false)
@@ -64,7 +66,7 @@ export default function InvoiceViewActions({
     try {
       const { pdf } = await import("@react-pdf/renderer")
       const blob = await pdf(
-        <InvoiceReportPDF invoice={invoice} items={items} settings={settings} />
+        <InvoiceReportPDF invoice={invoice} items={items} settings={settings} timeZone={timeZone} />
       ).toBlob()
 
       const objectUrl = URL.createObjectURL(blob)

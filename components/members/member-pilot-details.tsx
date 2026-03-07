@@ -37,6 +37,8 @@ import type {
   MemberDetailWithRelations,
   UserEndorsementWithRelation,
 } from "@/lib/types/members"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 type PilotDetailsFormValues = {
   pilot_license_number: string | null
@@ -113,17 +115,6 @@ function areEqual(a: PilotDetailsFormValues, b: PilotDetailsFormValues) {
   return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b))
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return ""
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ""
-  return parsed.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  })
-}
-
 function getExpiryStatus(expiryDate: string | null | undefined) {
   if (!expiryDate) {
     return {
@@ -163,6 +154,7 @@ export function MemberPilotDetails({
   onPilotSaved,
   formId,
 }: Props) {
+  const { timeZone } = useTimezone()
   const seedValues = React.useMemo(
     () => (member ? toFormValues(member) : null),
     [member]
@@ -642,12 +634,12 @@ export function MemberPilotDetails({
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-gray-500">
                           <div className="flex items-center gap-1">
                             <CalendarIcon className="h-3 w-3 text-gray-400" />
-                            <span>Issued: {formatDate(item.issued_date)}</span>
+                            <span>Issued: {formatDate(item.issued_date, timeZone)}</span>
                           </div>
                           {item.expiry_date ? (
                             <div className="flex items-center gap-1 text-gray-600">
                               <span className="text-gray-300">|</span>
-                              <span>Expires: {formatDate(item.expiry_date)}</span>
+                              <span>Expires: {formatDate(item.expiry_date, timeZone)}</span>
                             </div>
                           ) : null}
                         </div>

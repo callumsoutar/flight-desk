@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate, formatTime } from "@/lib/utils/date-format"
 
 export type MemberUpcomingBookingsTableProps = {
   memberId: string
@@ -26,26 +28,6 @@ function safeDate(value: string) {
   const date = new Date(normalized)
   if (Number.isNaN(date.getTime())) return null
   return date
-}
-
-function formatDate(value: string) {
-  const date = safeDate(value)
-  if (!date) return "—"
-  return date.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
-function formatTime(value: string) {
-  const date = safeDate(value)
-  if (!date) return "—"
-  return date.toLocaleTimeString("en-NZ", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
 }
 
 function getInstructorName(booking: BookingWithRelations): string {
@@ -109,6 +91,7 @@ async function fetchMemberUpcomingBookings(memberId: string): Promise<BookingWit
 }
 
 export function MemberUpcomingBookingsTable({ memberId }: MemberUpcomingBookingsTableProps) {
+  const { timeZone } = useTimezone()
   const [bookings, setBookings] = React.useState<BookingWithRelations[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -226,9 +209,9 @@ export function MemberUpcomingBookingsTable({ memberId }: MemberUpcomingBookings
                 <tr key={booking.id} className="group transition-colors hover:bg-slate-50/50">
                   <td className="px-4 py-3.5">
                     <div className="flex flex-col">
-                      <span className="font-semibold text-slate-900">{formatDate(booking.start_time)}</span>
+                      <span className="font-semibold text-slate-900">{formatDate(booking.start_time, timeZone)}</span>
                       <span className="text-xs text-slate-500">
-                        {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
+                        {formatTime(booking.start_time, timeZone)} - {formatTime(booking.end_time, timeZone)}
                       </span>
                     </div>
                   </td>
@@ -304,7 +287,7 @@ export function MemberUpcomingBookingsTable({ memberId }: MemberUpcomingBookings
                     Date & Time
                   </div>
                   <div className="text-xs font-medium text-slate-900">
-                    {formatDate(booking.start_time)} @ {formatTime(booking.start_time)}
+                    {formatDate(booking.start_time, timeZone)} @ {formatTime(booking.start_time, timeZone)}
                   </div>
                 </div>
                 <div className="space-y-1">

@@ -3,23 +3,14 @@
 import * as React from "react"
 
 import { BookingsTable } from "@/components/bookings/bookings-table"
+import { useTimezone } from "@/contexts/timezone-context"
 import type {
   BookingsFilter,
   BookingStatus,
   BookingType,
   BookingWithRelations,
 } from "@/lib/types/bookings"
-
-function zonedYyyyMmDd(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-
-  return formatter.format(date)
-}
+import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
 
 function includesSearch(booking: BookingWithRelations, value: string | undefined) {
   const search = value?.trim().toLowerCase()
@@ -67,8 +58,11 @@ export function BookingsPageClient({ bookings }: Props) {
   const [activeTab, setActiveTab] = React.useState("all")
   const [filters, setFilters] = React.useState<BookingsFilter>({})
 
-  const timeZone = "Pacific/Auckland"
-  const todayKey = React.useMemo(() => zonedYyyyMmDd(new Date(), timeZone), [timeZone])
+  const { timeZone } = useTimezone()
+  const todayKey = React.useMemo(
+    () => getZonedYyyyMmDdAndHHmm(new Date(), timeZone).yyyyMmDd,
+    [timeZone]
+  )
 
   const searchAndFilterMatched = React.useMemo(() => {
     return bookings.filter((booking) => {
@@ -91,7 +85,7 @@ export function BookingsPageClient({ bookings }: Props) {
 
     return {
       all: source.length,
-      today: source.filter((b) => zonedYyyyMmDd(new Date(b.start_time), timeZone) === todayKey).length,
+      today: source.filter((b) => getZonedYyyyMmDdAndHHmm(new Date(b.start_time), timeZone).yyyyMmDd === todayKey).length,
       flying: source.filter((b) => b.status === "flying").length,
       unconfirmed: source.filter((b) => b.status === "unconfirmed").length,
     }
@@ -106,7 +100,7 @@ export function BookingsPageClient({ bookings }: Props) {
 
     switch (activeTab) {
       case "today":
-        return source.filter((b) => zonedYyyyMmDd(new Date(b.start_time), timeZone) === todayKey)
+        return source.filter((b) => getZonedYyyyMmDdAndHHmm(new Date(b.start_time), timeZone).yyyyMmDd === todayKey)
       case "flying":
         return source.filter((b) => b.status === "flying")
       case "unconfirmed":

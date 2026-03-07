@@ -34,19 +34,13 @@ import type {
   TenantDefaultTaxRate,
 } from "@/lib/types/memberships"
 import { calculateMembershipFee } from "@/lib/utils/membership-utils"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 type RenewData = {
   membership_type_id?: string
   notes?: string
   create_invoice: boolean
-}
-
-function formatDate(value: Date) {
-  return value.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  })
 }
 
 function addMonths(dateValue: Date, months: number) {
@@ -80,6 +74,7 @@ export function RenewMembershipModal({
     [membershipTypes]
   )
 
+  const { timeZone } = useTimezone()
   const [selectedTypeId, setSelectedTypeId] = React.useState<string>("")
   const [notes, setNotes] = React.useState("")
   const [showNotes, setShowNotes] = React.useState(false)
@@ -197,7 +192,7 @@ export function RenewMembershipModal({
                     <CalendarIcon className="h-4 w-4 text-slate-600" />
                     <span className="text-slate-600">New Expiry:</span>
                     <span className="font-semibold text-slate-900">
-                      {expiryDate ? formatDate(expiryDate) : "N/A"}
+                      {expiryDate ? formatDate(expiryDate, timeZone) : "N/A"}
                     </span>
                   </div>
                 </div>

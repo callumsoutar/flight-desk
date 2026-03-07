@@ -4,6 +4,8 @@ import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import {
   Card,
   CardAction,
@@ -142,6 +144,7 @@ const chartConfig = {
 
 export function ChartAreaInteractive() {
   const isMobile = useIsMobile()
+  const { timeZone } = useTimezone()
   const [timeRange, setTimeRange] = React.useState("90d")
 
   React.useEffect(() => {
@@ -248,11 +251,7 @@ export function ChartAreaInteractive() {
               tickMargin={8}
               minTickGap={32}
               tickFormatter={(value) => {
-                const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
+                return formatDate(value, timeZone, "short")
               }}
             />
             <ChartTooltip
@@ -260,10 +259,7 @@ export function ChartAreaInteractive() {
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
+                    return formatDate(value, timeZone, "short")
                   }}
                   indicator="dot"
                 />

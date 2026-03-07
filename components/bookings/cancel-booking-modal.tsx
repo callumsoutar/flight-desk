@@ -3,7 +3,9 @@
 import * as React from "react"
 import { AlertTriangle } from "lucide-react"
 
+import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWithRelations } from "@/lib/types/bookings"
+import { formatDate, formatTime } from "@/lib/utils/date-format"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -45,19 +47,10 @@ function formatStudentName(booking: BookingWithRelations) {
   return fullName || booking.student.email || "—"
 }
 
-function formatBookingStartLabel(booking: BookingWithRelations) {
-  const start = new Date(booking.start_time)
-  if (Number.isNaN(start.getTime())) return "—"
-
-  const dateLabel = start.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-  const timeLabel = start.toLocaleTimeString("en-NZ", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+function formatBookingStartLabel(booking: BookingWithRelations, timeZone: string) {
+  const dateLabel = formatDate(booking.start_time, timeZone)
+  const timeLabel = formatTime(booking.start_time, timeZone)
+  if (!dateLabel) return "—"
   return `${dateLabel} @ ${timeLabel}`
 }
 
@@ -74,6 +67,7 @@ export function CancelBookingModal({
   onConfirm: (payload: CancelBookingPayload) => void
   pending: boolean
 }) {
+  const { timeZone } = useTimezone()
   const [categories, setCategories] = React.useState<CancellationCategory[]>([])
   const [categoriesLoading, setCategoriesLoading] = React.useState(false)
   const [categoriesError, setCategoriesError] = React.useState<string | null>(null)
@@ -207,7 +201,7 @@ export function CancelBookingModal({
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-muted-foreground">Date &amp; Time</span>
-                      <span className="font-medium text-foreground">{formatBookingStartLabel(booking)}</span>
+                      <span className="font-medium text-foreground">{formatBookingStartLabel(booking, timeZone)}</span>
                     </div>
                   </div>
                 </section>

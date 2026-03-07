@@ -37,6 +37,8 @@ import {
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 import { getUserInitials } from "@/lib/utils"
 import type {
   InstructorCategoryLite,
@@ -152,17 +154,6 @@ function statusBadgeClass(status: string) {
   return "bg-zinc-200 text-zinc-600"
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return null
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return null
-  return parsed.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
-}
-
 function isEqualDetails(a: DetailsFormValues, b: DetailsFormValues) {
   return JSON.stringify(a) === JSON.stringify(b)
 }
@@ -174,6 +165,7 @@ export function InstructorDetailClient({
   flightTypes,
   defaultTaxRate,
 }: InstructorDetailClientProps) {
+  const { timeZone } = useTimezone()
   const detailsFormId = "instructor-details-form"
   const notesFormId = "instructor-notes-form"
 
@@ -378,7 +370,7 @@ export function InstructorDetailClient({
                     </span>
                   ) : null}
                   {currentInstructor.hire_date ? (
-                    <span>Hired {formatDate(currentInstructor.hire_date)}</span>
+                    <span>Hired {formatDate(currentInstructor.hire_date, timeZone)}</span>
                   ) : null}
                   {currentInstructor.rating_category?.name ? (
                     <span className="flex items-center gap-1">

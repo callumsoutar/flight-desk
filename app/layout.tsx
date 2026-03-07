@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { ReactQueryProvider } from "@/components/providers/react-query-provider"
 import { AuthProvider } from "@/contexts/auth-context"
+import { TimezoneProvider } from "@/contexts/timezone-context"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -19,7 +20,20 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, { includeRole: true })
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    includeRole: true,
+    includeTenant: true,
+  })
+
+  let tenantTimezone = "Pacific/Auckland"
+  if (tenantId) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("timezone")
+      .eq("id", tenantId)
+      .maybeSingle()
+    if (tenant?.timezone) tenantTimezone = tenant.timezone
+  }
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -32,10 +46,12 @@ export default async function RootLayout({
           initialRole={role}
           initialProfile={null}
         >
-          <ReactQueryProvider>
-            {children}
-            <Toaster />
-          </ReactQueryProvider>
+          <TimezoneProvider timeZone={tenantTimezone}>
+            <ReactQueryProvider>
+              {children}
+              <Toaster />
+            </ReactQueryProvider>
+          </TimezoneProvider>
         </AuthProvider>
         <SpeedInsights />
       </body>

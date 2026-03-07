@@ -11,20 +11,15 @@ import {
 } from "@/components/bookings/booking-status-tracker"
 import { CheckinDebriefEditor } from "@/components/debrief/checkin-debrief-editor"
 import { Badge } from "@/components/ui/badge"
+import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { LessonProgressWithInstructor } from "@/lib/types/debrief"
 import type { LessonProgressRow } from "@/lib/types/tables"
+import { formatDate } from "@/lib/utils/date-format"
 
 function formatName(value: { first_name: string | null; last_name: string | null; email?: string | null } | null) {
   if (!value) return "—"
   return [value.first_name, value.last_name].filter(Boolean).join(" ") || value.email || "—"
-}
-
-function formatDateShort(value: string | null | undefined) {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return date.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })
 }
 
 export function DebriefEditClient({
@@ -36,6 +31,7 @@ export function DebriefEditClient({
   booking: BookingWithRelations
   lessonProgress: LessonProgressWithInstructor | null
 }) {
+  const { timeZone } = useTimezone()
   const [localLessonProgress, setLocalLessonProgress] = React.useState<LessonProgressRow | null>(
     lessonProgress ? (lessonProgress as LessonProgressRow) : null
   )
@@ -61,7 +57,7 @@ export function DebriefEditClient({
 
   const aircraftReg = booking.checked_out_aircraft?.registration ?? booking.aircraft?.registration ?? "—"
 
-  const bookingDate = formatDateShort(booking.start_time ?? null)
+  const bookingDate = formatDate(booking.start_time ?? null, timeZone) || "—"
   const lessonName = booking.lesson?.name ?? "Training Flight"
   const invoiceId = booking.checkin_invoice_id ?? null
   const lessonProgressExists = Boolean(effectiveLessonProgress?.id)

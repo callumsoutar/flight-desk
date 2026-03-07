@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner"
 
 import { zonedDateTimeToUtc } from "@/lib/utils/timezone"
+import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -198,19 +199,12 @@ function fromYyyyMmDd(value: string) {
   return new Date(y, m - 1, d, 12, 0, 0, 0)
 }
 
-function formatDdMmmYyyy(value: Date) {
-  return new Intl.DateTimeFormat("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(value)
-}
-
-function formatEeeDdMmm(value: Date) {
+function formatEeeDdMmm(value: Date, timeZone: string) {
   return new Intl.DateTimeFormat("en-NZ", {
     weekday: "short",
     day: "2-digit",
     month: "short",
+    timeZone,
   }).format(value)
 }
 
@@ -1194,7 +1188,7 @@ export function NewBookingModal({
                             className="h-10 w-full justify-start rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                           >
                             <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                            <span className="truncate">{formatDdMmmYyyy(form.date)}</span>
+                            <span className="truncate">{formatDate(form.date, timeZone)}</span>
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto rounded-2xl border-slate-200 p-0 shadow-2xl" align="start">
@@ -1244,7 +1238,7 @@ export function NewBookingModal({
                               className="h-10 w-full justify-start rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                             >
                               <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                              <span className="truncate">{formatDdMmmYyyy(form.endDate)}</span>
+                              <span className="truncate">{formatDate(form.endDate, timeZone)}</span>
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto rounded-2xl border-slate-200 p-0 shadow-2xl" align="start">
@@ -1622,7 +1616,7 @@ export function NewBookingModal({
                                         )}
                                       >
                                         <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                        <span className="truncate">{form.repeatUntil ? formatDdMmmYyyy(form.repeatUntil) : "End date"}</span>
+                                        <span className="truncate">{form.repeatUntil ? formatDate(form.repeatUntil, timeZone) : "End date"}</span>
                                       </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto rounded-2xl border-slate-200 p-0 shadow-2xl" align="end">
@@ -1680,7 +1674,7 @@ export function NewBookingModal({
                                           if (!conflict) return null
                                           return (
                                             <div key={occ.startIso} className="flex items-center justify-between rounded-lg bg-white/50 px-3 py-2 text-[10px] ring-1 ring-destructive/10">
-                                              <span className="font-semibold text-slate-700">{formatEeeDdMmm(occ.date)}</span>
+                                              <span className="font-semibold text-slate-700">{formatEeeDdMmm(occ.date, timeZone)}</span>
                                               <div className="flex gap-2">
                                                 {conflict.aircraft ? (
                                                   <span className="rounded bg-destructive/10 px-1.5 py-0.5 font-bold uppercase tracking-wider text-destructive">Aircraft Conflict</span>

@@ -11,6 +11,7 @@ import {
   getBookingLayout,
   withTime,
 } from "@/components/scheduler/scheduler-utils"
+import { useTimezone } from "@/contexts/timezone-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -78,6 +79,7 @@ export function RosterScheduler({
   initialRosterRules: RosterRule[]
   timelineConfig: TimelineConfig
 }) {
+  const { timeZone } = useTimezone()
   const [selectedDate, setSelectedDate] = React.useState(() => startOfDay(new Date()))
   const [draftSlot, setDraftSlot] = React.useState<DraftSlot | null>(null)
   const [editingRule, setEditingRule] = React.useState<RosterRule | null>(null)
@@ -189,14 +191,14 @@ export function RosterScheduler({
 
       openDraft({
         instructorId,
-        startTime: formatTimeLabel(selectedSlotTime),
-        endTime: formatTimeLabel(endTime),
+        startTime: formatTimeLabel(selectedSlotTime, timeZone),
+        endTime: formatTimeLabel(endTime, timeZone),
         date: dayKey,
         dayOfWeek,
         isRecurring: true,
       })
     },
-    [dayKey, dayOfWeek, openDraft, slotCount, slots, timelineEnd, timelineStart, timelineConfig.intervalMinutes]
+    [dayKey, dayOfWeek, openDraft, slotCount, slots, timeZone, timelineEnd, timelineStart, timelineConfig.intervalMinutes]
   )
 
   const handleModalClose = React.useCallback(() => {
@@ -336,7 +338,7 @@ export function RosterScheduler({
                       key={slot.getTime()}
                       className="flex items-center justify-center border-r last:border-r-0 px-0.5 text-[8px] text-muted-foreground sm:text-[9px]"
                     >
-                      <span className="select-none whitespace-nowrap font-medium tabular-nums">{formatTimeLabel(slot)}</span>
+                      <span className="select-none whitespace-nowrap font-medium tabular-nums">{formatTimeLabel(slot, timeZone)}</span>
                     </div>
                   ))}
                 </div>

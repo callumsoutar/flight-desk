@@ -19,6 +19,8 @@ import type {
   MemberFlightHistoryEntry,
   MemberFlightHistoryResponse,
 } from "@/lib/types/flight-history"
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate as formatDateTz } from "@/lib/utils/date-format"
 
 export type MemberFlightHistoryTabProps = {
   memberId: string
@@ -40,17 +42,6 @@ function subDays(date: Date, days: number): Date {
   const result = new Date(date)
   result.setDate(result.getDate() - days)
   return result
-}
-
-function formatDate(value: Date | string | null | undefined): string {
-  if (!value) return ""
-  const parsed = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(parsed.getTime())) return ""
-  return parsed.toLocaleDateString("en-NZ", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  })
 }
 
 function toInputDate(value: Date): string {
@@ -96,6 +87,7 @@ async function fetchMemberFlightHistory(memberId: string): Promise<MemberFlightH
 }
 
 export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps) {
+  const { timeZone } = useTimezone()
   const [allFlights, setAllFlights] = React.useState<MemberFlightHistoryEntry[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -280,7 +272,7 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
                   <tr key={flight.id} className="group transition-colors hover:bg-slate-50/50">
                     <td className="px-4 py-3.5 align-middle">
                       <span className="font-semibold text-slate-900">
-                        {flight.end_time ? formatDate(flight.end_time) : "—"}
+                        {flight.end_time ? formatDateTz(flight.end_time, timeZone) : "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 align-middle">
@@ -377,7 +369,7 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
                       <IconCalendar className="h-3 w-3" /> Date
                     </div>
                     <div className="text-sm font-semibold text-slate-900">
-                      {flight.end_time ? formatDate(flight.end_time) : "—"}
+                      {flight.end_time ? formatDateTz(flight.end_time, timeZone) : "—"}
                     </div>
                   </div>
                   <div className="space-y-1">

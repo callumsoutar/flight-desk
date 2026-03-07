@@ -7,6 +7,18 @@ import { getAuthSession } from "@/lib/auth/session"
 import { fetchMemberMembershipsData } from "@/lib/members/fetch-member-memberships-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
+async function fetchTenantTimezone(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string
+) {
+  const { data } = await supabase
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+  return data?.timezone ?? "Pacific/Auckland"
+}
+
 const updateContactSchema = z.object({
   memberId: z.string().uuid(),
   first_name: z.string().min(1).max(100),
@@ -292,7 +304,8 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/members")
 
-  const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId)
+  const timeZone = await fetchTenantTimezone(supabase, tenantId)
+  const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone)
   return { ok: true as const, summary: updated.summary }
 }
 
@@ -356,6 +369,7 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/members")
 
-  const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId)
+  const timeZone = await fetchTenantTimezone(supabase, tenantId)
+  const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone)
   return { ok: true as const, summary: updated.summary }
 }

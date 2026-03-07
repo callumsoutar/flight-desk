@@ -2,8 +2,10 @@
 
 import * as React from "react"
 
+import { useTimezone } from "@/contexts/timezone-context"
 import { Card } from "@/components/ui/card"
 import type { InvoicingSettings } from "@/lib/invoices/invoicing-settings"
+import { formatDate } from "@/lib/utils/date-format"
 
 export type { InvoicingSettings } from "@/lib/invoices/invoicing-settings"
 
@@ -29,17 +31,6 @@ export type InvoiceDocumentItem = {
   line_total: number | null
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
 function formatMoney(value: number | null | undefined) {
   return `$${Number(value || 0).toFixed(2)}`
 }
@@ -53,6 +44,8 @@ export default function InvoiceDocumentView({
   invoice: InvoiceDocumentData
   items: InvoiceDocumentItem[]
 }) {
+  const { timeZone } = useTimezone()
+
   return (
     <Card className="shadow-sm ring-1 ring-border/40">
       <div className="p-6">
@@ -67,8 +60,8 @@ export default function InvoiceDocumentView({
 
           <div className="rounded-md border bg-muted/20 px-4 py-3 text-sm">
             <div className="font-semibold">Invoice {invoice.invoiceNumber}</div>
-            <div className="mt-1 text-muted-foreground">Issued: {formatDate(invoice.issueDate)}</div>
-            <div className="text-muted-foreground">Due: {formatDate(invoice.dueDate)}</div>
+            <div className="mt-1 text-muted-foreground">Issued: {formatDate(invoice.issueDate, timeZone, "medium") || "-"}</div>
+            <div className="text-muted-foreground">Due: {formatDate(invoice.dueDate, timeZone, "medium") || "-"}</div>
           </div>
         </div>
 

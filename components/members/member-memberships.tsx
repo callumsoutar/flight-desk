@@ -35,16 +35,8 @@ import {
   getStatusText,
   isMembershipExpiringSoon,
 } from "@/lib/utils/membership-utils"
-
-function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Invalid date"
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  })
-}
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 export function MemberMemberships({
   memberId,
@@ -57,6 +49,7 @@ export function MemberMemberships({
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
 }) {
+  const { timeZone } = useTimezone()
   const [membershipSummary, setMembershipSummary] =
     React.useState<MembershipSummary | null>(initialSummary)
   const [error, setError] = React.useState<string | null>(null)
@@ -188,7 +181,7 @@ export function MemberMemberships({
                   Started
                 </p>
                 <p className="text-sm font-semibold text-slate-900">
-                  {formatDate(currentMembership.start_date)}
+                  {formatDate(currentMembership.start_date, timeZone)}
                 </p>
               </div>
               <div className="space-y-0.5">
@@ -197,21 +190,21 @@ export function MemberMemberships({
                 </p>
                 <p
                   className={
-                    isMembershipExpiringSoon(currentMembership)
+                    isMembershipExpiringSoon(currentMembership, timeZone)
                       ? "text-sm font-semibold text-orange-600"
                       : "text-sm font-semibold text-slate-900"
                   }
                 >
-                  {formatDate(currentMembership.expiry_date)}
+                  {formatDate(currentMembership.expiry_date, timeZone)}
                 </p>
                 {status === "active" ? (
                   <p className="text-xs text-slate-500">
-                    {getDaysUntilExpiry(currentMembership)} days remaining
+                    {getDaysUntilExpiry(currentMembership, timeZone)} days remaining
                   </p>
                 ) : null}
                 {status === "grace" ? (
                   <p className="text-xs text-orange-600">
-                    Grace period: {getGracePeriodRemaining(currentMembership)} days left
+                    Grace period: {getGracePeriodRemaining(currentMembership, timeZone)} days left
                   </p>
                 ) : null}
               </div>
@@ -228,7 +221,7 @@ export function MemberMemberships({
               </div>
             ) : null}
 
-            {status !== "unpaid" && isMembershipExpiringSoon(currentMembership) ? (
+            {status !== "unpaid" && isMembershipExpiringSoon(currentMembership, timeZone) ? (
               <div className="rounded-md border border-orange-200 bg-orange-50 p-3">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-600" />
@@ -311,7 +304,7 @@ export function MemberMemberships({
                 </thead>
                 <tbody>
                   {membershipSummary.membership_history.map((membership) => {
-                    const rowStatus = calculateMembershipStatus(membership)
+                    const rowStatus = calculateMembershipStatus(membership, timeZone)
                     return (
                       <tr
                         key={membership.id}
@@ -327,9 +320,9 @@ export function MemberMemberships({
                         </td>
                         <td className="py-3 pr-4 text-sm text-slate-600">
                           <div className="flex flex-col">
-                            <span>{formatDate(membership.start_date)}</span>
+                            <span>{formatDate(membership.start_date, timeZone)}</span>
                             <span className="text-xs text-slate-500">
-                              to {formatDate(membership.expiry_date)}
+                              to {formatDate(membership.expiry_date, timeZone)}
                             </span>
                           </div>
                         </td>
@@ -367,7 +360,7 @@ export function MemberMemberships({
 
             <div className="space-y-3 md:hidden">
               {membershipSummary.membership_history.map((membership) => {
-                const rowStatus = calculateMembershipStatus(membership)
+                const rowStatus = calculateMembershipStatus(membership, timeZone)
                 return (
                   <div
                     key={membership.id}
@@ -403,7 +396,7 @@ export function MemberMemberships({
                       <div className="flex justify-between">
                         <span className="text-slate-500">Period:</span>
                         <span className="font-medium text-slate-900">
-                          {formatDate(membership.start_date)} - {formatDate(membership.expiry_date)}
+                          {formatDate(membership.start_date, timeZone)} - {formatDate(membership.expiry_date, timeZone)}
                         </span>
                       </div>
                       {membership.notes ? (

@@ -26,8 +26,10 @@ import {
 import { useRouter } from "next/navigation"
 
 import { getBookingOpenPath } from "@/lib/bookings/navigation"
+import { useTimezone } from "@/contexts/timezone-context"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { formatDate, formatTime } from "@/lib/utils/date-format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -95,158 +97,144 @@ function getBookingTypeLabel(type: BookingType) {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
-const columns: ColumnDef<BookingWithRelations>[] = [
-  {
-    id: "aircraft",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconPlane className="h-4 w-4 text-muted-foreground" />
-        <span>Aircraft</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const aircraft = row.original.aircraft
-      if (!aircraft) return <span className="text-muted-foreground">-</span>
-
-      return (
-        <div className="font-medium">
-          <div className="flex items-center gap-1.5">
-            {aircraft.manufacturer ? `${aircraft.manufacturer} ` : ""}
-            {aircraft.type}
-            {aircraft.model ? ` - ${aircraft.model}` : ""}
-          </div>
-          <div className="mt-1 font-mono text-xs text-muted-foreground">{aircraft.registration}</div>
+function getColumns(timeZone: string): ColumnDef<BookingWithRelations>[] {
+  return [
+    {
+      id: "aircraft",
+      header: () => (
+        <div className="flex items-center gap-2">
+          <IconPlane className="h-4 w-4 text-muted-foreground" />
+          <span>Aircraft</span>
         </div>
-      )
+      ),
+      cell: ({ row }) => {
+        const aircraft = row.original.aircraft
+        if (!aircraft) return <span className="text-muted-foreground">-</span>
+
+        return (
+          <div className="font-medium">
+            <div className="flex items-center gap-1.5">
+              {aircraft.manufacturer ? `${aircraft.manufacturer} ` : ""}
+              {aircraft.type}
+              {aircraft.model ? ` - ${aircraft.model}` : ""}
+            </div>
+            <div className="mt-1 font-mono text-xs text-muted-foreground">{aircraft.registration}</div>
+          </div>
+        )
+      },
     },
-  },
-  {
-    accessorKey: "start_time",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconCalendar className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden sm:inline">Date</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const date = new Date(row.original.start_time)
-      return (
+    {
+      accessorKey: "start_time",
+      header: () => (
+        <div className="flex items-center gap-2">
+          <IconCalendar className="h-4 w-4 text-muted-foreground" />
+          <span className="hidden sm:inline">Date</span>
+        </div>
+      ),
+      cell: ({ row }) => (
         <div>
           <div className="font-medium">
-            {date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
+            {formatDate(row.original.start_time, timeZone, "short")}
           </div>
           <div className="hidden text-xs text-muted-foreground sm:block">
-            {date.toLocaleDateString("en-US", { year: "numeric" })}
+            {formatDate(row.original.start_time, timeZone, "medium")}
           </div>
         </div>
-      )
+      ),
     },
-  },
-  {
-    id: "time",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconClock className="h-4 w-4 text-muted-foreground" />
-        <span>Time</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const start = new Date(row.original.start_time)
-      const end = new Date(row.original.end_time)
-      return (
-        <div className="font-medium">
-          {start.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-          })}
-          <span className="mx-1 text-muted-foreground">-</span>
-          {end.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+    {
+      id: "time",
+      header: () => (
+        <div className="flex items-center gap-2">
+          <IconClock className="h-4 w-4 text-muted-foreground" />
+          <span>Time</span>
         </div>
-      )
+      ),
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {formatTime(row.original.start_time, timeZone)}
+          <span className="mx-1 text-muted-foreground">-</span>
+          {formatTime(row.original.end_time, timeZone)}
+        </div>
+      ),
     },
-  },
-  {
-    accessorKey: "booking_type",
-    header: () => <span className="hidden lg:inline">Type</span>,
-    cell: ({ row }) => (
-      <Badge variant="outline" className="hidden font-medium lg:inline-flex">
-        {getBookingTypeLabel(row.original.booking_type)}
-      </Badge>
-    ),
-  },
-  {
-    id: "student",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconUser className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden md:inline">Student</span>
-      </div>
-    ),
-    cell: ({ row }) => {
-      const student = row.original.student
-      if (!student) return <span className="text-muted-foreground">-</span>
-
-      const name = [student.first_name, student.last_name].filter(Boolean).join(" ")
-      return <div className="font-medium">{name || student.email}</div>
-    },
-  },
-  {
-    id: "instructor",
-    header: () => (
-      <div className="flex items-center gap-2">
-        <IconSchool className="h-4 w-4 text-muted-foreground" />
-        <span className="hidden md:inline">Instructor</span>
-      </div>
-    ),
-    cell({ row }) {
-      const instructor = row.original.instructor
-      if (!instructor) return <span className="text-muted-foreground">-</span>
-
-      const firstName = instructor.user?.first_name ?? instructor.first_name
-      const lastName = instructor.user?.last_name ?? instructor.last_name
-      const name = [firstName, lastName].filter(Boolean).join(" ")
-
-      return <div className="font-medium">{name || instructor.user?.email || "-"}</div>
-    },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const status = row.original.status
-      const variant = getStatusBadgeVariant(status)
-      const label = getStatusLabel(status)
-      const isFlying = status === "flying"
-      const isUnconfirmed = status === "unconfirmed"
-      const isConfirmed = status === "confirmed"
-      const isComplete = status === "complete"
-
-      return (
-        <Badge
-          variant={variant}
-          className={cn(
-            "font-medium",
-            isFlying && "border-orange-600 bg-orange-500 text-white shadow-sm",
-            isUnconfirmed && "border-amber-200 bg-amber-500/10 text-amber-700",
-            isConfirmed && "border-blue-700 bg-blue-600 text-white shadow-sm",
-            isComplete && "border-green-700 bg-green-600 text-white shadow-sm"
-          )}
-        >
-          {isFlying ? <IconPlane className="mr-1 h-3 w-3" /> : null}
-          {isUnconfirmed ? <IconAlertCircle className="mr-1 h-3 w-3" /> : null}
-          {isConfirmed ? <IconCircleCheck className="mr-1 h-3 w-3" /> : null}
-          {label}
+    {
+      accessorKey: "booking_type",
+      header: () => <span className="hidden lg:inline">Type</span>,
+      cell: ({ row }) => (
+        <Badge variant="outline" className="hidden font-medium lg:inline-flex">
+          {getBookingTypeLabel(row.original.booking_type)}
         </Badge>
-      )
+      ),
     },
-  },
-]
+    {
+      id: "student",
+      header: () => (
+        <div className="flex items-center gap-2">
+          <IconUser className="h-4 w-4 text-muted-foreground" />
+          <span className="hidden md:inline">Student</span>
+        </div>
+      ),
+      cell: ({ row }) => {
+        const student = row.original.student
+        if (!student) return <span className="text-muted-foreground">-</span>
+
+        const name = [student.first_name, student.last_name].filter(Boolean).join(" ")
+        return <div className="font-medium">{name || student.email}</div>
+      },
+    },
+    {
+      id: "instructor",
+      header: () => (
+        <div className="flex items-center gap-2">
+          <IconSchool className="h-4 w-4 text-muted-foreground" />
+          <span className="hidden md:inline">Instructor</span>
+        </div>
+      ),
+      cell({ row }) {
+        const instructor = row.original.instructor
+        if (!instructor) return <span className="text-muted-foreground">-</span>
+
+        const firstName = instructor.user?.first_name ?? instructor.first_name
+        const lastName = instructor.user?.last_name ?? instructor.last_name
+        const name = [firstName, lastName].filter(Boolean).join(" ")
+
+        return <div className="font-medium">{name || instructor.user?.email || "-"}</div>
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.original.status
+        const variant = getStatusBadgeVariant(status)
+        const label = getStatusLabel(status)
+        const isFlying = status === "flying"
+        const isUnconfirmed = status === "unconfirmed"
+        const isConfirmed = status === "confirmed"
+        const isComplete = status === "complete"
+
+        return (
+          <Badge
+            variant={variant}
+            className={cn(
+              "font-medium",
+              isFlying && "border-orange-600 bg-orange-500 text-white shadow-sm",
+              isUnconfirmed && "border-amber-200 bg-amber-500/10 text-amber-700",
+              isConfirmed && "border-blue-700 bg-blue-600 text-white shadow-sm",
+              isComplete && "border-green-700 bg-green-600 text-white shadow-sm"
+            )}
+          >
+            {isFlying ? <IconPlane className="mr-1 h-3 w-3" /> : null}
+            {isUnconfirmed ? <IconAlertCircle className="mr-1 h-3 w-3" /> : null}
+            {isConfirmed ? <IconCircleCheck className="mr-1 h-3 w-3" /> : null}
+            {label}
+          </Badge>
+        )
+      },
+    },
+  ]
+}
 
 function BookingCard({
   booking,
@@ -255,8 +243,7 @@ function BookingCard({
   booking: BookingWithRelations
   onOpen: (booking: BookingWithRelations) => void
 }) {
-  const start = new Date(booking.start_time)
-  const end = new Date(booking.end_time)
+  const { timeZone } = useTimezone()
   const status = booking.status
   const variant = getStatusBadgeVariant(status)
   const label = getStatusLabel(status)
@@ -277,19 +264,9 @@ function BookingCard({
       <div className="px-4 py-3">
         <div className="flex items-start gap-4">
           <div className="flex min-w-[50px] flex-col text-sm font-semibold text-foreground">
-            <span>
-              {start.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })}
-            </span>
+            <span>{formatTime(booking.start_time, timeZone)}</span>
             <span className="text-muted-foreground">
-              {end.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })}
+              {formatTime(booking.end_time, timeZone)}
             </span>
           </div>
 
@@ -336,6 +313,8 @@ export function BookingsTable({
   onTabChange,
   tabCounts,
 }: BookingsTableProps) {
+  const { timeZone } = useTimezone()
+  const columns = React.useMemo(() => getColumns(timeZone), [timeZone])
   const isMobile = useIsMobile()
   const [isNavigating, startNavigation] = React.useTransition()
   const [mounted, setMounted] = React.useState(false)

@@ -39,6 +39,18 @@ function MessageCard({
   )
 }
 
+async function fetchTenantTimezone(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string
+) {
+  const { data } = await supabase
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+  return data?.timezone ?? "Pacific/Auckland"
+}
+
 async function MemberDetailContent({
   tenantId,
   memberId,
@@ -47,6 +59,7 @@ async function MemberDetailContent({
   memberId: string
 }) {
   const supabase = await createSupabaseServerClient()
+  const timeZone = await fetchTenantTimezone(supabase, tenantId)
 
   let member: Awaited<ReturnType<typeof fetchMemberDetail>>
   let pilotData: Awaited<ReturnType<typeof fetchMemberPilotData>>
@@ -55,7 +68,7 @@ async function MemberDetailContent({
     ;[member, pilotData, membershipsData] = await Promise.all([
       fetchMemberDetail(supabase, tenantId, memberId),
       fetchMemberPilotData(supabase, tenantId, memberId),
-      fetchMemberMembershipsData(supabase, tenantId, memberId),
+      fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone),
     ])
   } catch {
     return (

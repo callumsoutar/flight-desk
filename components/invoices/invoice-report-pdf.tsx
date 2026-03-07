@@ -11,6 +11,7 @@ import type {
   InvoiceDocumentItem,
 } from "@/components/invoices/invoice-document-view"
 import type { InvoicingSettings } from "@/lib/invoices/invoicing-settings"
+import { formatDate } from "@/lib/utils/date-format"
 
 const styles = StyleSheet.create({
   page: {
@@ -206,25 +207,16 @@ type InvoiceReportPDFProps = {
   invoice: InvoiceDocumentData
   items: InvoiceDocumentItem[]
   settings: InvoicingSettings
+  timeZone: string
 }
 
 const money = (value: number | null | undefined) => (typeof value === "number" ? value : 0).toFixed(2)
-
-const dateOnly = (value: string | null | undefined) => {
-  if (!value) return "-"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("en-NZ", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })
-}
 
 export default function InvoiceReportPDF({
   invoice,
   items,
   settings,
+  timeZone,
 }: InvoiceReportPDFProps) {
   const taxPercent = Math.round((invoice.taxRate ?? 0) * 100)
 
@@ -256,11 +248,11 @@ export default function InvoiceReportPDF({
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Invoice Date</Text>
-                <Text style={styles.infoValue}>{dateOnly(invoice.issueDate)}</Text>
+                <Text style={styles.infoValue}>{formatDate(invoice.issueDate, timeZone, "medium") || "-"}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Due Date</Text>
-                <Text style={styles.infoValue}>{dateOnly(invoice.dueDate)}</Text>
+                <Text style={styles.infoValue}>{formatDate(invoice.dueDate, timeZone, "medium") || "-"}</Text>
               </View>
             </View>
           </View>
