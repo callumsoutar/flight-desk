@@ -60,9 +60,6 @@ export function ChargesTab() {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Charges</h2>
-            <Badge className="border-slate-200 bg-white text-slate-600" variant="outline">
-              Configure
-            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Manage hourly aircraft rates, landing fees, and any additional chargeables.
@@ -147,9 +144,6 @@ export function ChargesTab() {
                       Manage landing fee chargeables and per-aircraft-type pricing.
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Configure
-                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -168,9 +162,6 @@ export function ChargesTab() {
                       Configure any non-hourly, non-landing-fee chargeables (e.g. airways fees, admin fees).
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Configure
-                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">

@@ -209,7 +209,7 @@ export async function fetchDashboardPageData(
   try {
     const { data: aircraftRows, error: aircraftError } = await supabase
       .from("aircraft")
-      .select("id, registration, type, model, manufacturer, status, order")
+      .select("id, registration, type, model, manufacturer, order")
       .eq("tenant_id", tenantId)
       .order("order", { ascending: true })
       .order("registration", { ascending: true })
@@ -245,7 +245,6 @@ export async function fetchDashboardPageData(
       type: row.type ?? null,
       model: row.model ?? null,
       manufacturer: row.manufacturer ?? null,
-      status: row.status ?? null,
       openObservations: openObsCounts.get(row.id) ?? 0,
       isFlying: flyingAircraftIds.has(row.id),
     }))

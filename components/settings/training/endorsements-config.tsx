@@ -163,7 +163,7 @@ export function EndorsementsConfig() {
 
   if (loading) {
     return (
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-6 w-full min-w-0">
         <div className="flex items-center justify-center py-12">
           <div className="text-slate-500">Loading endorsements...</div>
         </div>
@@ -172,7 +172,7 @@ export function EndorsementsConfig() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 w-full min-w-0">
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
         <Award className="w-5 h-5 text-indigo-600" />
         <h3 className="text-lg font-semibold text-slate-900">Certifications</h3>
@@ -341,19 +341,19 @@ export function EndorsementsConfig() {
           </p>
         </div>
       ) : (
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <Table>
+        <div className="border border-slate-200 rounded-xl overflow-hidden w-full min-w-0">
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="bg-slate-50 hover:bg-slate-50">
                 <TableHead className="font-semibold text-slate-700">Name</TableHead>
-                <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+                <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Status</TableHead>
+                <TableHead className="text-right font-semibold text-slate-700 whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredEndorsements.map((endorsement) => (
                 <TableRow key={endorsement.id} className="hover:bg-slate-50">
-                  <TableCell className="font-medium text-slate-900">
+                  <TableCell className="font-medium text-slate-900 whitespace-normal min-w-0 align-top">
                     <div>
                       <div>{endorsement.name}</div>
                       {endorsement.description ? (

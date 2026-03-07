@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
+import { toast } from "sonner"
 
+import { updateBookingStatusAction } from "@/app/bookings/actions"
 import { BookingsTable } from "@/components/bookings/bookings-table"
 import { useTimezone } from "@/contexts/timezone-context"
 import type {
@@ -50,13 +53,22 @@ function includesSearch(booking: BookingWithRelations, value: string | undefined
   )
 }
 
+const VALID_TABS = ["all", "today", "flying", "unconfirmed"] as const
+
 type Props = {
   bookings: BookingWithRelations[]
 }
 
 export function BookingsPageClient({ bookings }: Props) {
-  const [activeTab, setActiveTab] = React.useState("all")
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get("tab")
+  const initialTab =
+    tabFromUrl && (VALID_TABS as readonly string[]).includes(tabFromUrl) ? tabFromUrl : "all"
+  const [activeTab, setActiveTab] = React.useState(initialTab)
   const [filters, setFilters] = React.useState<BookingsFilter>({})
+  const [optimisticallyApprovedIds, setOptimisticallyApprovedIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
 
   const { timeZone } = useTimezone()
   const todayKey = React.useMemo(
@@ -82,14 +94,15 @@ export function BookingsPageClient({ bookings }: Props) {
 
   const tabCounts = React.useMemo(() => {
     const source = filters.search ? searchAndFilterMatched : bookings
+    const excludeApproved = (b: { id: string }) => !optimisticallyApprovedIds.has(b.id)
 
     return {
       all: source.length,
       today: source.filter((b) => getZonedYyyyMmDdAndHHmm(new Date(b.start_time), timeZone).yyyyMmDd === todayKey).length,
       flying: source.filter((b) => b.status === "flying").length,
-      unconfirmed: source.filter((b) => b.status === "unconfirmed").length,
+      unconfirmed: source.filter((b) => b.status === "unconfirmed" && excludeApproved(b)).length,
     }
-  }, [bookings, filters.search, searchAndFilterMatched, timeZone, todayKey])
+  }, [bookings, filters.search, searchAndFilterMatched, timeZone, todayKey, optimisticallyApprovedIds])
 
   const filteredBookings = React.useMemo(() => {
     const source = searchAndFilterMatched
@@ -98,17 +111,23 @@ export function BookingsPageClient({ bookings }: Props) {
       return source
     }
 
+    let result: typeof source
     switch (activeTab) {
       case "today":
-        return source.filter((b) => getZonedYyyyMmDdAndHHmm(new Date(b.start_time), timeZone).yyyyMmDd === todayKey)
+        result = source.filter((b) => getZonedYyyyMmDdAndHHmm(new Date(b.start_time), timeZone).yyyyMmDd === todayKey)
+        break
       case "flying":
-        return source.filter((b) => b.status === "flying")
+        result = source.filter((b) => b.status === "flying")
+        break
       case "unconfirmed":
-        return source.filter((b) => b.status === "unconfirmed")
+        result = source.filter((b) => b.status === "unconfirmed")
+        break
       default:
-        return source
+        result = source
     }
-  }, [activeTab, filters.search, searchAndFilterMatched, timeZone, todayKey])
+
+    return result.filter((b) => !optimisticallyApprovedIds.has(b.id))
+  }, [activeTab, filters.search, searchAndFilterMatched, timeZone, todayKey, optimisticallyApprovedIds])
 
   const handleFiltersChange = React.useCallback(
     (tableFilters: {
@@ -126,6 +145,21 @@ export function BookingsPageClient({ bookings }: Props) {
     []
   )
 
+  const handleApprove = React.useCallback(async (bookingId: string) => {
+    setOptimisticallyApprovedIds((prev) => new Set(prev).add(bookingId))
+    const result = await updateBookingStatusAction(bookingId, "confirmed")
+    if (!result.ok) {
+      setOptimisticallyApprovedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(bookingId)
+        return next
+      })
+      toast.error(result.error)
+      return
+    }
+    toast.success("Booking confirmed")
+  }, [])
+
   return (
     <BookingsTable
       bookings={filteredBookings}
@@ -133,6 +167,7 @@ export function BookingsPageClient({ bookings }: Props) {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       tabCounts={tabCounts}
+      onApprove={activeTab === "unconfirmed" ? handleApprove : undefined}
     />
   )
 }

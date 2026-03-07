@@ -7,7 +7,6 @@ import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 
 const querySchema = z.object({
   search: z.string().optional(),
-  status: z.string().optional(),
   aircraft_type_id: z.string().optional(),
 })
 
@@ -17,7 +16,6 @@ const createSchema = z.object({
   model: z.string().trim().max(100).nullable().optional(),
   manufacturer: z.string().trim().max(100).nullable().optional(),
   year_manufactured: z.number().int().min(1900).max(2100).nullable().optional(),
-  status: z.string().trim().max(50).nullable().optional(),
   aircraft_type_id: z.string().uuid().nullable().optional(),
   total_time_method: z
     .enum([
@@ -129,16 +127,26 @@ export async function POST(request: Request) {
     }
   }
 
+  const { data: maxOrderRow } = await supabase
+    .from("aircraft")
+    .select("order")
+    .eq("tenant_id", tenantId)
+    .order("order", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const nextOrder = (maxOrderRow?.order ?? 0) + 1
+
   const { data, error } = await supabase
     .from("aircraft")
     .insert({
       tenant_id: tenantId,
+      order: nextOrder,
       registration: payload.registration.trim(),
       type: payload.type.trim(),
       model: payload.model ?? null,
       manufacturer: payload.manufacturer ?? null,
       year_manufactured: payload.year_manufactured ?? null,
-      status: payload.status ?? "active",
       aircraft_type_id: payload.aircraft_type_id ?? null,
       total_time_method: payload.total_time_method ?? "hobbs",
       current_hobbs: payload.current_hobbs ?? 0,

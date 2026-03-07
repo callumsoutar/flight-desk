@@ -3,7 +3,7 @@ import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import type { Enums } from "@/lib/types"
+import { publicSyllabusStageSchema } from "@/lib/schema/generated"
 
 export const dynamic = "force-dynamic"
 
@@ -21,16 +21,12 @@ function normalizeNullableString(value: unknown): string | null {
   return trimmed.length ? trimmed : null
 }
 
-const syllabusStageSchema = z.union([z.literal("basic syllabus"), z.literal("advances syllabus")]) satisfies z.ZodType<
-  Enums<"syllabus_stage">
->
-
 const createSchema = z.object({
   syllabus_id: z.string().uuid(),
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(2000).optional().nullable(),
   is_required: z.boolean().optional(),
-  syllabus_stage: syllabusStageSchema.optional().nullable(),
+  syllabus_stage: publicSyllabusStageSchema.optional().nullable(),
   is_active: z.boolean().optional(),
 })
 
@@ -39,7 +35,7 @@ const updateSchema = z.object({
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(2000).optional().nullable(),
   is_required: z.boolean().optional(),
-  syllabus_stage: syllabusStageSchema.optional().nullable(),
+  syllabus_stage: publicSyllabusStageSchema.optional().nullable(),
   is_active: z.boolean().optional(),
 })
 

@@ -9,6 +9,5 @@ export type AircraftWithType = AircraftRow & {
 
 export type AircraftFilter = {
   search?: string
-  status?: string
   aircraft_type_id?: string
 }

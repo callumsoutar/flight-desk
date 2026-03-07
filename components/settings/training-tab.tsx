@@ -4,7 +4,6 @@ import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconBook2, IconCertificate, IconFileText, IconNotebook, IconTrophy } from "@tabler/icons-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
@@ -67,9 +66,6 @@ export function TrainingTab() {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Training</h2>
-            <Badge className="border-slate-200 bg-white text-slate-600" variant="outline">
-              Configure
-            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Configure experience types, training programs, lessons, exams, and certifications.
@@ -161,97 +157,72 @@ export function TrainingTab() {
           </div>
         </div>
 
-        <div className="w-full pt-6">
-          <Tabs.Content value="experience-types" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+        <div className="w-full min-w-0 pt-6">
+          <Tabs.Content value="experience-types" className="outline-none m-0">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl w-full min-w-0">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Experience types</CardTitle>
-                    <CardDescription>Define experience categories used for logging and reporting.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Experience types</CardTitle>
+                  <CardDescription>Define experience categories used for logging and reporting.</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 min-w-0 overflow-x-auto">
                 <ExperienceTypesConfig />
               </CardContent>
             </Card>
           </Tabs.Content>
 
-          <Tabs.Content value="training-programs" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+          <Tabs.Content value="training-programs" className="outline-none m-0">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl w-full min-w-0">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Training programs</CardTitle>
-                    <CardDescription>Create and manage syllabi, milestones, and progress tracking.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Training programs</CardTitle>
+                  <CardDescription>Create and manage syllabi, milestones, and progress tracking.</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 min-w-0 overflow-x-auto">
                 <SyllabusConfig />
               </CardContent>
             </Card>
           </Tabs.Content>
 
-          <Tabs.Content value="lessons" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+          <Tabs.Content value="lessons" className="outline-none m-0">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl w-full min-w-0">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Lessons</CardTitle>
-                    <CardDescription>Manage lesson templates and default lesson structure.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Lessons</CardTitle>
+                  <CardDescription>Manage lesson templates and default lesson structure.</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 min-w-0 overflow-x-auto">
                 <LessonsTab />
               </CardContent>
             </Card>
           </Tabs.Content>
 
-          <Tabs.Content value="exams" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+          <Tabs.Content value="exams" className="outline-none m-0">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl w-full min-w-0">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Exams</CardTitle>
-                    <CardDescription>Configure written, oral, and flight exam checklists.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Exams</CardTitle>
+                  <CardDescription>Configure written, oral, and flight exam checklists.</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 min-w-0 overflow-x-auto">
                 <ExamsConfig />
               </CardContent>
             </Card>
           </Tabs.Content>
 
-          <Tabs.Content value="certifications" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+          <Tabs.Content value="certifications" className="outline-none m-0">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl w-full min-w-0">
               <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Certifications</CardTitle>
-                    <CardDescription>Manage certifications, endorsements, and sign-offs.</CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Coming soon
-                  </Badge>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg text-slate-900">Certifications</CardTitle>
+                  <CardDescription>Manage certifications, endorsements, and sign-offs.</CardDescription>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 min-w-0 overflow-x-auto">
                 <EndorsementsConfig />
               </CardContent>
             </Card>

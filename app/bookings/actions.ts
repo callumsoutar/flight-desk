@@ -113,6 +113,7 @@ export async function updateBookingStatusAction(
 
   if (error) return { ok: false, error: "Failed to update booking status" }
 
+  revalidatePath("/bookings")
   revalidatePath(`/bookings/${bookingId}`)
   return { ok: true as const }
 }

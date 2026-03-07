@@ -17,7 +17,6 @@ import { GeneralTab } from "@/components/settings/general-tab"
 import { InvoicingTab } from "@/components/settings/invoicing-tab"
 import { MembershipsTab } from "@/components/settings/memberships-tab"
 import { TrainingTab } from "@/components/settings/training-tab"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -108,9 +107,6 @@ export function SettingsPageClient({
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>
-            <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700" variant="outline">
-              Company
-            </Badge>
           </div>
           <p className="mt-1 text-slate-600">
             Configure your company profile, billing, and operational preferences.

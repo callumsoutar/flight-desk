@@ -47,6 +47,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils"
 import type { Syllabus } from "@/lib/types/syllabus"
 import type { Lesson, LessonInsert, LessonUpdate, SyllabusStage } from "@/lib/types/lessons"
+import { SYLLABUS_STAGES } from "@/lib/types/lessons"
 
 const fetchSyllabi = async (): Promise<Syllabus[]> => {
   const response = await fetch("/api/syllabus?include_inactive=true")
@@ -62,8 +63,9 @@ const fetchLessons = async (syllabusId: string): Promise<Lesson[]> => {
   return Array.isArray(data?.lessons) ? data.lessons : []
 }
 
-function titleCaseStage(stage: SyllabusStage) {
-  return stage.charAt(0).toUpperCase() + stage.slice(1)
+function titleCaseStage(stage: SyllabusStage | string) {
+  const normalized = stage === "advances syllabus" ? "advanced syllabus" : stage
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
 }
 
 function SortableLessonItem({
@@ -124,7 +126,7 @@ function SortableLessonItem({
                   variant="outline"
                   className="text-[10px] px-1.5 py-0 border-slate-200 text-slate-600 font-medium bg-slate-50"
                 >
-                  {lesson.syllabus_stage}
+                  {titleCaseStage(lesson.syllabus_stage)}
                 </Badge>
               ) : null}
               {!lesson.is_active ? (
@@ -204,7 +206,7 @@ function LessonModal({
   const queryClient = useQueryClient()
   const isEditing = Boolean(lesson)
 
-  const syllabusStages: SyllabusStage[] = ["basic syllabus", "advances syllabus"]
+  const syllabusStages = SYLLABUS_STAGES
 
   const [formValues, setFormValues] = React.useState<{
     name: string
@@ -220,11 +222,12 @@ function LessonModal({
 
   React.useEffect(() => {
     if (!isOpen) return
+    const normalizedStage = (lesson?.syllabus_stage ?? "none") as SyllabusStage | "none"
     setFormValues({
       name: lesson?.name ?? "",
       description: lesson?.description ?? "",
       isRequired: lesson?.is_required ?? true,
-      syllabusStage: (lesson?.syllabus_stage ?? "none") as SyllabusStage | "none",
+      syllabusStage: normalizedStage,
     })
   }, [isOpen, lesson])
 
@@ -593,7 +596,7 @@ export function LessonsTab() {
   const selectedSyllabusData = syllabi.find((s) => s.id === selectedSyllabus)
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 w-full min-w-0">
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
         <BookOpen className="w-5 h-5 text-indigo-600" />
         <h3 className="text-lg font-semibold text-slate-900">Lessons Management</h3>
@@ -603,8 +606,8 @@ export function LessonsTab() {
         Create and manage training lessons for each syllabus. Drag and drop to reorder.
       </p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
-        <div className="lg:col-span-4 flex flex-col gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px] min-w-0">
+        <div className="lg:col-span-4 flex flex-col gap-4 min-w-0">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Syllabi</h4>
           </div>
@@ -668,7 +671,7 @@ export function LessonsTab() {
           </div>
         </div>
 
-        <div className="lg:col-span-8 flex flex-col gap-4 border-l border-slate-100 pl-6">
+        <div className="lg:col-span-8 flex flex-col gap-4 border-l border-slate-100 pl-6 min-w-0">
           <div className="flex items-center justify-between min-h-[32px]">
             {selectedSyllabusData ? (
               <div className="flex items-center gap-3">

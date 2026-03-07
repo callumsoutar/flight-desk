@@ -27,25 +27,6 @@ interface AircraftTableProps {
   aircraft: AircraftWithType[]
 }
 
-function getStatusBadge(status: string | null): { label: string; className: string } {
-  if (!status) {
-    return { label: "Unknown", className: "bg-slate-50 text-slate-700 border-slate-200" }
-  }
-
-  const statusLower = status.toLowerCase()
-  if (statusLower === "active") {
-    return { label: "Active", className: "bg-emerald-50 text-emerald-700 border-emerald-200" }
-  }
-  if (statusLower === "maintenance" || statusLower === "down") {
-    return { label: status.toUpperCase(), className: "bg-amber-50 text-amber-700 border-amber-200" }
-  }
-
-  return {
-    label: status.charAt(0).toUpperCase() + status.slice(1),
-    className: "bg-slate-50 text-slate-700 border-slate-200",
-  }
-}
-
 function formatTotalHours(hours: number | null): string {
   if (hours === null || hours === undefined) {
     return "0.0h"
@@ -122,21 +103,6 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
         cell: ({ row }) => {
           const type = row.original.type || row.original.aircraft_type?.name || ""
           return <span className="text-slate-700">{type || "-"}</span>
-        },
-      },
-      {
-        accessorKey: "status",
-        header: () => <div className="text-center">Status</div>,
-        cell: ({ row }) => {
-          const { label, className } = getStatusBadge(row.original.status)
-
-          return (
-            <div className="flex justify-center">
-              <Badge variant="outline" className={cn("px-2 py-0.5 text-xs font-medium", className)}>
-                {label}
-              </Badge>
-            </div>
-          )
         },
       },
       {
@@ -279,7 +245,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
         {table.getRowModel().rows.length ? (
           table.getRowModel().rows.map((row) => {
             const item = row.original
-            const { label, className } = getStatusBadge(item.status)
+            const available = item.on_line ?? true
 
             return (
               <div
@@ -291,7 +257,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
 
                 <div className="mb-3 flex items-start justify-between pl-2">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 rounded-md">
+                    <Avatar className="h-10 w-10 shrink-0 rounded-md">
                       {item.aircraft_image_url ? (
                         <AvatarImage src={item.aircraft_image_url} alt={item.registration} />
                       ) : null}
@@ -304,8 +270,14 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
                       <span className="text-xs text-slate-600">{item.model || "Unknown Model"}</span>
                     </div>
                   </div>
-                  <Badge variant="outline" className={cn("px-2 py-0.5 text-xs font-medium", className)}>
-                    {label}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "px-2 py-0.5 text-xs font-medium",
+                      available ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                    )}
+                  >
+                    {available ? "Available" : "Not available"}
                   </Badge>
                 </div>
 

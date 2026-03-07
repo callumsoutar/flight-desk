@@ -5,7 +5,6 @@ import { AircraftTable } from "@/components/aircraft/aircraft-table"
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -24,16 +23,10 @@ async function AircraftContent({ tenantId }: { tenantId: string }) {
   }
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b">
-        <CardTitle>Aircraft</CardTitle>
-        <CardDescription>Fleet overview.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loadError ? <div className="mb-4 text-sm text-muted-foreground">{loadError}</div> : null}
-        <AircraftTable aircraft={aircraft} />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      {loadError ? <div className="text-sm text-muted-foreground">{loadError}</div> : null}
+      <AircraftTable aircraft={aircraft} />
+    </div>
   )
 }
 
