@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
   if (!isAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const { clientId, redirectUri } = getXeroEnv()
+  const { clientId, redirectUri, scopes } = getXeroEnv()
   const nonce = randomUUID()
   const payload = { tenantId, nonce, timestamp: Date.now() }
   const encodedState = encodeStatePayload(payload)
@@ -50,14 +50,11 @@ export async function GET(request: NextRequest) {
     path: "/",
   })
 
-  // Full scopes for invoice export + Chart of Accounts sync. Minimal scopes (openid offline_access) don't allow org connection.
-  const scope =
-    "openid profile email accounting.transactions accounting.contacts accounting.settings.read offline_access"
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope,
+    scope: scopes,
     state: encodedState,
   })
 
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
       client_id: clientId,
       client_id_length: clientId.length,
       redirect_uri: redirectUri,
-      scope,
+      scope: scopes,
       authorize_url: authorizeUrl,
       checklist: [
         "Xero Developer Portal → Your app → Redirect URIs must contain EXACTLY: " + redirectUri,

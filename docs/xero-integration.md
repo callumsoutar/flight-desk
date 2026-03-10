@@ -1003,8 +1003,11 @@ XERO_CLIENT_ID=your_client_id
 XERO_CLIENT_SECRET=your_client_secret
 XERO_REDIRECT_URI=http://localhost:3000/api/xero/callback
 
-# Production would be:
-# XERO_REDIRECT_URI=https://app.yourdomain.com/api/xero/callback
+# Optional: override scopes if your app gets "Invalid scope for client".
+# Default: openid profile email accounting.transactions accounting.contacts accounting.settings.read offline_access
+# If full scopes fail, try narrowing (e.g. openid profile email accounting.transactions offline_access)
+# or contact Xero support to enable scopes for your Client ID.
+# XERO_SCOPES=openid profile email accounting.transactions offline_access
 ```
 
 These are **server-side only** — no `NEXT_PUBLIC_` prefix.
