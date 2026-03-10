@@ -50,12 +50,12 @@ export async function GET() {
     path: "/",
   })
 
+  // Minimal scopes that work with new Xero Web apps. Add accounting.settings.read for Sync Accounts if needed.
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope:
-      "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access",
+    scope: "openid profile email accounting.transactions accounting.contacts offline_access",
     state: encodedState,
   })
 
