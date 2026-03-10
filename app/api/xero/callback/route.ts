@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
     const tokens = await exchangeCodeForTokens(code, redirectUri, clientId, clientSecret)
     const connections = await fetchXeroConnections(String(tokens.access_token))
     const connection = connections[0]
-    if (!connection?.id) {
+    const xeroTenantId = connection?.tenantId ?? connection?.id
+    if (!xeroTenantId) {
       return NextResponse.redirect(new URL(integrationRedirect("error", "no_xero_tenant"), request.url))
     }
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
     const { error: upsertConnectionError } = await admin.from("xero_connections").upsert(
       {
         tenant_id: decoded.tenantId,
-        xero_tenant_id: connection.id,
+        xero_tenant_id: xeroTenantId,
         xero_tenant_name: connection.tenantName ?? null,
         access_token: String(tokens.access_token),
         refresh_token: String(tokens.refresh_token),
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
       action: "connect",
       status: "success",
       request_payload: { scope: tokens.scope ?? "" },
-      response_payload: { xero_tenant_id: connection.id, xero_tenant_name: connection.tenantName ?? null },
+      response_payload: { xero_tenant_id: xeroTenantId, xero_tenant_name: connection.tenantName ?? null },
     })
 
     return NextResponse.redirect(new URL(integrationRedirect("connected"), request.url))

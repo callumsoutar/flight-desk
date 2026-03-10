@@ -50,8 +50,9 @@ export async function GET(request: NextRequest) {
     path: "/",
   })
 
-  // Absolute minimum scope to isolate "Invalid scope for client" — expand once connect works
-  const scope = "openid offline_access"
+  // Full scopes for invoice export + Chart of Accounts sync. Minimal scopes (openid offline_access) don't allow org connection.
+  const scope =
+    "openid profile email accounting.transactions accounting.contacts accounting.settings.read offline_access"
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,

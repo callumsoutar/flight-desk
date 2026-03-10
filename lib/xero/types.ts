@@ -1,6 +1,7 @@
 export type XeroConnectionPayload = {
   id: string
-  tenantName: string
+  tenantId: string
+  tenantName?: string | null
   tenantType: string
   createdDateUtc: string
   updatedDateUtc: string
