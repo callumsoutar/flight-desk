@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
 import { getAuthSession } from "@/lib/auth/session"
@@ -22,7 +22,7 @@ function encodeStatePayload(payload: XeroStatePayload) {
   return Buffer.from(JSON.stringify(payload)).toString("base64url")
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await getAuthSession(supabase, {
     requireUser: true,
@@ -50,16 +50,34 @@ export async function GET() {
     path: "/",
   })
 
-  // Minimal scopes that work with new Xero Web apps. Add accounting.settings.read for Sync Accounts if needed.
+  // Absolute minimum scope to isolate "Invalid scope for client" — expand once connect works
+  const scope = "openid offline_access"
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: "openid profile email accounting.transactions accounting.contacts offline_access",
+    scope,
     state: encodedState,
   })
 
-  return NextResponse.redirect(
-    `https://login.xero.com/identity/connect/authorize?${params.toString()}`
-  )
+  const authorizeUrl = `https://login.xero.com/identity/connect/authorize?${params.toString()}`
+
+  // ?debug=1 returns troubleshoot info instead of redirecting (admin only)
+  if (request.nextUrl.searchParams.get("debug") === "1") {
+    return NextResponse.json({
+      message: "Xero OAuth debug — verify these match your Xero app",
+      client_id: clientId,
+      client_id_length: clientId.length,
+      redirect_uri: redirectUri,
+      scope,
+      authorize_url: authorizeUrl,
+      checklist: [
+        "Xero Developer Portal → Your app → Redirect URIs must contain EXACTLY: " + redirectUri,
+        "No trailing slash, no extra path. Character-for-character match.",
+        "Client ID above must match the app you created.",
+      ],
+    })
+  }
+
+  return NextResponse.redirect(authorizeUrl)
 }
