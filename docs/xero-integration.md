@@ -343,7 +343,7 @@ Xero uses OAuth 2.0 with PKCE. The flow is:
 - Generates a cryptographically random `state` value, stores it in an httpOnly cookie
 - State payload: `{ tenantId, nonce, timestamp }`
 - Redirects to: `https://login.xero.com/identity/connect/authorize`
-- Scopes: `openid profile email accounting.transactions accounting.contacts accounting.settings offline_access`
+- Scopes: `openid profile email accounting.invoices accounting.contacts accounting.settings.read offline_access`
 
 ### 4.3 Callback Endpoint
 
@@ -1004,10 +1004,9 @@ XERO_CLIENT_SECRET=your_client_secret
 XERO_REDIRECT_URI=http://localhost:3000/api/xero/callback
 
 # Optional: override scopes if your app gets "Invalid scope for client".
-# Default: openid profile email accounting.transactions accounting.contacts accounting.settings.read offline_access
-# If full scopes fail, try narrowing (e.g. openid profile email accounting.transactions offline_access)
-# or contact Xero support to enable scopes for your Client ID.
-# XERO_SCOPES=openid profile email accounting.transactions offline_access
+# Default (apps created Mar 2026+ use granular scopes):
+#   openid profile email accounting.invoices accounting.contacts accounting.settings.read offline_access
+# XERO_SCOPES=openid profile email accounting.invoices accounting.contacts accounting.settings.read offline_access
 ```
 
 These are **server-side only** — no `NEXT_PUBLIC_` prefix.
@@ -1481,7 +1480,7 @@ Before implementation, register the app in the Xero Developer Portal:
 2. Create a new app (type: "Web App")
 3. Set redirect URI to match `XERO_REDIRECT_URI`
 4. Note the Client ID and Client Secret
-5. Add required scopes: `openid profile email accounting.transactions accounting.contacts accounting.settings offline_access`
+5. Add required scopes (apps created Mar 2026+ use granular): `openid profile email accounting.invoices accounting.contacts accounting.settings.read offline_access`
 
 ### Appendix C.1: Local development with HTTPS tunnel (when portal requires HTTPS)
 

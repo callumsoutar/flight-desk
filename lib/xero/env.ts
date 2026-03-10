@@ -1,5 +1,6 @@
+// Apps created 2 March 2026+ use granular scopes. Old broad scope accounting.transactions is deprecated.
 const DEFAULT_XERO_SCOPES =
-  "openid profile email accounting.transactions accounting.contacts accounting.settings.read offline_access"
+  "openid profile email accounting.invoices accounting.contacts accounting.settings.read offline_access"
 
 export function getXeroEnv() {
   const clientId = process.env.XERO_CLIENT_ID
