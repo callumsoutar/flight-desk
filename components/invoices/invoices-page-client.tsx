@@ -11,6 +11,7 @@ import type {
 
 type Props = {
   invoices: InvoiceWithRelations[]
+  xeroEnabled?: boolean
 }
 
 function matchesSearch(invoice: InvoiceWithRelations, search: string | undefined) {
@@ -29,7 +30,7 @@ function matchesSearch(invoice: InvoiceWithRelations, search: string | undefined
   )
 }
 
-export function InvoicesPageClient({ invoices }: Props) {
+export function InvoicesPageClient({ invoices, xeroEnabled = false }: Props) {
   const [activeTab, setActiveTab] = React.useState("all")
   const [filters, setFilters] = React.useState<InvoicesFilter>({})
 
@@ -69,6 +70,7 @@ export function InvoicesPageClient({ invoices }: Props) {
   return (
     <InvoicesTable
       invoices={filteredInvoices}
+      xeroEnabled={xeroEnabled}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       tabCounts={tabCounts}

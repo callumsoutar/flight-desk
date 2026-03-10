@@ -7,6 +7,7 @@ import {
   IconCreditCard,
   IconCurrencyDollar,
   IconFileInvoice,
+  IconPlugConnected,
   IconSchool,
   IconSettings,
 } from "@tabler/icons-react"
@@ -16,6 +17,7 @@ import { BookingsTab } from "@/components/settings/bookings-tab"
 import { GeneralTab } from "@/components/settings/general-tab"
 import { InvoicingTab } from "@/components/settings/invoicing-tab"
 import { MembershipsTab } from "@/components/settings/memberships-tab"
+import { IntegrationsTab } from "@/components/settings/integrations-tab"
 import { TrainingTab } from "@/components/settings/training-tab"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -27,6 +29,7 @@ import {
 } from "@/components/ui/select"
 import type { GeneralSettings } from "@/lib/settings/general-settings"
 import type { InvoicingSettings } from "@/lib/settings/invoicing-settings"
+import type { XeroSettings } from "@/lib/settings/xero-settings"
 import { cn } from "@/lib/utils"
 
 const tabs = [
@@ -36,6 +39,7 @@ const tabs = [
   { id: "bookings", label: "Bookings", icon: IconCalendar },
   { id: "training", label: "Training", icon: IconSchool },
   { id: "memberships", label: "Memberships", icon: IconCreditCard },
+  { id: "integrations", label: "Integrations", icon: IconPlugConnected },
 ]
 
 export function SettingsPageClient({
@@ -44,12 +48,22 @@ export function SettingsPageClient({
   generalLoadError,
   initialInvoicingSettings,
   invoicingLoadError,
+  initialXeroSettings,
+  xeroLoadError,
+  xeroConnectionStatus,
 }: {
   canManageSettings: boolean
   initialGeneralSettings: GeneralSettings | null
   generalLoadError: string | null
   initialInvoicingSettings: InvoicingSettings | null
   invoicingLoadError: string | null
+  initialXeroSettings: XeroSettings | null
+  xeroLoadError: string | null
+  xeroConnectionStatus: {
+    connected: boolean
+    xero_tenant_name: string | null
+    connected_at: string | null
+  }
 }) {
   const [activeTab, setActiveTab] = React.useState("general")
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
@@ -228,6 +242,13 @@ export function SettingsPageClient({
               </Tabs.Content>
               <Tabs.Content value="memberships">
                 <MembershipsTab />
+              </Tabs.Content>
+              <Tabs.Content value="integrations">
+                <IntegrationsTab
+                  initialXeroSettings={initialXeroSettings}
+                  xeroLoadError={xeroLoadError}
+                  xeroConnectionStatus={xeroConnectionStatus}
+                />
               </Tabs.Content>
             </div>
           </Tabs.Root>

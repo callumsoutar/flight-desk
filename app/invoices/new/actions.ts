@@ -95,7 +95,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
 
   const { data: chargeables, error: chargeablesError } = await supabase
     .from("chargeables")
-    .select("id, name, is_taxable")
+    .select("id, name, is_taxable, xero_tax_type, chargeable_type_id")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .is("voided_at", null)
@@ -106,6 +106,28 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   }
 
   const chargeableMap = new Map((chargeables ?? []).map((row) => [row.id, row]))
+
+  const chargeableTypeIds = Array.from(
+    new Set(
+      (chargeables ?? [])
+        .map((row) => row.chargeable_type_id)
+        .filter((value): value is string => typeof value === "string")
+    )
+  )
+  const { data: chargeableTypes, error: chargeableTypesError } = chargeableTypeIds.length
+    ? await supabase
+        .from("chargeable_types")
+        .select("id, gl_code")
+        .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+        .in("id", chargeableTypeIds)
+    : { data: [], error: null }
+
+  if (chargeableTypesError) {
+    return { ok: false as const, error: "Failed to resolve chargeable type GL codes" }
+  }
+  const chargeableTypeGlCodeMap = new Map(
+    (chargeableTypes ?? []).map((type) => [type.id, type.gl_code ?? null])
+  )
 
   for (const chargeableId of chargeableIds) {
     if (!chargeableMap.has(chargeableId)) {
@@ -130,6 +152,8 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
     return {
       chargeable_id: chargeable.id,
       description: chargeable.name,
+      gl_code: chargeableTypeGlCodeMap.get(chargeable.chargeable_type_id) ?? null,
+      xero_tax_type: chargeable.xero_tax_type ?? null,
       quantity: item.quantity,
       unit_price: unitPrice,
       tax_rate: taxRate,

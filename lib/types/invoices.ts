@@ -9,6 +9,10 @@ export type InvoiceUserLite = Pick<
 
 export type InvoiceWithRelations = InvoiceRow & {
   user: InvoiceUserLite | null
+  xero_export_status?: Database["public"]["Enums"]["xero_export_status"] | null
+  xero_invoice_id?: string | null
+  xero_exported_at?: string | null
+  xero_error_message?: string | null
 }
 
 export type InvoicesFilter = {

@@ -32,13 +32,23 @@ type InstructionType = "dual" | "solo" | "trial"
 
 type FlightType = Pick<
   FlightTypesRow,
-  "id" | "name" | "description" | "instruction_type" | "is_active" | "is_default_solo" | "updated_at"
+  | "id"
+  | "name"
+  | "description"
+  | "instruction_type"
+  | "aircraft_gl_code"
+  | "instructor_gl_code"
+  | "is_active"
+  | "is_default_solo"
+  | "updated_at"
 >
 
 type FlightTypeFormData = {
   name: string
   description: string
   instruction_type: InstructionType
+  aircraft_gl_code: string
+  instructor_gl_code: string
   is_active: boolean
 }
 
@@ -86,6 +96,8 @@ export function FlightTypesConfig() {
     name: "",
     description: "",
     instruction_type: "dual",
+    aircraft_gl_code: "",
+    instructor_gl_code: "",
     is_active: true,
   })
 
@@ -111,6 +123,8 @@ export function FlightTypesConfig() {
       name: "",
       description: "",
       instruction_type: "dual",
+      aircraft_gl_code: "",
+      instructor_gl_code: "",
       is_active: true,
     })
   }, [])
@@ -121,6 +135,8 @@ export function FlightTypesConfig() {
       name: flightType.name ?? "",
       description: flightType.description ?? "",
       instruction_type: (flightType.instruction_type as InstructionType) ?? "dual",
+      aircraft_gl_code: flightType.aircraft_gl_code ?? "",
+      instructor_gl_code: flightType.instructor_gl_code ?? "",
       is_active: Boolean(flightType.is_active),
     })
     setIsEditDialogOpen(true)
@@ -153,6 +169,9 @@ export function FlightTypesConfig() {
           name: formData.name,
           description: formData.description,
           instruction_type: formData.instruction_type,
+          aircraft_gl_code: formData.aircraft_gl_code || null,
+          instructor_gl_code:
+            formData.instruction_type === "solo" ? null : formData.instructor_gl_code || null,
           is_active: formData.is_active,
         }),
       })
@@ -189,6 +208,9 @@ export function FlightTypesConfig() {
           name: formData.name,
           description: formData.description,
           instruction_type: formData.instruction_type,
+          aircraft_gl_code: formData.aircraft_gl_code || null,
+          instructor_gl_code:
+            formData.instruction_type === "solo" ? null : formData.instructor_gl_code || null,
           is_active: formData.is_active,
         }),
       })
@@ -354,6 +376,39 @@ export function FlightTypesConfig() {
                   </div>
                 </div>
               </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Aircraft GL code
+                  </Label>
+                  <Input
+                    value={formData.aircraft_gl_code}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, aircraft_gl_code: e.target.value }))
+                    }
+                    className="h-11 rounded-xl border-slate-200 bg-white"
+                    placeholder="e.g. 4100"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Instructor GL code
+                  </Label>
+                  <Input
+                    value={formData.instructor_gl_code}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, instructor_gl_code: e.target.value }))
+                    }
+                    className="h-11 rounded-xl border-slate-200 bg-white"
+                    placeholder={
+                      formData.instruction_type === "solo" ? "Not required for solo" : "e.g. 4200"
+                    }
+                    disabled={formData.instruction_type === "solo"}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-border/40 bg-white px-6 py-4">
@@ -369,7 +424,11 @@ export function FlightTypesConfig() {
                 </Button>
                 <Button
                   onClick={handleAdd}
-                  disabled={saving || !formData.name.trim()}
+                  disabled={
+                    saving ||
+                    !formData.name.trim() ||
+                    (formData.instruction_type !== "solo" && !formData.instructor_gl_code.trim())
+                  }
                   className="h-10 rounded-xl bg-slate-900 font-semibold text-white hover:bg-slate-800"
                 >
                   Create
@@ -400,6 +459,8 @@ export function FlightTypesConfig() {
               <TableRow className="bg-slate-50 hover:bg-slate-50">
                 <TableHead className="font-semibold text-slate-700">Name</TableHead>
                 <TableHead className="font-semibold text-slate-700">Instruction type</TableHead>
+                <TableHead className="font-semibold text-slate-700">Aircraft GL</TableHead>
+                <TableHead className="font-semibold text-slate-700">Instructor GL</TableHead>
                 <TableHead className="font-semibold text-slate-700">Status</TableHead>
                 <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
               </TableRow>
@@ -426,6 +487,12 @@ export function FlightTypesConfig() {
                     <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold">
                       {formatInstructionType(flightType.instruction_type)}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-slate-600">{flightType.aircraft_gl_code || "—"}</TableCell>
+                  <TableCell className="text-slate-600">
+                    {flightType.instruction_type === "solo"
+                      ? "N/A"
+                      : flightType.instructor_gl_code || "—"}
                   </TableCell>
                   <TableCell>
                     <span
@@ -532,6 +599,41 @@ export function FlightTypesConfig() {
                                 </div>
                               </div>
                             </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                  Aircraft GL code
+                                </Label>
+                                <Input
+                                  value={formData.aircraft_gl_code}
+                                  onChange={(e) =>
+                                    setFormData((prev) => ({ ...prev, aircraft_gl_code: e.target.value }))
+                                  }
+                                  className="h-11 rounded-xl border-slate-200 bg-white"
+                                  placeholder="e.g. 4100"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                  Instructor GL code
+                                </Label>
+                                <Input
+                                  value={formData.instructor_gl_code}
+                                  onChange={(e) =>
+                                    setFormData((prev) => ({ ...prev, instructor_gl_code: e.target.value }))
+                                  }
+                                  className="h-11 rounded-xl border-slate-200 bg-white"
+                                  placeholder={
+                                    formData.instruction_type === "solo"
+                                      ? "Not required for solo"
+                                      : "e.g. 4200"
+                                  }
+                                  disabled={formData.instruction_type === "solo"}
+                                />
+                              </div>
+                            </div>
                           </div>
 
                           <div className="border-t border-border/40 bg-white px-6 py-4">
@@ -551,7 +653,12 @@ export function FlightTypesConfig() {
                               </Button>
                               <Button
                                 onClick={handleEdit}
-                                disabled={saving || !formData.name.trim()}
+                                disabled={
+                                  saving ||
+                                  !formData.name.trim() ||
+                                  (formData.instruction_type !== "solo" &&
+                                    !formData.instructor_gl_code.trim())
+                                }
                                 className="h-10 rounded-xl bg-slate-900 font-semibold text-white hover:bg-slate-800"
                               >
                                 Save changes

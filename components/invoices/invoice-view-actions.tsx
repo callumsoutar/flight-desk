@@ -6,6 +6,7 @@ import {
   Calendar,
   ChevronDown,
   Download,
+  ExternalLink,
   Loader2,
   Mail,
   PlusCircle,
@@ -38,6 +39,7 @@ export type InvoiceViewActionsProps = {
   status?: string | null
   billToEmail?: string | null
   bookingId?: string | null
+  xeroEnabled?: boolean
   onPaymentSuccess?: () => void
 }
 
@@ -49,6 +51,7 @@ export default function InvoiceViewActions({
   status,
   billToEmail,
   bookingId,
+  xeroEnabled = false,
   onPaymentSuccess,
 }: InvoiceViewActionsProps) {
   const router = useRouter()
@@ -60,6 +63,8 @@ export default function InvoiceViewActions({
   const canEmail = Boolean(billToEmail)
   const hasBalanceDue = typeof invoice.balanceDue === "number" ? invoice.balanceDue > 0 : true
   const canRecordPayment = (status === "pending" || status === "overdue") && hasBalanceDue
+  const canExportToXero =
+    xeroEnabled && (status === "pending" || status === "paid" || status === "overdue")
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
@@ -162,6 +167,28 @@ export default function InvoiceViewActions({
               <DropdownMenuItem onSelect={() => setPaymentOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Record Payment
+              </DropdownMenuItem>
+            ) : null}
+
+            {canExportToXero ? (
+              <DropdownMenuItem
+                onSelect={async (event) => {
+                  event.preventDefault()
+                  const response = await fetch("/api/xero/export-invoices", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ invoiceIds: [invoiceId] }),
+                  })
+                  if (!response.ok) {
+                    toast.error("Failed to export to Xero")
+                    return
+                  }
+                  toast.success("Export sent to Xero")
+                  router.refresh()
+                }}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Export to Xero
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>

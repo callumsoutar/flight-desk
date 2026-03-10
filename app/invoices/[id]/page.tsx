@@ -10,6 +10,7 @@ import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceDetail } from "@/lib/invoices/fetch-invoice-detail"
 import { fetchInvoicingSettings } from "@/lib/invoices/fetch-invoicing-settings"
 import { DEFAULT_INVOICING_SETTINGS } from "@/lib/invoices/invoicing-settings"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
@@ -45,14 +46,46 @@ async function InvoiceDetailContent({
 
   const loadErrors: string[] = []
   let settings = DEFAULT_INVOICING_SETTINGS
+  let xeroEnabled = false
+  let xeroStatus: {
+    export_status: "pending" | "exported" | "failed"
+    xero_invoice_id: string | null
+    exported_at: string | null
+    error_message: string | null
+  } | null = null
   try {
     settings = await fetchInvoicingSettings(supabase, tenantId)
   } catch {
     loadErrors.push("invoicing settings")
   }
 
+  try {
+    const xeroSettings = await fetchXeroSettings(supabase, tenantId)
+    xeroEnabled = xeroSettings.enabled
+  } catch {
+    xeroEnabled = false
+  }
+
   if (!detail.invoice) {
     notFound()
+  }
+
+  if (xeroEnabled) {
+    const { data: xeroRow } = await supabase
+      .from("xero_invoices")
+      .select("export_status, xero_invoice_id, exported_at, error_message")
+      .eq("tenant_id", tenantId)
+      .eq("invoice_id", detail.invoice.id)
+      .maybeSingle()
+
+    if (xeroRow) {
+      xeroStatus = {
+        export_status: xeroRow.export_status,
+        xero_invoice_id: xeroRow.xero_invoice_id,
+        exported_at: xeroRow.exported_at,
+        error_message: xeroRow.error_message,
+      }
+    }
   }
 
   return (
@@ -62,6 +95,8 @@ async function InvoiceDetailContent({
       settings={settings}
       loadErrors={loadErrors}
       canApproveDraft={canApproveDraft}
+      xeroEnabled={xeroEnabled}
+      xeroStatus={xeroStatus}
     />
   )
 }

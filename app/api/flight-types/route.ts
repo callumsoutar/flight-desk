@@ -17,6 +17,8 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(1200).optional().nullable(),
   instruction_type: instructionTypeSchema,
+  aircraft_gl_code: z.string().trim().max(20).optional().nullable(),
+  instructor_gl_code: z.string().trim().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
 })
 
@@ -25,6 +27,8 @@ const updateSchema = z.object({
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(1200).optional().nullable(),
   instruction_type: instructionTypeSchema.optional(),
+  aircraft_gl_code: z.string().trim().max(20).optional().nullable(),
+  instructor_gl_code: z.string().trim().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
 })
 
@@ -62,7 +66,9 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("flight_types")
-    .select("id, name, description, instruction_type, is_active, is_default_solo, updated_at")
+    .select(
+      "id, name, description, instruction_type, aircraft_gl_code, instructor_gl_code, is_active, is_default_solo, updated_at"
+    )
     .eq("tenant_id", tenantId)
     .is("voided_at", null)
     .order("name", { ascending: true })
@@ -107,6 +113,12 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = parsed.data
+  if (payload.instruction_type !== "solo" && !normalizeNullableString(payload.instructor_gl_code)) {
+    return NextResponse.json(
+      { error: "Instructor GL code is required for dual/trial flight types" },
+      { status: 400 }
+    )
+  }
 
   const { data, error } = await supabase
     .from("flight_types")
@@ -115,6 +127,9 @@ export async function POST(request: NextRequest) {
       name: payload.name.trim(),
       description: normalizeNullableString(payload.description),
       instruction_type: payload.instruction_type,
+      aircraft_gl_code: normalizeNullableString(payload.aircraft_gl_code),
+      instructor_gl_code:
+        payload.instruction_type === "solo" ? null : normalizeNullableString(payload.instructor_gl_code),
       is_active: payload.is_active ?? true,
       is_default_solo: false,
     })
@@ -159,6 +174,12 @@ export async function PUT(request: NextRequest) {
   if (rest.name !== undefined) updateData.name = rest.name.trim()
   if (rest.description !== undefined) updateData.description = normalizeNullableString(rest.description)
   if (rest.instruction_type !== undefined) updateData.instruction_type = rest.instruction_type
+  if (rest.aircraft_gl_code !== undefined) {
+    updateData.aircraft_gl_code = normalizeNullableString(rest.aircraft_gl_code)
+  }
+  if (rest.instructor_gl_code !== undefined) {
+    updateData.instructor_gl_code = normalizeNullableString(rest.instructor_gl_code)
+  }
   if (rest.is_active !== undefined) updateData.is_active = rest.is_active
 
   if (!Object.keys(updateData).length) {
@@ -167,7 +188,7 @@ export async function PUT(request: NextRequest) {
 
   const { data: existing, error: existingError } = await supabase
     .from("flight_types")
-    .select("id")
+    .select("id, instruction_type, instructor_gl_code")
     .eq("tenant_id", tenantId)
     .eq("id", id)
     .is("voided_at", null)
@@ -175,6 +196,22 @@ export async function PUT(request: NextRequest) {
 
   if (existingError || !existing) {
     return NextResponse.json({ error: "Flight type not found" }, { status: 404 })
+  }
+
+  const nextInstructionType =
+    (updateData.instruction_type as "dual" | "solo" | "trial" | undefined) ??
+    (existing.instruction_type as "dual" | "solo" | "trial")
+  const nextInstructorGlCode =
+    (updateData.instructor_gl_code as string | null | undefined) ?? existing.instructor_gl_code
+
+  if (nextInstructionType !== "solo" && !nextInstructorGlCode) {
+    return NextResponse.json(
+      { error: "Instructor GL code is required for dual/trial flight types" },
+      { status: 400 }
+    )
+  }
+  if (nextInstructionType === "solo") {
+    updateData.instructor_gl_code = null
   }
 
   const { error } = await supabase

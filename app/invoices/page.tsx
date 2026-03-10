@@ -7,6 +7,7 @@ import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-r
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoices } from "@/lib/invoices/fetch-invoices"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
 
@@ -15,6 +16,7 @@ async function InvoicesContent({ tenantId }: { tenantId: string }) {
 
   let invoices: InvoiceWithRelations[] = []
   let loadError: string | null = null
+  let xeroEnabled = false
 
   try {
     invoices = await fetchInvoices(supabase, tenantId)
@@ -23,10 +25,17 @@ async function InvoicesContent({ tenantId }: { tenantId: string }) {
     loadError = "Failed to load invoices."
   }
 
+  try {
+    const xeroSettings = await fetchXeroSettings(supabase, tenantId)
+    xeroEnabled = xeroSettings.enabled
+  } catch {
+    xeroEnabled = false
+  }
+
   return (
     <>
       {loadError ? <div className="text-sm text-muted-foreground">{loadError}</div> : null}
-      <InvoicesPageClient invoices={invoices} />
+      <InvoicesPageClient invoices={invoices} xeroEnabled={xeroEnabled} />
     </>
   )
 }

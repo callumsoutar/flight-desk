@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import type {
   InvoicesFilter,
   InvoiceStatus,
@@ -81,6 +82,28 @@ export async function fetchInvoices(
     ...row,
     user: pickMaybeOne(row.user),
   }))
+
+  const xeroEnabled = await fetchXeroSettings(supabase, tenantId)
+    .then((settings) => settings.enabled)
+    .catch(() => false)
+
+  if (xeroEnabled && normalized.length > 0) {
+    const invoiceIds = normalized.map((invoice) => invoice.id)
+    const { data: xeroStatuses } = await supabase
+      .from("xero_invoices")
+      .select("invoice_id, export_status, xero_invoice_id, exported_at, error_message")
+      .eq("tenant_id", tenantId)
+      .in("invoice_id", invoiceIds)
+
+    const statusMap = new Map((xeroStatuses ?? []).map((row) => [row.invoice_id, row]))
+    for (const invoice of normalized) {
+      const status = statusMap.get(invoice.id)
+      invoice.xero_export_status = status?.export_status ?? null
+      invoice.xero_invoice_id = status?.xero_invoice_id ?? null
+      invoice.xero_exported_at = status?.exported_at ?? null
+      invoice.xero_error_message = status?.error_message ?? null
+    }
+  }
 
   const normalizedSearch = normalizeSearch(filters?.search)
 

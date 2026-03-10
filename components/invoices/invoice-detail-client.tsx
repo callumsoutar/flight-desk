@@ -9,6 +9,7 @@ import { approveDraftInvoiceAction } from "@/app/invoices/[id]/actions"
 import InvoiceActionsToolbar from "@/components/invoices/invoice-actions-toolbar"
 import InvoiceDocumentView from "@/components/invoices/invoice-document-view"
 import InvoiceViewActions from "@/components/invoices/invoice-view-actions"
+import { XeroInvoiceStatus } from "@/components/invoices/xero-invoice-status"
 import type { UserResult } from "@/components/invoices/member-select"
 import { Card } from "@/components/ui/card"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
@@ -25,12 +26,21 @@ export function InvoiceDetailClient({
   settings = DEFAULT_INVOICING_SETTINGS,
   loadErrors = [],
   canApproveDraft = false,
+  xeroEnabled = false,
+  xeroStatus = null,
 }: {
   invoice: InvoiceWithRelations
   items: InvoiceItemsRow[]
   settings?: InvoicingSettings
   loadErrors?: string[]
   canApproveDraft?: boolean
+  xeroEnabled?: boolean
+  xeroStatus?: {
+    export_status: "pending" | "exported" | "failed"
+    xero_invoice_id: string | null
+    exported_at: string | null
+    error_message: string | null
+  } | null
 }) {
   const router = useRouter()
   const [isApproving, startApproveTransition] = React.useTransition()
@@ -88,6 +98,7 @@ export function InvoiceDetailClient({
                   billToEmail={invoice.user?.email || selectedMember?.email || null}
                   status={invoice.status}
                   settings={settings}
+                  xeroEnabled={xeroEnabled}
                   bookingId={invoice.booking_id}
                   invoice={{
                     invoiceNumber: invoice.invoice_number || `#${invoice.id.slice(0, 8)}`,
@@ -173,6 +184,14 @@ export function InvoiceDetailClient({
               </details>
             </div>
           </Card>
+
+          <XeroInvoiceStatus
+            invoiceId={invoice.id}
+            invoiceStatus={invoice.status}
+            xeroEnabled={xeroEnabled}
+            status={xeroStatus}
+            onRefresh={() => router.refresh()}
+          />
         </div>
       </div>
     </div>

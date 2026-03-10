@@ -1,10 +1,3 @@
-/**
- * Supabase database types — auto-generated from project schema.
- * Regenerate when the schema changes:
- *   npx supabase gen types typescript --project-id fergmobsjyucucxeumvb > lib/types/database.ts
- * Or use the Supabase MCP: generate_typescript_types for project fergmobsjyucucxeumvb
- */
-
 export type Json =
   | string
   | number
@@ -67,7 +60,7 @@ export type Database = {
           model?: string | null
           notes?: string | null
           on_line?: boolean
-          order?: number
+          order: number
           prioritise_scheduling?: boolean
           record_airswitch?: boolean
           record_hobbs?: boolean
@@ -175,6 +168,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "aircraft_charge_rates_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
+          },
+          {
             foreignKeyName: "aircraft_charge_rates_flight_type_id_fkey"
             columns: ["flight_type_id"]
             isOneToOne: false
@@ -266,11 +266,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "aircraft_components_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
+          },
+          {
             foreignKeyName: "aircraft_components_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      aircraft_ttis_audit: {
+        Row: {
+          aircraft_id: string
+          booking_id: string | null
+          created_at: string | null
+          id: string
+          new_hobbs: number | null
+          new_tach: number | null
+          new_ttis: number | null
+          old_hobbs: number | null
+          old_tach: number | null
+          old_ttis: number | null
+          source: string | null
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          aircraft_id: string
+          booking_id?: string | null
+          created_at?: string | null
+          id?: string
+          new_hobbs?: number | null
+          new_tach?: number | null
+          new_ttis?: number | null
+          old_hobbs?: number | null
+          old_tach?: number | null
+          old_ttis?: number | null
+          source?: string | null
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          aircraft_id?: string
+          booking_id?: string | null
+          created_at?: string | null
+          id?: string
+          new_hobbs?: number | null
+          new_tach?: number | null
+          new_ttis?: number | null
+          old_hobbs?: number | null
+          old_tach?: number | null
+          old_ttis?: number | null
+          source?: string | null
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aircraft_ttis_audit_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aircraft_ttis_audit_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
           },
         ]
       }
@@ -555,6 +625,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
+          },
+          {
             foreignKeyName: "bookings_cancellation_category_id_fkey"
             columns: ["cancellation_category_id"]
             isOneToOne: false
@@ -581,6 +658,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aircraft"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_checked_out_aircraft_id_fkey"
+            columns: ["checked_out_aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
           },
           {
             foreignKeyName: "bookings_checked_out_instructor_id_fkey"
@@ -686,6 +770,7 @@ export type Database = {
           code: string
           created_at: string | null
           description: string | null
+          gl_code: string | null
           id: string
           is_active: boolean | null
           is_global: boolean
@@ -698,6 +783,7 @@ export type Database = {
           code: string
           created_at?: string | null
           description?: string | null
+          gl_code?: string | null
           id?: string
           is_active?: boolean | null
           is_global?: boolean
@@ -710,6 +796,7 @@ export type Database = {
           code?: string
           created_at?: string | null
           description?: string | null
+          gl_code?: string | null
           id?: string
           is_active?: boolean | null
           is_global?: boolean
@@ -733,6 +820,7 @@ export type Database = {
           chargeable_type_id: string
           created_at: string
           description: string | null
+          gl_code: string | null
           id: string
           is_active: boolean
           is_taxable: boolean | null
@@ -741,11 +829,13 @@ export type Database = {
           tenant_id: string
           updated_at: string
           voided_at: string | null
+          xero_tax_type: string | null
         }
         Insert: {
           chargeable_type_id: string
           created_at?: string
           description?: string | null
+          gl_code?: string | null
           id?: string
           is_active?: boolean
           is_taxable?: boolean | null
@@ -754,11 +844,13 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           voided_at?: string | null
+          xero_tax_type?: string | null
         }
         Update: {
           chargeable_type_id?: string
           created_at?: string
           description?: string | null
+          gl_code?: string | null
           id?: string
           is_active?: boolean
           is_taxable?: boolean | null
@@ -767,6 +859,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           voided_at?: string | null
+          xero_tax_type?: string | null
         }
         Relationships: [
           {
@@ -1384,10 +1477,12 @@ export type Database = {
       }
       flight_types: {
         Row: {
+          aircraft_gl_code: string | null
           created_at: string
           description: string | null
           id: string
           instruction_type: Database["public"]["Enums"]["instruction_type_enum"]
+          instructor_gl_code: string | null
           is_active: boolean
           is_default_solo: boolean | null
           name: string
@@ -1396,10 +1491,12 @@ export type Database = {
           voided_at: string | null
         }
         Insert: {
+          aircraft_gl_code?: string | null
           created_at?: string
           description?: string | null
           id?: string
           instruction_type?: Database["public"]["Enums"]["instruction_type_enum"]
+          instructor_gl_code?: string | null
           is_active?: boolean
           is_default_solo?: boolean | null
           name: string
@@ -1408,10 +1505,12 @@ export type Database = {
           voided_at?: string | null
         }
         Update: {
+          aircraft_gl_code?: string | null
           created_at?: string
           description?: string | null
           id?: string
           instruction_type?: Database["public"]["Enums"]["instruction_type_enum"]
+          instructor_gl_code?: string | null
           is_active?: boolean
           is_default_solo?: boolean | null
           name?: string
@@ -1639,6 +1738,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           description: string
+          gl_code: string | null
           id: string
           invoice_id: string
           line_total: number | null
@@ -1650,6 +1750,7 @@ export type Database = {
           tenant_id: string
           unit_price: number
           updated_at: string
+          xero_tax_type: string | null
         }
         Insert: {
           amount?: number
@@ -1658,6 +1759,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           description: string
+          gl_code?: string | null
           id?: string
           invoice_id: string
           line_total?: number | null
@@ -1669,6 +1771,7 @@ export type Database = {
           tenant_id?: string
           unit_price: number
           updated_at?: string
+          xero_tax_type?: string | null
         }
         Update: {
           amount?: number
@@ -1677,6 +1780,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string
+          gl_code?: string | null
           id?: string
           invoice_id?: string
           line_total?: number | null
@@ -1688,6 +1792,7 @@ export type Database = {
           tenant_id?: string
           unit_price?: number
           updated_at?: string
+          xero_tax_type?: string | null
         }
         Relationships: [
           {
@@ -2299,6 +2404,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "maintenance_visits_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
+          },
+          {
             foreignKeyName: "maintenance_visits_performed_by_fkey"
             columns: ["performed_by"]
             isOneToOne: false
@@ -2533,6 +2645,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aircraft"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observations_aircraft_id_fkey"
+            columns: ["aircraft_id"]
+            isOneToOne: false
+            referencedRelation: "aircraft_ttis_rollup"
+            referencedColumns: ["aircraft_id"]
           },
           {
             foreignKeyName: "observations_assigned_to_fkey"
@@ -3361,8 +3480,320 @@ export type Database = {
           },
         ]
       }
+      xero_accounts: {
+        Row: {
+          class: string | null
+          code: string | null
+          created_at: string
+          id: string
+          name: string
+          status: string | null
+          tenant_id: string
+          type: string | null
+          updated_at: string
+          xero_account_id: string
+        }
+        Insert: {
+          class?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          status?: string | null
+          tenant_id: string
+          type?: string | null
+          updated_at?: string
+          xero_account_id: string
+        }
+        Update: {
+          class?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string | null
+          tenant_id?: string
+          type?: string | null
+          updated_at?: string
+          xero_account_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xero_connections: {
+        Row: {
+          access_token: string
+          connected_by: string | null
+          created_at: string
+          id: string
+          refresh_token: string
+          scopes: string
+          tenant_id: string
+          token_expires_at: string
+          updated_at: string
+          xero_tenant_id: string
+          xero_tenant_name: string | null
+        }
+        Insert: {
+          access_token: string
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          refresh_token: string
+          scopes?: string
+          tenant_id: string
+          token_expires_at: string
+          updated_at?: string
+          xero_tenant_id: string
+          xero_tenant_name?: string | null
+        }
+        Update: {
+          access_token?: string
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          refresh_token?: string
+          scopes?: string
+          tenant_id?: string
+          token_expires_at?: string
+          updated_at?: string
+          xero_tenant_id?: string
+          xero_tenant_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xero_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+          xero_contact_id: string
+          xero_contact_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+          xero_contact_id: string
+          xero_contact_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+          xero_contact_id?: string
+          xero_contact_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_contacts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xero_export_logs: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          initiated_by: string | null
+          invoice_id: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          initiated_by?: string | null
+          invoice_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          initiated_by?: string | null
+          invoice_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_export_logs_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_export_logs_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_export_logs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_export_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xero_invoices: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          export_status: Database["public"]["Enums"]["xero_export_status"]
+          exported_at: string | null
+          id: string
+          invoice_id: string
+          tenant_id: string
+          updated_at: string
+          xero_invoice_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          export_status?: Database["public"]["Enums"]["xero_export_status"]
+          exported_at?: string | null
+          id?: string
+          invoice_id: string
+          tenant_id: string
+          updated_at?: string
+          xero_invoice_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          export_status?: Database["public"]["Enums"]["xero_export_status"]
+          exported_at?: string | null
+          id?: string
+          invoice_id?: string
+          tenant_id?: string
+          updated_at?: string
+          xero_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_invoices_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
+      aircraft_ttis_rollup: {
+        Row: {
+          aircraft_id: string | null
+          computed_ttis: number | null
+          current_hobbs: number | null
+          current_tach: number | null
+          discrepancy: number | null
+          flight_count: number | null
+          initial_ttis: number | null
+          ledger_delta_sum: number | null
+          registration: string | null
+          stored_ttis: number | null
+          tenant_id: string | null
+          total_time_method:
+            | Database["public"]["Enums"]["total_time_method"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aircraft_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_directory: {
         Row: {
           created_at: string | null
@@ -3380,8 +3811,8 @@ export type Database = {
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          phone?: never
-          public_email?: never
+          phone?: string | null
+          public_email?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -3390,77 +3821,44 @@ export type Database = {
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          phone?: never
-          public_email?: never
+          phone?: string | null
+          public_email?: string | null
           updated_at?: string | null
         }
         Relationships: []
       }
     }
     Functions: {
-      create_tenant_for_new_user: {
-        Args: { p_user_id: string; p_tenant_name: string }
-        Returns: string
-      }
       apply_credit_note_atomic: {
         Args: { p_applied_by: string; p_credit_note_id: string }
         Returns: Json
       }
-      approve_booking_checkin_atomic:
-        | {
-            Args: {
-              p_actual_end: string | null
-              p_actual_start: string | null
-              p_airswitch_end: number | null
-              p_airswitch_start: number | null
-              p_billing_basis: string
-              p_billing_hours: number
-              p_booking_id: string
-              p_checked_out_aircraft_id: string
-              p_checked_out_instructor_id: string | null
-              p_dual_time: number | null
-              p_due_date?: string | null
-              p_flight_type_id: string
-              p_hobbs_end: number | null
-              p_hobbs_start: number | null
-              p_items?: Json
-              p_notes?: string | null
-              p_reference?: string | null
-              p_solo_end_hobbs: number | null
-              p_solo_end_tach: number | null
-              p_solo_time: number | null
-              p_tach_end: number | null
-              p_tach_start: number | null
-              p_tax_rate?: number | null
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_airswitch_end: number | null
-              p_airswitch_start: number | null
-              p_billing_basis: string
-              p_billing_hours: number
-              p_booking_id: string
-              p_checked_out_aircraft_id: string
-              p_checked_out_instructor_id: string | null
-              p_dual_time: number | null
-              p_due_date?: string | null
-              p_flight_type_id: string
-              p_hobbs_end: number | null
-              p_hobbs_start: number | null
-              p_items?: Json
-              p_notes?: string | null
-              p_reference?: string | null
-              p_solo_end_hobbs: number | null
-              p_solo_end_tach: number | null
-              p_solo_time: number | null
-              p_tach_end: number | null
-              p_tach_start: number | null
-              p_tax_rate?: number | null
-            }
-            Returns: Json
-          }
+      approve_booking_checkin_atomic: {
+        Args: {
+          p_airswitch_end: number
+          p_airswitch_start: number
+          p_billing_basis: string
+          p_billing_hours: number
+          p_booking_id: string
+          p_checked_out_aircraft_id: string
+          p_checked_out_instructor_id: string
+          p_dual_time: number
+          p_due_date?: string
+          p_flight_type_id: string
+          p_hobbs_end: number
+          p_hobbs_start: number
+          p_items?: Json
+          p_notes?: string
+          p_reference?: string
+          p_solo_end_hobbs: number
+          p_solo_end_tach: number
+          p_solo_time: number
+          p_tach_end: number
+          p_tach_start: number
+          p_tax_rate?: number
+        }
+        Returns: Json
+      }
       begin_transaction: { Args: never; Returns: string }
       calculate_applied_aircraft_delta: {
         Args: { p_hobbs_delta: number; p_method: string; p_tach_delta: number }
@@ -3539,6 +3937,10 @@ export type Database = {
         }
         Returns: Json
       }
+      create_tenant_for_new_user: {
+        Args: { p_tenant_name: string; p_user_id: string }
+        Returns: string
+      }
       current_user_is_staff: { Args: never; Returns: boolean }
       equipment_update_summary: {
         Args: never
@@ -3556,64 +3958,41 @@ export type Database = {
           type: Database["public"]["Enums"]["equipment_type"]
         }[]
       }
-      finalize_booking_checkin_with_invoice_atomic:
-        | {
-            Args: {
-              p_actual_end: string
-              p_actual_start: string
-              p_airswitch_end: number
-              p_airswitch_start: number
-              p_billing_basis: string
-              p_billing_hours: number
-              p_booking_id: string
-              p_checked_out_aircraft_id: string
-              p_checked_out_instructor_id: string
-              p_dual_time: number
-              p_flight_type_id: string
-              p_hobbs_end: number
-              p_hobbs_start: number
-              p_invoice_id: string
-              p_solo_end_hobbs: number
-              p_solo_end_tach: number
-              p_solo_time: number
-              p_tach_end: number
-              p_tach_start: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_airswitch_end: number
-              p_airswitch_start: number
-              p_billing_basis: string
-              p_billing_hours: number
-              p_booking_id: string
-              p_checked_out_aircraft_id: string
-              p_checked_out_instructor_id: string
-              p_dual_time: number
-              p_flight_type_id: string
-              p_hobbs_end: number
-              p_hobbs_start: number
-              p_invoice_id: string
-              p_solo_end_hobbs: number
-              p_solo_end_tach: number
-              p_solo_time: number
-              p_tach_end: number
-              p_tach_start: number
-            }
-            Returns: Json
-          }
+      finalize_booking_checkin_with_invoice_atomic: {
+        Args: {
+          p_airswitch_end: number
+          p_airswitch_start: number
+          p_billing_basis: string
+          p_billing_hours: number
+          p_booking_id: string
+          p_checked_out_aircraft_id: string
+          p_checked_out_instructor_id: string
+          p_dual_time: number
+          p_flight_type_id: string
+          p_hobbs_end: number
+          p_hobbs_start: number
+          p_invoice_id: string
+          p_solo_end_hobbs: number
+          p_solo_end_tach: number
+          p_solo_time: number
+          p_tach_end: number
+          p_tach_start: number
+        }
+        Returns: Json
+      }
       find_aircraft_with_suspicious_ttis: {
         Args: never
         Returns: {
           aircraft_id: string
-          first_flight_date: string
+          discrepancy: number
           flights_count: number
+          ledger_sum: number
           registration: string
           total_time_in_service: number
         }[]
       }
       flatten_settings: { Args: { nested_settings: Json }; Returns: Json }
+      flightdesk_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_credit_note_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_invoice_number_app: { Args: never; Returns: string }
@@ -3804,6 +4183,17 @@ export type Database = {
         Args: { p_amount: number; p_notes?: string; p_payment_id: string }
         Returns: string
       }
+      recompute_aircraft_ttis_from_ledger: {
+        Args: { p_aircraft_id?: string }
+        Returns: {
+          aircraft_id: string
+          discrepancy: number
+          flights_count: number
+          ledger_sum: number
+          registration: string
+          stored_ttis: number
+        }[]
+      }
       record_invoice_payment_atomic: {
         Args: {
           p_amount: number
@@ -3851,6 +4241,14 @@ export type Database = {
         Returns: boolean
       }
       uncancel_booking: { Args: { p_booking_id: string }; Returns: string }
+      update_aircraft_current_meters: {
+        Args: {
+          p_aircraft_id: string
+          p_current_hobbs?: number
+          p_current_tach?: number
+        }
+        Returns: Json
+      }
       update_invoice_status_atomic: {
         Args: {
           p_invoice_id: string
@@ -3997,6 +4395,7 @@ export type Database = {
         | "refunded"
       transaction_type: "credit" | "debit" | "refund" | "adjustment"
       user_role: "admin" | "instructor" | "member" | "student" | "owner"
+      xero_export_status: "pending" | "exported" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4230,6 +4629,7 @@ export const Constants = {
       ],
       transaction_type: ["credit", "debit", "refund", "adjustment"],
       user_role: ["admin", "instructor", "member", "student", "owner"],
+      xero_export_status: ["pending", "exported", "failed"],
     },
   },
 } as const

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FlightTypesConfig } from "@/components/settings/charges/flight-types-config"
 import { LandingFeesConfig } from "@/components/settings/charges/landing-fees-config"
 import { ChargeablesConfig } from "@/components/settings/charges/chargeables-config"
+import { ChargeableTypesConfig } from "@/components/settings/charges/chargeable-types-config"
 
 const chargeTabs = [
   { id: "aircraft", label: "Aircraft rates", icon: IconPlane },
@@ -165,6 +166,7 @@ export function ChargesTab() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                <ChargeableTypesConfig />
                 <ChargeablesConfig />
               </CardContent>
             </Card>

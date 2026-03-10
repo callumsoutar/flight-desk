@@ -115,6 +115,26 @@ export type InvoiceRow = Tables["invoices"]["Row"]
 export type InvoiceInsert = Tables["invoices"]["Insert"]
 export type InvoiceUpdate = Tables["invoices"]["Update"]
 
+export type XeroAccountsRow = Tables["xero_accounts"]["Row"]
+export type XeroAccountsInsert = Tables["xero_accounts"]["Insert"]
+export type XeroAccountsUpdate = Tables["xero_accounts"]["Update"]
+
+export type XeroConnectionsRow = Tables["xero_connections"]["Row"]
+export type XeroConnectionsInsert = Tables["xero_connections"]["Insert"]
+export type XeroConnectionsUpdate = Tables["xero_connections"]["Update"]
+
+export type XeroContactsRow = Tables["xero_contacts"]["Row"]
+export type XeroContactsInsert = Tables["xero_contacts"]["Insert"]
+export type XeroContactsUpdate = Tables["xero_contacts"]["Update"]
+
+export type XeroExportLogsRow = Tables["xero_export_logs"]["Row"]
+export type XeroExportLogsInsert = Tables["xero_export_logs"]["Insert"]
+export type XeroExportLogsUpdate = Tables["xero_export_logs"]["Update"]
+
+export type XeroInvoicesRow = Tables["xero_invoices"]["Row"]
+export type XeroInvoicesInsert = Tables["xero_invoices"]["Insert"]
+export type XeroInvoicesUpdate = Tables["xero_invoices"]["Update"]
+
 export type LandingFeeRatesRow = Tables["landing_fee_rates"]["Row"]
 export type LandingFeeRatesInsert = Tables["landing_fee_rates"]["Insert"]
 export type LandingFeeRatesUpdate = Tables["landing_fee_rates"]["Update"]

@@ -8,6 +8,7 @@ import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 async function SettingsContent({
@@ -23,6 +24,14 @@ async function SettingsContent({
   let generalLoadError: string | null = null
   let invoicingSettings: Awaited<ReturnType<typeof fetchInvoicingSettings>> | null = null
   let invoicingLoadError: string | null = null
+  let xeroSettings: Awaited<ReturnType<typeof fetchXeroSettings>> | null = null
+  let xeroLoadError: string | null = null
+  let xeroConnectionStatus: { connected: boolean; xero_tenant_name: string | null; connected_at: string | null } =
+    {
+      connected: false,
+      xero_tenant_name: null,
+      connected_at: null,
+    }
 
   try {
     generalSettings = await fetchGeneralSettings(supabase, tenantId)
@@ -38,6 +47,24 @@ async function SettingsContent({
     invoicingLoadError = "Failed to load settings."
   }
 
+  try {
+    xeroSettings = await fetchXeroSettings(supabase, tenantId)
+    const { data: connection } = await supabase
+      .from("xero_connections")
+      .select("xero_tenant_name, created_at")
+      .eq("tenant_id", tenantId)
+      .maybeSingle()
+
+    xeroConnectionStatus = {
+      connected: Boolean(connection),
+      xero_tenant_name: connection?.xero_tenant_name ?? null,
+      connected_at: xeroSettings.connected_at ?? connection?.created_at ?? null,
+    }
+  } catch {
+    xeroSettings = null
+    xeroLoadError = "Failed to load Xero settings."
+  }
+
   return (
     <SettingsPageClient
       canManageSettings={canManageSettings}
@@ -45,6 +72,9 @@ async function SettingsContent({
       generalLoadError={generalLoadError}
       initialInvoicingSettings={invoicingSettings}
       invoicingLoadError={invoicingLoadError}
+      initialXeroSettings={xeroSettings}
+      xeroLoadError={xeroLoadError}
+      xeroConnectionStatus={xeroConnectionStatus}
     />
   )
 }

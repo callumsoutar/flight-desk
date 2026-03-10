@@ -41,6 +41,7 @@ const createSchema = z.object({
   description: z.string().trim().max(1200).optional().nullable(),
   chargeable_type_id: z.string().uuid(),
   rate: z.number().finite().min(0),
+  xero_tax_type: z.string().trim().max(40).optional().nullable(),
   is_taxable: z.boolean().optional(),
   is_active: z.boolean().optional(),
 })
@@ -51,6 +52,7 @@ const updateSchema = z.object({
   description: z.string().trim().max(1200).optional().nullable(),
   chargeable_type_id: z.string().uuid().optional(),
   rate: z.number().finite().min(0).optional(),
+  xero_tax_type: z.string().trim().max(40).optional().nullable(),
   is_taxable: z.boolean().optional(),
   is_active: z.boolean().optional(),
 })
@@ -97,7 +99,9 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("chargeables")
-    .select("id, name, description, rate, is_taxable, is_active, chargeable_type_id, updated_at")
+    .select(
+      "id, name, description, rate, xero_tax_type, is_taxable, is_active, chargeable_type_id, updated_at"
+    )
     .eq("tenant_id", tenantId)
     .is("voided_at", null)
     .order("name", { ascending: true })
@@ -121,7 +125,7 @@ export async function GET(request: NextRequest) {
   const { data: types, error: typesError } = typeIds.length
     ? await supabase
         .from("chargeable_types")
-        .select("id, code, name")
+        .select("id, code, name, gl_code")
         .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
         .in("id", typeIds)
     : { data: [], error: null }
@@ -130,7 +134,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch chargeable types" }, { status: 500 })
   }
 
-  const typeById = new Map<string, { id: string; code: string; name: string }>()
+  const typeById = new Map<string, { id: string; code: string; name: string; gl_code: string | null }>()
   for (const type of types ?? []) {
     typeById.set(type.id, type)
   }
@@ -188,6 +192,7 @@ export async function POST(request: NextRequest) {
       name: payload.name.trim(),
       description: normalizeNullableString(payload.description),
       rate: payload.rate,
+      xero_tax_type: normalizeNullableString(payload.xero_tax_type),
       is_taxable: payload.is_taxable ?? true,
       is_active: payload.is_active ?? true,
     })
@@ -229,6 +234,9 @@ export async function PATCH(request: NextRequest) {
   if (rest.name !== undefined) updateData.name = rest.name.trim()
   if (rest.description !== undefined) updateData.description = normalizeNullableString(rest.description)
   if (rest.rate !== undefined) updateData.rate = rest.rate
+  if (rest.xero_tax_type !== undefined) {
+    updateData.xero_tax_type = normalizeNullableString(rest.xero_tax_type)
+  }
   if (rest.is_taxable !== undefined) updateData.is_taxable = rest.is_taxable
   if (rest.is_active !== undefined) updateData.is_active = rest.is_active
 

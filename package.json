@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "tunnel": "lt --port 3000",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -42,6 +43,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "localtunnel": "^2.0.2",
     "shadcn": "^3.8.4",
     "supazod": "^4.5.0",
     "tailwindcss": "^4",

@@ -88,6 +88,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     ? payload.due_date
     : new Date(Date.now() + 7 * 86_400_000).toISOString()
 
+  const { data: selectedFlightType } = await supabase
+    .from("flight_types")
+    .select("instruction_type, aircraft_gl_code, instructor_gl_code")
+    .eq("tenant_id", tenantId)
+    .eq("id", payload.flight_type_id)
+    .is("voided_at", null)
+    .maybeSingle()
+
   const rpcItems = payload.items.map((item) => ({
     chargeable_id: item.chargeable_id ?? null,
     description: item.description,
@@ -102,7 +110,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     {
       p_booking_id: bookingId,
       p_checked_out_aircraft_id: payload.checked_out_aircraft_id,
-      p_checked_out_instructor_id: payload.checked_out_instructor_id ?? null,
+      p_checked_out_instructor_id: (payload.checked_out_instructor_id ?? null) as unknown as string,
       p_flight_type_id: payload.flight_type_id,
       p_hobbs_start: payload.hobbs_start ?? null,
       p_hobbs_end: payload.hobbs_end ?? null,
@@ -121,7 +129,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       p_reference: payload.reference ?? `Booking ${bookingId} check-in`,
       p_notes: payload.notes ?? "Auto-generated from booking check-in.",
       p_items: rpcItems,
-    }
+    } as never
   )
 
   if (rpcError) {
@@ -148,6 +156,76 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 
   const invoiceId = rpcResult.invoice_id
+
+  if (invoiceId) {
+    const { data: invoiceItems } = await supabase
+      .from("invoice_items")
+      .select("id, chargeable_id, description")
+      .eq("tenant_id", tenantId)
+      .eq("invoice_id", invoiceId)
+      .is("deleted_at", null)
+
+    const chargeableIds = Array.from(
+      new Set(
+        (invoiceItems ?? [])
+          .map((item) => item.chargeable_id)
+          .filter((value): value is string => typeof value === "string")
+      )
+    )
+    const { data: chargeables } = chargeableIds.length
+      ? await supabase
+          .from("chargeables")
+          .select("id, chargeable_type_id")
+          .eq("tenant_id", tenantId)
+          .in("id", chargeableIds)
+      : { data: [] }
+
+    const chargeableTypeIds = Array.from(
+      new Set(
+        (chargeables ?? [])
+          .map((item) => item.chargeable_type_id)
+          .filter((value): value is string => typeof value === "string")
+      )
+    )
+    const { data: chargeableTypes } = chargeableTypeIds.length
+      ? await supabase
+          .from("chargeable_types")
+          .select("id, gl_code")
+          .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+          .in("id", chargeableTypeIds)
+      : { data: [] }
+
+    const chargeableById = new Map((chargeables ?? []).map((row) => [row.id, row]))
+    const typeGlById = new Map((chargeableTypes ?? []).map((row) => [row.id, row.gl_code ?? null]))
+
+    const itemUpdates = (invoiceItems ?? []).map((item) => {
+      let glCode: string | null = null
+      if (item.chargeable_id) {
+        const chargeable = chargeableById.get(item.chargeable_id)
+        if (chargeable?.chargeable_type_id) {
+          glCode = typeGlById.get(chargeable.chargeable_type_id) ?? null
+        }
+      } else {
+        const desc = (item.description ?? "").toLowerCase()
+        if (desc.includes("aircraft hire")) {
+          glCode = selectedFlightType?.aircraft_gl_code ?? null
+        } else if (
+          desc.includes("instructor rate") &&
+          selectedFlightType?.instruction_type !== "solo"
+        ) {
+          glCode = selectedFlightType?.instructor_gl_code ?? null
+        }
+      }
+
+      return { id: item.id, gl_code: glCode }
+    })
+
+    await Promise.all(
+      itemUpdates
+        .filter((item) => item.gl_code)
+        .map((item) => supabase.from("invoice_items").update({ gl_code: item.gl_code }).eq("id", item.id))
+    )
+  }
 
   revalidatePath("/bookings")
   revalidatePath(`/bookings/${bookingId}`)

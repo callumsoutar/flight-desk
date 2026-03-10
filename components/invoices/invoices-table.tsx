@@ -27,12 +27,14 @@ import { useTimezone } from "@/contexts/timezone-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { XeroStatusBadge } from "@/components/invoices/xero-status-badge"
 import { cn } from "@/lib/utils"
 import type { InvoiceStatus, InvoiceWithRelations } from "@/lib/types/invoices"
 import { formatDate } from "@/lib/utils/date-format"
 
 interface InvoicesTableProps {
   invoices: InvoiceWithRelations[]
+  xeroEnabled?: boolean
   activeTab: string
   onTabChange: (tab: string) => void
   tabCounts: {
@@ -77,6 +79,7 @@ function formatMoney(value: number | null) {
 
 export function InvoicesTable({
   invoices,
+  xeroEnabled = false,
   activeTab,
   onTabChange,
   tabCounts,
@@ -106,7 +109,7 @@ export function InvoicesTable({
       return new Intl.DateTimeFormat("en-NZ", { year: "numeric", timeZone }).format(d)
     }
 
-    return [
+    const columns: ColumnDef<InvoiceWithRelations>[] = [
       {
         accessorKey: "invoice_number",
         header: () => (
@@ -197,6 +200,17 @@ export function InvoicesTable({
           )
         },
       },
+      ...(xeroEnabled
+        ? [
+            {
+              id: "xero_status",
+              header: "Xero",
+              cell: ({ row }: { row: { original: InvoiceWithRelations } }) => (
+                <XeroStatusBadge status={row.original.xero_export_status} />
+              ),
+            } satisfies ColumnDef<InvoiceWithRelations>,
+          ]
+        : []),
       {
         accessorKey: "total_amount",
         header: () => (
@@ -210,7 +224,9 @@ export function InvoicesTable({
         ),
       },
     ]
-  }, [timeZone])
+
+    return columns
+  }, [timeZone, xeroEnabled])
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
