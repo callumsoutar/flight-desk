@@ -21,6 +21,22 @@ function formatAccountLabel(account: XeroAccountOption) {
   return account.code ? `${account.code} — ${account.name}` : account.name
 }
 
+function cacheSelectedAccount(account: XeroAccountOption) {
+  fetch("/api/xero/accounts/upsert", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      xero_account_id: account.xero_account_id,
+      code: account.code,
+      name: account.name,
+      type: account.type,
+      status: account.status,
+    }),
+  }).catch(() => {
+    // best-effort cache — dropdown still works if this fails
+  })
+}
+
 export function XeroAccountSelect({
   value,
   onChange,
@@ -66,6 +82,15 @@ export function XeroAccountSelect({
   const displayValue = selectedAccount
     ? formatAccountLabel(selectedAccount)
     : value || null
+
+  const handleSelect = React.useCallback(
+    (account: XeroAccountOption) => {
+      onChange(account.code ?? "")
+      setOpen(false)
+      cacheSelectedAccount(account)
+    },
+    [onChange]
+  )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -136,10 +161,7 @@ export function XeroAccountSelect({
                   <Command.Item
                     key={account.xero_account_id}
                     value={`${account.code ?? ""} ${account.name}`}
-                    onSelect={() => {
-                      onChange(account.code ?? "")
-                      setOpen(false)
-                    }}
+                    onSelect={() => handleSelect(account)}
                     className="relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
                   >
                     <Check

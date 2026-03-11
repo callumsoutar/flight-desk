@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
-import { upsertXeroAccountsBatch } from "@/lib/xero/upsert-account"
 import type { XeroAccount } from "@/lib/xero/types"
 
 export const dynamic = "force-dynamic"
@@ -53,19 +51,10 @@ export async function GET(request: NextRequest) {
     const accountsResponse = await client.getAccounts()
     const allAccounts = accountsResponse.Accounts ?? []
 
-    const activeAccounts = allAccounts.filter(
+    let filtered = allAccounts.filter(
       (account) => account.Status === "ACTIVE"
     )
 
-    const admin = createSupabaseAdminClient()
-    upsertXeroAccountsBatch(admin, tenantId, activeAccounts).catch((err) => {
-      console.error("[xero] Background cache upsert failed", {
-        tenantId,
-        error: err instanceof Error ? err.message : "Unknown error",
-      })
-    })
-
-    let filtered = activeAccounts
     if (typeFilter) {
       const types = typeFilter.split(",").map((t) => t.trim().toUpperCase())
       filtered = filtered.filter((account) =>

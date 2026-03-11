@@ -74,7 +74,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
   }
 
   try {
-    const [xeroSettings, itemsResult, accountsCountResult] = await Promise.all([
+    const [xeroSettings, itemsResult] = await Promise.all([
       fetchXeroSettings(admin, tenantId),
       admin
         .from("invoice_items")
@@ -82,11 +82,6 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
         .eq("tenant_id", tenantId)
         .eq("invoice_id", invoiceId)
         .is("deleted_at", null),
-      admin
-        .from("xero_accounts")
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .eq("status", "ACTIVE"),
     ])
 
     const { data: items, error: itemsError } = itemsResult
@@ -110,12 +105,6 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       )
     }
 
-    if ((accountsCountResult.count ?? 0) === 0) {
-      throw new Error(
-        "Chart of Accounts has not been synced from Xero. Please go to Settings → Integrations and click Sync Accounts, then try exporting again."
-      )
-    }
-
     const glCodes = Array.from(new Set(resolvedItems.map((item) => item.gl_code).filter(Boolean)))
     const { data: accounts, error: accountsError } = await admin
       .from("xero_accounts")
@@ -130,8 +119,8 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
     for (const code of glCodes) {
       if (!validCodes.has(code)) {
         throw new Error(
-          `GL code '${code}' is not a valid Xero account. ` +
-            "Ensure your Chart of Accounts is synced (Settings → Integrations → Sync Accounts) and the code exists in Xero as a REVENUE account."
+          `GL code '${code}' is not recognised. Please re-select the account from the Xero dropdown in ` +
+            "Settings → Charges or Settings → Integrations so that it is validated against Xero."
         )
       }
     }
