@@ -3203,6 +3203,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          invoice_id: string | null
           metadata: Json | null
           reference_number: string | null
           status: Database["public"]["Enums"]["transaction_status"]
@@ -3217,6 +3218,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          invoice_id?: string | null
           metadata?: Json | null
           reference_number?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
@@ -3231,6 +3233,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          invoice_id?: string | null
           metadata?: Json | null
           reference_number?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
@@ -3240,6 +3243,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3829,6 +3839,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_correct_invoice: {
+        Args: { p_changes: Json; p_invoice_id: string; p_reason: string }
+        Returns: Json
+      }
       approve_booking_checkin_atomic: {
         Args: {
           p_airswitch_end: number
@@ -3914,17 +3928,6 @@ export type Database = {
           p_items?: Json
           p_notes?: string
           p_reference?: string
-          p_status?: string
-          p_tax_rate?: number
-          p_user_id: string
-        }
-        Returns: Json
-      }
-      create_invoice_with_transaction: {
-        Args: {
-          p_booking_id?: string
-          p_due_date?: string
-          p_invoice_number?: string
           p_status?: string
           p_tax_rate?: number
           p_user_id: string
@@ -4136,6 +4139,10 @@ export type Database = {
       }
       get_user_role: { Args: { user_id?: string }; Returns: string }
       get_user_tenant: { Args: { p_user_id?: string }; Returns: string }
+      invoice_is_xero_exported: {
+        Args: { p_invoice_id: string }
+        Returns: boolean
+      }
       is_auth_user: { Args: { user_uuid: string }; Returns: boolean }
       is_tenant_admin: { Args: { p_tenant_id: string }; Returns: boolean }
       needs_session_refresh: {
@@ -4166,6 +4173,10 @@ export type Database = {
           p_payment_method: Database["public"]["Enums"]["payment_method"]
           p_payment_reference?: string
         }
+        Returns: Json
+      }
+      reverse_invoice_payment_atomic: {
+        Args: { p_payment_id: string; p_reason: string }
         Returns: Json
       }
       set_default_tax_rate: {
@@ -4205,25 +4216,6 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: Json
       }
-      upsert_invoice_items_batch: {
-        Args: { p_invoice_id: string; p_items: Json }
-        Returns: {
-          amount: number
-          chargeable_id: string
-          created_at: string
-          description: string
-          id: string
-          invoice_id: string
-          line_total: number
-          notes: string
-          quantity: number
-          rate_inclusive: number
-          tax_amount: number
-          tax_rate: number
-          unit_price: number
-          updated_at: string
-        }[]
-      }
       user_belongs_to_tenant: {
         Args: { p_tenant_id: string }
         Returns: boolean
@@ -4241,6 +4233,10 @@ export type Database = {
         Returns: boolean
       }
       users_share_tenant: { Args: { p_user_id: string }; Returns: boolean }
+      void_and_reissue_xero_invoice: {
+        Args: { p_invoice_id: string; p_reason: string }
+        Returns: Json
+      }
     }
     Enums: {
       booking_status:
@@ -4339,7 +4335,7 @@ export type Database = {
         | "refunded"
       transaction_type: "credit" | "debit" | "refund" | "adjustment"
       user_role: "admin" | "instructor" | "member" | "student" | "owner"
-      xero_export_status: "pending" | "exported" | "failed"
+      xero_export_status: "pending" | "exported" | "failed" | "voided"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4573,7 +4569,7 @@ export const Constants = {
       ],
       transaction_type: ["credit", "debit", "refund", "adjustment"],
       user_role: ["admin", "instructor", "member", "student", "owner"],
-      xero_export_status: ["pending", "exported", "failed"],
+      xero_export_status: ["pending", "exported", "failed", "voided"],
     },
   },
 } as const

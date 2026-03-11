@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle2, Save, Trash2 } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Lock, Save, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ interface InvoiceActionsToolbarProps {
   invoiceId?: string
   invoiceNumber?: string | null
   status?: InvoiceStatus
+  isXeroLocked?: boolean
   member?: UserResult | null
   rightSlot?: React.ReactNode
   onSave?: () => void
@@ -34,6 +35,7 @@ export default function InvoiceActionsToolbar({
   invoiceId: _invoiceId,
   invoiceNumber,
   status,
+  isXeroLocked = false,
   member,
   rightSlot,
   onSave,
@@ -106,6 +108,12 @@ export default function InvoiceActionsToolbar({
                 >
                   {getStatusLabel(status)}
                 </Badge>
+              ) : null}
+              {isXeroLocked ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-200">
+                  <Lock className="h-3 w-3" />
+                  Xero Locked
+                </span>
               ) : null}
             </div>
           ) : null}

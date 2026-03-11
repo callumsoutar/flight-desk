@@ -16,5 +16,9 @@ export function XeroStatusBadge({ status }: { status: XeroStatus }) {
     return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pending</Badge>
   }
 
+  if (status === "voided") {
+    return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Voided</Badge>
+  }
+
   return <Badge variant="destructive">Failed</Badge>
 }

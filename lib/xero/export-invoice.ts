@@ -55,7 +55,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
   if (existingExport?.export_status === "pending") {
     return { invoiceId, status: "skipped" as const, reason: "pending" }
   }
-  if (existingExport?.export_status === "failed") {
+  if (existingExport?.export_status === "failed" || existingExport?.export_status === "voided") {
     await admin.from("xero_invoices").delete().eq("id", existingExport.id)
   }
 

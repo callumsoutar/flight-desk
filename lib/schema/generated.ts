@@ -222,6 +222,7 @@ export const publicXeroExportStatusSchema = z.union([
   z.literal("pending"),
   z.literal("exported"),
   z.literal("failed"),
+  z.literal("voided"),
 ]);
 
 export const jsonSchema: z.ZodType<unknown> = z.lazy(() =>
@@ -3496,6 +3497,7 @@ export const publicTransactionsRowSchema = z.object({
   created_at: z.string(),
   description: z.string(),
   id: z.string(),
+  invoice_id: z.string().nullable(),
   metadata: jsonSchema.nullable(),
   reference_number: z.string().nullable(),
   status: publicTransactionStatusSchema,
@@ -3511,6 +3513,7 @@ export const publicTransactionsInsertSchema = z.object({
   created_at: z.string().optional(),
   description: z.string(),
   id: z.string().optional(),
+  invoice_id: z.string().optional().nullable(),
   metadata: jsonSchema.optional().nullable(),
   reference_number: z.string().optional().nullable(),
   status: publicTransactionStatusSchema.optional(),
@@ -3526,6 +3529,7 @@ export const publicTransactionsUpdateSchema = z.object({
   created_at: z.string().optional(),
   description: z.string().optional(),
   id: z.string().optional(),
+  invoice_id: z.string().optional().nullable(),
   metadata: jsonSchema.optional().nullable(),
   reference_number: z.string().optional().nullable(),
   status: publicTransactionStatusSchema.optional(),
@@ -3536,6 +3540,13 @@ export const publicTransactionsUpdateSchema = z.object({
 });
 
 export const publicTransactionsRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("transactions_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoices"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
   z.object({
     foreignKeyName: z.literal("transactions_tenant_id_fkey"),
     columns: z.tuple([z.literal("tenant_id")]),
@@ -4135,6 +4146,14 @@ export const publicUserDirectoryUpdateSchema = z.object({
   updated_at: z.string().optional().nullable(),
 });
 
+export const publicAdminCorrectInvoiceArgsSchema = z.object({
+  p_changes: jsonSchema,
+  p_invoice_id: z.string(),
+  p_reason: z.string(),
+});
+
+export const publicAdminCorrectInvoiceReturnsSchema = jsonSchema;
+
 export const publicApproveBookingCheckinAtomicArgsSchema = z.object({
   p_airswitch_end: z.number(),
   p_airswitch_start: z.number(),
@@ -4239,17 +4258,6 @@ export const publicCreateInvoiceAtomicArgsSchema = z.object({
 });
 
 export const publicCreateInvoiceAtomicReturnsSchema = jsonSchema;
-
-export const publicCreateInvoiceWithTransactionArgsSchema = z.object({
-  p_booking_id: z.string().optional(),
-  p_due_date: z.string().optional(),
-  p_invoice_number: z.string().optional(),
-  p_status: z.string().optional(),
-  p_tax_rate: z.number().optional(),
-  p_user_id: z.string(),
-});
-
-export const publicCreateInvoiceWithTransactionReturnsSchema = jsonSchema;
 
 export const publicCreateTenantForNewUserArgsSchema = z.object({
   p_tenant_name: z.string(),
@@ -4492,6 +4500,12 @@ export const publicGetUserTenantArgsSchema = z.object({
 
 export const publicGetUserTenantReturnsSchema = z.string();
 
+export const publicInvoiceIsXeroExportedArgsSchema = z.object({
+  p_invoice_id: z.string(),
+});
+
+export const publicInvoiceIsXeroExportedReturnsSchema = z.boolean();
+
 export const publicIsAuthUserArgsSchema = z.object({
   user_uuid: z.string(),
 });
@@ -4545,6 +4559,13 @@ export const publicRecordInvoicePaymentAtomicArgsSchema = z.object({
 
 export const publicRecordInvoicePaymentAtomicReturnsSchema = jsonSchema;
 
+export const publicReverseInvoicePaymentAtomicArgsSchema = z.object({
+  p_payment_id: z.string(),
+  p_reason: z.string(),
+});
+
+export const publicReverseInvoicePaymentAtomicReturnsSchema = jsonSchema;
+
 export const publicSetDefaultTaxRateArgsSchema = z.object({
   p_tax_rate_id: z.string(),
   p_tenant_id: z.string(),
@@ -4596,30 +4617,6 @@ export const publicUpdateInvoiceTotalsAtomicArgsSchema = z.object({
 
 export const publicUpdateInvoiceTotalsAtomicReturnsSchema = jsonSchema;
 
-export const publicUpsertInvoiceItemsBatchArgsSchema = z.object({
-  p_invoice_id: z.string(),
-  p_items: jsonSchema,
-});
-
-export const publicUpsertInvoiceItemsBatchReturnsSchema = z.array(
-  z.object({
-    amount: z.number(),
-    chargeable_id: z.string(),
-    created_at: z.string(),
-    description: z.string(),
-    id: z.string(),
-    invoice_id: z.string(),
-    line_total: z.number(),
-    notes: z.string(),
-    quantity: z.number(),
-    rate_inclusive: z.number(),
-    tax_amount: z.number(),
-    tax_rate: z.number(),
-    unit_price: z.number(),
-    updated_at: z.string(),
-  }),
-);
-
 export const publicUserBelongsToTenantArgsSchema = z.object({
   p_tenant_id: z.string(),
 });
@@ -4652,6 +4649,13 @@ export const publicUsersShareTenantArgsSchema = z.object({
 });
 
 export const publicUsersShareTenantReturnsSchema = z.boolean();
+
+export const publicVoidAndReissueXeroInvoiceArgsSchema = z.object({
+  p_invoice_id: z.string(),
+  p_reason: z.string(),
+});
+
+export const publicVoidAndReissueXeroInvoiceReturnsSchema = jsonSchema;
 
 export type PublicBookingStatus = z.infer<typeof publicBookingStatusSchema>;
 export type PublicBookingType = z.infer<typeof publicBookingTypeSchema>;
@@ -5227,6 +5231,12 @@ export type PublicUserDirectoryInsert = z.infer<
 export type PublicUserDirectoryUpdate = z.infer<
   typeof publicUserDirectoryUpdateSchema
 >;
+export type PublicAdminCorrectInvoiceArgs = z.infer<
+  typeof publicAdminCorrectInvoiceArgsSchema
+>;
+export type PublicAdminCorrectInvoiceReturns = z.infer<
+  typeof publicAdminCorrectInvoiceReturnsSchema
+>;
 export type PublicApproveBookingCheckinAtomicArgs = z.infer<
   typeof publicApproveBookingCheckinAtomicArgsSchema
 >;
@@ -5286,12 +5296,6 @@ export type PublicCreateInvoiceAtomicArgs = z.infer<
 >;
 export type PublicCreateInvoiceAtomicReturns = z.infer<
   typeof publicCreateInvoiceAtomicReturnsSchema
->;
-export type PublicCreateInvoiceWithTransactionArgs = z.infer<
-  typeof publicCreateInvoiceWithTransactionArgsSchema
->;
-export type PublicCreateInvoiceWithTransactionReturns = z.infer<
-  typeof publicCreateInvoiceWithTransactionReturnsSchema
 >;
 export type PublicCreateTenantForNewUserArgs = z.infer<
   typeof publicCreateTenantForNewUserArgsSchema
@@ -5423,6 +5427,12 @@ export type PublicGetUserTenantArgs = z.infer<
 export type PublicGetUserTenantReturns = z.infer<
   typeof publicGetUserTenantReturnsSchema
 >;
+export type PublicInvoiceIsXeroExportedArgs = z.infer<
+  typeof publicInvoiceIsXeroExportedArgsSchema
+>;
+export type PublicInvoiceIsXeroExportedReturns = z.infer<
+  typeof publicInvoiceIsXeroExportedReturnsSchema
+>;
 export type PublicIsAuthUserArgs = z.infer<typeof publicIsAuthUserArgsSchema>;
 export type PublicIsAuthUserReturns = z.infer<
   typeof publicIsAuthUserReturnsSchema
@@ -5456,6 +5466,12 @@ export type PublicRecordInvoicePaymentAtomicArgs = z.infer<
 >;
 export type PublicRecordInvoicePaymentAtomicReturns = z.infer<
   typeof publicRecordInvoicePaymentAtomicReturnsSchema
+>;
+export type PublicReverseInvoicePaymentAtomicArgs = z.infer<
+  typeof publicReverseInvoicePaymentAtomicArgsSchema
+>;
+export type PublicReverseInvoicePaymentAtomicReturns = z.infer<
+  typeof publicReverseInvoicePaymentAtomicReturnsSchema
 >;
 export type PublicSetDefaultTaxRateArgs = z.infer<
   typeof publicSetDefaultTaxRateArgsSchema
@@ -5499,12 +5515,6 @@ export type PublicUpdateInvoiceTotalsAtomicArgs = z.infer<
 export type PublicUpdateInvoiceTotalsAtomicReturns = z.infer<
   typeof publicUpdateInvoiceTotalsAtomicReturnsSchema
 >;
-export type PublicUpsertInvoiceItemsBatchArgs = z.infer<
-  typeof publicUpsertInvoiceItemsBatchArgsSchema
->;
-export type PublicUpsertInvoiceItemsBatchReturns = z.infer<
-  typeof publicUpsertInvoiceItemsBatchReturnsSchema
->;
 export type PublicUserBelongsToTenantArgs = z.infer<
   typeof publicUserBelongsToTenantArgsSchema
 >;
@@ -5532,4 +5542,10 @@ export type PublicUsersShareTenantArgs = z.infer<
 >;
 export type PublicUsersShareTenantReturns = z.infer<
   typeof publicUsersShareTenantReturnsSchema
+>;
+export type PublicVoidAndReissueXeroInvoiceArgs = z.infer<
+  typeof publicVoidAndReissueXeroInvoiceArgsSchema
+>;
+export type PublicVoidAndReissueXeroInvoiceReturns = z.infer<
+  typeof publicVoidAndReissueXeroInvoiceReturnsSchema
 >;
