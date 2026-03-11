@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import type { FlightTypesRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
 
@@ -382,13 +383,13 @@ export function FlightTypesConfig() {
                   <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Aircraft GL code
                   </Label>
-                  <Input
+                  <XeroAccountSelect
                     value={formData.aircraft_gl_code}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, aircraft_gl_code: e.target.value }))
+                    onChange={(code) =>
+                      setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
                     }
-                    className="h-11 rounded-xl border-slate-200 bg-white"
-                    placeholder="e.g. 4100"
+                    accountTypes={["REVENUE"]}
+                    placeholder="Select aircraft account…"
                   />
                 </div>
 
@@ -396,14 +397,14 @@ export function FlightTypesConfig() {
                   <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Instructor GL code
                   </Label>
-                  <Input
+                  <XeroAccountSelect
                     value={formData.instructor_gl_code}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, instructor_gl_code: e.target.value }))
+                    onChange={(code) =>
+                      setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
                     }
-                    className="h-11 rounded-xl border-slate-200 bg-white"
+                    accountTypes={["REVENUE"]}
                     placeholder={
-                      formData.instruction_type === "solo" ? "Not required for solo" : "e.g. 4200"
+                      formData.instruction_type === "solo" ? "Not required for solo" : "Select instructor account…"
                     }
                     disabled={formData.instruction_type === "solo"}
                   />
@@ -605,13 +606,13 @@ export function FlightTypesConfig() {
                                 <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                                   Aircraft GL code
                                 </Label>
-                                <Input
+                                <XeroAccountSelect
                                   value={formData.aircraft_gl_code}
-                                  onChange={(e) =>
-                                    setFormData((prev) => ({ ...prev, aircraft_gl_code: e.target.value }))
+                                  onChange={(code) =>
+                                    setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
                                   }
-                                  className="h-11 rounded-xl border-slate-200 bg-white"
-                                  placeholder="e.g. 4100"
+                                  accountTypes={["REVENUE"]}
+                                  placeholder="Select aircraft account…"
                                 />
                               </div>
 
@@ -619,16 +620,16 @@ export function FlightTypesConfig() {
                                 <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                                   Instructor GL code
                                 </Label>
-                                <Input
+                                <XeroAccountSelect
                                   value={formData.instructor_gl_code}
-                                  onChange={(e) =>
-                                    setFormData((prev) => ({ ...prev, instructor_gl_code: e.target.value }))
+                                  onChange={(code) =>
+                                    setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
                                   }
-                                  className="h-11 rounded-xl border-slate-200 bg-white"
+                                  accountTypes={["REVENUE"]}
                                   placeholder={
                                     formData.instruction_type === "solo"
                                       ? "Not required for solo"
-                                      : "e.g. 4200"
+                                      : "Select instructor account…"
                                   }
                                   disabled={formData.instruction_type === "solo"}
                                 />

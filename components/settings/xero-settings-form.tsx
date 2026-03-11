@@ -3,7 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 
-import { GlCodeSelect } from "@/components/settings/gl-code-select"
+import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,10 +30,12 @@ export function XeroSettingsForm({
     <div className="space-y-4 rounded-lg border bg-card p-4">
       <div className="space-y-2">
         <Label>Default revenue account</Label>
-        <GlCodeSelect
+        <XeroAccountSelect
           value={form.default_revenue_account_code ?? ""}
-          onValueChange={(value) => setForm((prev) => ({ ...prev, default_revenue_account_code: value || null }))}
+          onChange={(code) => setForm((prev) => ({ ...prev, default_revenue_account_code: code || null }))}
+          accountTypes={["REVENUE"]}
           disabled={disabled || saving}
+          placeholder="Select default revenue account…"
         />
       </div>
 

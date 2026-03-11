@@ -5,7 +5,9 @@ export async function syncXeroAccounts(tenantId: string, initiatedBy: string) {
 
   try {
     const accountsResponse = await client.getAccounts()
-    const accounts = (accountsResponse.Accounts ?? []).filter((account) => account.Type === "REVENUE")
+    const accounts = (accountsResponse.Accounts ?? []).filter(
+      (account) => account.Status === "ACTIVE"
+    )
 
     const xeroIds = accounts.map((account) => account.AccountID)
     const upserts = accounts.map((account) => ({
@@ -52,7 +54,7 @@ export async function syncXeroAccounts(tenantId: string, initiatedBy: string) {
       action: "sync_accounts",
       status: "success",
       initiated_by: initiatedBy,
-      request_payload: { type: "REVENUE", include_tax_rates: false },
+      request_payload: { type: "ALL_ACTIVE", include_tax_rates: false },
       response_payload: { synced: upserts.length, archived },
     })
 

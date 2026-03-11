@@ -1,5 +1,11 @@
 "use client"
 
+/**
+ * @deprecated Use `<XeroAccountSelect />` from `@/components/settings/xero-account-select` instead.
+ * This component fetches accounts from the local cache only.
+ * The new component fetches live from Xero with automatic cache write-through.
+ */
+
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 
