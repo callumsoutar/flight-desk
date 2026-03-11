@@ -140,12 +140,16 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       const isTaxable = (item.tax_rate ?? 0) > 0
       if (!isTaxable) {
         item.xero_tax_type = "NONE"
-        continue
       }
+    }
 
-      if (!item.xero_tax_type) {
-        item.xero_tax_type = null
-      }
+    const hasMissingTaxType = resolvedItems.some(
+      (item) => (item.tax_rate ?? 0) > 0 && !item.xero_tax_type
+    )
+    if (hasMissingTaxType) {
+      throw new Error(
+        "Invoice contains taxable items without a Xero tax type. Set a tax type on the chargeable or configure a default tax type in Settings -> Integrations before exporting."
+      )
     }
 
     const buildPayload = (xeroContactId: string) => ({
@@ -171,9 +175,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
           AccountCode: item.gl_code!,
           LineAmount: lineAmountInclusive,
         }
-        if (item.xero_tax_type) {
-          lineItem.TaxType = item.xero_tax_type
-        }
+        lineItem.TaxType = item.xero_tax_type ?? "NONE"
         return lineItem
       }),
     })

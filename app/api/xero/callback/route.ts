@@ -137,6 +137,7 @@ export async function GET(request: NextRequest) {
       tenant_id: decoded.tenantId,
       action: "connect",
       status: "success",
+      initiated_by: user.id,
       request_payload: { scope: tokens.scope ?? "" },
       response_payload: { xero_tenant_id: xeroTenantId, xero_tenant_name: connection.tenantName ?? null },
     })
