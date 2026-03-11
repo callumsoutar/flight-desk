@@ -36,7 +36,7 @@ export function InvoiceDetailClient({
   canApproveDraft?: boolean
   xeroEnabled?: boolean
   xeroStatus?: {
-    export_status: "pending" | "exported" | "failed"
+    export_status: "pending" | "exported" | "failed" | "voided"
     xero_invoice_id: string | null
     exported_at: string | null
     error_message: string | null
@@ -64,7 +64,8 @@ export function InvoiceDetailClient({
       ? `${selectedMember.first_name || ""} ${selectedMember.last_name || ""}`.trim() || selectedMember.email
       : invoice.user_id) || invoice.user_id
 
-  const isReadOnly = invoice.status !== "draft"
+  const isXeroLocked = xeroStatus?.export_status === "exported"
+  const isReadOnly = isXeroLocked
 
   const handleApprove = React.useCallback(() => {
     if (invoice.status !== "draft") return
@@ -90,9 +91,10 @@ export function InvoiceDetailClient({
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
             status={invoice.status}
+            isXeroLocked={isXeroLocked}
             member={selectedMember}
             rightSlot={
-              isReadOnly ? (
+              invoice.status !== "draft" ? (
                 <InvoiceViewActions
                   invoiceId={invoice.id}
                   billToEmail={invoice.user?.email || selectedMember?.email || null}
@@ -125,11 +127,11 @@ export function InvoiceDetailClient({
                 />
               ) : null
             }
-            onApprove={canApproveDraft && invoice.status === "draft" ? handleApprove : undefined}
+            onApprove={canApproveDraft && invoice.status === "draft" && !isXeroLocked ? handleApprove : undefined}
             saveDisabled
             approveDisabled={isApproving}
             approveLoading={isApproving}
-            showApprove={canApproveDraft && invoice.status === "draft"}
+            showApprove={canApproveDraft && invoice.status === "draft" && !isXeroLocked}
           />
         </div>
 
@@ -187,6 +189,7 @@ export function InvoiceDetailClient({
 
           <XeroInvoiceStatus
             invoiceId={invoice.id}
+            invoiceNumber={invoice.invoice_number}
             invoiceStatus={invoice.status}
             xeroEnabled={xeroEnabled}
             status={xeroStatus}

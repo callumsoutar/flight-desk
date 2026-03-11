@@ -48,7 +48,7 @@ async function InvoiceDetailContent({
   let settings = DEFAULT_INVOICING_SETTINGS
   let xeroEnabled = false
   let xeroStatus: {
-    export_status: "pending" | "exported" | "failed"
+    export_status: "pending" | "exported" | "failed" | "voided"
     xero_invoice_id: string | null
     exported_at: string | null
     error_message: string | null
