@@ -64,12 +64,12 @@ export function XeroConnectionCard({
                     toast.error("Failed to sync Xero accounts")
                     return
                   }
-                  toast.success("Xero accounts synced")
+                  toast.success("Xero accounts and tax rates synced")
                   onRefresh?.()
                 }}
               >
                 <RefreshCw className="mr-1 h-4 w-4" />
-                Sync Accounts
+                Sync Accounts & Tax Rates
               </Button>
             </div>
           </>

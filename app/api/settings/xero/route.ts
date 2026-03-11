@@ -16,6 +16,12 @@ function isJsonObject(value: Json | null | undefined): value is Record<string, J
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function normalizeNullableString(value: string | null | undefined) {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 const patchSchema = z.object({
   xero: z.object({
     default_revenue_account_code: z.string().trim().max(20).nullable().optional(),
@@ -75,15 +81,56 @@ export async function PATCH(request: Request) {
   const existingXero = isJsonObject(existing.xero) ? existing.xero : {}
 
   const patch = parsed.data.xero
+  const normalizedDefaultRevenueAccountCode = normalizeNullableString(patch.default_revenue_account_code)
+  const normalizedDefaultTaxType = normalizeNullableString(patch.default_tax_type)?.toUpperCase() ?? null
+
+  if (patch.default_revenue_account_code !== undefined && normalizedDefaultRevenueAccountCode) {
+    const { data: account, error: accountError } = await supabase
+      .from("xero_accounts")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("status", "ACTIVE")
+      .eq("code", normalizedDefaultRevenueAccountCode)
+      .maybeSingle()
+    if (accountError) {
+      return NextResponse.json({ error: "Failed to validate default revenue account" }, { status: 500 })
+    }
+    if (!account) {
+      return NextResponse.json(
+        { error: "Default revenue account must match an active synced Xero account code" },
+        { status: 422 }
+      )
+    }
+  }
+
+  if (patch.default_tax_type !== undefined && normalizedDefaultTaxType) {
+    const { data: taxRate, error: taxRateError } = await supabase
+      .from("xero_tax_rates")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("status", "ACTIVE")
+      .eq("xero_tax_type", normalizedDefaultTaxType)
+      .maybeSingle()
+    if (taxRateError) {
+      return NextResponse.json({ error: "Failed to validate default tax type" }, { status: 500 })
+    }
+    if (!taxRate) {
+      return NextResponse.json(
+        { error: "Default tax type must match an active synced Xero tax type" },
+        { status: 422 }
+      )
+    }
+  }
+
   const nextXero: Record<string, Json> = {
     ...existingXero,
   }
 
   if (patch.default_revenue_account_code !== undefined) {
-    nextXero.default_revenue_account_code = patch.default_revenue_account_code || null
+    nextXero.default_revenue_account_code = normalizedDefaultRevenueAccountCode
   }
   if (patch.default_tax_type !== undefined) {
-    nextXero.default_tax_type = patch.default_tax_type || null
+    nextXero.default_tax_type = normalizedDefaultTaxType
   }
   if (patch.auto_export_on_approve !== undefined) {
     nextXero.auto_export_on_approve = patch.auto_export_on_approve

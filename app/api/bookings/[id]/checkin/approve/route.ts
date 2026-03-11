@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -158,28 +159,23 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const invoiceId = rpcResult.invoice_id
 
   if (invoiceId) {
-    const { data: settingsRow } = await supabase
-      .from("tenant_settings")
-      .select("settings")
-      .eq("tenant_id", tenantId)
-      .maybeSingle()
-
-    const defaultTaxType =
-      settingsRow?.settings &&
-      typeof settingsRow.settings === "object" &&
-      !Array.isArray(settingsRow.settings) &&
-      "xero" in settingsRow.settings &&
-      settingsRow.settings.xero &&
-      typeof settingsRow.settings.xero === "object" &&
-      !Array.isArray(settingsRow.settings.xero) &&
-      typeof settingsRow.settings.xero.default_tax_type === "string" &&
-      settingsRow.settings.xero.default_tax_type.trim().length
-        ? settingsRow.settings.xero.default_tax_type.trim()
-        : null
+    const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
+    const configuredDefaultTaxType = xeroSettings?.default_tax_type ?? null
+    const { data: syncedDefaultTaxType } =
+      configuredDefaultTaxType
+        ? await supabase
+            .from("xero_tax_rates")
+            .select("xero_tax_type")
+            .eq("tenant_id", tenantId)
+            .eq("status", "ACTIVE")
+            .eq("xero_tax_type", configuredDefaultTaxType)
+            .maybeSingle()
+        : { data: null }
+    const defaultTaxType = syncedDefaultTaxType?.xero_tax_type ?? null
 
     const { data: invoiceItems } = await supabase
       .from("invoice_items")
-      .select("id, chargeable_id, description")
+      .select("id, chargeable_id, description, tax_rate")
       .eq("tenant_id", tenantId)
       .eq("invoice_id", invoiceId)
       .is("deleted_at", null)
@@ -219,10 +215,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     const itemUpdates = (invoiceItems ?? []).map((item) => {
       let glCode: string | null = null
-      let xeroTaxType: string | null = defaultTaxType
+      let xeroTaxType: string | null = (item.tax_rate ?? 0) > 0 ? defaultTaxType : null
       if (item.chargeable_id) {
         const chargeable = chargeableById.get(item.chargeable_id)
-        xeroTaxType = chargeable?.xero_tax_type ?? defaultTaxType
+        xeroTaxType = (item.tax_rate ?? 0) > 0 ? chargeable?.xero_tax_type ?? defaultTaxType : null
         if (chargeable?.chargeable_type_id) {
           glCode = chargeable.gl_code ?? typeGlById.get(chargeable.chargeable_type_id) ?? null
         }

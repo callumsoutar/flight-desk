@@ -30,6 +30,25 @@ export type XeroAccountsResponse = {
   Accounts?: XeroAccount[]
 }
 
+export type XeroTaxRate = {
+  Name: string
+  TaxType: string
+  Status?: string | null
+  DisplayTaxRate?: string | null
+  EffectiveRate?: number | null
+  CanApplyToAssets?: boolean | null
+  CanApplyToEquity?: boolean | null
+  CanApplyToExpenses?: boolean | null
+  CanApplyToLiabilities?: boolean | null
+  CanApplyToRevenue?: boolean | null
+  ReportTaxType?: string | null
+  UpdatedDateUTC?: string | null
+}
+
+export type XeroTaxRatesResponse = {
+  TaxRates?: XeroTaxRate[]
+}
+
 export type XeroContact = {
   ContactID: string
   Name?: string | null

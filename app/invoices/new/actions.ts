@@ -8,6 +8,7 @@ import {
   calculateItemAmounts,
 } from "@/lib/invoices/invoice-calculations"
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { InvoiceCreateActionInput } from "@/lib/types/invoice-create"
 
@@ -91,6 +92,19 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   const rawTaxRate = taxRates?.[0]?.rate
   const defaultTaxRate =
     typeof rawTaxRate === "number" && rawTaxRate >= 0 && rawTaxRate <= 1 ? rawTaxRate : 0
+  const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
+  const configuredDefaultTaxType = xeroSettings?.default_tax_type ?? null
+  const { data: syncedDefaultTaxType } =
+    configuredDefaultTaxType
+      ? await supabase
+          .from("xero_tax_rates")
+          .select("xero_tax_type")
+          .eq("tenant_id", tenantId)
+          .eq("status", "ACTIVE")
+          .eq("xero_tax_type", configuredDefaultTaxType)
+          .maybeSingle()
+      : { data: null }
+  const defaultXeroTaxType = syncedDefaultTaxType?.xero_tax_type ?? null
   const chargeableIds = Array.from(new Set(payload.items.map((item) => item.chargeableId)))
 
   const { data: chargeables, error: chargeablesError } = await supabase
@@ -153,7 +167,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
       chargeable_id: chargeable.id,
       description: chargeable.name,
       gl_code: chargeable.gl_code ?? chargeableTypeGlCodeMap.get(chargeable.chargeable_type_id) ?? null,
-      xero_tax_type: chargeable.xero_tax_type ?? null,
+      xero_tax_type: taxRate > 0 ? chargeable.xero_tax_type ?? defaultXeroTaxType : null,
       quantity: item.quantity,
       unit_price: unitPrice,
       tax_rate: taxRate,

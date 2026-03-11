@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { GlCodeSelect } from "@/components/settings/gl-code-select"
+import { XeroTaxTypeSelect } from "@/components/settings/xero-tax-type-select"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
@@ -21,6 +22,19 @@ export function XeroSettingsForm({
 }) {
   const [form, setForm] = React.useState(settings)
   const [saving, setSaving] = React.useState(false)
+  const { data: taxRates = [] } = useQuery({
+    queryKey: ["xero", "tax-rates", "active"],
+    queryFn: async () => {
+      const response = await fetch("/api/xero/tax-rates", { cache: "no-store" })
+      if (!response.ok) return [] as Array<{ xero_tax_type: string; status: string }>
+      const body = (await response.json().catch(() => null)) as {
+        taxRates?: Array<{ xero_tax_type: string; status: string }>
+      } | null
+      return (body?.taxRates ?? []).filter((taxRate) => taxRate.status === "ACTIVE")
+    },
+    staleTime: 60_000,
+  })
+  const hasTaxRates = taxRates.length > 0
 
   React.useEffect(() => {
     setForm(settings)
@@ -39,14 +53,16 @@ export function XeroSettingsForm({
 
       <div className="space-y-2">
         <Label>Default tax type</Label>
-        <Input
+        <XeroTaxTypeSelect
           value={form.default_tax_type ?? ""}
-          onChange={(event) =>
-            setForm((prev) => ({ ...prev, default_tax_type: event.target.value.trim() || null }))
-          }
-          placeholder="e.g. OUTPUT2"
-          disabled={disabled || saving}
+          onValueChange={(value) => setForm((prev) => ({ ...prev, default_tax_type: value || null }))}
+          disabled={disabled || saving || !hasTaxRates}
         />
+        {!hasTaxRates ? (
+          <p className="text-xs text-muted-foreground">
+            Sync Accounts & Tax Rates from Xero before selecting a default tax type.
+          </p>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between rounded-md border p-3">
@@ -71,7 +87,8 @@ export function XeroSettingsForm({
           })
           setSaving(false)
           if (!response.ok) {
-            toast.error("Failed to save Xero settings")
+            const body = (await response.json().catch(() => null)) as { error?: string } | null
+            toast.error(body?.error ?? "Failed to save Xero settings")
             return
           }
           toast.success("Xero settings saved")

@@ -5,6 +5,7 @@ import type {
   XeroCreateContactPayload,
   XeroCreateInvoicePayload,
   XeroInvoicesResponse,
+  XeroTaxRatesResponse,
 } from "@/lib/xero/types"
 import { z } from "zod"
 import { XeroApiError } from "@/lib/xero/types"
@@ -189,6 +190,19 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
         throw new XeroApiError("Failed to fetch Xero accounts", response.status, body)
       }
       return body as XeroAccountsResponse
+    },
+
+    async getTaxRates() {
+      const response = await xeroFetchWithRetry("https://api.xero.com/api.xro/2.0/TaxRates", {
+        method: "GET",
+        headers: createApiHeaders(accessToken, xeroTenantId),
+      })
+      const body = await parseResponseBody(response)
+      if (!response.ok) {
+        console.error("[xero] Fetch tax rates failed", { status: response.status, body })
+        throw new XeroApiError("Failed to fetch Xero tax rates", response.status, body)
+      }
+      return body as XeroTaxRatesResponse
     },
 
     async searchContactsByEmail(email: string) {

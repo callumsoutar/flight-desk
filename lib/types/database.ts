@@ -3765,6 +3765,71 @@ export type Database = {
           },
         ]
       }
+      xero_tax_rates: {
+        Row: {
+          can_apply_to_assets: boolean | null
+          can_apply_to_equity: boolean | null
+          can_apply_to_expenses: boolean | null
+          can_apply_to_liabilities: boolean | null
+          can_apply_to_revenue: boolean | null
+          created_at: string
+          display_rate: string | null
+          effective_rate: number | null
+          id: string
+          name: string
+          report_tax_type: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          updated_date_utc: string | null
+          xero_tax_type: string
+        }
+        Insert: {
+          can_apply_to_assets?: boolean | null
+          can_apply_to_equity?: boolean | null
+          can_apply_to_expenses?: boolean | null
+          can_apply_to_liabilities?: boolean | null
+          can_apply_to_revenue?: boolean | null
+          created_at?: string
+          display_rate?: string | null
+          effective_rate?: number | null
+          id?: string
+          name: string
+          report_tax_type?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          updated_date_utc?: string | null
+          xero_tax_type: string
+        }
+        Update: {
+          can_apply_to_assets?: boolean | null
+          can_apply_to_equity?: boolean | null
+          can_apply_to_expenses?: boolean | null
+          can_apply_to_liabilities?: boolean | null
+          can_apply_to_revenue?: boolean | null
+          created_at?: string
+          display_rate?: string | null
+          effective_rate?: number | null
+          id?: string
+          name?: string
+          report_tax_type?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_date_utc?: string | null
+          xero_tax_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_tax_rates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       aircraft_ttis_rollup: {
