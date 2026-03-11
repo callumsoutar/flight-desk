@@ -4135,13 +4135,6 @@ export const publicUserDirectoryUpdateSchema = z.object({
   updated_at: z.string().optional().nullable(),
 });
 
-export const publicApplyCreditNoteAtomicArgsSchema = z.object({
-  p_applied_by: z.string(),
-  p_credit_note_id: z.string(),
-});
-
-export const publicApplyCreditNoteAtomicReturnsSchema = jsonSchema;
-
 export const publicApproveBookingCheckinAtomicArgsSchema = z.object({
   p_airswitch_end: z.number(),
   p_airswitch_start: z.number(),
@@ -4167,10 +4160,6 @@ export const publicApproveBookingCheckinAtomicArgsSchema = z.object({
 });
 
 export const publicApproveBookingCheckinAtomicReturnsSchema = jsonSchema;
-
-export const publicBeginTransactionArgsSchema = z.never();
-
-export const publicBeginTransactionReturnsSchema = z.string();
 
 export const publicCalculateAppliedAircraftDeltaArgsSchema = z.object({
   p_hobbs_delta: z.number(),
@@ -4225,10 +4214,6 @@ export const publicCheckUserRoleSimpleArgsSchema = z.object({
 });
 
 export const publicCheckUserRoleSimpleReturnsSchema = z.boolean();
-
-export const publicCommitTransactionArgsSchema = z.never();
-
-export const publicCommitTransactionReturnsSchema = z.string();
 
 export const publicCorrectBookingCheckinTtisAtomicArgsSchema = z.object({
   p_airswitch_end: z.number(),
@@ -4345,10 +4330,6 @@ export const publicFlightdeskAccessTokenHookArgsSchema = z.object({
 
 export const publicFlightdeskAccessTokenHookReturnsSchema = jsonSchema;
 
-export const publicGenerateCreditNoteNumberArgsSchema = z.never();
-
-export const publicGenerateCreditNoteNumberReturnsSchema = z.string();
-
 export const publicGenerateInvoiceNumberArgsSchema = z.never();
 
 export const publicGenerateInvoiceNumberReturnsSchema = z.string();
@@ -4362,10 +4343,6 @@ export const publicGenerateInvoiceNumberWithPrefixArgsSchema = z.object({
 });
 
 export const publicGenerateInvoiceNumberWithPrefixReturnsSchema = z.string();
-
-export const publicGeneratePaymentNumberArgsSchema = z.never();
-
-export const publicGeneratePaymentNumberReturnsSchema = z.string();
 
 export const publicGetAccountBalanceArgsSchema = z.object({
   p_user_id: z.string(),
@@ -4534,36 +4511,6 @@ export const publicNeedsSessionRefreshArgsSchema = z.object({
 
 export const publicNeedsSessionRefreshReturnsSchema = z.boolean();
 
-export const publicProcessCreditPaymentAtomicArgsSchema = z.object({
-  p_amount: z.number(),
-  p_notes: z.string().optional(),
-  p_payment_method: z.string(),
-  p_payment_reference: z.string().optional(),
-  p_user_id: z.string(),
-});
-
-export const publicProcessCreditPaymentAtomicReturnsSchema = jsonSchema;
-
-export const publicProcessPaymentArgsSchema = z.object({
-  p_amount: z.number(),
-  p_invoice_id: z.string(),
-  p_notes: z.string().optional(),
-  p_payment_method: z.string(),
-  p_payment_reference: z.string().optional(),
-});
-
-export const publicProcessPaymentReturnsSchema = z.string();
-
-export const publicProcessPaymentAtomicArgsSchema = z.object({
-  p_amount: z.number(),
-  p_invoice_id: z.string(),
-  p_notes: z.string().optional(),
-  p_payment_method: z.string(),
-  p_payment_reference: z.string().optional(),
-});
-
-export const publicProcessPaymentAtomicReturnsSchema = jsonSchema;
-
 export const publicProcessRefundArgsSchema = z.object({
   p_amount: z.number(),
   p_notes: z.string().optional(),
@@ -4598,35 +4545,12 @@ export const publicRecordInvoicePaymentAtomicArgsSchema = z.object({
 
 export const publicRecordInvoicePaymentAtomicReturnsSchema = jsonSchema;
 
-export const publicReverseAndReplacePaymentAtomicArgsSchema = z.object({
-  p_admin_user_id: z.string(),
-  p_correct_amount: z.number(),
-  p_notes: z.string().optional(),
-  p_original_payment_id: z.string(),
-  p_reason: z.string(),
+export const publicSetDefaultTaxRateArgsSchema = z.object({
+  p_tax_rate_id: z.string(),
+  p_tenant_id: z.string(),
 });
 
-export const publicReverseAndReplacePaymentAtomicReturnsSchema = jsonSchema;
-
-export const publicReversePaymentAtomicArgsSchema = z.object({
-  p_admin_user_id: z.string(),
-  p_payment_id: z.string(),
-  p_reason: z.string(),
-});
-
-export const publicReversePaymentAtomicReturnsSchema = jsonSchema;
-
-export const publicRollbackTransactionArgsSchema = z.never();
-
-export const publicRollbackTransactionReturnsSchema = z.string();
-
-export const publicSoftDeleteCreditNoteArgsSchema = z.object({
-  p_credit_note_id: z.string(),
-  p_reason: z.string().optional(),
-  p_user_id: z.string(),
-});
-
-export const publicSoftDeleteCreditNoteReturnsSchema = jsonSchema;
+export const publicSetDefaultTaxRateReturnsSchema = jsonSchema;
 
 export const publicSoftDeleteInvoiceArgsSchema = z.object({
   p_invoice_id: z.string(),
@@ -5303,23 +5227,11 @@ export type PublicUserDirectoryInsert = z.infer<
 export type PublicUserDirectoryUpdate = z.infer<
   typeof publicUserDirectoryUpdateSchema
 >;
-export type PublicApplyCreditNoteAtomicArgs = z.infer<
-  typeof publicApplyCreditNoteAtomicArgsSchema
->;
-export type PublicApplyCreditNoteAtomicReturns = z.infer<
-  typeof publicApplyCreditNoteAtomicReturnsSchema
->;
 export type PublicApproveBookingCheckinAtomicArgs = z.infer<
   typeof publicApproveBookingCheckinAtomicArgsSchema
 >;
 export type PublicApproveBookingCheckinAtomicReturns = z.infer<
   typeof publicApproveBookingCheckinAtomicReturnsSchema
->;
-export type PublicBeginTransactionArgs = z.infer<
-  typeof publicBeginTransactionArgsSchema
->;
-export type PublicBeginTransactionReturns = z.infer<
-  typeof publicBeginTransactionReturnsSchema
 >;
 export type PublicCalculateAppliedAircraftDeltaArgs = z.infer<
   typeof publicCalculateAppliedAircraftDeltaArgsSchema
@@ -5362,12 +5274,6 @@ export type PublicCheckUserRoleSimpleArgs = z.infer<
 >;
 export type PublicCheckUserRoleSimpleReturns = z.infer<
   typeof publicCheckUserRoleSimpleReturnsSchema
->;
-export type PublicCommitTransactionArgs = z.infer<
-  typeof publicCommitTransactionArgsSchema
->;
-export type PublicCommitTransactionReturns = z.infer<
-  typeof publicCommitTransactionReturnsSchema
 >;
 export type PublicCorrectBookingCheckinTtisAtomicArgs = z.infer<
   typeof publicCorrectBookingCheckinTtisAtomicArgsSchema
@@ -5429,12 +5335,6 @@ export type PublicFlightdeskAccessTokenHookArgs = z.infer<
 export type PublicFlightdeskAccessTokenHookReturns = z.infer<
   typeof publicFlightdeskAccessTokenHookReturnsSchema
 >;
-export type PublicGenerateCreditNoteNumberArgs = z.infer<
-  typeof publicGenerateCreditNoteNumberArgsSchema
->;
-export type PublicGenerateCreditNoteNumberReturns = z.infer<
-  typeof publicGenerateCreditNoteNumberReturnsSchema
->;
 export type PublicGenerateInvoiceNumberArgs = z.infer<
   typeof publicGenerateInvoiceNumberArgsSchema
 >;
@@ -5452,12 +5352,6 @@ export type PublicGenerateInvoiceNumberWithPrefixArgs = z.infer<
 >;
 export type PublicGenerateInvoiceNumberWithPrefixReturns = z.infer<
   typeof publicGenerateInvoiceNumberWithPrefixReturnsSchema
->;
-export type PublicGeneratePaymentNumberArgs = z.infer<
-  typeof publicGeneratePaymentNumberArgsSchema
->;
-export type PublicGeneratePaymentNumberReturns = z.infer<
-  typeof publicGeneratePaymentNumberReturnsSchema
 >;
 export type PublicGetAccountBalanceArgs = z.infer<
   typeof publicGetAccountBalanceArgsSchema
@@ -5545,24 +5439,6 @@ export type PublicNeedsSessionRefreshArgs = z.infer<
 export type PublicNeedsSessionRefreshReturns = z.infer<
   typeof publicNeedsSessionRefreshReturnsSchema
 >;
-export type PublicProcessCreditPaymentAtomicArgs = z.infer<
-  typeof publicProcessCreditPaymentAtomicArgsSchema
->;
-export type PublicProcessCreditPaymentAtomicReturns = z.infer<
-  typeof publicProcessCreditPaymentAtomicReturnsSchema
->;
-export type PublicProcessPaymentArgs = z.infer<
-  typeof publicProcessPaymentArgsSchema
->;
-export type PublicProcessPaymentReturns = z.infer<
-  typeof publicProcessPaymentReturnsSchema
->;
-export type PublicProcessPaymentAtomicArgs = z.infer<
-  typeof publicProcessPaymentAtomicArgsSchema
->;
-export type PublicProcessPaymentAtomicReturns = z.infer<
-  typeof publicProcessPaymentAtomicReturnsSchema
->;
 export type PublicProcessRefundArgs = z.infer<
   typeof publicProcessRefundArgsSchema
 >;
@@ -5581,29 +5457,11 @@ export type PublicRecordInvoicePaymentAtomicArgs = z.infer<
 export type PublicRecordInvoicePaymentAtomicReturns = z.infer<
   typeof publicRecordInvoicePaymentAtomicReturnsSchema
 >;
-export type PublicReverseAndReplacePaymentAtomicArgs = z.infer<
-  typeof publicReverseAndReplacePaymentAtomicArgsSchema
+export type PublicSetDefaultTaxRateArgs = z.infer<
+  typeof publicSetDefaultTaxRateArgsSchema
 >;
-export type PublicReverseAndReplacePaymentAtomicReturns = z.infer<
-  typeof publicReverseAndReplacePaymentAtomicReturnsSchema
->;
-export type PublicReversePaymentAtomicArgs = z.infer<
-  typeof publicReversePaymentAtomicArgsSchema
->;
-export type PublicReversePaymentAtomicReturns = z.infer<
-  typeof publicReversePaymentAtomicReturnsSchema
->;
-export type PublicRollbackTransactionArgs = z.infer<
-  typeof publicRollbackTransactionArgsSchema
->;
-export type PublicRollbackTransactionReturns = z.infer<
-  typeof publicRollbackTransactionReturnsSchema
->;
-export type PublicSoftDeleteCreditNoteArgs = z.infer<
-  typeof publicSoftDeleteCreditNoteArgsSchema
->;
-export type PublicSoftDeleteCreditNoteReturns = z.infer<
-  typeof publicSoftDeleteCreditNoteReturnsSchema
+export type PublicSetDefaultTaxRateReturns = z.infer<
+  typeof publicSetDefaultTaxRateReturnsSchema
 >;
 export type PublicSoftDeleteInvoiceArgs = z.infer<
   typeof publicSoftDeleteInvoiceArgsSchema

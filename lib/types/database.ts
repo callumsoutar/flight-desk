@@ -3829,10 +3829,6 @@ export type Database = {
       }
     }
     Functions: {
-      apply_credit_note_atomic: {
-        Args: { p_applied_by: string; p_credit_note_id: string }
-        Returns: Json
-      }
       approve_booking_checkin_atomic: {
         Args: {
           p_airswitch_end: number
@@ -3859,7 +3855,6 @@ export type Database = {
         }
         Returns: Json
       }
-      begin_transaction: { Args: never; Returns: string }
       calculate_applied_aircraft_delta: {
         Args: { p_hobbs_delta: number; p_method: string; p_tach_delta: number }
         Returns: number
@@ -3900,7 +3895,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      commit_transaction: { Args: never; Returns: string }
       correct_booking_checkin_ttis_atomic: {
         Args: {
           p_airswitch_end: number
@@ -3993,14 +3987,12 @@ export type Database = {
       }
       flatten_settings: { Args: { nested_settings: Json }; Returns: Json }
       flightdesk_access_token_hook: { Args: { event: Json }; Returns: Json }
-      generate_credit_note_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_invoice_number_app: { Args: never; Returns: string }
       generate_invoice_number_with_prefix: {
         Args: { p_prefix?: string }
         Returns: string
       }
-      generate_payment_number: { Args: never; Returns: string }
       get_account_balance: { Args: { p_user_id: string }; Returns: number }
       get_aircraft_maintenance_cost_report:
         | {
@@ -4150,36 +4142,6 @@ export type Database = {
         Args: { p_token_issued_at: string; p_user_id: string }
         Returns: boolean
       }
-      process_credit_payment_atomic: {
-        Args: {
-          p_amount: number
-          p_notes?: string
-          p_payment_method: string
-          p_payment_reference?: string
-          p_user_id: string
-        }
-        Returns: Json
-      }
-      process_payment: {
-        Args: {
-          p_amount: number
-          p_invoice_id: string
-          p_notes?: string
-          p_payment_method: string
-          p_payment_reference?: string
-        }
-        Returns: string
-      }
-      process_payment_atomic: {
-        Args: {
-          p_amount: number
-          p_invoice_id: string
-          p_notes?: string
-          p_payment_method: string
-          p_payment_reference?: string
-        }
-        Returns: Json
-      }
       process_refund: {
         Args: { p_amount: number; p_notes?: string; p_payment_id: string }
         Returns: string
@@ -4206,27 +4168,8 @@ export type Database = {
         }
         Returns: Json
       }
-      reverse_and_replace_payment_atomic: {
-        Args: {
-          p_admin_user_id: string
-          p_correct_amount: number
-          p_notes?: string
-          p_original_payment_id: string
-          p_reason: string
-        }
-        Returns: Json
-      }
-      reverse_payment_atomic: {
-        Args: {
-          p_admin_user_id: string
-          p_payment_id: string
-          p_reason: string
-        }
-        Returns: Json
-      }
-      rollback_transaction: { Args: never; Returns: string }
-      soft_delete_credit_note: {
-        Args: { p_credit_note_id: string; p_reason?: string; p_user_id: string }
+      set_default_tax_rate: {
+        Args: { p_tax_rate_id: string; p_tenant_id: string }
         Returns: Json
       }
       soft_delete_invoice: {

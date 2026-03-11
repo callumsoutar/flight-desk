@@ -27,6 +27,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
     .select("id, user_id, issue_date, due_date, invoice_number, reference, status")
     .eq("tenant_id", tenantId)
     .eq("id", invoiceId)
+    .is("deleted_at", null)
     .maybeSingle()
 
   if (invoiceError || !invoice) {

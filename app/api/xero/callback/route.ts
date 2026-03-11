@@ -58,13 +58,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createSupabaseServerClient()
-    const { user } = await getAuthSession(supabase, {
+    const { user, role } = await getAuthSession(supabase, {
       requireUser: true,
+      includeRole: true,
       includeTenant: true,
+      authoritativeRole: true,
       authoritativeTenant: true,
     })
     if (!user) {
       return NextResponse.redirect(new URL(integrationRedirect("error", "unauthorized"), request.url))
+    }
+    if (role !== "owner" && role !== "admin") {
+      return NextResponse.redirect(new URL(integrationRedirect("error", "forbidden"), request.url))
     }
 
     const { clientId, clientSecret, redirectUri } = getXeroEnv()
@@ -142,10 +147,7 @@ export async function GET(request: NextRequest) {
       error: error instanceof Error ? error.message : "callback_failed",
     })
     return NextResponse.redirect(
-      new URL(
-        integrationRedirect("error", error instanceof Error ? error.message : "callback_failed"),
-        request.url
-      )
+      new URL(integrationRedirect("error", "connection_failed"), request.url)
     )
   }
 }
