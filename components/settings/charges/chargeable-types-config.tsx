@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import type { ChargeableTypesRow } from "@/lib/types/tables"
 
 type ChargeableType = Pick<
@@ -149,7 +150,11 @@ export function ChargeableTypesConfig() {
               </div>
               <div className="space-y-2">
                 <Label>GL code</Label>
-                <Input value={form.gl_code} onChange={(e) => setForm((p) => ({ ...p, gl_code: e.target.value }))} />
+                <XeroAccountSelect
+                  value={form.gl_code}
+                  onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
+                  accountTypes={["REVENUE"]}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
@@ -241,9 +246,10 @@ export function ChargeableTypesConfig() {
                           </div>
                           <div className="space-y-2">
                             <Label>GL code</Label>
-                            <Input
+                            <XeroAccountSelect
                               value={form.gl_code}
-                              onChange={(e) => setForm((p) => ({ ...p, gl_code: e.target.value }))}
+                              onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
+                              accountTypes={["REVENUE"]}
                             />
                           </div>
                           <div className="space-y-2">
