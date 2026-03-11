@@ -4,8 +4,8 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
+import { XeroTaxTypeSelect } from "@/components/settings/xero-tax-type-select"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
@@ -41,19 +41,20 @@ export function XeroSettingsForm({
 
       <div className="space-y-2">
         <Label>Default tax type</Label>
-        <Input
+        <XeroTaxTypeSelect
           value={form.default_tax_type ?? ""}
-          onChange={(event) =>
+          onChange={(taxType) =>
             setForm((prev) => ({
               ...prev,
-              default_tax_type: event.target.value.trim() ? event.target.value.toUpperCase() : null,
+              default_tax_type: taxType.trim() ? taxType : null,
             }))
           }
-          placeholder="e.g. OUTPUT2 (optional)"
+          placeholder="Select default tax type…"
           disabled={disabled || saving}
+          includeNoneOption={true}
         />
         <p className="text-xs text-muted-foreground">
-          Optional Xero tax type code used when a taxable line does not have one set.
+          Used when a taxable line item does not have a tax type set on its chargeable.
         </p>
       </div>
 

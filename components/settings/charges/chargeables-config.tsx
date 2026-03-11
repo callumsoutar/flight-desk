@@ -10,6 +10,7 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { XeroTaxTypeSelect } from "@/components/settings/xero-tax-type-select"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -754,12 +755,19 @@ export function ChargeablesConfig() {
                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
                       Xero tax type
                     </Label>
-                    <Input
+                    <XeroTaxTypeSelect
                       value={form.xero_tax_type}
-                      onChange={(e) => setForm((prev) => ({ ...prev, xero_tax_type: e.target.value }))}
+                      onChange={(taxType) =>
+                        setForm((prev) => ({ ...prev, xero_tax_type: taxType }))
+                      }
+                      placeholder="Select tax type (optional)"
+                      disabled={saving}
+                      includeNoneOption={true}
                       className="h-10 rounded-xl border-slate-200 bg-white"
-                      placeholder="e.g. OUTPUT2"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank to use the default from Settings → Integrations.
+                    </p>
                   </div>
                 ) : null}
 
