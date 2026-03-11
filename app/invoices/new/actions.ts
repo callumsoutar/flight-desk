@@ -95,7 +95,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
 
   const { data: chargeables, error: chargeablesError } = await supabase
     .from("chargeables")
-    .select("id, name, is_taxable, xero_tax_type, chargeable_type_id")
+    .select("id, name, is_taxable, xero_tax_type, chargeable_type_id, gl_code")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .is("voided_at", null)
@@ -152,7 +152,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
     return {
       chargeable_id: chargeable.id,
       description: chargeable.name,
-      gl_code: chargeableTypeGlCodeMap.get(chargeable.chargeable_type_id) ?? null,
+      gl_code: chargeable.gl_code ?? chargeableTypeGlCodeMap.get(chargeable.chargeable_type_id) ?? null,
       xero_tax_type: chargeable.xero_tax_type ?? null,
       quantity: item.quantity,
       unit_price: unitPrice,

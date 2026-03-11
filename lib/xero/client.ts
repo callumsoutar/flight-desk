@@ -6,6 +6,7 @@ import type {
   XeroCreateInvoicePayload,
   XeroInvoicesResponse,
 } from "@/lib/xero/types"
+import { z } from "zod"
 import { XeroApiError } from "@/lib/xero/types"
 
 function toBase64(value: string) {
@@ -18,6 +19,24 @@ async function parseResponseBody(response: Response) {
     return response.json().catch(() => null)
   }
   return response.text().catch(() => null)
+}
+
+const tokenResponseSchema = z.object({
+  access_token: z.string().min(1, "Missing access_token"),
+  refresh_token: z.string().min(1, "Missing refresh_token"),
+  expires_in: z.number().finite().positive("Missing expires_in"),
+  scope: z.string().optional(),
+  token_type: z.string().optional(),
+})
+
+export type ValidatedXeroTokenResponse = z.infer<typeof tokenResponseSchema>
+
+function validateTokenResponse(body: unknown): ValidatedXeroTokenResponse {
+  const parsed = tokenResponseSchema.safeParse(body)
+  if (!parsed.success) {
+    throw new Error(`Invalid token response from Xero: ${parsed.error.issues.map((i) => i.message).join(", ")}`)
+  }
+  return parsed.data
 }
 
 async function xeroFetchWithRetry(
@@ -72,10 +91,11 @@ export async function exchangeCodeForTokens(
 
   const body = await parseResponseBody(response)
   if (!response.ok) {
+    console.error("[xero] Token exchange failed", { status: response.status, body })
     throw new XeroApiError("Failed to exchange authorization code", response.status, body)
   }
 
-  return body
+  return validateTokenResponse(body)
 }
 
 export async function refreshXeroTokens(
@@ -100,10 +120,11 @@ export async function refreshXeroTokens(
 
   const body = await parseResponseBody(response)
   if (!response.ok) {
+    console.error("[xero] Token refresh failed", { status: response.status, body })
     throw new XeroApiError("Failed to refresh Xero token", response.status, body)
   }
 
-  return body
+  return validateTokenResponse(body)
 }
 
 export async function revokeXeroToken(refreshToken: string, clientId: string, clientSecret: string) {
@@ -123,6 +144,7 @@ export async function revokeXeroToken(refreshToken: string, clientId: string, cl
 
   if (!response.ok) {
     const body = await parseResponseBody(response)
+    console.error("[xero] Token revoke failed", { status: response.status, body })
     throw new XeroApiError("Failed to revoke Xero token", response.status, body)
   }
 }
@@ -147,6 +169,7 @@ export async function fetchXeroConnections(accessToken: string) {
 
   const body = await parseResponseBody(response)
   if (!response.ok) {
+    console.error("[xero] Fetch connections failed", { status: response.status, body })
     throw new XeroApiError("Failed to fetch Xero connections", response.status, body)
   }
 
@@ -162,6 +185,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
+        console.error("[xero] Fetch accounts failed", { status: response.status, body })
         throw new XeroApiError("Failed to fetch Xero accounts", response.status, body)
       }
       return body as XeroAccountsResponse
@@ -176,6 +200,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
+        console.error("[xero] Contact search failed", { status: response.status, email, body })
         throw new XeroApiError("Failed to query Xero contacts", response.status, body)
       }
       return body as XeroContactsResponse
@@ -189,6 +214,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
+        console.error("[xero] Create contact failed", { status: response.status, body })
         throw new XeroApiError("Failed to create Xero contact", response.status, body)
       }
       return body as XeroContactsResponse
@@ -202,6 +228,11 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
+        console.error("[xero] Create draft invoice failed", {
+          status: response.status,
+          idempotencyKey,
+          body,
+        })
         throw new XeroApiError("Failed to export Xero invoice", response.status, body)
       }
       return body as XeroInvoicesResponse

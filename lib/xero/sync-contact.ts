@@ -22,7 +22,9 @@ export async function syncXeroContact(
     .maybeSingle()
 
   if (mappingError) throw mappingError
-  if (mapping?.xero_contact_id) return mapping.xero_contact_id
+  if (mapping?.xero_contact_id) {
+    return mapping.xero_contact_id
+  }
 
   const { data: user, error: userError } = await admin
     .from("user_directory")
@@ -65,6 +67,7 @@ export async function syncXeroContact(
     }
   } catch (error) {
     if (error instanceof XeroApiError && error.status === 404) {
+      console.warn("[xero] Contact lookup returned 404, creating contact", { tenantId, userId })
       const created = await xeroClient.createContact({
         Name: `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || user.email,
         FirstName: user.first_name ?? undefined,
@@ -78,6 +81,11 @@ export async function syncXeroContact(
       contactId = recreated?.ContactID ?? null
       contactName = recreated?.Name ?? null
     } else {
+      console.error("[xero] Contact sync failed", {
+        tenantId,
+        userId,
+        error: error instanceof Error ? error.message : "Unknown contact sync error",
+      })
       throw error
     }
   }

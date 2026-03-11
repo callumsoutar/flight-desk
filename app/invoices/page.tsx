@@ -19,17 +19,17 @@ async function InvoicesContent({ tenantId }: { tenantId: string }) {
   let xeroEnabled = false
 
   try {
-    invoices = await fetchInvoices(supabase, tenantId)
-  } catch {
-    invoices = []
-    loadError = "Failed to load invoices."
-  }
-
-  try {
     const xeroSettings = await fetchXeroSettings(supabase, tenantId)
     xeroEnabled = xeroSettings.enabled
   } catch {
     xeroEnabled = false
+  }
+
+  try {
+    invoices = await fetchInvoices(supabase, tenantId, undefined, xeroEnabled)
+  } catch {
+    invoices = []
+    loadError = "Failed to load invoices."
   }
 
   return (

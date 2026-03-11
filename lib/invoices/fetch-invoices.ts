@@ -3,7 +3,6 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
-import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import type {
   InvoicesFilter,
   InvoiceStatus,
@@ -48,7 +47,8 @@ function matchSearch(invoice: InvoiceWithRelations, normalizedSearch: string | n
 export async function fetchInvoices(
   supabase: SupabaseClient<Database>,
   tenantId: string,
-  filters?: InvoicesFilter
+  filters?: InvoicesFilter,
+  xeroEnabled = false
 ): Promise<InvoiceWithRelations[]> {
   let query = supabase
     .from("invoices")
@@ -82,10 +82,6 @@ export async function fetchInvoices(
     ...row,
     user: pickMaybeOne(row.user),
   }))
-
-  const xeroEnabled = await fetchXeroSettings(supabase, tenantId)
-    .then((settings) => settings.enabled)
-    .catch(() => false)
 
   if (xeroEnabled && normalized.length > 0) {
     const invoiceIds = normalized.map((invoice) => invoice.id)

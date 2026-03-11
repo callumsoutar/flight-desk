@@ -1,10 +1,19 @@
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import { syncXeroContact } from "@/lib/xero/sync-contact"
+import { XeroApiError } from "@/lib/xero/types"
+import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 
 const EXPORTABLE_INVOICE_STATUSES = ["pending", "paid", "overdue"] as const
 
 function isExportableInvoiceStatus(status: string) {
   return EXPORTABLE_INVOICE_STATUSES.includes(status as (typeof EXPORTABLE_INVOICE_STATUSES)[number])
+}
+
+function isLikelyStaleContactError(error: unknown) {
+  if (!(error instanceof XeroApiError)) return false
+  if (error.status !== 400 && error.status !== 404) return false
+  const serialized = JSON.stringify(error.body ?? {}).toLowerCase()
+  return serialized.includes("contact")
 }
 
 export async function exportInvoiceToXero(tenantId: string, invoiceId: string, initiatedBy: string) {
@@ -61,21 +70,49 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
   }
 
   try {
-    const { data: items, error: itemsError } = await admin
-      .from("invoice_items")
-      .select("description, quantity, unit_price, amount, gl_code, xero_tax_type")
-      .eq("tenant_id", tenantId)
-      .eq("invoice_id", invoiceId)
-      .is("deleted_at", null)
+    const [xeroSettings, itemsResult, accountsCountResult] = await Promise.all([
+      fetchXeroSettings(admin, tenantId),
+      admin
+        .from("invoice_items")
+        .select("description, quantity, unit_price, amount, gl_code, xero_tax_type")
+        .eq("tenant_id", tenantId)
+        .eq("invoice_id", invoiceId)
+        .is("deleted_at", null),
+      admin
+        .from("xero_accounts")
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("status", "ACTIVE"),
+    ])
 
+    const { data: items, error: itemsError } = itemsResult
     if (itemsError || !items?.length) {
       throw new Error("Invoice has no items to export")
     }
 
-    const invalidItem = items.find((item) => !item.gl_code)
-    if (invalidItem) throw new Error("Invoice contains items without GL code")
+    const defaultGlCode = xeroSettings.default_revenue_account_code
+    const defaultTaxType = xeroSettings.default_tax_type ?? "NONE"
 
-    const glCodes = Array.from(new Set(items.map((item) => item.gl_code).filter(Boolean)))
+    const resolvedItems = items.map((item) => ({
+      ...item,
+      gl_code: item.gl_code ?? defaultGlCode,
+      xero_tax_type: item.xero_tax_type ?? defaultTaxType,
+    }))
+
+    const invalidItem = resolvedItems.find((item) => !item.gl_code)
+    if (invalidItem) {
+      throw new Error(
+        "Invoice contains items without GL code. Set a GL code on the chargeable type or flight type, or configure a default revenue account in Settings → Integrations."
+      )
+    }
+
+    if ((accountsCountResult.count ?? 0) === 0) {
+      throw new Error(
+        "Chart of Accounts has not been synced from Xero. Please go to Settings → Integrations and click Sync Accounts, then try exporting again."
+      )
+    }
+
+    const glCodes = Array.from(new Set(resolvedItems.map((item) => item.gl_code).filter(Boolean)))
     const { data: accounts, error: accountsError } = await admin
       .from("xero_accounts")
       .select("code")
@@ -88,12 +125,14 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
 
     for (const code of glCodes) {
       if (!validCodes.has(code)) {
-        throw new Error(`GL code '${code}' is not a valid Xero account.`)
+        throw new Error(
+          `GL code '${code}' is not a valid Xero account. ` +
+            "Ensure your Chart of Accounts is synced (Settings → Integrations → Sync Accounts) and the code exists in Xero as a REVENUE account."
+        )
       }
     }
 
-    const xeroContactId = await syncXeroContact(admin, client, tenantId, invoice.user_id, initiatedBy)
-    const payload = {
+    const buildPayload = (xeroContactId: string) => ({
       Type: "ACCREC" as const,
       Contact: { ContactID: xeroContactId },
       Date: invoice.issue_date.slice(0, 10),
@@ -101,17 +140,43 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       InvoiceNumber: invoice.invoice_number ?? invoice.id,
       Reference: invoice.reference ?? null,
       Status: "DRAFT" as const,
-      LineItems: items.map((item) => ({
+      LineItems: resolvedItems.map((item) => ({
         Description: item.description,
         Quantity: item.quantity,
         UnitAmount: item.unit_price,
-        AccountCode: item.gl_code ?? "",
-        TaxType: item.xero_tax_type ?? "NONE",
+        AccountCode: item.gl_code!,
+        TaxType: item.xero_tax_type!,
         LineAmount: item.amount,
       })),
+    })
+
+    const idempotencyKey = `tenant-${tenantId}-invoice-${invoiceId}`
+    let xeroContactId = await syncXeroContact(admin, client, tenantId, invoice.user_id, initiatedBy)
+    let payload = buildPayload(xeroContactId)
+    let xeroResponse
+
+    try {
+      xeroResponse = await client.createDraftInvoice(payload, idempotencyKey)
+    } catch (error) {
+      if (!isLikelyStaleContactError(error)) throw error
+
+      console.warn("[xero] Stale contact mapping detected, re-syncing contact", {
+        tenantId,
+        invoiceId,
+        userId: invoice.user_id,
+      })
+
+      await admin
+        .from("xero_contacts")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("user_id", invoice.user_id)
+
+      xeroContactId = await syncXeroContact(admin, client, tenantId, invoice.user_id, initiatedBy)
+      payload = buildPayload(xeroContactId)
+      xeroResponse = await client.createDraftInvoice(payload, idempotencyKey)
     }
 
-    const xeroResponse = await client.createDraftInvoice(payload, `invoice-${invoiceId}`)
     const xeroInvoiceId = xeroResponse.Invoices?.[0]?.InvoiceID
 
     await admin.from("xero_export_logs").insert({
@@ -137,6 +202,14 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
     return { invoiceId, status: "exported" as const, xeroInvoiceId: xeroInvoiceId ?? null }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown export error"
+    const responsePayload =
+      error instanceof XeroApiError ? (error.body as Record<string, unknown>) : null
+
+    console.error("[xero] Export invoice failed", {
+      tenantId,
+      invoiceId,
+      error: message,
+    })
 
     await admin.from("xero_export_logs").insert({
       tenant_id: tenantId,
@@ -145,6 +218,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       status: "error",
       initiated_by: initiatedBy,
       error_message: message,
+      response_payload: responsePayload,
     })
 
     await admin

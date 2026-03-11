@@ -158,6 +158,25 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const invoiceId = rpcResult.invoice_id
 
   if (invoiceId) {
+    const { data: settingsRow } = await supabase
+      .from("tenant_settings")
+      .select("settings")
+      .eq("tenant_id", tenantId)
+      .maybeSingle()
+
+    const defaultTaxType =
+      settingsRow?.settings &&
+      typeof settingsRow.settings === "object" &&
+      !Array.isArray(settingsRow.settings) &&
+      "xero" in settingsRow.settings &&
+      settingsRow.settings.xero &&
+      typeof settingsRow.settings.xero === "object" &&
+      !Array.isArray(settingsRow.settings.xero) &&
+      typeof settingsRow.settings.xero.default_tax_type === "string" &&
+      settingsRow.settings.xero.default_tax_type.trim().length
+        ? settingsRow.settings.xero.default_tax_type.trim()
+        : null
+
     const { data: invoiceItems } = await supabase
       .from("invoice_items")
       .select("id, chargeable_id, description")
@@ -175,7 +194,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { data: chargeables } = chargeableIds.length
       ? await supabase
           .from("chargeables")
-          .select("id, chargeable_type_id")
+          .select("id, chargeable_type_id, gl_code, xero_tax_type")
           .eq("tenant_id", tenantId)
           .in("id", chargeableIds)
       : { data: [] }
@@ -200,10 +219,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     const itemUpdates = (invoiceItems ?? []).map((item) => {
       let glCode: string | null = null
+      let xeroTaxType: string | null = defaultTaxType
       if (item.chargeable_id) {
         const chargeable = chargeableById.get(item.chargeable_id)
+        xeroTaxType = chargeable?.xero_tax_type ?? defaultTaxType
         if (chargeable?.chargeable_type_id) {
-          glCode = typeGlById.get(chargeable.chargeable_type_id) ?? null
+          glCode = chargeable.gl_code ?? typeGlById.get(chargeable.chargeable_type_id) ?? null
         }
       } else {
         const desc = (item.description ?? "").toLowerCase()
@@ -217,13 +238,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         }
       }
 
-      return { id: item.id, gl_code: glCode }
+      return { id: item.id, gl_code: glCode, xero_tax_type: xeroTaxType }
     })
 
     await Promise.all(
       itemUpdates
-        .filter((item) => item.gl_code)
-        .map((item) => supabase.from("invoice_items").update({ gl_code: item.gl_code }).eq("id", item.id))
+        .filter((item) => item.gl_code || item.xero_tax_type)
+        .map((item) =>
+          supabase
+            .from("invoice_items")
+            .update({
+              gl_code: item.gl_code ?? null,
+              xero_tax_type: item.xero_tax_type ?? null,
+            })
+            .eq("id", item.id)
+        )
     )
   }
 

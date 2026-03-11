@@ -60,8 +60,8 @@ export async function GET(request: NextRequest) {
 
   const authorizeUrl = `https://login.xero.com/identity/connect/authorize?${params.toString()}`
 
-  // ?debug=1 returns troubleshoot info instead of redirecting (admin only)
-  if (request.nextUrl.searchParams.get("debug") === "1") {
+  // ?debug=1 returns troubleshoot info instead of redirecting (admin only, dev only)
+  if (process.env.NODE_ENV === "development" && request.nextUrl.searchParams.get("debug") === "1") {
     return NextResponse.json({
       message: "Xero OAuth debug — verify these match your Xero app",
       client_id: clientId,

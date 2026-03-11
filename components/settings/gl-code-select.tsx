@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -20,16 +21,16 @@ export function GlCodeSelect({
   onValueChange: (value: string) => void
   disabled?: boolean
 }) {
-  const [accounts, setAccounts] = React.useState<XeroAccount[]>([])
-
-  React.useEffect(() => {
-    void (async () => {
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["xero", "accounts", "active"],
+    queryFn: async () => {
       const response = await fetch("/api/xero/accounts", { cache: "no-store" })
-      if (!response.ok) return
+      if (!response.ok) return [] as XeroAccount[]
       const body = (await response.json().catch(() => null)) as { accounts?: XeroAccount[] } | null
-      setAccounts((body?.accounts ?? []).filter((account) => account.status === "ACTIVE"))
-    })()
-  }, [])
+      return (body?.accounts ?? []).filter((account) => account.status === "ACTIVE")
+    },
+    staleTime: 60_000,
+  })
 
   return (
     <Select value={value || "__none__"} onValueChange={(next) => onValueChange(next === "__none__" ? "" : next)} disabled={disabled}>

@@ -17,6 +17,22 @@ function normalizeNullableString(value: unknown): string | null {
   return trimmed.length ? trimmed : null
 }
 
+const KNOWN_XERO_TAX_TYPES = [
+  "NONE",
+  "OUTPUT",
+  "OUTPUT2",
+  "EXEMPTOUTPUT",
+  "ZERORATED",
+] as const
+
+const xeroTaxTypeSchema = z.preprocess(
+  (value) => {
+    const normalized = normalizeNullableString(value)
+    return normalized ? normalized.toUpperCase() : null
+  },
+  z.enum(KNOWN_XERO_TAX_TYPES).nullable().optional()
+)
+
 async function resolveTypeIdByCode(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   tenantId: string,
@@ -41,7 +57,7 @@ const createSchema = z.object({
   description: z.string().trim().max(1200).optional().nullable(),
   chargeable_type_id: z.string().uuid(),
   rate: z.number().finite().min(0),
-  xero_tax_type: z.string().trim().max(40).optional().nullable(),
+  xero_tax_type: xeroTaxTypeSchema,
   is_taxable: z.boolean().optional(),
   is_active: z.boolean().optional(),
 })
@@ -52,7 +68,7 @@ const updateSchema = z.object({
   description: z.string().trim().max(1200).optional().nullable(),
   chargeable_type_id: z.string().uuid().optional(),
   rate: z.number().finite().min(0).optional(),
-  xero_tax_type: z.string().trim().max(40).optional().nullable(),
+  xero_tax_type: xeroTaxTypeSchema,
   is_taxable: z.boolean().optional(),
   is_active: z.boolean().optional(),
 })
@@ -192,7 +208,7 @@ export async function POST(request: NextRequest) {
       name: payload.name.trim(),
       description: normalizeNullableString(payload.description),
       rate: payload.rate,
-      xero_tax_type: normalizeNullableString(payload.xero_tax_type),
+      xero_tax_type: payload.xero_tax_type ?? null,
       is_taxable: payload.is_taxable ?? true,
       is_active: payload.is_active ?? true,
     })
@@ -235,7 +251,7 @@ export async function PATCH(request: NextRequest) {
   if (rest.description !== undefined) updateData.description = normalizeNullableString(rest.description)
   if (rest.rate !== undefined) updateData.rate = rest.rate
   if (rest.xero_tax_type !== undefined) {
-    updateData.xero_tax_type = normalizeNullableString(rest.xero_tax_type)
+    updateData.xero_tax_type = rest.xero_tax_type ?? null
   }
   if (rest.is_taxable !== undefined) updateData.is_taxable = rest.is_taxable
   if (rest.is_active !== undefined) updateData.is_active = rest.is_active

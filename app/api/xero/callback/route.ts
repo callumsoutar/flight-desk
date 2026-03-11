@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
+import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { exchangeCodeForTokens, fetchXeroConnections } from "@/lib/xero/client"
 import { getXeroEnv } from "@/lib/xero/env"
 
@@ -55,9 +57,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const supabase = await createSupabaseServerClient()
+    const { user } = await getAuthSession(supabase, {
+      requireUser: true,
+      includeTenant: true,
+      authoritativeTenant: true,
+    })
+    if (!user) {
+      return NextResponse.redirect(new URL(integrationRedirect("error", "unauthorized"), request.url))
+    }
+
     const { clientId, clientSecret, redirectUri } = getXeroEnv()
     const tokens = await exchangeCodeForTokens(code, redirectUri, clientId, clientSecret)
-    const connections = await fetchXeroConnections(String(tokens.access_token))
+    const connections = await fetchXeroConnections(tokens.access_token)
     const connection = connections[0]
     const xeroTenantId = connection?.tenantId ?? connection?.id
     if (!xeroTenantId) {
@@ -65,17 +77,18 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = createSupabaseAdminClient()
-    const tokenExpiresAt = new Date(Date.now() + Number(tokens.expires_in ?? 1800) * 1000).toISOString()
+    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
     const { error: upsertConnectionError } = await admin.from("xero_connections").upsert(
       {
         tenant_id: decoded.tenantId,
         xero_tenant_id: xeroTenantId,
         xero_tenant_name: connection.tenantName ?? null,
-        access_token: String(tokens.access_token),
-        refresh_token: String(tokens.refresh_token),
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
         token_expires_at: tokenExpiresAt,
-        scopes: String(tokens.scope ?? ""),
+        scopes: tokens.scope ?? "",
+        connected_by: user.id,
       },
       { onConflict: "tenant_id" }
     )
@@ -125,6 +138,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL(integrationRedirect("connected"), request.url))
   } catch (error) {
+    console.error("[xero] OAuth callback failed", {
+      error: error instanceof Error ? error.message : "callback_failed",
+    })
     return NextResponse.redirect(
       new URL(
         integrationRedirect("error", error instanceof Error ? error.message : "callback_failed"),

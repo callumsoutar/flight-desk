@@ -24,13 +24,13 @@ async function refreshIfNeeded(admin: AdminClient, connection: XeroConnectionRow
   const { clientId, clientSecret } = getXeroEnv()
   try {
     const refreshed = await refreshXeroTokens(connection.refresh_token, clientId, clientSecret)
-    const expiresAt = new Date(Date.now() + Number(refreshed.expires_in ?? 1800) * 1000).toISOString()
+    const expiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
 
     const patch = {
-      access_token: String(refreshed.access_token),
-      refresh_token: String(refreshed.refresh_token),
+      access_token: refreshed.access_token,
+      refresh_token: refreshed.refresh_token,
       token_expires_at: expiresAt,
-      scopes: String(refreshed.scope ?? connection.scopes ?? ""),
+      scopes: refreshed.scope ?? connection.scopes ?? "",
     }
 
     const { data, error } = await admin
@@ -52,6 +52,10 @@ async function refreshIfNeeded(admin: AdminClient, connection: XeroConnectionRow
 
     return data
   } catch (error) {
+    console.error("[xero] Token refresh persistence failed", {
+      tenantId: connection.tenant_id,
+      error: error instanceof Error ? error.message : "Unknown refresh error",
+    })
     await admin.from("xero_export_logs").insert({
       tenant_id: connection.tenant_id,
       action: "refresh_token",
@@ -70,7 +74,10 @@ export async function getXeroClient(tenantId: string) {
     .eq("tenant_id", tenantId)
     .maybeSingle()
 
-  if (error) throw error
+  if (error) {
+    console.error("[xero] Failed loading xero connection", { tenantId, error: error.message })
+    throw error
+  }
   if (!connection) {
     throw new XeroAuthError("Xero is not connected for this tenant.")
   }

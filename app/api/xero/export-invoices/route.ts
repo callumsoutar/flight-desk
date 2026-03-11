@@ -15,6 +15,8 @@ function isStaff(role: string | null) {
   return role === "owner" || role === "admin" || role === "instructor"
 }
 
+const EXPORT_CONCURRENCY = 3
+
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await getAuthSession(supabase, {
@@ -32,9 +34,16 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
 
-  const results = await Promise.all(
-    parsed.data.invoiceIds.map((invoiceId) => exportInvoiceToXero(tenantId, invoiceId, user.id))
-  )
+  const results: Awaited<ReturnType<typeof exportInvoiceToXero>>[] = []
+  const invoiceIds = parsed.data.invoiceIds
+
+  for (let i = 0; i < invoiceIds.length; i += EXPORT_CONCURRENCY) {
+    const batch = invoiceIds.slice(i, i + EXPORT_CONCURRENCY)
+    const batchResults = await Promise.all(
+      batch.map((invoiceId) => exportInvoiceToXero(tenantId, invoiceId, user.id))
+    )
+    results.push(...batchResults)
+  }
 
   return NextResponse.json({ results }, { headers: { "cache-control": "no-store" } })
 }
