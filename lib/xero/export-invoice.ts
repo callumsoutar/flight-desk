@@ -1,7 +1,9 @@
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import { syncXeroContact } from "@/lib/xero/sync-contact"
 import { XeroApiError } from "@/lib/xero/types"
+import type { XeroInvoiceLineItem } from "@/lib/xero/types"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
+import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
 import type { Json } from "@/lib/types"
 
 const EXPORTABLE_INVOICE_STATUSES = ["pending", "paid", "overdue"] as const
@@ -75,7 +77,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       fetchXeroSettings(admin, tenantId),
       admin
         .from("invoice_items")
-        .select("description, quantity, unit_price, amount, tax_rate, gl_code, xero_tax_type")
+        .select("description, quantity, unit_price, amount, tax_rate, tax_amount, gl_code, xero_tax_type, rate_inclusive, line_total")
         .eq("tenant_id", tenantId)
         .eq("invoice_id", invoiceId)
         .is("deleted_at", null),
@@ -140,7 +142,9 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
         continue
       }
 
-      item.xero_tax_type = item.xero_tax_type ?? defaultTaxType ?? "NONE"
+      if (!item.xero_tax_type) {
+        item.xero_tax_type = null
+      }
     }
 
     const buildPayload = (xeroContactId: string) => ({
@@ -151,14 +155,26 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       InvoiceNumber: invoice.invoice_number ?? invoice.id,
       Reference: invoice.reference ?? null,
       Status: "DRAFT" as const,
-      LineItems: resolvedItems.map((item) => ({
-        Description: item.description,
-        Quantity: item.quantity,
-        UnitAmount: item.unit_price,
-        AccountCode: item.gl_code!,
-        TaxType: item.xero_tax_type!,
-        LineAmount: item.amount,
-      })),
+      LineAmountTypes: "Inclusive" as const,
+      LineItems: resolvedItems.map((item) => {
+        const taxRate = item.tax_rate ?? 0
+        const unitAmountInclusive = item.rate_inclusive
+          ?? roundToTwoDecimals(item.unit_price * (1 + taxRate))
+        const lineAmountInclusive = item.line_total
+          ?? roundToTwoDecimals(item.quantity * unitAmountInclusive)
+
+        const lineItem: XeroInvoiceLineItem = {
+          Description: item.description,
+          Quantity: item.quantity,
+          UnitAmount: unitAmountInclusive,
+          AccountCode: item.gl_code!,
+          LineAmount: lineAmountInclusive,
+        }
+        if (item.xero_tax_type) {
+          lineItem.TaxType = item.xero_tax_type
+        }
+        return lineItem
+      }),
     })
 
     const idempotencyKey = `tenant-${tenantId}-invoice-${invoiceId}`
