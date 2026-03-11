@@ -55,7 +55,7 @@ export default function InvoiceActionsToolbar({
     switch (value) {
       case "paid":
         return "default"
-      case "pending":
+      case "authorised":
         return "secondary"
       case "overdue":
         return "destructive"

@@ -243,7 +243,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
       "update_invoice_status_atomic",
       {
         p_invoice_id: invoiceId,
-        p_new_status: "pending",
+        p_new_status: "authorised",
       }
     )
 

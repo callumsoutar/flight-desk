@@ -15,7 +15,7 @@ type XeroStatusData = {
   error_message: string | null
 }
 
-const EXPORTABLE = new Set(["pending", "paid", "overdue"])
+const EXPORTABLE = new Set(["authorised", "paid", "overdue"])
 
 export function XeroInvoiceStatus({
   invoiceId,

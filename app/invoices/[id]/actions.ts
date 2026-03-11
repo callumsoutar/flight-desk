@@ -96,7 +96,7 @@ export async function approveDraftInvoiceAction(input: unknown) {
 
   const { data: statusResult, error: statusError } = await supabase.rpc("update_invoice_status_atomic", {
     p_invoice_id: invoiceId,
-    p_new_status: "pending",
+    p_new_status: "authorised",
   })
 
   if (statusError || !isRpcSuccess(statusResult)) {
@@ -145,8 +145,8 @@ export async function recordInvoicePaymentAction(input: unknown) {
   if (!invoice) {
     return { ok: false as const, error: "Invoice not found" }
   }
-  if (invoice.status !== "pending" && invoice.status !== "overdue") {
-    return { ok: false as const, error: "Payments can only be recorded for pending or overdue invoices" }
+  if (invoice.status !== "authorised" && invoice.status !== "overdue") {
+    return { ok: false as const, error: "Payments can only be recorded for authorised or overdue invoices" }
   }
 
   const computedBalance =

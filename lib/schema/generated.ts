@@ -107,7 +107,7 @@ export const publicIntervalTypeEnumSchema = z.union([
 
 export const publicInvoiceStatusSchema = z.union([
   z.literal("draft"),
-  z.literal("pending"),
+  z.literal("authorised"),
   z.literal("paid"),
   z.literal("overdue"),
   z.literal("cancelled"),

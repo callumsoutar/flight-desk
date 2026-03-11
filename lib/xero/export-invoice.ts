@@ -6,7 +6,7 @@ import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
 import type { Json } from "@/lib/types"
 
-const EXPORTABLE_INVOICE_STATUSES = ["pending", "paid", "overdue"] as const
+const EXPORTABLE_INVOICE_STATUSES = ["authorised", "paid", "overdue"] as const
 
 function isExportableInvoiceStatus(status: string) {
   return EXPORTABLE_INVOICE_STATUSES.includes(status as (typeof EXPORTABLE_INVOICE_STATUSES)[number])
@@ -148,7 +148,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       DueDate: invoice.due_date ? invoice.due_date.slice(0, 10) : null,
       InvoiceNumber: invoice.invoice_number ?? invoice.id,
       Reference: invoice.reference ?? null,
-      Status: "DRAFT" as const,
+      Status: "AUTHORISED" as const,
       LineAmountTypes: "Inclusive" as const,
       LineItems: resolvedItems.map((item) => {
         const taxRate = item.tax_rate ?? 0

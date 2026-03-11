@@ -4282,7 +4282,7 @@ export type Database = {
       interval_type_enum: "HOURS" | "CALENDAR" | "BOTH"
       invoice_status:
         | "draft"
-        | "pending"
+        | "authorised"
         | "paid"
         | "overdue"
         | "cancelled"
@@ -4509,7 +4509,7 @@ export const Constants = {
       interval_type_enum: ["HOURS", "CALENDAR", "BOTH"],
       invoice_status: [
         "draft",
-        "pending",
+        "authorised",
         "paid",
         "overdue",
         "cancelled",

@@ -83,7 +83,7 @@ export type XeroCreateInvoicePayload = {
   DueDate: string | null
   InvoiceNumber: string
   Reference: string | null
-  Status: "DRAFT"
+  Status: "DRAFT" | "AUTHORISED"
   LineAmountTypes: "Inclusive" | "Exclusive" | "NoTax"
   LineItems: XeroInvoiceLineItem[]
 }

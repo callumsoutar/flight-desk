@@ -26,7 +26,9 @@ import { useAuth } from "@/contexts/auth-context"
 import { useTimezone } from "@/contexts/timezone-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { XeroBulkExportButton } from "@/components/invoices/xero-bulk-export-button"
 import { XeroStatusBadge } from "@/components/invoices/xero-status-badge"
 import { cn } from "@/lib/utils"
 import type { InvoiceStatus, InvoiceWithRelations } from "@/lib/types/invoices"
@@ -40,9 +42,13 @@ interface InvoicesTableProps {
   tabCounts: {
     all: number
     draft: number
-    pending: number
+    authorised: number
     paid: number
     overdue: number
+    xero_ready?: number
+    xero_exported?: number
+    xero_failed?: number
+    [key: string]: number | undefined
   }
   onFiltersChange?: (filters: {
     search?: string
@@ -54,7 +60,7 @@ function getStatusBadgeVariant(status: InvoiceStatus): "default" | "secondary" |
   switch (status) {
     case "paid":
       return "default"
-    case "pending":
+    case "authorised":
       return "secondary"
     case "overdue":
       return "destructive"
@@ -76,6 +82,8 @@ function formatMoney(value: number | null) {
   return `$${amount.toFixed(2)}`
 }
 
+const EXPORTABLE_STATUSES: InvoiceStatus[] = ["authorised", "paid", "overdue"]
+
 
 export function InvoicesTable({
   invoices,
@@ -90,6 +98,7 @@ export function InvoicesTable({
   const router = useRouter()
   const [isNavigating, startNavigation] = React.useTransition()
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
   const navigate = React.useCallback(
@@ -101,6 +110,15 @@ export function InvoicesTable({
     [router]
   )
 
+  const canCreateInvoice = role === "owner" || role === "admin" || role === "instructor"
+  const canBulkExport = xeroEnabled && canCreateInvoice
+
+  const isReadyForXero = React.useCallback((invoice: InvoiceWithRelations) => {
+    if (!EXPORTABLE_STATUSES.includes(invoice.status)) return false
+    const status = invoice.xero_export_status
+    return !status || status === "failed" || status === "voided"
+  }, [])
+
   const columns = React.useMemo<ColumnDef<InvoiceWithRelations>[]>(() => {
     const yearOnly = (v: string | null) => {
       if (!v) return ""
@@ -110,6 +128,43 @@ export function InvoicesTable({
     }
 
     const columns: ColumnDef<InvoiceWithRelations>[] = [
+      ...(canBulkExport
+        ? [
+            {
+              id: "select",
+              header: ({ table }) => (
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={
+                      table.getIsAllPageRowsSelected() ||
+                      (table.getIsSomePageRowsSelected() && "indeterminate")
+                    }
+                    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                    aria-label="Select all"
+                  />
+                </div>
+              ),
+              cell: ({ row }) => {
+                const disabled = !isReadyForXero(row.original)
+                return (
+                  <div
+                    className="flex items-center justify-center"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={row.getIsSelected()}
+                      onCheckedChange={(value) => row.toggleSelected(!!value)}
+                      aria-label="Select row"
+                      disabled={disabled}
+                    />
+                  </div>
+                )
+              },
+              enableSorting: false,
+              enableHiding: false,
+            } satisfies ColumnDef<InvoiceWithRelations>,
+          ]
+        : []),
       {
         accessorKey: "invoice_number",
         header: () => (
@@ -178,7 +233,7 @@ export function InvoicesTable({
           const dueDate = row.original.due_date
           const isOverdue =
             row.original.status === "overdue" ||
-            (row.original.status === "pending" && dueDate !== null && new Date(dueDate) < new Date())
+            (row.original.status === "authorised" && dueDate !== null && new Date(dueDate) < new Date())
 
           return (
             <div>
@@ -226,7 +281,7 @@ export function InvoicesTable({
     ]
 
     return columns
-  }, [timeZone, xeroEnabled])
+  }, [canBulkExport, isReadyForXero, timeZone, xeroEnabled])
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -240,16 +295,24 @@ export function InvoicesTable({
     onFiltersChange?.({ search: debouncedSearch || undefined })
   }, [debouncedSearch, onFiltersChange])
 
+  React.useEffect(() => {
+    setRowSelection({})
+  }, [invoices, activeTab])
+
   const table = useReactTable({
     data: invoices,
     columns,
     state: {
       sorting,
+      rowSelection,
     },
     onSortingChange: setSorting,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getRowId: (row) => row.id,
+    enableRowSelection: (row) => canBulkExport && isReadyForXero(row.original),
     initialState: {
       pagination: {
         pageSize: 10,
@@ -260,16 +323,27 @@ export function InvoicesTable({
   const tabs = [
     { id: "all", label: "All" },
     { id: "draft", label: "Draft" },
-    { id: "pending", label: "Pending" },
+    { id: "authorised", label: "Authorised" },
     { id: "paid", label: "Paid" },
     { id: "overdue", label: "Overdue" },
+    ...(xeroEnabled
+      ? [
+          { id: "xero_ready", label: "Ready for Xero" },
+          { id: "xero_exported", label: "Exported" },
+          { id: "xero_failed", label: "Export Failed" },
+        ]
+      : []),
   ] as const
 
   const rowCount = table.getRowModel().rows.length
-  const canCreateInvoice = role === "owner" || role === "admin" || role === "instructor"
   const page = table.getState().pagination
   const start = rowCount === 0 ? 0 : page.pageIndex * page.pageSize + 1
   const end = Math.min((page.pageIndex + 1) * page.pageSize, invoices.length)
+  const selectedInvoiceIds = table.getSelectedRowModel().rows.map((row) => row.original.id)
+  const readyInvoiceIds = React.useMemo(
+    () => invoices.filter((invoice) => isReadyForXero(invoice)).map((invoice) => invoice.id),
+    [invoices, isReadyForXero]
+  )
 
   return (
     <div className={cn("flex flex-col gap-6", isNavigating && "cursor-progress")} aria-busy={isNavigating}>
@@ -314,7 +388,7 @@ export function InvoicesTable({
       <div className="flex items-center gap-1 border-b border-slate-200">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id
-          const count = tabCounts[tab.id]
+          const count = tabCounts[tab.id] ?? 0
 
           return (
             <button
@@ -341,6 +415,46 @@ export function InvoicesTable({
           )
         })}
       </div>
+
+      {canBulkExport ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="text-sm text-slate-600">
+            {selectedInvoiceIds.length ? (
+              <>
+                <span className="font-semibold text-slate-900">{selectedInvoiceIds.length}</span>{" "}
+                selected
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-slate-900">{readyInvoiceIds.length}</span>{" "}
+                ready for export
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedInvoiceIds.length ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setRowSelection({})}
+              >
+                Clear selection
+              </Button>
+            ) : null}
+            <XeroBulkExportButton
+              invoiceIds={selectedInvoiceIds.length ? selectedInvoiceIds : readyInvoiceIds}
+              disabled={(selectedInvoiceIds.length ? selectedInvoiceIds : readyInvoiceIds).length === 0}
+              label={selectedInvoiceIds.length ? "Export Selected" : "Export All Ready"}
+              variant={selectedInvoiceIds.length ? "default" : "outline"}
+              onDone={() => {
+                setRowSelection({})
+                router.refresh()
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
         <table className="min-w-full border-collapse text-sm">
@@ -400,6 +514,7 @@ export function InvoicesTable({
             const name = user
               ? [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || "Unknown"
               : "Unknown"
+            const readyForXero = isReadyForXero(invoice)
 
             return (
               <div
@@ -416,9 +531,21 @@ export function InvoicesTable({
                     </h3>
                     <span className="text-xs text-slate-600">{name}</span>
                   </div>
-                  <Badge variant={getStatusBadgeVariant(invoice.status)} className="font-medium">
-                    {getStatusLabel(invoice.status)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {canBulkExport ? (
+                      <div onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          checked={row.getIsSelected()}
+                          onCheckedChange={(value) => row.toggleSelected(!!value)}
+                          aria-label="Select invoice"
+                          disabled={!readyForXero}
+                        />
+                      </div>
+                    ) : null}
+                    <Badge variant={getStatusBadgeVariant(invoice.status)} className="font-medium">
+                      {getStatusLabel(invoice.status)}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pl-2">

@@ -62,9 +62,9 @@ export default function InvoiceViewActions({
 
   const canEmail = Boolean(billToEmail)
   const hasBalanceDue = typeof invoice.balanceDue === "number" ? invoice.balanceDue > 0 : true
-  const canRecordPayment = (status === "pending" || status === "overdue") && hasBalanceDue
+  const canRecordPayment = (status === "authorised" || status === "overdue") && hasBalanceDue
   const canExportToXero =
-    xeroEnabled && (status === "pending" || status === "paid" || status === "overdue")
+    xeroEnabled && (status === "authorised" || status === "paid" || status === "overdue")
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
