@@ -61,15 +61,15 @@ export function XeroConnectionCard({
                 onClick={async () => {
                   const response = await fetch("/api/xero/sync-accounts", { method: "POST" })
                   if (!response.ok) {
-                    toast.error("Failed to sync Xero accounts")
+                    toast.error("Failed to refresh Xero accounts cache")
                     return
                   }
-                  toast.success("Xero accounts and tax rates synced")
+                  toast.success("Xero accounts cache refreshed")
                   onRefresh?.()
                 }}
               >
                 <RefreshCw className="mr-1 h-4 w-4" />
-                Sync Accounts & Tax Rates
+                Refresh Account Cache
               </Button>
             </div>
           </>
