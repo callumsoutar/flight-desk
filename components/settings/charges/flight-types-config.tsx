@@ -70,6 +70,140 @@ function getErrorMessage(error: unknown) {
   return "Something went wrong."
 }
 
+function FormSection({
+  title,
+  children,
+  className,
+}: {
+  title: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("space-y-3", className)}>
+      <h4 className="text-[11px] font-medium uppercase tracking-widest text-slate-400">{title}</h4>
+      <div className="space-y-4">{children}</div>
+    </div>
+  )
+}
+
+function FlightTypeFormBody({
+  formData,
+  setFormData,
+  showNameRequired = false,
+  descriptionPlaceholder,
+}: {
+  formData: FlightTypeFormData
+  setFormData: React.Dispatch<React.SetStateAction<FlightTypeFormData>>
+  showNameRequired?: boolean
+  descriptionPlaceholder?: string
+}) {
+  return (
+    <div className="space-y-5">
+      <FormSection title="Details">
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-slate-600">
+            Name {showNameRequired ? <span className="text-destructive">*</span> : null}
+          </Label>
+          <Input
+            value={formData.name}
+            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+            className="h-10 rounded-lg border-slate-200 bg-white"
+            placeholder="e.g. Aero Club Dual"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-slate-600">Description</Label>
+          <Textarea
+            value={formData.description}
+            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+            className="min-h-[64px] resize-y rounded-lg border-slate-200 bg-white text-sm"
+            placeholder={descriptionPlaceholder ?? "Optional notes for staff."}
+          />
+        </div>
+      </FormSection>
+
+      <FormSection title="Instruction & status">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-slate-600">Instruction type</Label>
+            <Select
+              value={formData.instruction_type}
+              onValueChange={(value) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  instruction_type: value as InstructionType,
+                }))
+              }
+            >
+              <SelectTrigger className="h-10 w-full rounded-lg border-slate-200 bg-white">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent className="rounded-lg">
+                {instructionTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-slate-600">Status</Label>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={formData.is_active}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, is_active: checked }))
+                }
+              />
+              <span className="text-sm text-slate-600">
+                {formData.is_active
+                  ? "Active — available for new bookings"
+                  : "Inactive — hidden from new bookings"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection title="Chart of accounts">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-slate-600">Aircraft GL code</Label>
+            <XeroAccountSelect
+              value={formData.aircraft_gl_code}
+              onChange={(code) =>
+                setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
+              }
+              accountTypes={["REVENUE"]}
+              placeholder="Select aircraft account…"
+              className="h-10 rounded-lg"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-slate-600">Instructor GL code</Label>
+            <XeroAccountSelect
+              value={formData.instructor_gl_code}
+              onChange={(code) =>
+                setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
+              }
+              accountTypes={["REVENUE"]}
+              placeholder={
+                formData.instruction_type === "solo"
+                  ? "Not required for solo"
+                  : "Select instructor account…"
+              }
+              disabled={formData.instruction_type === "solo"}
+              className="h-10 rounded-lg"
+            />
+          </div>
+        </div>
+      </FormSection>
+    </div>
+  )
+}
+
 async function fetchFlightTypes(): Promise<FlightType[]> {
   const response = await fetch("/api/flight-types?include_inactive=true", { cache: "no-store" })
   if (!response.ok) {
@@ -312,104 +446,13 @@ export function FlightTypesConfig() {
                 <span className="text-destructive">*</span>.
               </DialogDescription>
             </DialogHeader>
-            <div className="px-6 py-6 space-y-5">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  className="h-11 rounded-xl border-slate-200 bg-white"
-                  placeholder="e.g. Aero Club Dual"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Description
-                </Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  className="min-h-[96px] resize-none rounded-xl border-slate-200 bg-white"
-                  placeholder="Optional notes shown to staff."
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Instruction type
-                  </Label>
-                  <Select
-                    value={formData.instruction_type}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        instruction_type: value as InstructionType,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      {instructionTypeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                  <Switch
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, is_active: checked }))}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 leading-none">Active</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Available for new bookings.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Aircraft GL code
-                  </Label>
-                  <XeroAccountSelect
-                    value={formData.aircraft_gl_code}
-                    onChange={(code) =>
-                      setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
-                    }
-                    accountTypes={["REVENUE"]}
-                    placeholder="Select aircraft account…"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Instructor GL code
-                  </Label>
-                  <XeroAccountSelect
-                    value={formData.instructor_gl_code}
-                    onChange={(code) =>
-                      setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
-                    }
-                    accountTypes={["REVENUE"]}
-                    placeholder={
-                      formData.instruction_type === "solo" ? "Not required for solo" : "Select instructor account…"
-                    }
-                    disabled={formData.instruction_type === "solo"}
-                  />
-                </div>
-              </div>
+            <div className="px-6 py-6">
+              <FlightTypeFormBody
+                formData={formData}
+                setFormData={setFormData}
+                showNameRequired
+                descriptionPlaceholder="Optional notes shown to staff."
+              />
             </div>
 
             <div className="border-t border-border/40 bg-white px-6 py-4">
@@ -535,106 +578,12 @@ export function FlightTypesConfig() {
                             <DialogTitle className="text-lg text-slate-900">Edit flight type</DialogTitle>
                             <DialogDescription>Update the name, description, and status.</DialogDescription>
                           </DialogHeader>
-                          <div className="px-6 py-6 space-y-5">
-                            <div className="space-y-2">
-                              <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Name <span className="text-destructive">*</span>
-                              </Label>
-                              <Input
-                                value={formData.name}
-                                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                                className="h-11 rounded-xl border-slate-200 bg-white"
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Description
-                              </Label>
-                              <Textarea
-                                value={formData.description}
-                                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                                className="min-h-[96px] resize-none rounded-xl border-slate-200 bg-white"
-                              />
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                  Instruction type
-                                </Label>
-                              <Select
-                                  value={formData.instruction_type}
-                                  onValueChange={(value) =>
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      instruction_type: value as InstructionType,
-                                    }))
-                                  }
-                                >
-                                  <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
-                                    <SelectValue placeholder="Select type" />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-xl">
-                                    {instructionTypeOptions.map((option) => (
-                                      <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                                <Switch
-                                  checked={formData.is_active}
-                                  onCheckedChange={(checked) =>
-                                    setFormData((prev) => ({ ...prev, is_active: checked }))
-                                  }
-                                />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-slate-900 leading-none">Active</p>
-                                  <p className="mt-1 text-sm text-muted-foreground">
-                                    Available for new bookings.
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                  Aircraft GL code
-                                </Label>
-                                <XeroAccountSelect
-                                  value={formData.aircraft_gl_code}
-                                  onChange={(code) =>
-                                    setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
-                                  }
-                                  accountTypes={["REVENUE"]}
-                                  placeholder="Select aircraft account…"
-                                />
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                  Instructor GL code
-                                </Label>
-                                <XeroAccountSelect
-                                  value={formData.instructor_gl_code}
-                                  onChange={(code) =>
-                                    setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
-                                  }
-                                  accountTypes={["REVENUE"]}
-                                  placeholder={
-                                    formData.instruction_type === "solo"
-                                      ? "Not required for solo"
-                                      : "Select instructor account…"
-                                  }
-                                  disabled={formData.instruction_type === "solo"}
-                                />
-                              </div>
-                            </div>
+                          <div className="px-6 py-6">
+                            <FlightTypeFormBody
+                              formData={formData}
+                              setFormData={setFormData}
+                              showNameRequired
+                            />
                           </div>
 
                           <div className="border-t border-border/40 bg-white px-6 py-4">
