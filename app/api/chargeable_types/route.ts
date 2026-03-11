@@ -157,7 +157,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 })
   }
 
-  const { error } = await supabase.from("chargeable_types").update(updateData).eq("id", id)
+  const { error } = await supabase.from("chargeable_types").update(updateData).eq("id", id).eq("tenant_id", tenantId)
   if (error) return NextResponse.json({ error: "Failed to update chargeable type" }, { status: 500 })
   return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
 }

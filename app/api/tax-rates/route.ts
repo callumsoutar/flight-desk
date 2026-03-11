@@ -18,7 +18,9 @@ const patchSchema = z.object({
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user } = await getAuthSession(supabase, {
+    requireUser: true,
+  })
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -72,32 +74,19 @@ export async function PATCH(request: NextRequest) {
 
   const { id } = parsed.data
 
-  const { data: taxRate, error: fetchError } = await supabase
-    .from("tax_rates")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .eq("is_active", true)
-    .maybeSingle()
+  const { data: rpcResult, error: rpcError } = await supabase.rpc("set_default_tax_rate", {
+    p_tax_rate_id: id,
+    p_tenant_id: tenantId,
+  })
 
-  if (fetchError) return NextResponse.json({ error: "Failed to validate tax rate" }, { status: 500 })
-  if (!taxRate) return NextResponse.json({ error: "Tax rate not found" }, { status: 404 })
+  if (rpcError) return NextResponse.json({ error: "Failed to set default tax rate" }, { status: 500 })
 
-  const { error: unsetError } = await supabase
-    .from("tax_rates")
-    .update({ is_default: false })
-    .eq("tenant_id", tenantId)
-    .neq("id", id)
-
-  if (unsetError) return NextResponse.json({ error: "Failed to update tax rates" }, { status: 500 })
-
-  const { error: setError } = await supabase
-    .from("tax_rates")
-    .update({ is_default: true })
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-
-  if (setError) return NextResponse.json({ error: "Failed to set default tax rate" }, { status: 500 })
+  const result = rpcResult as { success: boolean; error?: string } | null
+  if (!result?.success) {
+    const msg = result?.error ?? "Failed to set default tax rate"
+    const status = msg.includes("not found") ? 404 : 400
+    return NextResponse.json({ error: msg }, { status })
+  }
 
   const { data: updated } = await supabase
     .from("tax_rates")

@@ -12,8 +12,11 @@ function isStaff(role: string | null) {
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await getAuthSession(supabase, {
+    requireUser: true,
     includeRole: true,
     includeTenant: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
   })
 
   if (!user) {

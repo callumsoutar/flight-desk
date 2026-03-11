@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getAuthSession(supabase, {
     includeRole: true,
     includeTenant: true,
     requireUser: true,
@@ -80,6 +80,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
   if (!tenantId) {
     return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
+  }
+  if (!role || !["owner", "admin", "instructor"].includes(role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
   }
 
   const { id: bookingId } = await context.params
@@ -134,8 +137,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   )
 
   if (rpcError) {
+    console.error("[checkin/approve] RPC error:", rpcError.message)
     return NextResponse.json(
-      { error: rpcError.message ?? "Check-in approval failed" },
+      { error: "Check-in approval failed" },
       { status: 500, headers: NO_STORE }
     )
   }

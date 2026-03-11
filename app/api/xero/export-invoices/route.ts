@@ -8,7 +8,7 @@ import { exportInvoiceToXero } from "@/lib/xero/export-invoice"
 export const dynamic = "force-dynamic"
 
 const bodySchema = z.object({
-  invoiceIds: z.array(z.string().uuid()).min(1),
+  invoiceIds: z.array(z.string().uuid()).min(1).max(100),
 })
 
 function isStaff(role: string | null) {
