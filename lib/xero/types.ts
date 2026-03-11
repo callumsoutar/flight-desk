@@ -72,7 +72,7 @@ export type XeroInvoiceLineItem = {
   Quantity: number
   UnitAmount: number
   AccountCode: string
-  TaxType: string
+  TaxType?: string
   LineAmount: number
 }
 
@@ -84,6 +84,7 @@ export type XeroCreateInvoicePayload = {
   InvoiceNumber: string
   Reference: string | null
   Status: "DRAFT"
+  LineAmountTypes: "Inclusive" | "Exclusive" | "NoTax"
   LineItems: XeroInvoiceLineItem[]
 }
 
