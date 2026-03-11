@@ -63,7 +63,7 @@ function WarningLine({ warning }: { warning: BookingWarningItem }) {
   const secondaryDate = warning.countdown_label
     ? warning.countdown_label
     : formattedDueAt || null
-  const prefix = warning.blocking ? "Blocker" : "Warning"
+  const prefix = warning.blocking ? "Critical warning" : "Warning"
 
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -118,7 +118,7 @@ export function BookingCheckoutWarnings({
                 <IconAlertTriangle className="h-4 w-4 text-red-700" />
               ) : null}
               <span className="font-semibold text-foreground">Booking warnings</span>
-              {hasBlockers ? <span className="text-muted-foreground">Checkout blocked</span> : null}
+              {hasBlockers ? <span className="text-muted-foreground">Critical warnings</span> : null}
             </div>
             {isRefreshing ? (
               <div className="mt-0.5 text-muted-foreground">Refreshing warning checks…</div>
@@ -132,7 +132,7 @@ export function BookingCheckoutWarnings({
             <div className="font-medium text-foreground">{formatCountLabel(totalCount)}</div>
             {hasBlockers ? (
               <div className="text-xs">
-                {blockingCount} blocker{blockingCount === 1 ? "" : "s"}
+                {blockingCount} critical warning{blockingCount === 1 ? "" : "s"}
                 {nonBlockingCount > 0 ? `, ${nonBlockingCount} note${nonBlockingCount === 1 ? "" : "s"}` : null}
               </div>
             ) : null}

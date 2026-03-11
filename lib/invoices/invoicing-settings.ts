@@ -54,20 +54,6 @@ function readStringSetting(containers: JsonObject[], keys: string[]): string | n
   return null
 }
 
-function readNumberSetting(containers: JsonObject[], keys: string[]): number | null {
-  for (const container of containers) {
-    for (const key of keys) {
-      const value = container[key]
-      if (typeof value === "number" && Number.isFinite(value)) return value
-      if (typeof value === "string") {
-        const parsed = Number(value)
-        if (Number.isFinite(parsed)) return parsed
-      }
-    }
-  }
-  return null
-}
-
 function addSettingsContainer(value: Json | null, target: JsonObject[]) {
   if (!isJsonObject(value)) return
 
@@ -120,17 +106,7 @@ export function resolveInvoicingSettings(input: ResolveInvoicingSettingsInput): 
     normalizeNullableString(input.tenantGstNumber) ??
     ""
 
-  const paymentTermsDays = readNumberSetting(containers, ["payment_terms_days", "paymentTermsDays"])
-  const paymentTerms =
-    readStringSetting(containers, [
-      "payment_terms_message",
-      "payment_terms",
-      "paymentTerms",
-      "invoice_payment_terms",
-    ]) ??
-    (paymentTermsDays !== null
-      ? `Payment terms: Net ${Math.max(0, Math.round(paymentTermsDays))} days.`
-      : DEFAULT_INVOICING_SETTINGS.paymentTerms)
+  const paymentTerms = DEFAULT_INVOICING_SETTINGS.paymentTerms
 
   const invoiceFooter =
     readStringSetting(containers, ["invoice_footer_message", "invoice_footer", "invoiceFooter"]) ??

@@ -147,6 +147,24 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
     setNowTime(Date.now())
   }, [rows])
 
+  const refreshComponents = React.useCallback(async () => {
+    const response = await fetch(`/api/aircraft-components?aircraft_id=${aircraft.id}`, {
+      method: "GET",
+      cache: "no-store",
+    })
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      const message =
+        typeof payload.error === "string" ? payload.error : "Failed to refresh maintenance items"
+      toast.error(message)
+      return
+    }
+
+    const next = (await response.json().catch(() => [])) as AircraftComponentsRow[]
+    setRows(next)
+  }, [aircraft.id])
+
   const currentHours =
     aircraft.total_time_in_service === null || aircraft.total_time_in_service === undefined
       ? null
@@ -517,6 +535,7 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
         onOpenChange={setLogModalOpen}
         aircraft_id={aircraft.id}
         component_id={logComponentId}
+        onSuccess={() => void refreshComponents()}
       />
     </div>
   )

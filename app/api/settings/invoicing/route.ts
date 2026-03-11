@@ -30,22 +30,11 @@ function clampNonNegativeInt(value: number, fallback: number, max = 3650) {
   return Math.min(max, rounded)
 }
 
-function clampPercentage(value: number, fallback: number) {
-  if (!Number.isFinite(value)) return fallback
-  const clamped = Math.max(0, Math.min(100, value))
-  return Math.round(clamped * 10) / 10
-}
-
 const invoicingPatchSchema = z.object({
   invoice_prefix: z.string().trim().min(1).max(24).optional(),
   default_invoice_due_days: z.number().int().min(0).max(3650).optional(),
-  payment_terms_days: z.number().int().min(0).max(3650).optional(),
-  payment_terms_message: z.string().trim().max(2000).nullable().optional(),
   invoice_footer_message: z.string().trim().max(2000).nullable().optional(),
-  auto_generate_invoices: z.boolean().optional(),
   include_logo_on_invoice: z.boolean().optional(),
-  invoice_due_reminder_days: z.number().int().min(0).max(3650).optional(),
-  late_fee_percentage: z.number().min(0).max(100).optional(),
 })
 
 const patchSchema = z.object({
@@ -147,32 +136,10 @@ export async function PATCH(request: Request) {
       DEFAULT_INVOICING_SETTINGS.default_invoice_due_days
     )
   }
-  if (patch.payment_terms_days !== undefined) {
-    normalized.payment_terms_days = clampNonNegativeInt(
-      patch.payment_terms_days,
-      DEFAULT_INVOICING_SETTINGS.payment_terms_days
-    )
-  }
-  if (patch.payment_terms_message !== undefined) {
-    normalized.payment_terms_message = normalizeOptionalString(patch.payment_terms_message) ?? null
-  }
   if (patch.invoice_footer_message !== undefined) {
     normalized.invoice_footer_message = normalizeOptionalString(patch.invoice_footer_message) ?? null
   }
-  if (patch.auto_generate_invoices !== undefined) normalized.auto_generate_invoices = patch.auto_generate_invoices
   if (patch.include_logo_on_invoice !== undefined) normalized.include_logo_on_invoice = patch.include_logo_on_invoice
-  if (patch.invoice_due_reminder_days !== undefined) {
-    normalized.invoice_due_reminder_days = clampNonNegativeInt(
-      patch.invoice_due_reminder_days,
-      DEFAULT_INVOICING_SETTINGS.invoice_due_reminder_days
-    )
-  }
-  if (patch.late_fee_percentage !== undefined) {
-    normalized.late_fee_percentage = clampPercentage(
-      patch.late_fee_percentage,
-      DEFAULT_INVOICING_SETTINGS.late_fee_percentage
-    )
-  }
 
   if (Object.keys(normalized).length === 0) {
     return NextResponse.json(

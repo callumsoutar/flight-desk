@@ -6,29 +6,37 @@ import {
   IconCheck,
   IconCurrencyDollar,
   IconDeviceFloppy,
+  IconPlus,
   IconEdit,
   IconLoader2,
   IconX,
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import type { TaxRate } from "@/lib/types/tax-rates"
+import { cn } from "@/lib/utils"
 
 export function TaxRateManager() {
   const [taxRates, setTaxRates] = React.useState<TaxRate[]>([])
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
+  const [creating, setCreating] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
   const [isEditing, setIsEditing] = React.useState(false)
   const [selectedTaxRateId, setSelectedTaxRateId] = React.useState<string>("")
+  const [createForm, setCreateForm] = React.useState(() => ({
+    tax_name: "",
+    rate_percent: "",
+    effective_from: new Date().toISOString().slice(0, 10),
+    description: "",
+    region_code: "",
+    make_default: false,
+  }))
 
   React.useEffect(() => {
     void fetchTaxRates()
@@ -101,6 +109,60 @@ export function TaxRateManager() {
     setError(null)
   }
 
+  const handleCreateRate = async () => {
+    const taxName = createForm.tax_name.trim()
+    const rateValue = Number.parseFloat(createForm.rate_percent)
+
+    if (!taxName || Number.isNaN(rateValue)) {
+      setError("Enter a tax name and a valid percentage rate.")
+      return
+    }
+
+    if (rateValue < 0 || rateValue > 100) {
+      setError("Rate must be between 0% and 100%.")
+      return
+    }
+
+    try {
+      setCreating(true)
+      setError(null)
+      setSuccess(null)
+
+      const response = await fetch("/api/tax-rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tax_name: taxName,
+          rate_percent: rateValue,
+          effective_from: createForm.effective_from || undefined,
+          description: createForm.description.trim() || undefined,
+          region_code: createForm.region_code.trim() || undefined,
+          make_default: createForm.make_default,
+        }),
+      })
+
+      if (response.ok) {
+        setSuccess("Tax rate created successfully")
+        setCreateForm((prev) => ({
+          ...prev,
+          tax_name: "",
+          rate_percent: "",
+          description: "",
+          region_code: "",
+          make_default: false,
+        }))
+        await fetchTaxRates()
+      } else {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null
+        setError(data?.error ?? "Failed to create tax rate")
+      }
+    } catch {
+      setError("Failed to create tax rate")
+    } finally {
+      setCreating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -125,7 +187,7 @@ export function TaxRateManager() {
   const currentDefault = taxRates.find((r) => r.is_default)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {error ? (
         <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-bold uppercase tracking-tight text-red-700">
           <IconAlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -142,7 +204,7 @@ export function TaxRateManager() {
 
       {!isEditing && currentDefault ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                 <IconCurrencyDollar className="h-6 w-6" />
@@ -179,32 +241,50 @@ export function TaxRateManager() {
       ) : (
         <div className="space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-6">
           <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Select Default Tax Rate
-            </label>
-            <Select value={selectedTaxRateId} onValueChange={setSelectedTaxRateId}>
-              <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white">
-                <SelectValue placeholder="Choose a tax rate..." />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {taxRates.map((rate) => (
-                  <SelectItem key={rate.id} value={rate.id} className="rounded-lg">
-                    <div className="flex min-w-[300px] w-full items-center justify-between">
-                      <span className="font-bold">
-                        {rate.tax_name} ({rate.country_code}
-                        {rate.region_code ? ` - ${rate.region_code}` : ""})
-                      </span>
-                      <span className="ml-auto font-black text-indigo-600">
-                        {(Number(rate.rate) * 100).toFixed(2)}%
+            </p>
+            <div className="grid gap-3">
+              {taxRates.map((rate) => {
+                const isSelected = rate.id === selectedTaxRateId
+                return (
+                  <button
+                    key={rate.id}
+                    type="button"
+                    onClick={() => setSelectedTaxRateId(rate.id)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition",
+                      isSelected
+                        ? "border-indigo-500 bg-white shadow-sm"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    )}
+                    aria-pressed={isSelected}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-900">{rate.tax_name}</span>
+                        {rate.is_default ? (
+                          <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+                            Current default
+                          </span>
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        {rate.country_code}
+                        {rate.region_code ? ` · ${rate.region_code}` : ""} · Effective{" "}
+                        {rate.effective_from}
                       </span>
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    <span className="text-sm font-black text-indigo-600">
+                      {(Number(rate.rate) * 100).toFixed(2)}%
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={handleSaveDefault}
               disabled={saving || !selectedTaxRateId}
@@ -229,6 +309,105 @@ export function TaxRateManager() {
           </div>
         </div>
       )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-slate-900">Add custom tax rate</h3>
+          <p className="text-sm text-muted-foreground">
+            Create a tenant-specific tax rate. New rates are limited to New Zealand for now.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="tax-name" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Tax name
+            </Label>
+            <Input
+              id="tax-name"
+              value={createForm.tax_name}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, tax_name: event.target.value }))}
+              placeholder="GST"
+              className="h-11 rounded-xl border-slate-200 bg-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tax-rate" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Rate (%)
+            </Label>
+            <Input
+              id="tax-rate"
+              inputMode="decimal"
+              value={createForm.rate_percent}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, rate_percent: event.target.value }))}
+              placeholder="15"
+              className="h-11 rounded-xl border-slate-200 bg-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tax-effective" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Effective from
+            </Label>
+            <Input
+              id="tax-effective"
+              type="date"
+              value={createForm.effective_from}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, effective_from: event.target.value }))}
+              className="h-11 rounded-xl border-slate-200 bg-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tax-region" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Region (optional)
+            </Label>
+            <Input
+              id="tax-region"
+              value={createForm.region_code}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, region_code: event.target.value }))}
+              placeholder="NZ-AKL"
+              className="h-11 rounded-xl border-slate-200 bg-white"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="tax-description" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Description (optional)
+          </Label>
+          <Textarea
+            id="tax-description"
+            value={createForm.description}
+            onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
+            placeholder="Short internal note"
+            className="min-h-[80px] resize-none rounded-xl border-slate-200 bg-white"
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Make this the default rate</p>
+            <p className="text-xs text-muted-foreground">This will apply to new invoices automatically.</p>
+          </div>
+          <Switch
+            checked={createForm.make_default}
+            onCheckedChange={(checked) => setCreateForm((prev) => ({ ...prev, make_default: checked }))}
+          />
+        </div>
+
+        <div className="mt-5">
+          <Button
+            onClick={handleCreateRate}
+            disabled={creating}
+            className="flex h-11 items-center gap-2 rounded-xl border-none bg-slate-900 px-6 font-semibold text-white shadow-sm shadow-slate-200 transition-all hover:bg-slate-800 active:scale-[0.98]"
+          >
+            {creating ? <IconLoader2 className="h-4 w-4 animate-spin" /> : <IconPlus className="h-4 w-4" />}
+            Add tax rate
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

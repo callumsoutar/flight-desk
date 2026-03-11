@@ -8,7 +8,6 @@ import {
   IconCurrencyDollar,
   IconFileInvoice,
   IconPlugConnected,
-  IconReceiptTax,
   IconSchool,
   IconSettings,
 } from "@tabler/icons-react"
@@ -19,7 +18,6 @@ import { GeneralTab } from "@/components/settings/general-tab"
 import { InvoicingTab } from "@/components/settings/invoicing-tab"
 import { MembershipsTab } from "@/components/settings/memberships-tab"
 import { IntegrationsTab } from "@/components/settings/integrations-tab"
-import { TaxSettingsTab } from "@/components/settings/tax-settings-tab"
 import { TrainingTab } from "@/components/settings/training-tab"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -36,7 +34,6 @@ import { cn } from "@/lib/utils"
 
 const tabs = [
   { id: "general", label: "General", icon: IconSettings },
-  { id: "tax", label: "Tax Settings", icon: IconReceiptTax },
   { id: "invoicing", label: "Invoicing", icon: IconFileInvoice },
   { id: "charges", label: "Charges", icon: IconCurrencyDollar },
   { id: "bookings", label: "Bookings", icon: IconCalendar },
@@ -230,9 +227,6 @@ export function SettingsPageClient({
             <div className="w-full bg-muted/30 p-4 sm:p-6 lg:p-8">
               <Tabs.Content value="general">
                 <GeneralTab initialSettings={initialGeneralSettings} loadError={generalLoadError} />
-              </Tabs.Content>
-              <Tabs.Content value="tax">
-                <TaxSettingsTab />
               </Tabs.Content>
               <Tabs.Content value="invoicing">
                 <InvoicingTab initialSettings={initialInvoicingSettings} loadError={invoicingLoadError} />

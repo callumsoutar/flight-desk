@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
-import { IconCashBanknote, IconPlane, IconReceiptTax } from "@tabler/icons-react"
+import { IconCashBanknote, IconCategory, IconPlane, IconReceiptTax } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import { ChargeableTypesConfig } from "@/components/settings/charges/chargeable-
 const chargeTabs = [
   { id: "aircraft", label: "Aircraft rates", icon: IconPlane },
   { id: "landing", label: "Landing fees", icon: IconReceiptTax },
+  { id: "categories", label: "Categories", icon: IconCategory },
   { id: "additional", label: "Additional charges", icon: IconCashBanknote },
 ] as const
 
@@ -153,6 +154,24 @@ export function ChargesTab() {
             </Card>
           </Tabs.Content>
 
+          <Tabs.Content value="categories" className="outline-none">
+            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
+              <CardHeader className="border-b border-border/40">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg text-slate-900">Chargeable categories</CardTitle>
+                    <CardDescription>
+                      Manage chargeable categories and the default GL code for each category.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ChargeableTypesConfig />
+              </CardContent>
+            </Card>
+          </Tabs.Content>
+
           <Tabs.Content value="additional" className="outline-none">
             <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
               <CardHeader className="border-b border-border/40">
@@ -166,7 +185,6 @@ export function ChargesTab() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <ChargeableTypesConfig />
                 <ChargeablesConfig />
               </CardContent>
             </Card>

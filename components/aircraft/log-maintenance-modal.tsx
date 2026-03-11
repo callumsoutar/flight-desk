@@ -73,8 +73,6 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
   const [nextDueHours, setNextDueHours] = useState<string>("")
   const [nextDueDate, setNextDueDate] = useState<Date | null>(null)
 
-  const [componentData, setComponentData] = useState<AircraftComponentsRow | null>(null)
-
   useEffect(() => {
     if (open) {
       setVisitDate(new Date())
@@ -88,7 +86,6 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
       setComponentDueDate(null)
       setNextDueHours("")
       setNextDueDate(null)
-      setComponentData(null)
       setError(null)
     }
   }, [open])
@@ -118,7 +115,6 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
           const res = await fetch(`/api/aircraft-components?id=${component_id}`)
           if (res.ok) {
             const component: AircraftComponentsRow = await res.json()
-            setComponentData(component)
 
             if (component.current_due_hours !== null && component.current_due_hours !== undefined) {
               let effectiveDueHours = Number(component.current_due_hours)
@@ -140,25 +136,6 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
       })()
     }
   }, [open, component_id])
-
-  useEffect(() => {
-    if (componentData && componentData.interval_hours && hoursAtVisit) {
-      const nextDue = Number(hoursAtVisit) + Number(componentData.interval_hours)
-      setNextDueHours(String(nextDue))
-    }
-  }, [componentData, hoursAtVisit])
-
-  useEffect(() => {
-    if (componentData && visitDate && componentData.interval_days) {
-      const intervalType = componentData.interval_type
-      if (intervalType === "CALENDAR" || intervalType === "BOTH") {
-        const nextDue = new Date(
-          visitDate.getTime() + Number(componentData.interval_days) * 24 * 60 * 60 * 1000
-        )
-        setNextDueDate(nextDue)
-      }
-    }
-  }, [visitDate, componentData])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -419,7 +396,7 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
                         </div>
                       </div>
                       <p className="text-[10px] text-slate-500 italic px-1">
-                        Calculated: visit date/hours + interval
+                        Set the next due values you want applied to the component.
                       </p>
                     </div>
                   </section>

@@ -213,10 +213,6 @@ export async function authorizeBookingCheckoutAction(bookingId: string, input: u
     aircraftId: resolvedCheckedOutAircraftId,
   })
 
-  if (warnings.summary.has_blockers) {
-    return { ok: false as const, error: "Critical booking warnings must be resolved before checkout" }
-  }
-
   if (warnings.summary.requires_acknowledgement && !warningsAcknowledged) {
     return { ok: false as const, error: "Non-blocking booking warnings must be acknowledged before checkout" }
   }

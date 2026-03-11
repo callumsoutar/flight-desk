@@ -539,9 +539,10 @@ export function BookingDetailClient({
     if (!booking.lesson_progress) return false
     return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
   }, [booking.lesson_progress])
+  const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
   const trackerStages = React.useMemo(
-    () => getBookingTrackerStages(Boolean(booking.briefing_completed)),
-    [booking.briefing_completed]
+    () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),
+    [booking.briefing_completed, includeDebriefStage]
   )
   const trackerState = React.useMemo(
     () =>

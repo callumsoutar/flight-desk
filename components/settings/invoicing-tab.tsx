@@ -4,7 +4,6 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import {
   IconAutomation,
-  IconCreditCard,
   IconFileInvoice,
   IconMessage,
 } from "@tabler/icons-react"
@@ -50,13 +49,8 @@ function createFormState(settings: InvoicingSettings | null) {
   return {
     invoice_prefix: settings?.invoice_prefix ?? "INV",
     default_invoice_due_days: settings?.default_invoice_due_days ?? 7,
-    payment_terms_days: settings?.payment_terms_days ?? 30,
-    payment_terms_message: settings?.payment_terms_message ?? "Payment terms: Net 30 days.",
     invoice_footer_message: settings?.invoice_footer_message ?? "Thank you for your business.",
-    auto_generate_invoices: settings?.auto_generate_invoices ?? false,
     include_logo_on_invoice: settings?.include_logo_on_invoice ?? true,
-    invoice_due_reminder_days: settings?.invoice_due_reminder_days ?? 7,
-    late_fee_percentage: settings?.late_fee_percentage ?? 0,
   }
 }
 
@@ -82,13 +76,8 @@ export function InvoicingTab({
   const dirty =
     form.invoice_prefix.trim() !== baseForm.invoice_prefix.trim() ||
     form.default_invoice_due_days !== baseForm.default_invoice_due_days ||
-    form.payment_terms_days !== baseForm.payment_terms_days ||
-    form.payment_terms_message !== baseForm.payment_terms_message ||
     form.invoice_footer_message !== baseForm.invoice_footer_message ||
-    form.auto_generate_invoices !== baseForm.auto_generate_invoices ||
-    form.include_logo_on_invoice !== baseForm.include_logo_on_invoice ||
-    form.invoice_due_reminder_days !== baseForm.invoice_due_reminder_days ||
-    form.late_fee_percentage !== baseForm.late_fee_percentage
+    form.include_logo_on_invoice !== baseForm.include_logo_on_invoice
 
   const canSave = dirty && form.invoice_prefix.trim().length > 0 && !isSaving
   const onUndo = () => {
@@ -124,13 +113,8 @@ export function InvoicingTab({
         invoicing: {
           invoice_prefix: form.invoice_prefix.trim(),
           default_invoice_due_days: form.default_invoice_due_days,
-          payment_terms_days: form.payment_terms_days,
-          payment_terms_message: form.payment_terms_message,
           invoice_footer_message: form.invoice_footer_message,
-          auto_generate_invoices: form.auto_generate_invoices,
           include_logo_on_invoice: form.include_logo_on_invoice,
-          invoice_due_reminder_days: form.invoice_due_reminder_days,
-          late_fee_percentage: form.late_fee_percentage,
         },
       })
       setBaseSettings(result.settings)
@@ -156,7 +140,7 @@ export function InvoicingTab({
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            Configure invoice numbering, payment terms, and automation defaults.
+            Configure invoice numbering and defaults.
           </p>
         </div>
       </div>
@@ -223,72 +207,6 @@ export function InvoicingTab({
 
           <div className="space-y-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <IconCreditCard className="h-4 w-4 text-slate-500" />
-              Payment terms
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="payment-terms-days" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Payment terms (days)
-                </Label>
-                <Input
-                  id="payment-terms-days"
-                  type="number"
-                  min={0}
-                  value={form.payment_terms_days}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      payment_terms_days: Number.parseInt(e.target.value || "0", 10) || 0,
-                    }))
-                  }
-                  className="h-11 rounded-xl border-slate-200 bg-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="late-fee" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Late fee (%)
-                </Label>
-                <Input
-                  id="late-fee"
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  value={form.late_fee_percentage}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      late_fee_percentage: Number.parseFloat(e.target.value || "0") || 0,
-                    }))
-                  }
-                  className="h-11 rounded-xl border-slate-200 bg-white"
-                />
-                <p className="text-[11px] font-medium text-slate-500">
-                  Applied when an invoice is overdue (if enabled).
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-terms-message" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Payment terms message
-              </Label>
-              <Textarea
-                id="payment-terms-message"
-                value={form.payment_terms_message}
-                onChange={(e) => setForm((prev) => ({ ...prev, payment_terms_message: e.target.value }))}
-                className="min-h-[96px] resize-none rounded-xl border-slate-200 bg-white"
-                placeholder="Payment terms: Net 30 days."
-              />
-              <p className="text-[11px] font-medium text-slate-500">Appears on invoices under the totals.</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <IconMessage className="h-4 w-4 text-slate-500" />
               Invoice messages
             </div>
@@ -312,23 +230,10 @@ export function InvoicingTab({
           <div className="space-y-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <IconAutomation className="h-4 w-4 text-slate-500" />
-              Automation & reminders
+              Invoice display
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Auto-generate invoices</p>
-                  <p className="text-sm text-muted-foreground">
-                    Automatically generate invoices after flights and bookings.
-                  </p>
-                </div>
-                <Switch
-                  checked={form.auto_generate_invoices}
-                  onCheckedChange={(checked) => setForm((prev) => ({ ...prev, auto_generate_invoices: checked }))}
-                />
-              </div>
-
               <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Include logo on invoices</p>
@@ -341,28 +246,6 @@ export function InvoicingTab({
                   onCheckedChange={(checked) => setForm((prev) => ({ ...prev, include_logo_on_invoice: checked }))}
                 />
               </div>
-            </div>
-
-            <div className="space-y-2 max-w-xs">
-              <Label htmlFor="invoice-reminder-days" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Reminder before due (days)
-              </Label>
-              <Input
-                id="invoice-reminder-days"
-                type="number"
-                min={0}
-                value={form.invoice_due_reminder_days}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    invoice_due_reminder_days: Number.parseInt(e.target.value || "0", 10) || 0,
-                  }))
-                }
-                className="h-11 rounded-xl border-slate-200 bg-white"
-              />
-              <p className="text-[11px] font-medium text-slate-500">
-                Controls when payment reminders are sent before the due date.
-              </p>
             </div>
           </div>
         </CardContent>

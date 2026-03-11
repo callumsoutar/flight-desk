@@ -7,6 +7,7 @@ import {
   IconBuilding,
   IconClock,
   IconMail,
+  IconReceiptTax,
   IconSettings,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
@@ -21,12 +22,14 @@ import { Separator } from "@/components/ui/separator"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { TaxSettingsTab } from "@/components/settings/tax-settings-tab"
 import type { GeneralSettings } from "@/lib/settings/general-settings"
 import { cn } from "@/lib/utils"
 
 const generalTabs = [
   { id: "school", label: "School", icon: IconBuilding },
   { id: "contact", label: "Contact", icon: IconMail },
+  { id: "tax", label: "Tax settings", icon: IconReceiptTax },
   { id: "system", label: "System", icon: IconSettings },
 ]
 
@@ -564,6 +567,10 @@ export function GeneralTab({
                     </CardContent>
                   </Card>
                 </div>
+          </Tabs.Content>
+
+          <Tabs.Content value="tax" className="outline-none">
+            <TaxSettingsTab />
           </Tabs.Content>
 
           <Tabs.Content value="system" className="outline-none">

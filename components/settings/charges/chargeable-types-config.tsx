@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
+import { cn } from "@/lib/utils"
 import type { ChargeableTypesRow } from "@/lib/types/tables"
 
 type ChargeableType = Pick<
@@ -125,55 +126,142 @@ export function ChargeableTypesConfig() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <IconCategory className="h-4 w-4 text-indigo-600" />
-          <h4 className="text-base font-semibold text-slate-900">Chargeable types</h4>
+          <h4 className="text-base font-semibold text-slate-900">Chargeable categories</h4>
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <Dialog
+          open={addOpen}
+          onOpenChange={(open) => {
+            setAddOpen(open)
+            if (open) setForm(blankForm())
+          }}
+        >
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+            <Button
+              size="sm"
+              className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm shadow-indigo-100 transition-all active:scale-[0.98] whitespace-nowrap font-semibold border-none"
+            >
               <IconPlus className="mr-1 h-4 w-4" />
-              Add type
+              Add category
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create chargeable type</DialogTitle>
-              <DialogDescription>Set a type-level GL code used by all chargeables in this type.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label>Code</Label>
-                <Input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} />
+          <DialogContent
+            className={cn(
+              "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden",
+              "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[540px]",
+              "top-[calc(env(safe-area-inset-top)+1rem)] sm:top-[50%] translate-y-0 sm:translate-y-[-50%]",
+              "h-[calc(100dvh-2rem)] sm:h-auto sm:max-h-[calc(100dvh-4rem)]"
+            )}
+          >
+            <div className="flex h-full min-h-0 flex-col bg-white">
+              <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                    <IconCategory className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                      Add Chargeable Category
+                    </DialogTitle>
+                    <DialogDescription className="mt-0.5 text-sm text-slate-500">
+                      Define the category and default GL code. Required fields are marked with{" "}
+                      <span className="text-destructive">*</span>.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6">
+                <div className="space-y-6">
+                  <section>
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      <span className="text-xs font-semibold tracking-tight text-slate-900">Category Details</span>
+                    </div>
+
+                    <div className="grid gap-5">
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          CODE <span className="text-destructive">*</span>
+                        </label>
+                        <Input
+                          value={form.code}
+                          onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
+                          placeholder="e.g., admin_fee"
+                          className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          NAME <span className="text-destructive">*</span>
+                        </label>
+                        <Input
+                          value={form.name}
+                          onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="e.g., Administration Fee"
+                          className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          GL CODE
+                        </label>
+                        <XeroAccountSelect
+                          value={form.gl_code}
+                          onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
+                          accountTypes={["REVENUE"]}
+                          className="h-10"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                          DESCRIPTION
+                        </label>
+                        <Textarea
+                          value={form.description}
+                          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                          placeholder="Enter a brief description"
+                          rows={3}
+                          className="rounded-xl border-slate-200 bg-white px-3 py-2 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
+                        />
+                      </div>
+                      <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                        <Switch
+                          checked={form.is_active}
+                          onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
+                        />
+                        <div className="min-w-0">
+                          <Label className="text-xs font-semibold text-slate-900 leading-none cursor-pointer">
+                            Active
+                          </Label>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-snug">
+                            Whether this category is available for selection.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+
+              <div className="border-t bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:pb-4">
+                <div className="flex items-center justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAddOpen(false)}
+                    className="h-10 flex-1 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreate}
+                    disabled={saving || !form.name.trim() || !form.code.trim()}
+                    className="h-10 flex-[1.4] rounded-xl bg-slate-900 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                  >
+                    Create Category
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>GL code</Label>
-                <XeroAccountSelect
-                  value={form.gl_code}
-                  onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
-                  accountTypes={["REVENUE"]}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                />
-              </div>
-              <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                <span className="text-sm">Active</span>
-                <Switch checked={form.is_active} onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))} />
-              </div>
-              <Button
-                onClick={handleCreate}
-                disabled={saving || !form.name.trim() || !form.code.trim()}
-                className="w-full"
-              >
-                Create
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -205,7 +293,16 @@ export function ChargeableTypesConfig() {
                   <TableCell>{item.gl_code || "—"}</TableCell>
                   <TableCell>{item.is_active ? "Active" : "Inactive"}</TableCell>
                   <TableCell className="text-right">
-                    <Dialog open={editOpen && editing?.id === item.id} onOpenChange={setEditOpen}>
+                    <Dialog
+                      open={editOpen && editing?.id === item.id}
+                      onOpenChange={(open) => {
+                        setEditOpen(open)
+                        if (!open) {
+                          setEditing(null)
+                          setForm(blankForm())
+                        }
+                      }}
+                    >
                       <DialogTrigger asChild>
                         <Button
                           size="icon"
@@ -226,59 +323,134 @@ export function ChargeableTypesConfig() {
                           <IconPencil className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit chargeable type</DialogTitle>
-                          <DialogDescription>Update name, code, and GL code mapping.</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-3">
-                          <div className="space-y-2">
-                            <Label>Code</Label>
-                            <Input
-                              value={form.code}
-                              onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
-                              disabled={Boolean(item.is_system)}
-                            />
+                      <DialogContent
+                        className={cn(
+                          "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden",
+                          "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[540px]",
+                          "top-[calc(env(safe-area-inset-top)+1rem)] sm:top-[50%] translate-y-0 sm:translate-y-[-50%]",
+                          "h-[calc(100dvh-2rem)] sm:h-auto sm:max-h-[calc(100dvh-4rem)]"
+                        )}
+                      >
+                        <div className="flex h-full min-h-0 flex-col bg-white">
+                          <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6">
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                                <IconPencil className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                                  Edit Chargeable Category
+                                </DialogTitle>
+                                <DialogDescription className="mt-0.5 text-sm text-slate-500">
+                                  Update category details and GL code mapping. Required fields are marked with{" "}
+                                  <span className="text-destructive">*</span>.
+                                </DialogDescription>
+                              </div>
+                            </div>
+                          </DialogHeader>
+
+                          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6">
+                            <div className="space-y-6">
+                              <section>
+                                <div className="mb-3 flex items-center gap-2">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                  <span className="text-xs font-semibold tracking-tight text-slate-900">
+                                    Category Details
+                                  </span>
+                                </div>
+
+                                <div className="grid gap-5">
+                                  <div>
+                                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                      CODE <span className="text-destructive">*</span>
+                                    </label>
+                                    <Input
+                                      value={form.code}
+                                      onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
+                                      disabled={Boolean(item.is_system)}
+                                      className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                      NAME <span className="text-destructive">*</span>
+                                    </label>
+                                    <Input
+                                      value={form.name}
+                                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                                      className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                      GL CODE
+                                    </label>
+                                    <XeroAccountSelect
+                                      value={form.gl_code}
+                                      onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
+                                      accountTypes={["REVENUE"]}
+                                      className="h-10"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                      DESCRIPTION
+                                    </label>
+                                    <Textarea
+                                      value={form.description}
+                                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                                      rows={3}
+                                      className="rounded-xl border-slate-200 bg-white px-3 py-2 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
+                                    />
+                                  </div>
+                                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                                    <Switch
+                                      checked={form.is_active}
+                                      onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
+                                      disabled={Boolean(item.is_system)}
+                                    />
+                                    <div className="min-w-0">
+                                      <Label className="text-xs font-semibold text-slate-900 leading-none cursor-pointer">
+                                        Active
+                                      </Label>
+                                      <p className="text-[11px] text-slate-600 mt-1 leading-snug">
+                                        Whether this category is available for selection.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </section>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label>Name</Label>
-                            <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+
+                          <div className="border-t bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:pb-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditOpen(false)
+                                  setEditing(null)
+                                  setForm(blankForm())
+                                }}
+                                className="h-10 flex-1 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                onClick={handleEdit}
+                                disabled={
+                                  saving ||
+                                  Boolean(item.is_system) ||
+                                  !form.name.trim() ||
+                                  !form.code.trim()
+                                }
+                                className="h-10 flex-[1.4] rounded-xl bg-slate-900 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                              >
+                                Update Category
+                              </Button>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label>GL code</Label>
-                            <XeroAccountSelect
-                              value={form.gl_code}
-                              onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
-                              accountTypes={["REVENUE"]}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Description</Label>
-                            <Textarea
-                              value={form.description}
-                              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                            <span className="text-sm">Active</span>
-                            <Switch
-                              checked={form.is_active}
-                              onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
-                              disabled={Boolean(item.is_system)}
-                            />
-                          </div>
-                          <Button
-                            onClick={handleEdit}
-                            disabled={
-                              saving ||
-                              Boolean(item.is_system) ||
-                              !form.name.trim() ||
-                              !form.code.trim()
-                            }
-                            className="w-full"
-                          >
-                            Save changes
-                          </Button>
                         </div>
                       </DialogContent>
                     </Dialog>

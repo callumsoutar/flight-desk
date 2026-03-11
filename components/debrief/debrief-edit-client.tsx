@@ -61,10 +61,11 @@ export function DebriefEditClient({
   const lessonName = booking.lesson?.name ?? "Training Flight"
   const invoiceId = booking.checkin_invoice_id ?? null
   const lessonProgressExists = Boolean(effectiveLessonProgress?.id)
+  const includeDebriefStage = instructionType !== "solo"
 
   const trackerStages = React.useMemo(
-    () => getBookingTrackerStages(Boolean(booking.briefing_completed)),
-    [booking.briefing_completed]
+    () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),
+    [booking.briefing_completed, includeDebriefStage]
   )
 
   const trackerState = React.useMemo(

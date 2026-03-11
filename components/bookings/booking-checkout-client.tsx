@@ -375,7 +375,7 @@ export function BookingCheckoutClient({
   const hasBlockingWarnings = warnings.summary.has_blockers
   const requiresWarningsAcknowledgement = warnings.summary.requires_acknowledgement
   const warningGateBlocked =
-    isWarningsRefreshing || Boolean(warningsRefreshError) || hasBlockingWarnings || (requiresWarningsAcknowledgement && !warningsAcknowledged)
+    isWarningsRefreshing || Boolean(warningsRefreshError) || (requiresWarningsAcknowledgement && !warningsAcknowledged)
   const isDirty =
     JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
     JSON.stringify(checkoutForm) !== JSON.stringify(savedCheckoutForm)
@@ -391,19 +391,20 @@ export function BookingCheckoutClient({
       ? "Refreshing booking warnings before checkout."
       : warningsRefreshError
         ? "Warning checks could not be refreshed. Resolve the warning fetch issue before checkout."
-        : hasBlockingWarnings
-          ? "Critical booking warnings are blocking checkout. Resolve them before marking this booking as flying."
-          : requiresWarningsAcknowledgement && !warningsAcknowledged
-            ? "Review and acknowledge the non-blocking warnings before checkout."
+        : requiresWarningsAcknowledgement && !warningsAcknowledged
+          ? "Review and acknowledge the non-blocking warnings before checkout."
+          : hasBlockingWarnings
+            ? "Critical booking warnings detected. Review them before marking this booking as flying."
             : "You have unsaved checkout details. Checking flight out will save changes and set status to flying."
     : "You have unsaved checkout details."
   const lessonProgressExists = React.useMemo(() => {
     if (!booking.lesson_progress) return false
     return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
   }, [booking.lesson_progress])
+  const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
   const trackerStages = React.useMemo(
-    () => getBookingTrackerStages(Boolean(checkoutForm.briefing_completed)),
-    [checkoutForm.briefing_completed]
+    () => getBookingTrackerStages(Boolean(checkoutForm.briefing_completed), includeDebriefStage),
+    [checkoutForm.briefing_completed, includeDebriefStage]
   )
   const trackerState = React.useMemo(
     () =>

@@ -331,9 +331,10 @@ export function BookingCheckinClient({
 
   const checkinInvoiceId = booking.checkin_invoice_id ?? localInvoiceId
   const isApproved = Boolean(booking.checkin_approved_at || localInvoiceId)
+  const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
   const trackerStages = React.useMemo(
-    () => getBookingTrackerStages(Boolean(booking.briefing_completed)),
-    [booking.briefing_completed]
+    () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),
+    [booking.briefing_completed, includeDebriefStage]
   )
   const latestLessonProgress = React.useMemo(
     () => selectLatestLessonProgress(booking.lesson_progress),
@@ -354,7 +355,9 @@ export function BookingCheckinClient({
         hasDebrief: lessonProgressExists,
         forceActiveStageId:
           lessonProgressExists || isApproved || booking.checked_in_at || booking.status === "complete"
-            ? "debrief"
+            ? includeDebriefStage
+              ? "debrief"
+              : "checkin"
             : "checkin",
       }),
     [
@@ -364,6 +367,7 @@ export function BookingCheckinClient({
       booking.checked_in_at,
       booking.checked_out_at,
       booking.status,
+      includeDebriefStage,
       isApproved,
       lessonProgressExists,
       trackerStages,
@@ -1611,25 +1615,25 @@ export function BookingCheckinClient({
         />
 
         <BookingPageContent>
-          <div className="grid gap-6 xl:grid-cols-5 xl:items-start">
-            <Card className="border-border/60 xl:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <IconClock className="h-4 w-4" />
-              Flight Details & Billing
-            </CardTitle>
-            <CardDescription>
-              Record meter readings, pick active rates, then calculate draft charges.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
+          <div className="space-y-6">
+            <Card className="border-border/60">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <IconClock className="h-4 w-4" />
+                  Flight Details & Billing
+                </CardTitle>
+                <CardDescription>
+                  Record meter readings, pick active rates, then calculate draft charges.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
             {isAirswitchBillingUnsupported ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                 This aircraft rate bills by airswitch. The check-in UI currently supports Hobbs/Tacho only.
               </div>
             ) : null}
 
-            <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2 max-w-3xl">
+            <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2 max-w-2xl">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Flight Type</label>
                 <Select
@@ -1637,7 +1641,7 @@ export function BookingCheckinClient({
                   disabled={isApproved}
                   onValueChange={(value) => setSelectedFlightTypeId(value === "none" ? null : value)}
                 >
-                  <SelectTrigger className={formSelectTriggerClass}>
+                  <SelectTrigger className={cn(formSelectTriggerClass, "sm:max-w-md")}>
                     <SelectValue placeholder="Select flight type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1669,7 +1673,7 @@ export function BookingCheckinClient({
                   disabled={isApproved}
                   onValueChange={(value) => setSelectedInstructorId(value === "none" ? null : value)}
                 >
-                  <SelectTrigger className={formSelectTriggerClass}>
+                  <SelectTrigger className={cn(formSelectTriggerClass, "sm:max-w-md")}>
                     <SelectValue placeholder="Select instructor" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1705,7 +1709,7 @@ export function BookingCheckinClient({
             <div className="border-t border-border/50" />
 
             <div className="space-y-2">
-              <div className="hidden sm:grid sm:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_70px] gap-3 text-xs font-medium text-muted-foreground">
+              <div className="hidden sm:grid sm:grid-cols-[130px_minmax(160px,280px)_minmax(160px,280px)_70px] gap-3 text-xs font-medium text-muted-foreground">
                 <div>Meter</div>
                 <div>Start</div>
                 <div>End</div>
@@ -1730,7 +1734,7 @@ export function BookingCheckinClient({
 
                   return (
                     <React.Fragment key={meter}>
-                      <div className="grid items-center gap-3 sm:grid-cols-[130px_minmax(120px,1fr)_minmax(120px,1fr)_70px]">
+                      <div className="grid items-center gap-3 sm:grid-cols-[130px_minmax(160px,280px)_minmax(160px,280px)_70px]">
                         <label className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <MeterIcon className="h-4 w-4 text-muted-foreground" />
                           {meterLabel}
@@ -1748,7 +1752,7 @@ export function BookingCheckinClient({
                             value={startValue}
                             disabled={isApproved}
                             onChange={(event) => setStart(event.target.value)}
-                            className="h-9 tabular-nums"
+                            className="h-9 tabular-nums sm:max-w-xs"
                           />
                         </div>
                         <div>
@@ -1759,7 +1763,7 @@ export function BookingCheckinClient({
                             value={endValue}
                             disabled={isApproved}
                             onChange={(event) => setEnd(event.target.value)}
-                            className="h-9 tabular-nums"
+                            className="h-9 tabular-nums sm:max-w-xs"
                           />
                         </div>
                         <div className={cn(
@@ -1836,383 +1840,388 @@ export function BookingCheckinClient({
                 </div>
               </div>
             ) : null}
-
           </CardContent>
         </Card>
 
-            <Card className="border-border/60 xl:col-span-3">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <IconFileText className="h-4 w-4" />
-                Invoice Builder
-              </CardTitle>
-              <span className="text-sm tabular-nums text-muted-foreground">
-                {invoiceBuilderLines.length} {invoiceBuilderLines.length === 1 ? "item" : "items"}
-              </span>
-            </div>
-            {!isDraftCalculated ? (
-              <p className="text-sm text-muted-foreground">
-                Calculate flight charges to generate line items, then add any extra fees below.
-              </p>
-            ) : isDraftStale ? (
-              <div className="mt-1 flex items-center gap-2 text-sm text-destructive">
-                <IconAlertCircle className="h-4 w-4 shrink-0" />
-                Draft is out of date. Recalculate before approving.
-              </div>
-            ) : (
-              <div className="mt-1 flex items-center gap-2 text-sm text-emerald-700">
-                <IconCheck className="h-4 w-4 shrink-0" />
-                Draft is up to date and ready for approval.
-              </div>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {invoiceBuilderLines.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No invoice items yet. Set flight details and calculate charges to generate line items.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="w-[100px] text-right">Qty</TableHead>
-                      <TableHead className="w-[140px] text-right">Rate (inc.)</TableHead>
-                      <TableHead className="w-[120px] text-right">Total</TableHead>
-                      <TableHead className="w-[220px] text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoiceBuilderLineGroups.map((group) => (
-                      <React.Fragment key={group.id}>
-                        <TableRow className="bg-muted/20 hover:bg-muted/20">
-                          <TableCell
-                            colSpan={5}
-                            className="py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
-                          >
-                            {group.label}
-                          </TableCell>
+        <Card className="border-border/60">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <IconFileText className="h-4 w-4" />
+                    Invoice Builder
+                  </CardTitle>
+                  <span className="text-sm tabular-nums text-muted-foreground">
+                    {invoiceBuilderLines.length} {invoiceBuilderLines.length === 1 ? "item" : "items"}
+                  </span>
+                </div>
+                {!isDraftCalculated ? (
+                  <p className="text-sm text-muted-foreground">
+                    Calculate flight charges to generate line items, then add any extra fees below.
+                  </p>
+                ) : isDraftStale ? (
+                  <div className="mt-1 flex items-center gap-2 text-sm text-destructive">
+                    <IconAlertCircle className="h-4 w-4 shrink-0" />
+                    Draft is out of date. Recalculate before approving.
+                  </div>
+                ) : (
+                  <div className="mt-1 flex items-center gap-2 text-sm text-emerald-700">
+                    <IconCheck className="h-4 w-4 shrink-0" />
+                    Draft is up to date and ready for approval.
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {invoiceBuilderLines.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    No invoice items yet. Set flight details and calculate charges to generate line items.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="w-[100px] text-right">Qty</TableHead>
+                          <TableHead className="w-[140px] text-right">Rate (inc.)</TableHead>
+                          <TableHead className="w-[120px] text-right">Total</TableHead>
+                          <TableHead className="w-[220px] text-right">Actions</TableHead>
                         </TableRow>
-                        {group.lines.map((line) => {
-                          const isEditing = editingLineItem?.itemId === line.id
-                          const quantityDisplay = Number.isFinite(line.quantity) ? line.quantity.toFixed(1) : "—"
-
-                          return (
-                            <TableRow key={line.id}>
-                              <TableCell>
-                                <span className="font-medium">{line.description || "Manual item"}</span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    step={0.1}
-                                    value={editingLineItem?.quantity ?? ""}
-                                    disabled={isApproved}
-                                    onChange={(event) => updateEditingLineItem({ quantity: event.target.value })}
-                                    className="h-8 w-20 text-right tabular-nums"
-                                  />
-                                ) : (
-                                  <span className="tabular-nums">{quantityDisplay}</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {isEditing ? (
-                                  <div className="relative inline-block">
-                                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                      $
-                                    </span>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      step={0.01}
-                                      value={editingLineItem?.rateInclusive ?? ""}
-                                      disabled={isApproved}
-                                      onChange={(event) => updateEditingLineItem({ rateInclusive: event.target.value })}
-                                      className="h-8 w-28 pl-5 text-right tabular-nums"
-                                    />
-                                  </div>
-                                ) : (
-                                  <span className="tabular-nums">${line.rate_inclusive.toFixed(2)}</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums font-medium">
-                                ${line.line_total.toFixed(2)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {isEditing ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      size="sm"
-                                      disabled={isApproved}
-                                      onClick={saveLineItemEdit}
-                                    >
-                                      Save
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      disabled={isApproved}
-                                      onClick={cancelLineItemEdit}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      disabled={isApproved}
-                                      onClick={() => beginLineItemEdit(line.id)}
-                                    >
-                                      Edit
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      disabled={isApproved}
-                                      onClick={() => removeLineItem(line)}
-                                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                    >
-                                      <IconTrash className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                )}
+                      </TableHeader>
+                      <TableBody>
+                        {invoiceBuilderLineGroups.map((group) => (
+                          <React.Fragment key={group.id}>
+                            <TableRow className="bg-muted/20 hover:bg-muted/20">
+                              <TableCell
+                                colSpan={5}
+                                className="py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                              >
+                                {group.label}
                               </TableCell>
                             </TableRow>
-                          )
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                            {group.lines.map((line) => {
+                              const isEditing = editingLineItem?.itemId === line.id
+                              const quantityDisplay = Number.isFinite(line.quantity) ? line.quantity.toFixed(1) : "—"
 
-            <div className="border-t pt-5">
-              <h4 className="mb-4 text-sm font-semibold text-foreground">Add Charges</h4>
-
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {MANUAL_GROUP_FILTERS.map((option) => {
-                    const isActive = option.group === activeManualGroup
-                    return (
-                      <Button
-                        key={option.group}
-                        type="button"
-                        variant={isActive ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => setActiveManualGroup(option.group)}
-                        disabled={isApproved}
-                        className={cn(
-                          "h-8 rounded-md px-3 text-sm",
-                          !isActive && "text-muted-foreground"
-                        )}
-                      >
-                        {option.title}
-                      </Button>
-                    )
-                  })}
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 sm:p-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <label className="text-sm font-medium text-foreground">{activeManualGroupConfig.title}</label>
-                    {activeManualGroup === "landing_fee" && effectiveLandingFeeAircraftTypeName ? (
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                          Aircraft type:{" "}
-                          <span className="font-medium text-foreground">{effectiveLandingFeeAircraftTypeName}</span>
-                          {isLandingFeeAircraftTypeOverridden ? " (override)" : ""}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0 text-xs"
-                          disabled={isApproved || landingFeeAircraftTypeOptions.length === 0}
-                          onClick={() => setShowLandingFeeAircraftTypeEditor((prev) => !prev)}
-                        >
-                          {showLandingFeeAircraftTypeEditor ? "Done" : "Change"}
-                        </Button>
-                      </div>
-                    ) : null}
+                              return (
+                                <TableRow key={line.id}>
+                                  <TableCell>
+                                    <span className="font-medium">{line.description || "Manual item"}</span>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {isEditing ? (
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        step={0.1}
+                                        value={editingLineItem?.quantity ?? ""}
+                                        disabled={isApproved}
+                                        onChange={(event) => updateEditingLineItem({ quantity: event.target.value })}
+                                        className="h-8 w-20 text-right tabular-nums"
+                                      />
+                                    ) : (
+                                      <span className="tabular-nums">{quantityDisplay}</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {isEditing ? (
+                                      <div className="relative inline-block">
+                                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                          $
+                                        </span>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          step={0.01}
+                                          value={editingLineItem?.rateInclusive ?? ""}
+                                          disabled={isApproved}
+                                          onChange={(event) =>
+                                            updateEditingLineItem({ rateInclusive: event.target.value })
+                                          }
+                                          className="h-8 w-28 pl-5 text-right tabular-nums"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="tabular-nums">${line.rate_inclusive.toFixed(2)}</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums font-medium">
+                                    ${line.line_total.toFixed(2)}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {isEditing ? (
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                          type="button"
+                                          variant="secondary"
+                                          size="sm"
+                                          disabled={isApproved}
+                                          onClick={saveLineItemEdit}
+                                        >
+                                          Save
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          disabled={isApproved}
+                                          onClick={cancelLineItemEdit}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          disabled={isApproved}
+                                          onClick={() => beginLineItemEdit(line.id)}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          disabled={isApproved}
+                                          onClick={() => removeLineItem(line)}
+                                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                        >
+                                          <IconTrash className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-
-                  {activeManualGroup === "landing_fee" && showLandingFeeAircraftTypeEditor ? (
-                    <div className="mb-3 mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <Select
-                        value={landingFeeAircraftTypeOverrideId ?? "auto"}
-                        disabled={isApproved}
-                        onValueChange={(value) =>
-                          setLandingFeeAircraftTypeOverrideId(value === "auto" ? null : value)
-                        }
-                      >
-                        <SelectTrigger className="h-9 w-full sm:w-72">
-                          <SelectValue placeholder="Select aircraft type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">
-                            {selectedAircraftTypeName
-                              ? `Checked-out type (${selectedAircraftTypeName})`
-                              : "Use checked-out aircraft type"}
-                          </SelectItem>
-                          {landingFeeAircraftTypeOptions.map((aircraftTypeOption) => (
-                            <SelectItem key={aircraftTypeOption.id} value={aircraftTypeOption.id}>
-                              {aircraftTypeOption.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {landingFeeAircraftTypeOverrideId ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-9 w-full sm:w-auto"
-                          disabled={isApproved}
-                          onClick={() => setLandingFeeAircraftTypeOverrideId(null)}
-                        >
-                          Reset
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {activeScopedChargeables.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{activeManualGroupConfig.emptyText}</p>
-                  ) : (
-                    <div className="mt-3 space-y-1.5">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-                        <div className="w-full sm:max-w-[380px]">
-                          <ChargeableSearchDropdown
-                            chargeables={activeScopedChargeables}
-                            value={activeQuickAddState.chargeableId}
-                            taxRate={taxRate}
-                            resolveInclusiveRate={(chargeable) =>
-                              getDefaultInclusiveRate(chargeable.id, activeManualGroup)
-                            }
-                            disabled={isApproved}
-                            onSelect={(chargeable) => {
-                              updateQuickAdd(activeManualGroup, {
-                                chargeableId: chargeable?.id ?? "",
-                                rateInclusive:
-                                  chargeable != null
-                                    ? getDefaultInclusiveRate(chargeable.id, activeManualGroup).toFixed(2)
-                                    : "",
-                              })
-                            }}
-                          />
-                        </div>
-                        <Input
-                          type="number"
-                          min={1}
-                          step={1}
-                          placeholder="Qty"
-                          value={activeQuickAddState.quantity}
-                          onChange={(event) => updateQuickAdd(activeManualGroup, { quantity: event.target.value })}
-                          disabled={isApproved}
-                          className="h-10 w-full text-right tabular-nums sm:w-20"
-                          aria-label={`${activeManualGroupConfig.title} quantity`}
-                        />
-                        <div className="relative w-full sm:w-28">
-                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                            $
-                          </span>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            placeholder="0.00"
-                            value={activeQuickAddState.rateInclusive}
-                            onChange={(event) => updateQuickAdd(activeManualGroup, { rateInclusive: event.target.value })}
-                            disabled={isApproved}
-                            className="h-10 pl-6 text-right tabular-nums"
-                            aria-label={`${activeManualGroupConfig.title} rate`}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => addManualItemForGroup(activeManualGroup)}
-                          disabled={!canAddGroupItem(activeManualGroup)}
-                          className="h-10 w-full sm:w-auto"
-                        >
-                          <IconPlus className="mr-1 h-4 w-4" />
-                          Add
-                        </Button>
-                      </div>
-                      {activeManualGroup === "landing_fee" && selectedActiveChargeable ? (
-                        <p className="text-xs text-muted-foreground">
-                          {usesAircraftLandingRate
-                            ? `Rate from landing fee schedule for ${effectiveLandingFeeAircraftTypeName ?? "selected aircraft type"}.`
-                            : effectiveLandingFeeAircraftTypeId
-                              ? "No override for this aircraft type - using default rate."
-                              : "Using default chargeable rate."}
-                        </p>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="ml-auto max-w-xs space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="tabular-nums">${invoiceBuilderTotals.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="tabular-nums">${invoiceBuilderTotals.taxTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t pt-1.5 text-base font-semibold">
-                  <span>Total</span>
-                  <span className="tabular-nums">${invoiceBuilderTotals.totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t pt-4">
-              <Button
-                type="button"
-                onClick={() => void approveDraft({ continueToDebrief: instructionType !== "solo" })}
-                disabled={!canApprove}
-              >
-                {isApproving ? (
-                  <>
-                    <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Approving...
-                  </>
-                ) : instructionType === "solo" ? (
-                  <>
-                    <IconCheck className="mr-2 h-4 w-4" />
-                    Approve & View Invoice
-                    <IconArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    <IconCheck className="mr-2 h-4 w-4" />
-                    Save & Continue
-                    <IconArrowRight className="ml-2 h-4 w-4" />
-                  </>
                 )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-          </div>
+                <div className="border-t pt-5">
+                  <h4 className="mb-4 text-sm font-semibold text-foreground">Add Charges</h4>
+
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {MANUAL_GROUP_FILTERS.map((option) => {
+                        const isActive = option.group === activeManualGroup
+                        return (
+                          <Button
+                            key={option.group}
+                            type="button"
+                            variant={isActive ? "secondary" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveManualGroup(option.group)}
+                            disabled={isApproved}
+                            className={cn(
+                              "h-8 rounded-md px-3 text-sm",
+                              !isActive && "text-muted-foreground"
+                            )}
+                          >
+                            {option.title}
+                          </Button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="rounded-lg border border-border/70 bg-muted/20 p-3 sm:p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <label className="text-sm font-medium text-foreground">{activeManualGroupConfig.title}</label>
+                        {activeManualGroup === "landing_fee" && effectiveLandingFeeAircraftTypeName ? (
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span>
+                              Aircraft type:{" "}
+                              <span className="font-medium text-foreground">
+                                {effectiveLandingFeeAircraftTypeName}
+                              </span>
+                              {isLandingFeeAircraftTypeOverridden ? " (override)" : ""}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs"
+                              disabled={isApproved || landingFeeAircraftTypeOptions.length === 0}
+                              onClick={() => setShowLandingFeeAircraftTypeEditor((prev) => !prev)}
+                            >
+                              {showLandingFeeAircraftTypeEditor ? "Done" : "Change"}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {activeManualGroup === "landing_fee" && showLandingFeeAircraftTypeEditor ? (
+                        <div className="mb-3 mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Select
+                            value={landingFeeAircraftTypeOverrideId ?? "auto"}
+                            disabled={isApproved}
+                            onValueChange={(value) =>
+                              setLandingFeeAircraftTypeOverrideId(value === "auto" ? null : value)
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full sm:w-72">
+                              <SelectValue placeholder="Select aircraft type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="auto">
+                                {selectedAircraftTypeName
+                                  ? `Checked-out type (${selectedAircraftTypeName})`
+                                  : "Use checked-out aircraft type"}
+                              </SelectItem>
+                              {landingFeeAircraftTypeOptions.map((aircraftTypeOption) => (
+                                <SelectItem key={aircraftTypeOption.id} value={aircraftTypeOption.id}>
+                                  {aircraftTypeOption.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {landingFeeAircraftTypeOverrideId ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-9 w-full sm:w-auto"
+                              disabled={isApproved}
+                              onClick={() => setLandingFeeAircraftTypeOverrideId(null)}
+                            >
+                              Reset
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {activeScopedChargeables.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{activeManualGroupConfig.emptyText}</p>
+                      ) : (
+                        <div className="mt-3 space-y-1.5">
+                          <div className="grid gap-2 sm:grid-cols-[minmax(0,420px)_90px_120px_auto] sm:items-end">
+                            <div className="min-w-0 sm:max-w-[420px]">
+                              <ChargeableSearchDropdown
+                                chargeables={activeScopedChargeables}
+                                value={activeQuickAddState.chargeableId}
+                                taxRate={taxRate}
+                                resolveInclusiveRate={(chargeable) =>
+                                  getDefaultInclusiveRate(chargeable.id, activeManualGroup)
+                                }
+                                disabled={isApproved}
+                                onSelect={(chargeable) => {
+                                  updateQuickAdd(activeManualGroup, {
+                                    chargeableId: chargeable?.id ?? "",
+                                    rateInclusive:
+                                      chargeable != null
+                                        ? getDefaultInclusiveRate(chargeable.id, activeManualGroup).toFixed(2)
+                                        : "",
+                                  })
+                                }}
+                              />
+                            </div>
+                            <Input
+                              type="number"
+                              min={1}
+                              step={1}
+                              placeholder="Qty"
+                              value={activeQuickAddState.quantity}
+                              onChange={(event) =>
+                                updateQuickAdd(activeManualGroup, { quantity: event.target.value })
+                              }
+                              disabled={isApproved}
+                              className="h-10 w-full text-right tabular-nums"
+                              aria-label={`${activeManualGroupConfig.title} quantity`}
+                            />
+                            <div className="relative w-full">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                $
+                              </span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                placeholder="0.00"
+                                value={activeQuickAddState.rateInclusive}
+                                onChange={(event) =>
+                                  updateQuickAdd(activeManualGroup, { rateInclusive: event.target.value })
+                                }
+                                disabled={isApproved}
+                                className="h-10 pl-6 text-right tabular-nums"
+                                aria-label={`${activeManualGroupConfig.title} rate`}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={() => addManualItemForGroup(activeManualGroup)}
+                              disabled={!canAddGroupItem(activeManualGroup)}
+                              className="h-10 w-full sm:w-auto sm:justify-self-start"
+                            >
+                              <IconPlus className="mr-1 h-4 w-4" />
+                              Add
+                            </Button>
+                          </div>
+                          {activeManualGroup === "landing_fee" && selectedActiveChargeable ? (
+                            <p className="text-xs text-muted-foreground">
+                              {usesAircraftLandingRate
+                                ? `Rate from landing fee schedule for ${effectiveLandingFeeAircraftTypeName ?? "selected aircraft type"}.`
+                                : effectiveLandingFeeAircraftTypeId
+                                  ? "No override for this aircraft type - using default rate."
+                                  : "Using default chargeable rate."}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="ml-auto max-w-xs space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="tabular-nums">${invoiceBuilderTotals.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tax</span>
+                      <span className="tabular-nums">${invoiceBuilderTotals.taxTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-1.5 text-base font-semibold">
+                      <span>Total</span>
+                      <span className="tabular-nums">${invoiceBuilderTotals.totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end border-t pt-4">
+                  <Button
+                    type="button"
+                    onClick={() => void approveDraft({ continueToDebrief: instructionType !== "solo" })}
+                    disabled={!canApprove}
+                  >
+                    {isApproving ? (
+                      <>
+                        <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Approving...
+                      </>
+                    ) : instructionType === "solo" ? (
+                      <>
+                        <IconCheck className="mr-2 h-4 w-4" />
+                        Approve & View Invoice
+                        <IconArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        <IconCheck className="mr-2 h-4 w-4" />
+                        Save & Continue
+                        <IconArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+        </Card>
+      </div>
 
         {checkinInvoiceId ? (
           <Card className="border-border/60">

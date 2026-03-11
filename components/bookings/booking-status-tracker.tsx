@@ -46,9 +46,12 @@ interface BookingStatusTrackerProps {
   className?: string
 }
 
-export function getBookingTrackerStages(includeBriefing: boolean): Stage[] {
-  if (includeBriefing) return BOOKING_STAGES
-  return BOOKING_STAGES.filter((stage) => stage.id !== "briefing")
+export function getBookingTrackerStages(includeBriefing: boolean, includeDebrief = true): Stage[] {
+  return BOOKING_STAGES.filter((stage) => {
+    if (!includeBriefing && stage.id === "briefing") return false
+    if (!includeDebrief && stage.id === "debrief") return false
+    return true
+  })
 }
 
 export function deriveBookingTrackerState(input: TrackerStateInput): {
@@ -66,6 +69,9 @@ export function deriveBookingTrackerState(input: TrackerStateInput): {
     }
     if (statusStage && stageIds.has(statusStage)) {
       return statusStage
+    }
+    if (statusStage && !stageIds.has(statusStage) && (status === "complete" || status === "debrief")) {
+      return stages[stages.length - 1]?.id
     }
     return stages[0]?.id
   })()

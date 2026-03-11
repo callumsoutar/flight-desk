@@ -16,6 +16,11 @@ type ComponentLite = {
   name: string
 }
 
+function toDateOnlyString(value: string | null | undefined): string | null {
+  if (!value) return null
+  return value.slice(0, 10)
+}
+
 const updateVisitSchema = z.object({
   id: z.string().uuid(),
   visit_date: z.string().optional(),
@@ -296,6 +301,43 @@ export async function POST(request: NextRequest) {
       { error: "Failed to log maintenance visit" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
+  }
+
+  if (payload.component_id) {
+    const componentUpdates: Record<string, string | number | null> = {}
+
+    if (payload.next_due_hours !== null && payload.next_due_hours !== undefined) {
+      componentUpdates.current_due_hours = payload.next_due_hours
+    }
+
+    if (payload.next_due_date !== null && payload.next_due_date !== undefined) {
+      componentUpdates.current_due_date = payload.next_due_date
+    }
+
+    const lastCompletedDate = toDateOnlyString(payload.visit_date)
+    if (lastCompletedDate) {
+      componentUpdates.last_completed_date = lastCompletedDate
+    }
+
+    if (payload.hours_at_visit !== null && payload.hours_at_visit !== undefined) {
+      componentUpdates.last_completed_hours = payload.hours_at_visit
+    }
+
+    if (Object.keys(componentUpdates).length > 0) {
+      const { error: componentError } = await supabase
+        .from("aircraft_components")
+        .update(componentUpdates)
+        .eq("tenant_id", tenantId)
+        .eq("aircraft_id", payload.aircraft_id)
+        .eq("id", payload.component_id)
+
+      if (componentError) {
+        return NextResponse.json(
+          { error: "Maintenance logged, but failed to update component" },
+          { status: 500, headers: { "cache-control": "no-store" } }
+        )
+      }
+    }
   }
 
   return NextResponse.json(data, { status: 201, headers: { "cache-control": "no-store" } })

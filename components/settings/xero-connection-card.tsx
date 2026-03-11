@@ -1,6 +1,6 @@
 "use client"
 
-import { Building2, RefreshCw } from "lucide-react"
+import { Building2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -55,21 +55,6 @@ export function XeroConnectionCard({
                 }}
               >
                 Disconnect
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  const response = await fetch("/api/xero/sync-accounts", { method: "POST" })
-                  if (!response.ok) {
-                    toast.error("Failed to refresh Xero accounts cache")
-                    return
-                  }
-                  toast.success("Xero accounts cache refreshed")
-                  onRefresh?.()
-                }}
-              >
-                <RefreshCw className="mr-1 h-4 w-4" />
-                Refresh Account Cache
               </Button>
             </div>
           </>
