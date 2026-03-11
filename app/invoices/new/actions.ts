@@ -93,18 +93,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   const defaultTaxRate =
     typeof rawTaxRate === "number" && rawTaxRate >= 0 && rawTaxRate <= 1 ? rawTaxRate : 0
   const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
-  const configuredDefaultTaxType = xeroSettings?.default_tax_type ?? null
-  const { data: syncedDefaultTaxType } =
-    configuredDefaultTaxType
-      ? await supabase
-          .from("xero_tax_rates")
-          .select("xero_tax_type")
-          .eq("tenant_id", tenantId)
-          .eq("status", "ACTIVE")
-          .eq("xero_tax_type", configuredDefaultTaxType)
-          .maybeSingle()
-      : { data: null }
-  const defaultXeroTaxType = syncedDefaultTaxType?.xero_tax_type ?? null
+  const defaultXeroTaxType = xeroSettings?.default_tax_type ?? null
   const chargeableIds = Array.from(new Set(payload.items.map((item) => item.chargeableId)))
 
   const { data: chargeables, error: chargeablesError } = await supabase

@@ -103,25 +103,6 @@ export async function PATCH(request: Request) {
     }
   }
 
-  if (patch.default_tax_type !== undefined && normalizedDefaultTaxType) {
-    const { data: taxRate, error: taxRateError } = await supabase
-      .from("xero_tax_rates")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("status", "ACTIVE")
-      .eq("xero_tax_type", normalizedDefaultTaxType)
-      .maybeSingle()
-    if (taxRateError) {
-      return NextResponse.json({ error: "Failed to validate default tax type" }, { status: 500 })
-    }
-    if (!taxRate) {
-      return NextResponse.json(
-        { error: "Default tax type must match an active synced Xero tax type" },
-        { status: 422 }
-      )
-    }
-  }
-
   const nextXero: Record<string, Json> = {
     ...existingXero,
   }

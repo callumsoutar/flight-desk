@@ -135,10 +135,6 @@ export type XeroInvoicesRow = Tables["xero_invoices"]["Row"]
 export type XeroInvoicesInsert = Tables["xero_invoices"]["Insert"]
 export type XeroInvoicesUpdate = Tables["xero_invoices"]["Update"]
 
-export type XeroTaxRatesRow = Tables["xero_tax_rates"]["Row"]
-export type XeroTaxRatesInsert = Tables["xero_tax_rates"]["Insert"]
-export type XeroTaxRatesUpdate = Tables["xero_tax_rates"]["Update"]
-
 export type LandingFeeRatesRow = Tables["landing_fee_rates"]["Row"]
 export type LandingFeeRatesInsert = Tables["landing_fee_rates"]["Insert"]
 export type LandingFeeRatesUpdate = Tables["landing_fee_rates"]["Update"]

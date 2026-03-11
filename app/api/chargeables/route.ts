@@ -25,23 +25,6 @@ const xeroTaxTypeSchema = z.preprocess(
   z.string().max(40).nullable().optional()
 )
 
-async function validateXeroTaxType(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  tenantId: string,
-  xeroTaxType: string
-) {
-  const { data, error } = await supabase
-    .from("xero_tax_rates")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("status", "ACTIVE")
-    .eq("xero_tax_type", xeroTaxType)
-    .maybeSingle()
-
-  if (error) throw error
-  return Boolean(data)
-}
-
 async function resolveTypeIdByCode(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   tenantId: string,
@@ -209,18 +192,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
   }
 
-  if (payload.xero_tax_type) {
-    const isValidXeroTaxType = await validateXeroTaxType(supabase, tenantId, payload.xero_tax_type).catch(
-      () => false
-    )
-    if (!isValidXeroTaxType) {
-      return NextResponse.json(
-        { error: "Tax type must match an active synced Xero tax type" },
-        { status: 422 }
-      )
-    }
-  }
-
   const { data, error } = await supabase
     .from("chargeables")
     .insert({
@@ -272,17 +243,6 @@ export async function PATCH(request: NextRequest) {
   if (rest.description !== undefined) updateData.description = normalizeNullableString(rest.description)
   if (rest.rate !== undefined) updateData.rate = rest.rate
   if (rest.xero_tax_type !== undefined) {
-    if (rest.xero_tax_type) {
-      const isValidXeroTaxType = await validateXeroTaxType(supabase, tenantId, rest.xero_tax_type).catch(
-        () => false
-      )
-      if (!isValidXeroTaxType) {
-        return NextResponse.json(
-          { error: "Tax type must match an active synced Xero tax type" },
-          { status: 422 }
-        )
-      }
-    }
     updateData.xero_tax_type = rest.xero_tax_type ?? null
   }
   if (rest.is_taxable !== undefined) updateData.is_taxable = rest.is_taxable

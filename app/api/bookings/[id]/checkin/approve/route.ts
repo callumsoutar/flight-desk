@@ -160,18 +160,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   if (invoiceId) {
     const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
-    const configuredDefaultTaxType = xeroSettings?.default_tax_type ?? null
-    const { data: syncedDefaultTaxType } =
-      configuredDefaultTaxType
-        ? await supabase
-            .from("xero_tax_rates")
-            .select("xero_tax_type")
-            .eq("tenant_id", tenantId)
-            .eq("status", "ACTIVE")
-            .eq("xero_tax_type", configuredDefaultTaxType)
-            .maybeSingle()
-        : { data: null }
-    const defaultTaxType = syncedDefaultTaxType?.xero_tax_type ?? null
+    const defaultTaxType = xeroSettings?.default_tax_type ?? null
 
     const { data: invoiceItems } = await supabase
       .from("invoice_items")

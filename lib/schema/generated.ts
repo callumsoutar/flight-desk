@@ -4521,6 +4521,12 @@ export const publicIsAuthUserArgsSchema = z.object({
 
 export const publicIsAuthUserReturnsSchema = z.boolean();
 
+export const publicIsTenantAdminArgsSchema = z.object({
+  p_tenant_id: z.string(),
+});
+
+export const publicIsTenantAdminReturnsSchema = z.boolean();
+
 export const publicNeedsSessionRefreshArgsSchema = z.object({
   p_token_issued_at: z.string(),
   p_user_id: z.string(),
@@ -5526,6 +5532,12 @@ export type PublicGetUserTenantReturns = z.infer<
 export type PublicIsAuthUserArgs = z.infer<typeof publicIsAuthUserArgsSchema>;
 export type PublicIsAuthUserReturns = z.infer<
   typeof publicIsAuthUserReturnsSchema
+>;
+export type PublicIsTenantAdminArgs = z.infer<
+  typeof publicIsTenantAdminArgsSchema
+>;
+export type PublicIsTenantAdminReturns = z.infer<
+  typeof publicIsTenantAdminReturnsSchema
 >;
 export type PublicNeedsSessionRefreshArgs = z.infer<
   typeof publicNeedsSessionRefreshArgsSchema

@@ -71,7 +71,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
   }
 
   try {
-    const [xeroSettings, itemsResult, accountsCountResult, taxRatesResult] = await Promise.all([
+    const [xeroSettings, itemsResult, accountsCountResult] = await Promise.all([
       fetchXeroSettings(admin, tenantId),
       admin
         .from("invoice_items")
@@ -84,18 +84,12 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tenantId)
         .eq("status", "ACTIVE"),
-      admin
-        .from("xero_tax_rates")
-        .select("xero_tax_type")
-        .eq("tenant_id", tenantId)
-        .eq("status", "ACTIVE"),
     ])
 
     const { data: items, error: itemsError } = itemsResult
     if (itemsError || !items?.length) {
       throw new Error("Invoice has no items to export")
     }
-    if (taxRatesResult.error) throw taxRatesResult.error
 
     const defaultGlCode = xeroSettings.default_revenue_account_code
     const defaultTaxType = xeroSettings.default_tax_type
@@ -139,37 +133,14 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       }
     }
 
-    const activeTaxTypes = new Set(
-      (taxRatesResult.data ?? [])
-        .map((rate) => rate.xero_tax_type)
-        .filter((value): value is string => typeof value === "string" && value.length > 0)
-    )
-
     for (const item of resolvedItems) {
       const isTaxable = (item.tax_rate ?? 0) > 0
       if (!isTaxable) {
-        item.xero_tax_type = item.xero_tax_type ?? "NONE"
+        item.xero_tax_type = "NONE"
         continue
       }
 
-      if (!item.xero_tax_type) {
-        throw new Error(
-          "Invoice contains taxable items without a Xero tax type. Set a tax type on the chargeable or configure a default tax type in Settings → Integrations."
-        )
-      }
-
-      if (item.xero_tax_type === "NONE") {
-        throw new Error(
-          "Invoice contains taxable items mapped to tax type NONE. Update chargeable tax types or set a valid default tax type in Settings → Integrations."
-        )
-      }
-
-      if (!activeTaxTypes.has(item.xero_tax_type)) {
-        throw new Error(
-          `Tax type '${item.xero_tax_type}' is not an active synced Xero tax type. ` +
-            "Sync Accounts & Tax Rates from Settings → Integrations, then try again."
-        )
-      }
+      item.xero_tax_type = item.xero_tax_type ?? defaultTaxType ?? "NONE"
     }
 
     const buildPayload = (xeroContactId: string) => ({
