@@ -2,6 +2,7 @@ import { getXeroClient } from "@/lib/xero/get-xero-client"
 import { syncXeroContact } from "@/lib/xero/sync-contact"
 import { XeroApiError } from "@/lib/xero/types"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
+import type { Json } from "@/lib/types"
 
 const EXPORTABLE_INVOICE_STATUSES = ["pending", "paid", "overdue"] as const
 
@@ -202,8 +203,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
     return { invoiceId, status: "exported" as const, xeroInvoiceId: xeroInvoiceId ?? null }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown export error"
-    const responsePayload =
-      error instanceof XeroApiError ? (error.body as Record<string, unknown>) : null
+    const responsePayload = error instanceof XeroApiError ? ((error.body ?? null) as Json) : null
 
     console.error("[xero] Export invoice failed", {
       tenantId,
