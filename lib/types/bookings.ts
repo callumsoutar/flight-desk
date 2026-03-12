@@ -98,7 +98,7 @@ export type BookingOptions = {
   chargeables?: InvoiceCreateChargeable[]
   aircraftTypes?: Array<Pick<AircraftTypesRow, "id" | "name">>
   chargeableTypes?: Array<
-    Pick<ChargeableTypesRow, "id" | "code" | "name" | "description" | "is_global" | "is_active">
+    Pick<ChargeableTypesRow, "id" | "code" | "name" | "description" | "scope" | "system_key" | "is_active">
   >
   landingFeeRates?: Array<Pick<LandingFeeRatesRow, "id" | "chargeable_id" | "aircraft_type_id" | "rate">>
 }

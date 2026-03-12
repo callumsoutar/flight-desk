@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   IconAlertCircle,
   IconCheck,
+  IconChevronDown,
   IconCurrencyDollar,
   IconDeviceFloppy,
   IconPlus,
@@ -13,6 +14,7 @@ import {
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -29,6 +31,7 @@ export function TaxRateManager() {
   const [success, setSuccess] = React.useState<string | null>(null)
   const [isEditing, setIsEditing] = React.useState(false)
   const [selectedTaxRateId, setSelectedTaxRateId] = React.useState<string>("")
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [createForm, setCreateForm] = React.useState(() => ({
     tax_name: "",
     rate_percent: "",
@@ -310,104 +313,123 @@ export function TaxRateManager() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="space-y-1">
-          <h3 className="text-lg font-bold text-slate-900">Add custom tax rate</h3>
-          <p className="text-sm text-muted-foreground">
-            Create a tenant-specific tax rate. New rates are limited to New Zealand for now.
-          </p>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="tax-name" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Tax name
-            </Label>
-            <Input
-              id="tax-name"
-              value={createForm.tax_name}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, tax_name: event.target.value }))}
-              placeholder="GST"
-              className="h-11 rounded-xl border-slate-200 bg-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tax-rate" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Rate (%)
-            </Label>
-            <Input
-              id="tax-rate"
-              inputMode="decimal"
-              value={createForm.rate_percent}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, rate_percent: event.target.value }))}
-              placeholder="15"
-              className="h-11 rounded-xl border-slate-200 bg-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tax-effective" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Effective from
-            </Label>
-            <Input
-              id="tax-effective"
-              type="date"
-              value={createForm.effective_from}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, effective_from: event.target.value }))}
-              className="h-11 rounded-xl border-slate-200 bg-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tax-region" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Region (optional)
-            </Label>
-            <Input
-              id="tax-region"
-              value={createForm.region_code}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, region_code: event.target.value }))}
-              placeholder="NZ-AKL"
-              className="h-11 rounded-xl border-slate-200 bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <Label htmlFor="tax-description" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Description (optional)
-          </Label>
-          <Textarea
-            id="tax-description"
-            value={createForm.description}
-            onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
-            placeholder="Short internal note"
-            className="min-h-[80px] resize-none rounded-xl border-slate-200 bg-white"
-          />
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Make this the default rate</p>
-            <p className="text-xs text-muted-foreground">This will apply to new invoices automatically.</p>
-          </div>
-          <Switch
-            checked={createForm.make_default}
-            onCheckedChange={(checked) => setCreateForm((prev) => ({ ...prev, make_default: checked }))}
-          />
-        </div>
-
-        <div className="mt-5">
-          <Button
-            onClick={handleCreateRate}
-            disabled={creating}
-            className="flex h-11 items-center gap-2 rounded-xl border-none bg-slate-900 px-6 font-semibold text-white shadow-sm shadow-slate-200 transition-all hover:bg-slate-800 active:scale-[0.98]"
+      <Collapsible
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+      >
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-start justify-between gap-4 rounded-2xl p-6 text-left"
           >
-            {creating ? <IconLoader2 className="h-4 w-4 animate-spin" /> : <IconPlus className="h-4 w-4" />}
-            Add tax rate
-          </Button>
-        </div>
-      </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-slate-900">Add custom tax rate</h3>
+              <p className="text-sm text-muted-foreground">
+                Create a tenant-specific tax rate. New rates are limited to New Zealand for now.
+              </p>
+            </div>
+            <IconChevronDown
+              className={cn(
+                "mt-1 h-5 w-5 flex-shrink-0 text-slate-500 transition-transform",
+                isCreateOpen ? "rotate-180" : "rotate-0"
+              )}
+            />
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent className="px-6 pb-6">
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="tax-name" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Tax name
+              </Label>
+              <Input
+                id="tax-name"
+                value={createForm.tax_name}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, tax_name: event.target.value }))}
+                placeholder="GST"
+                className="h-11 rounded-xl border-slate-200 bg-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tax-rate" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Rate (%)
+              </Label>
+              <Input
+                id="tax-rate"
+                inputMode="decimal"
+                value={createForm.rate_percent}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, rate_percent: event.target.value }))}
+                placeholder="15"
+                className="h-11 rounded-xl border-slate-200 bg-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tax-effective" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Effective from
+              </Label>
+              <Input
+                id="tax-effective"
+                type="date"
+                value={createForm.effective_from}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, effective_from: event.target.value }))}
+                className="h-11 rounded-xl border-slate-200 bg-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tax-region" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Region (optional)
+              </Label>
+              <Input
+                id="tax-region"
+                value={createForm.region_code}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, region_code: event.target.value }))}
+                placeholder="NZ-AKL"
+                className="h-11 rounded-xl border-slate-200 bg-white"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="tax-description" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Description (optional)
+            </Label>
+            <Textarea
+              id="tax-description"
+              value={createForm.description}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
+              placeholder="Short internal note"
+              className="min-h-[80px] resize-none rounded-xl border-slate-200 bg-white"
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Make this the default rate</p>
+              <p className="text-xs text-muted-foreground">This will apply to new invoices automatically.</p>
+            </div>
+            <Switch
+              checked={createForm.make_default}
+              onCheckedChange={(checked) => setCreateForm((prev) => ({ ...prev, make_default: checked }))}
+            />
+          </div>
+
+          <div className="mt-5">
+            <Button
+              onClick={handleCreateRate}
+              disabled={creating}
+              className="flex h-11 items-center gap-2 rounded-xl border-none bg-slate-900 px-6 font-semibold text-white shadow-sm shadow-slate-200 transition-all hover:bg-slate-800 active:scale-[0.98]"
+            >
+              {creating ? <IconLoader2 className="h-4 w-4 animate-spin" /> : <IconPlus className="h-4 w-4" />}
+              Add tax rate
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   )
 }

@@ -32,16 +32,17 @@ async function resolveTypeIdByCode(
 ) {
   const { data, error } = await supabase
     .from("chargeable_types")
-    .select("id")
+    .select("id, tenant_id, scope")
     .eq("code", code)
     .eq("is_active", true)
-    .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
-    .order("is_global", { ascending: true })
-    .limit(1)
-    .maybeSingle()
+    .or(`tenant_id.eq.${tenantId},scope.eq.system`)
 
   if (error) throw error
-  return data?.id ?? null
+  const tenantMatch = (data ?? []).find((row) => row.tenant_id === tenantId)
+  if (tenantMatch) return tenantMatch.id ?? null
+
+  const systemMatch = (data ?? []).find((row) => row.scope === "system")
+  return systemMatch?.id ?? null
 }
 
 const createSchema = z.object({
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
     ? await supabase
         .from("chargeable_types")
         .select("id, code, name, gl_code")
-        .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+        .or(`tenant_id.eq.${tenantId},scope.eq.system`)
         .in("id", typeIds)
     : { data: [], error: null }
 
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
   const { data: type, error: typeError } = await supabase
     .from("chargeable_types")
     .select("id, code")
-    .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+    .or(`tenant_id.eq.${tenantId},scope.eq.system`)
     .eq("id", payload.chargeable_type_id)
     .eq("is_active", true)
     .maybeSingle()
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
   if (typeError || !type) {
     return NextResponse.json({ error: "Chargeable type not found" }, { status: 404 })
   }
-  if (type.code === "landing_fee") {
+  if (type.code === "landing_fees") {
     return NextResponse.json({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
   }
 
@@ -252,7 +253,7 @@ export async function PATCH(request: NextRequest) {
     const { data: type, error: typeError } = await supabase
       .from("chargeable_types")
       .select("id, code")
-      .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+      .or(`tenant_id.eq.${tenantId},scope.eq.system`)
       .eq("id", rest.chargeable_type_id)
       .eq("is_active", true)
       .maybeSingle()
@@ -260,7 +261,7 @@ export async function PATCH(request: NextRequest) {
     if (typeError || !type) {
       return NextResponse.json({ error: "Chargeable type not found" }, { status: 404 })
     }
-    if (type.code === "landing_fee") {
+    if (type.code === "landing_fees") {
       return NextResponse.json({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
     }
     updateData.chargeable_type_id = rest.chargeable_type_id

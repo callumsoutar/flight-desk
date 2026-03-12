@@ -96,9 +96,9 @@ async function fetchOptions(
         .order("name", { ascending: true }),
       supabase
         .from("chargeable_types")
-        .select("id, code, name, description, is_global, is_active")
+        .select("id, code, name, description, scope, system_key, is_active")
         .eq("is_active", true)
-        .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+        .or(`tenant_id.eq.${tenantId},scope.eq.system`)
         .order("name", { ascending: true }),
       supabase
         .from("landing_fee_rates")

@@ -15,10 +15,9 @@ async function getLandingFeeTypeId(supabase: Awaited<ReturnType<typeof createSup
   const { data, error } = await supabase
     .from("chargeable_types")
     .select("id")
-    .eq("code", "landing_fee")
+    .eq("code", "landing_fees")
     .eq("is_active", true)
-    .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
-    .order("is_global", { ascending: true })
+    .or(`tenant_id.eq.${tenantId},scope.eq.system`)
     .limit(1)
     .maybeSingle()
 

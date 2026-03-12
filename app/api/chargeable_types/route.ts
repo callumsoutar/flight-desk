@@ -7,6 +7,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
+type ChargeableTypeScope = "tenant" | "system"
+
 function isSettingsAdmin(role: string | null) {
   return role === "owner" || role === "admin"
 }
@@ -56,11 +58,12 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const isActive = parseBoolean(url.searchParams.get("is_active"))
   const excludeCode = url.searchParams.get("exclude_code")
+  const excludeSystemKey = url.searchParams.get("exclude_system_key")
 
   let query = supabase
     .from("chargeable_types")
-    .select("id, code, name, description, gl_code, is_active, is_global, is_system, tenant_id, updated_at")
-    .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+    .select("id, code, name, description, gl_code, is_active, scope, system_key, tenant_id, updated_at")
+    .or(`tenant_id.eq.${tenantId},scope.eq.system`)
     .order("name", { ascending: true })
 
   if (isActive !== undefined) {
@@ -68,6 +71,9 @@ export async function GET(request: NextRequest) {
   }
   if (excludeCode) {
     query = query.neq("code", excludeCode)
+  }
+  if (excludeSystemKey) {
+    query = query.neq("system_key", excludeSystemKey)
   }
 
   const { data, error } = await query
@@ -104,8 +110,8 @@ export async function POST(request: NextRequest) {
       name: payload.name.trim(),
       description: normalizeNullableString(payload.description),
       gl_code: normalizeNullableString(payload.gl_code),
-      is_global: false,
-      is_system: false,
+      scope: "tenant" satisfies ChargeableTypeScope,
+      system_key: null,
       is_active: payload.is_active ?? true,
     })
     .select("id")
@@ -135,14 +141,14 @@ export async function PATCH(request: NextRequest) {
 
   const { data: existing, error: existingError } = await supabase
     .from("chargeable_types")
-    .select("id, is_system")
+    .select("id, scope")
     .eq("id", id)
     .eq("tenant_id", tenantId)
     .maybeSingle()
   if (existingError || !existing) {
     return NextResponse.json({ error: "Chargeable type not found" }, { status: 404 })
   }
-  if (existing.is_system) {
+  if (existing.scope === "system") {
     return NextResponse.json({ error: "System chargeable types cannot be modified" }, { status: 400 })
   }
 
@@ -159,6 +165,67 @@ export async function PATCH(request: NextRequest) {
 
   const { error } = await supabase.from("chargeable_types").update(updateData).eq("id", id).eq("tenant_id", tenantId)
   if (error) return NextResponse.json({ error: "Failed to update chargeable type" }, { status: 500 })
+  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+}
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createSupabaseServerClient()
+  const { user, role } = await getAuthSession(supabase, {
+    includeRole: true,
+    authoritativeRole: true,
+    requireUser: true,
+  })
+
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const tenantId = await getUserTenantId(supabase, user.id)
+  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+
+  const url = new URL(request.url)
+  const idFromQuery = url.searchParams.get("id")
+  const rawBody = await request.json().catch(() => null)
+  const idFromBody =
+    rawBody && typeof rawBody === "object" && typeof (rawBody as { id?: unknown }).id === "string"
+      ? (rawBody as { id: string }).id
+      : null
+  const id = idFromQuery || idFromBody
+
+  if (!id || !z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("chargeable_types")
+    .select("id, scope")
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .maybeSingle()
+
+  if (existingError || !existing) {
+    return NextResponse.json({ error: "Chargeable type not found" }, { status: 404 })
+  }
+  if (existing.scope === "system") {
+    return NextResponse.json({ error: "System chargeable types cannot be deleted" }, { status: 400 })
+  }
+
+  const { count, error: countError } = await supabase
+    .from("chargeables")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .eq("chargeable_type_id", id)
+    .is("voided_at", null)
+
+  if (countError) {
+    return NextResponse.json({ error: "Failed to validate chargeable type usage" }, { status: 500 })
+  }
+  if ((count ?? 0) > 0) {
+    return NextResponse.json({ error: "Cannot delete a type that is in use" }, { status: 400 })
+  }
+
+  const { error } = await supabase.from("chargeable_types").delete().eq("tenant_id", tenantId).eq("id", id)
+  if (error) return NextResponse.json({ error: "Failed to delete chargeable type" }, { status: 500 })
+
   return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
 }
 

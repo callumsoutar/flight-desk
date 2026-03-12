@@ -199,7 +199,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       ? await supabase
           .from("chargeable_types")
           .select("id, gl_code")
-          .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
+          .or(`tenant_id.eq.${tenantId},scope.eq.system`)
           .in("id", chargeableTypeIds)
       : { data: [] }
 

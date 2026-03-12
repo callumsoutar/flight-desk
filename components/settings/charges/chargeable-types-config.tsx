@@ -24,7 +24,7 @@ import type { ChargeableTypesRow } from "@/lib/types/tables"
 
 type ChargeableType = Pick<
   ChargeableTypesRow,
-  "id" | "code" | "name" | "description" | "gl_code" | "is_active" | "is_global" | "is_system"
+  "id" | "code" | "name" | "description" | "gl_code" | "is_active" | "scope" | "system_key"
 >
 
 type FormState = {
@@ -116,6 +116,25 @@ export function ChargeableTypesConfig() {
       toast.success("Chargeable type updated")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update chargeable type")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (item: ChargeableType) => {
+    if (item.scope === "system") return
+    const confirmed = window.confirm(`Delete "${item.name}"? This cannot be undone.`)
+    if (!confirmed) return
+
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/chargeable_types?id=${encodeURIComponent(item.id)}`, { method: "DELETE" })
+      const body = (await response.json().catch(() => null)) as { error?: string } | null
+      if (!response.ok) throw new Error(body?.error || "Failed to delete chargeable type")
+      await load()
+      toast.success("Chargeable type deleted")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete chargeable type")
     } finally {
       setSaving(false)
     }
@@ -318,7 +337,7 @@ export function ChargeableTypesConfig() {
                             })
                             setEditOpen(true)
                           }}
-                          disabled={Boolean(item.is_system)}
+                          disabled={item.scope === "system"}
                         >
                           <IconPencil className="h-4 w-4" />
                         </Button>
@@ -367,7 +386,7 @@ export function ChargeableTypesConfig() {
                                     <Input
                                       value={form.code}
                                       onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
-                                      disabled={Boolean(item.is_system)}
+                                      disabled={item.scope === "system"}
                                       className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
                                     />
                                   </div>
@@ -407,7 +426,7 @@ export function ChargeableTypesConfig() {
                                     <Switch
                                       checked={form.is_active}
                                       onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
-                                      disabled={Boolean(item.is_system)}
+                                      disabled={item.scope === "system"}
                                     />
                                     <div className="min-w-0">
                                       <Label className="text-xs font-semibold text-slate-900 leading-none cursor-pointer">
@@ -441,7 +460,7 @@ export function ChargeableTypesConfig() {
                                 onClick={handleEdit}
                                 disabled={
                                   saving ||
-                                  Boolean(item.is_system) ||
+                                  item.scope === "system" ||
                                   !form.name.trim() ||
                                   !form.code.trim()
                                 }
@@ -454,11 +473,16 @@ export function ChargeableTypesConfig() {
                         </div>
                       </DialogContent>
                     </Dialog>
-                    {item.is_system ? (
-                      <Button size="icon" variant="ghost" disabled className="ml-2">
-                        <IconArchive className="h-4 w-4" />
-                      </Button>
-                    ) : null}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="ml-2"
+                      disabled={saving || item.scope === "system"}
+                      onClick={() => void handleDelete(item)}
+                      title={item.scope === "system" ? "System categories cannot be deleted" : "Delete"}
+                    >
+                      <IconArchive className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

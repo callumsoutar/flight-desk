@@ -55,7 +55,7 @@ type ChargeRate = {
   charge_airswitch: boolean
 }
 
-type ManualItemGroup = "landing_fee" | "airways_fee" | "other"
+type ManualItemGroup = "landing_fees" | "airways_fees" | "other"
 
 type InvoiceBuilderItem = {
   id: string
@@ -195,12 +195,12 @@ type QuickAddState = {
 }
 
 const MANUAL_GROUP_LABELS: Record<ManualItemGroup, string> = {
-  landing_fee: "Landing Fee",
-  airways_fee: "Airways Fee",
+  landing_fees: "Landing fees",
+  airways_fees: "Airways fees",
   other: "Other",
 }
 
-const MANUAL_GROUP_ORDER: ManualItemGroup[] = ["landing_fee", "airways_fee", "other"]
+const MANUAL_GROUP_ORDER: ManualItemGroup[] = ["landing_fees", "airways_fees", "other"]
 
 const MANUAL_GROUP_FILTERS: Array<{
   group: ManualItemGroup
@@ -208,12 +208,12 @@ const MANUAL_GROUP_FILTERS: Array<{
   emptyText: string
 }> = [
   {
-    group: "landing_fee",
+    group: "landing_fees",
     title: "Landing Fees",
     emptyText: "No landing fee chargeables configured.",
   },
   {
-    group: "airways_fee",
+    group: "airways_fees",
     title: "Airways Fees",
     emptyText: "No airways fee chargeables configured.",
   },
@@ -297,11 +297,11 @@ export function BookingCheckinClient({
   const [removedGeneratedItemIds, setRemovedGeneratedItemIds] = React.useState<Record<string, true>>({})
   const [editingLineItem, setEditingLineItem] = React.useState<LineItemEditState | null>(null)
   const [quickAdd, setQuickAdd] = React.useState<Record<ManualItemGroup, QuickAddState>>({
-    landing_fee: { chargeableId: "", quantity: "1", rateInclusive: "" },
-    airways_fee: { chargeableId: "", quantity: "1", rateInclusive: "" },
+    landing_fees: { chargeableId: "", quantity: "1", rateInclusive: "" },
+    airways_fees: { chargeableId: "", quantity: "1", rateInclusive: "" },
     other: { chargeableId: "", quantity: "1", rateInclusive: "" },
   })
-  const [activeManualGroup, setActiveManualGroup] = React.useState<ManualItemGroup>("landing_fee")
+  const [activeManualGroup, setActiveManualGroup] = React.useState<ManualItemGroup>("landing_fees")
   const [landingFeeAircraftTypeOverrideId, setLandingFeeAircraftTypeOverrideId] = React.useState<string | null>(
     null
   )
@@ -398,21 +398,21 @@ export function BookingCheckinClient({
   )
   const categorizedChargeables = React.useMemo(() => {
     const grouped: Record<ManualItemGroup, typeof chargeables> = {
-      landing_fee: [],
-      airways_fee: [],
+      landing_fees: [],
+      airways_fees: [],
       other: [],
     }
 
     for (const chargeable of chargeables) {
       const code = chargeableTypeCodeById.get(chargeable.chargeable_type_id) ?? null
 
-      if (code === "landing_fee") {
-        grouped.landing_fee.push(chargeable)
+      if (code === "landing_fees") {
+        grouped.landing_fees.push(chargeable)
         continue
       }
 
-      if (code === "airways_fee") {
-        grouped.airways_fee.push(chargeable)
+      if (code === "airways_fees") {
+        grouped.airways_fees.push(chargeable)
         continue
       }
 
@@ -645,7 +645,7 @@ export function BookingCheckinClient({
   }, [isApproved, landingFeeAircraftTypeOptions.length, showLandingFeeAircraftTypeEditor])
 
   React.useEffect(() => {
-    if (activeManualGroup !== "landing_fee" && showLandingFeeAircraftTypeEditor) {
+    if (activeManualGroup !== "landing_fees" && showLandingFeeAircraftTypeEditor) {
       setShowLandingFeeAircraftTypeEditor(false)
     }
   }, [activeManualGroup, showLandingFeeAircraftTypeEditor])
@@ -761,7 +761,7 @@ export function BookingCheckinClient({
 
       const fallbackRate = Number.isFinite(chargeable.rate) ? Number(chargeable.rate) : 0
       const landingRate =
-        group === "landing_fee" && effectiveLandingFeeAircraftTypeId
+        group === "landing_fees" && effectiveLandingFeeAircraftTypeId
           ? landingFeeRateByAircraftAndChargeable.get(
               `${effectiveLandingFeeAircraftTypeId}:${chargeable.id}`
             )
@@ -774,20 +774,20 @@ export function BookingCheckinClient({
     [chargeableMap, effectiveLandingFeeAircraftTypeId, landingFeeRateByAircraftAndChargeable, taxRate]
   )
 
-  const selectedLandingQuickAddChargeableId = quickAdd.landing_fee.chargeableId
+  const selectedLandingQuickAddChargeableId = quickAdd.landing_fees.chargeableId
 
   React.useEffect(() => {
     if (!selectedLandingQuickAddChargeableId) return
 
-    const nextDefaultRate = getDefaultInclusiveRate(selectedLandingQuickAddChargeableId, "landing_fee").toFixed(2)
+    const nextDefaultRate = getDefaultInclusiveRate(selectedLandingQuickAddChargeableId, "landing_fees").toFixed(2)
     setQuickAdd((prev) => {
-      if (prev.landing_fee.chargeableId !== selectedLandingQuickAddChargeableId) return prev
-      if (prev.landing_fee.rateInclusive === nextDefaultRate) return prev
+      if (prev.landing_fees.chargeableId !== selectedLandingQuickAddChargeableId) return prev
+      if (prev.landing_fees.rateInclusive === nextDefaultRate) return prev
 
       return {
         ...prev,
-        landing_fee: {
-          ...prev.landing_fee,
+        landing_fees: {
+          ...prev.landing_fees,
           rateInclusive: nextDefaultRate,
         },
       }
@@ -1539,7 +1539,7 @@ export function BookingCheckinClient({
     ? (chargeableMap.get(activeQuickAddState.chargeableId) ?? null)
     : null
   const usesAircraftLandingRate =
-    activeManualGroup === "landing_fee" &&
+    activeManualGroup === "landing_fees" &&
     selectedActiveChargeable != null &&
     effectiveLandingFeeAircraftTypeId != null &&
     landingFeeRateByAircraftAndChargeable.has(
@@ -2032,7 +2032,7 @@ export function BookingCheckinClient({
                     <div className="rounded-lg border border-border/70 bg-muted/20 p-3 sm:p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <label className="text-sm font-medium text-foreground">{activeManualGroupConfig.title}</label>
-                        {activeManualGroup === "landing_fee" && effectiveLandingFeeAircraftTypeName ? (
+                        {activeManualGroup === "landing_fees" && effectiveLandingFeeAircraftTypeName ? (
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span>
                               Aircraft type:{" "}
@@ -2055,7 +2055,7 @@ export function BookingCheckinClient({
                         ) : null}
                       </div>
 
-                      {activeManualGroup === "landing_fee" && showLandingFeeAircraftTypeEditor ? (
+                      {activeManualGroup === "landing_fees" && showLandingFeeAircraftTypeEditor ? (
                         <div className="mb-3 mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                           <Select
                             value={landingFeeAircraftTypeOverrideId ?? "auto"}
@@ -2161,7 +2161,7 @@ export function BookingCheckinClient({
                               Add
                             </Button>
                           </div>
-                          {activeManualGroup === "landing_fee" && selectedActiveChargeable ? (
+                          {activeManualGroup === "landing_fees" && selectedActiveChargeable ? (
                             <p className="text-xs text-muted-foreground">
                               {usesAircraftLandingRate
                                 ? `Rate from landing fee schedule for ${effectiveLandingFeeAircraftTypeName ?? "selected aircraft type"}.`

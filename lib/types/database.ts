@@ -773,9 +773,9 @@ export type Database = {
           gl_code: string | null
           id: string
           is_active: boolean | null
-          is_global: boolean
-          is_system: boolean | null
           name: string
+          scope: Database["public"]["Enums"]["chargeable_type_scope"]
+          system_key: string | null
           tenant_id: string | null
           updated_at: string | null
         }
@@ -786,9 +786,9 @@ export type Database = {
           gl_code?: string | null
           id?: string
           is_active?: boolean | null
-          is_global?: boolean
-          is_system?: boolean | null
           name: string
+          scope?: Database["public"]["Enums"]["chargeable_type_scope"]
+          system_key?: string | null
           tenant_id?: string | null
           updated_at?: string | null
         }
@@ -799,9 +799,9 @@ export type Database = {
           gl_code?: string | null
           id?: string
           is_active?: boolean | null
-          is_global?: boolean
-          is_system?: boolean | null
           name?: string
+          scope?: Database["public"]["Enums"]["chargeable_type_scope"]
+          system_key?: string | null
           tenant_id?: string | null
           updated_at?: string | null
         }
@@ -4334,6 +4334,7 @@ export type Database = {
         | "cancelled"
         | "refunded"
       transaction_type: "credit" | "debit" | "refund" | "adjustment"
+      chargeable_type_scope: "tenant" | "system"
       user_role: "admin" | "instructor" | "member" | "student" | "owner"
       xero_export_status: "pending" | "exported" | "failed" | "voided"
     }
@@ -4568,6 +4569,7 @@ export const Constants = {
         "refunded",
       ],
       transaction_type: ["credit", "debit", "refund", "adjustment"],
+      chargeable_type_scope: ["tenant", "system"],
       user_role: ["admin", "instructor", "member", "student", "owner"],
       xero_export_status: ["pending", "exported", "failed", "voided"],
     },

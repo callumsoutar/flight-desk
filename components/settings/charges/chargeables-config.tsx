@@ -105,7 +105,7 @@ function createBlankFormData(): ChargeableFormData {
 }
 
 async function fetchChargeables(): Promise<Chargeable[]> {
-  const response = await fetch("/api/chargeables?include_inactive=true&exclude_type_code=landing_fee", {
+  const response = await fetch("/api/chargeables?include_inactive=true&exclude_type_code=landing_fees", {
     cache: "no-store",
   })
   if (!response.ok) {
@@ -122,7 +122,7 @@ async function fetchChargeables(): Promise<Chargeable[]> {
 }
 
 async function fetchChargeableTypes(): Promise<ChargeableTypeLite[]> {
-  const response = await fetch("/api/chargeable_types?is_active=true&exclude_code=landing_fee", {
+  const response = await fetch("/api/chargeable_types?is_active=true&exclude_code=landing_fees", {
     cache: "no-store",
   })
   if (!response.ok) return []

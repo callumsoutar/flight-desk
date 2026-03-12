@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   IconAutomation,
   IconFileInvoice,
+  IconInfoCircle,
   IconMessage,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
@@ -17,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { InvoicingSettings } from "@/lib/settings/invoicing-settings"
 
 type InvoicingSettingsResponse = { settings: InvoicingSettings }
@@ -183,26 +185,38 @@ export function InvoicingTab({
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Number source
-                </Label>
-                <select
-                  id="invoice-number-mode"
-                  value={form.invoice_number_mode}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      invoice_number_mode: e.target.value === "xero" ? "xero" : "internal",
-                    }))
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                >
-                  <option value="internal">Use Aero Safety invoice numbers</option>
-                  <option value="xero">Use Xero invoice numbering</option>
-                </select>
-                <p className="text-[11px] font-medium text-slate-500">
-                  Internal mode sends your invoice number to Xero. Xero mode lets Xero allocate invoice numbers.
-                </p>
+                <TooltipProvider delayDuration={0}>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Invoice numbering
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="outline-hidden rounded-sm">
+                          <IconInfoCircle className="h-3.5 w-3.5 text-slate-300 transition-colors hover:text-slate-400" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[260px] text-[11px] font-medium leading-tight bg-slate-900 text-white border-slate-800 shadow-xl rounded-lg px-3 py-2">
+                        When enabled, Xero allocates invoice numbers. When disabled, FlightDesk uses its own invoice
+                        sequence and sends that invoice number to Xero.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
+
+                <div className="flex h-11 items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-3">
+                  <p className="text-sm font-semibold text-slate-900 leading-none">Use Xero invoice number sequencing</p>
+                  <Switch
+                    id="invoice-number-mode"
+                    checked={form.invoice_number_mode === "xero"}
+                    onCheckedChange={(checked) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        invoice_number_mode: checked ? "xero" : "internal",
+                      }))
+                    }
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="invoice-due-days" className="text-xs font-bold uppercase tracking-wider text-slate-500">
