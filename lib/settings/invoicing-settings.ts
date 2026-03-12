@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/types"
+import { isJsonObject, normalizeNullableString } from "@/lib/settings/utils"
 
 export type InvoicingSettings = {
   invoice_prefix: string
@@ -14,18 +15,6 @@ export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
   default_invoice_due_days: 7,
   invoice_footer_message: "Thank you for your business.",
   include_logo_on_invoice: true,
-}
-
-type JsonObject = Record<string, Json>
-
-function isJsonObject(value: Json | null | undefined): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeNullableString(value: unknown): string | null {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
 }
 
 function normalizeNonNegativeInteger(value: unknown, fallback: number): number {

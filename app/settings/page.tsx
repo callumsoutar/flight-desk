@@ -6,8 +6,10 @@ import { SettingsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
+import { fetchMembershipsSettings } from "@/lib/settings/fetch-memberships-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -24,6 +26,10 @@ async function SettingsContent({
   let generalLoadError: string | null = null
   let invoicingSettings: Awaited<ReturnType<typeof fetchInvoicingSettings>> | null = null
   let invoicingLoadError: string | null = null
+  let bookingsSettings: Awaited<ReturnType<typeof fetchBookingsSettings>> | null = null
+  let bookingsLoadError: string | null = null
+  let membershipsSettings: Awaited<ReturnType<typeof fetchMembershipsSettings>> | null = null
+  let membershipsLoadError: string | null = null
   let xeroSettings: Awaited<ReturnType<typeof fetchXeroSettings>> | null = null
   let xeroLoadError: string | null = null
   let xeroConnectionStatus: { connected: boolean; xero_tenant_name: string | null; connected_at: string | null } =
@@ -45,6 +51,20 @@ async function SettingsContent({
   } catch {
     invoicingSettings = null
     invoicingLoadError = "Failed to load settings."
+  }
+
+  try {
+    bookingsSettings = await fetchBookingsSettings(supabase, tenantId)
+  } catch {
+    bookingsSettings = null
+    bookingsLoadError = "Failed to load booking settings."
+  }
+
+  try {
+    membershipsSettings = await fetchMembershipsSettings(supabase, tenantId)
+  } catch {
+    membershipsSettings = null
+    membershipsLoadError = "Failed to load membership settings."
   }
 
   try {
@@ -72,6 +92,10 @@ async function SettingsContent({
       generalLoadError={generalLoadError}
       initialInvoicingSettings={invoicingSettings}
       invoicingLoadError={invoicingLoadError}
+      initialBookingsSettings={bookingsSettings}
+      bookingsLoadError={bookingsLoadError}
+      initialMembershipsSettings={membershipsSettings}
+      membershipsLoadError={membershipsLoadError}
       initialXeroSettings={xeroSettings}
       xeroLoadError={xeroLoadError}
       xeroConnectionStatus={xeroConnectionStatus}

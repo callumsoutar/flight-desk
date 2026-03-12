@@ -7,6 +7,7 @@ import {
   DEFAULT_MEMBERSHIP_YEAR,
   resolveMembershipsSettings,
 } from "@/lib/settings/memberships-settings"
+import { isJsonObject } from "@/lib/settings/utils"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
@@ -14,10 +15,6 @@ export const dynamic = "force-dynamic"
 
 function isSettingsAdmin(role: string | null) {
   return role === "owner" || role === "admin"
-}
-
-function isJsonObject(value: Json | null | undefined): value is Record<string, Json> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 const membershipYearSchema = z.object({

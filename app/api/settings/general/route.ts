@@ -4,20 +4,11 @@ import { z } from "zod"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
 import { businessHoursToTenantSettingsPatch } from "@/lib/settings/general-settings"
+import { isJsonObject, normalizeNullableString } from "@/lib/settings/utils"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
-
-function isJsonObject(value: Json | null | undefined): value is Record<string, Json> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeNullableString(value: string | null | undefined) {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 function isSettingsAdmin(role: string | null) {
   return role === "owner" || role === "admin"

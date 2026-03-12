@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
+import { isJsonObject, normalizeNullableString } from "@/lib/settings/utils"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
@@ -10,16 +11,6 @@ export const dynamic = "force-dynamic"
 
 function isAdmin(role: string | null) {
   return role === "owner" || role === "admin"
-}
-
-function isJsonObject(value: Json | null | undefined): value is Record<string, Json> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeNullableString(value: string | null | undefined) {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
 }
 
 const patchSchema = z.object({

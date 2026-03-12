@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/types"
+import { isJsonObject, normalizeNullableString } from "@/lib/settings/utils"
 
 export type XeroSettings = {
   enabled: boolean
@@ -14,18 +15,6 @@ export const DEFAULT_XERO_SETTINGS: XeroSettings = {
   default_revenue_account_code: null,
   default_tax_type: null,
   auto_export_on_approve: false,
-}
-
-type JsonObject = Record<string, Json>
-
-function isJsonObject(value: Json | null | undefined): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeNullableString(value: unknown): string | null {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {

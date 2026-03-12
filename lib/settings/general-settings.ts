@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/types"
+import { isJsonObject, type JsonObject } from "@/lib/settings/utils"
 
 export type BusinessHoursSettings = {
   openTime: string
@@ -32,12 +33,6 @@ export const DEFAULT_BUSINESS_HOURS: BusinessHoursSettings = {
   closeTime: "19:00",
   is24Hours: false,
   isClosed: false,
-}
-
-type JsonObject = Record<string, Json>
-
-function isJsonObject(value: Json | null | undefined): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function normalizeTimeHHmm(value: unknown, fallback: string) {

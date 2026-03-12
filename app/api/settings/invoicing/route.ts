@@ -4,6 +4,11 @@ import { z } from "zod"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { DEFAULT_INVOICING_SETTINGS } from "@/lib/settings/invoicing-settings"
+import {
+  isJsonObject,
+  normalizeNonNegativeInt,
+  normalizeNullableString as normalizeOptionalString,
+} from "@/lib/settings/utils"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
@@ -11,23 +16,6 @@ export const dynamic = "force-dynamic"
 
 function isSettingsAdmin(role: string | null) {
   return role === "owner" || role === "admin"
-}
-
-function isJsonObject(value: Json | null | undefined): value is Record<string, Json> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeOptionalString(value: string | null | undefined) {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-function clampNonNegativeInt(value: number, fallback: number, max = 3650) {
-  if (!Number.isFinite(value)) return fallback
-  const rounded = Math.round(value)
-  if (rounded < 0) return fallback
-  return Math.min(max, rounded)
 }
 
 const invoicingPatchSchema = z.object({
@@ -133,9 +121,10 @@ export async function PATCH(request: Request) {
   if (patch.invoice_prefix !== undefined) normalized.invoice_prefix = patch.invoice_prefix.trim()
   if (patch.invoice_number_mode !== undefined) normalized.invoice_number_mode = patch.invoice_number_mode
   if (patch.default_invoice_due_days !== undefined) {
-    normalized.default_invoice_due_days = clampNonNegativeInt(
+    normalized.default_invoice_due_days = normalizeNonNegativeInt(
       patch.default_invoice_due_days,
-      DEFAULT_INVOICING_SETTINGS.default_invoice_due_days
+      DEFAULT_INVOICING_SETTINGS.default_invoice_due_days,
+      3650
     )
   }
   if (patch.invoice_footer_message !== undefined) {

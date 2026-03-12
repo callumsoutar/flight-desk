@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/types"
+import { isJsonObject, normalizeNonNegativeInt } from "@/lib/settings/utils"
 
 export type BookingsSettings = {
   default_booking_duration_hours: number
@@ -8,12 +9,6 @@ export type BookingsSettings = {
 export const DEFAULT_BOOKINGS_SETTINGS: BookingsSettings = {
   default_booking_duration_hours: 2,
   minimum_booking_duration_minutes: 30,
-}
-
-type JsonObject = Record<string, Json>
-
-function isJsonObject(value: Json | null | undefined): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function normalizeNonNegativeNumber(value: unknown, fallback: number, max: number) {
@@ -30,19 +25,6 @@ function normalizeNonNegativeNumber(value: unknown, fallback: number, max: numbe
 
 function roundToQuarterHour(value: number) {
   return Math.round(value * 4) / 4
-}
-
-function normalizeNonNegativeInt(value: unknown, fallback: number, max: number) {
-  const raw =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value)
-        : Number.NaN
-  if (!Number.isFinite(raw)) return fallback
-  const rounded = Math.round(raw)
-  if (rounded < 0) return fallback
-  return Math.min(max, rounded)
 }
 
 export function resolveBookingsSettings(settings: Json | null | undefined): BookingsSettings {

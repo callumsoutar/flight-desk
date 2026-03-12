@@ -70,15 +70,21 @@ const bookingTabs = [
   { id: "cancellations", label: "Cancellation categories", icon: IconListDetails },
 ] as const
 
-export function BookingsTab() {
+export function BookingsTab({
+  initialSettings = null,
+  initialLoadError = null,
+}: {
+  initialSettings?: BookingsSettings | null
+  initialLoadError?: string | null
+}) {
   const router = useRouter()
   const [activeTab, setActiveTab] =
     React.useState<(typeof bookingTabs)[number]["id"]>("defaults")
-  const [loading, setLoading] = React.useState(true)
-  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(!initialSettings && !initialLoadError)
+  const [loadError, setLoadError] = React.useState<string | null>(initialLoadError)
   const [isSaving, setIsSaving] = React.useState(false)
-  const [baseSettings, setBaseSettings] = React.useState<BookingsSettings | null>(null)
-  const [form, setForm] = React.useState(() => createFormState(null))
+  const [baseSettings, setBaseSettings] = React.useState<BookingsSettings | null>(initialSettings)
+  const [form, setForm] = React.useState(() => createFormState(initialSettings))
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
@@ -86,6 +92,8 @@ export function BookingsTab() {
   const [showScrollRight, setShowScrollRight] = React.useState(false)
 
   React.useEffect(() => {
+    if (initialSettings || initialLoadError) return
+
     const controller = new AbortController()
     setLoading(true)
     setLoadError(null)
@@ -104,7 +112,7 @@ export function BookingsTab() {
       })
 
     return () => controller.abort()
-  }, [])
+  }, [initialLoadError, initialSettings])
 
   const baseForm = React.useMemo(() => createFormState(baseSettings), [baseSettings])
 

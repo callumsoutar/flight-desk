@@ -124,14 +124,22 @@ function createFormState(settings: MembershipsSettings | null) {
   }
 }
 
-export function MembershipYearConfig() {
-  const [loading, setLoading] = React.useState(true)
-  const [loadError, setLoadError] = React.useState<string | null>(null)
+export function MembershipYearConfig({
+  initialSettings = null,
+  initialLoadError = null,
+}: {
+  initialSettings?: MembershipsSettings | null
+  initialLoadError?: string | null
+}) {
+  const [loading, setLoading] = React.useState(!initialSettings && !initialLoadError)
+  const [loadError, setLoadError] = React.useState<string | null>(initialLoadError)
   const [isSaving, setIsSaving] = React.useState(false)
-  const [baseSettings, setBaseSettings] = React.useState<MembershipsSettings | null>(null)
-  const [form, setForm] = React.useState(() => createFormState(null))
+  const [baseSettings, setBaseSettings] = React.useState<MembershipsSettings | null>(initialSettings)
+  const [form, setForm] = React.useState(() => createFormState(initialSettings))
 
   React.useEffect(() => {
+    if (initialSettings || initialLoadError) return
+
     const controller = new AbortController()
     setLoading(true)
     setLoadError(null)
@@ -150,7 +158,7 @@ export function MembershipYearConfig() {
       })
 
     return () => controller.abort()
-  }, [])
+  }, [initialLoadError, initialSettings])
 
   const baseForm = React.useMemo(() => createFormState(baseSettings), [baseSettings])
   const dirty = form.start_month !== baseForm.start_month || form.start_day !== baseForm.start_day

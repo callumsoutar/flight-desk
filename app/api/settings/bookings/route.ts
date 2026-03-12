@@ -4,6 +4,7 @@ import { z } from "zod"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import { DEFAULT_BOOKINGS_SETTINGS } from "@/lib/settings/bookings-settings"
+import { isJsonObject, normalizeNonNegativeInt } from "@/lib/settings/utils"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
@@ -11,17 +12,6 @@ export const dynamic = "force-dynamic"
 
 function isSettingsAdmin(role: string | null) {
   return role === "owner" || role === "admin"
-}
-
-function isJsonObject(value: Json | null | undefined): value is Record<string, Json> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function clampNonNegativeInt(value: number, fallback: number, max: number) {
-  if (!Number.isFinite(value)) return fallback
-  const rounded = Math.round(value)
-  if (rounded < 0) return fallback
-  return Math.min(max, rounded)
 }
 
 function clampNonNegativeHours(value: number, fallback: number, maxHours = 24) {
@@ -132,7 +122,7 @@ export async function PATCH(request: Request) {
   }
 
   if (patch.minimum_booking_duration_minutes !== undefined) {
-    normalized.minimum_booking_duration_minutes = clampNonNegativeInt(
+    normalized.minimum_booking_duration_minutes = normalizeNonNegativeInt(
       patch.minimum_booking_duration_minutes,
       DEFAULT_BOOKINGS_SETTINGS.minimum_booking_duration_minutes,
       1440

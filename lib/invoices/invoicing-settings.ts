@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/types"
+import { isJsonObject, normalizeNullableString, type JsonObject } from "@/lib/settings/utils"
 
 export type InvoicingSettings = {
   schoolName: string
@@ -20,8 +21,6 @@ export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
   paymentTerms: "Payment terms: Net 30 days.",
 }
 
-type JsonObject = Record<string, Json>
-
 type ResolveInvoicingSettingsInput = {
   tenantName: string | null
   tenantBillingAddress: string | null
@@ -30,16 +29,6 @@ type ResolveInvoicingSettingsInput = {
   tenantContactPhone: string | null
   tenantGstNumber: string | null
   tenantSettings: Json | null
-}
-
-function isJsonObject(value: Json | null | undefined): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeNullableString(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null
-  const normalized = value.trim()
-  return normalized.length > 0 ? normalized : null
 }
 
 function readStringSetting(containers: JsonObject[], keys: string[]): string | null {

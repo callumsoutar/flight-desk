@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 import { MembershipTypesConfig } from "@/components/settings/memberships/membership-types-config"
 import { MembershipYearConfig } from "@/components/settings/memberships/membership-year-config"
+import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
 
 const membershipTabs = [
   { id: "membership-types", label: "Membership Types", icon: IconCreditCard },
@@ -32,7 +33,13 @@ function PlaceholderPanel({
   )
 }
 
-export function MembershipsTab() {
+export function MembershipsTab({
+  initialSettings = null,
+  initialLoadError = null,
+}: {
+  initialSettings?: MembershipsSettings | null
+  initialLoadError?: string | null
+}) {
   const [activeTab, setActiveTab] = React.useState<(typeof membershipTabs)[number]["id"]>("membership-types")
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
@@ -186,7 +193,10 @@ export function MembershipsTab() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <MembershipYearConfig />
+                <MembershipYearConfig
+                  initialSettings={initialSettings}
+                  initialLoadError={initialLoadError}
+                />
               </CardContent>
             </Card>
           </Tabs.Content>

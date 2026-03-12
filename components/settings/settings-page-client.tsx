@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/select"
 import type { GeneralSettings } from "@/lib/settings/general-settings"
 import type { InvoicingSettings } from "@/lib/settings/invoicing-settings"
+import type { BookingsSettings } from "@/lib/settings/bookings-settings"
+import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
 import { cn } from "@/lib/utils"
 
@@ -48,6 +50,10 @@ export function SettingsPageClient({
   generalLoadError,
   initialInvoicingSettings,
   invoicingLoadError,
+  initialBookingsSettings,
+  bookingsLoadError,
+  initialMembershipsSettings,
+  membershipsLoadError,
   initialXeroSettings,
   xeroLoadError,
   xeroConnectionStatus,
@@ -57,6 +63,10 @@ export function SettingsPageClient({
   generalLoadError: string | null
   initialInvoicingSettings: InvoicingSettings | null
   invoicingLoadError: string | null
+  initialBookingsSettings: BookingsSettings | null
+  bookingsLoadError: string | null
+  initialMembershipsSettings: MembershipsSettings | null
+  membershipsLoadError: string | null
   initialXeroSettings: XeroSettings | null
   xeroLoadError: string | null
   xeroConnectionStatus: {
@@ -235,13 +245,19 @@ export function SettingsPageClient({
                 <ChargesTab />
               </Tabs.Content>
               <Tabs.Content value="bookings">
-                <BookingsTab />
+                <BookingsTab
+                  initialSettings={initialBookingsSettings}
+                  initialLoadError={bookingsLoadError}
+                />
               </Tabs.Content>
               <Tabs.Content value="training">
                 <TrainingTab />
               </Tabs.Content>
               <Tabs.Content value="memberships">
-                <MembershipsTab />
+                <MembershipsTab
+                  initialSettings={initialMembershipsSettings}
+                  initialLoadError={membershipsLoadError}
+                />
               </Tabs.Content>
               <Tabs.Content value="integrations">
                 <IntegrationsTab

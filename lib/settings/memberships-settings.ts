@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/types"
+import { isJsonObject } from "@/lib/settings/utils"
 
 export type MembershipYear = {
   start_month: number
@@ -22,12 +23,6 @@ export const DEFAULT_MEMBERSHIP_YEAR: MembershipYear = {
 
 export const DEFAULT_MEMBERSHIPS_SETTINGS: MembershipsSettings = {
   membership_year: DEFAULT_MEMBERSHIP_YEAR,
-}
-
-type JsonObject = Record<string, Json>
-
-function isJsonObject(value: Json | null | undefined): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function normalizeIntInRange(value: unknown, fallback: number, min: number, max: number) {
