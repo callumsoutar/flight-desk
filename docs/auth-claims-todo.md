@@ -9,8 +9,8 @@ This document is the safe rollout plan for Flight Desk to move tenant/role resol
   - Tenant: `tenant_id`/claim-based first, DB fallback only when needed.
 - App routes no longer call `getUserTenantId(...)` directly.
 - High-stakes mutations use authoritative checks (`requireUser: true`) and authoritative tenant/role resolution where needed.
-- Optional strict mode exists:
-  - `AUTH_CLAIMS_STRICT=true` disables non-authoritative DB fallback for role/tenant.
+- Strict mode is now the default in app code:
+  - `AUTH_CLAIMS_STRICT=false` enables non-authoritative DB fallback for role/tenant (rollback mode).
   - `AUTH_LOG_CLAIMS_FALLBACKS=true` logs when fallback is still being used.
 
 ## Claims contract (what app code expects)
@@ -65,7 +65,7 @@ Then enable it in Supabase Dashboard:
 - Select `public.flightdesk_access_token_hook`.
 
 ## Step 2: Deploy with fallback still enabled (safe mode)
-- Keep `AUTH_CLAIMS_STRICT` unset (or `false`).
+- Set `AUTH_CLAIMS_STRICT=false`.
 - Optionally set `AUTH_LOG_CLAIMS_FALLBACKS=true` temporarily.
 - Force token refresh/re-login for existing users so new tokens include the claims.
 
@@ -81,7 +81,7 @@ Quick repository checks:
 
 ## Step 4: Cut over to strict claims mode
 After fallback usage is effectively zero:
-- Set `AUTH_CLAIMS_STRICT=true`.
+- Remove `AUTH_CLAIMS_STRICT=false` (or set `AUTH_CLAIMS_STRICT=true` explicitly).
 - Keep monitoring for any missing-claim users.
 
 In strict mode:

@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -74,13 +67,13 @@ export async function GET(request: NextRequest) {
   }
 
   if (includeInactive) {
-    if (!isSettingsAdmin(role)) {
+    if (!isAdminRole(role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403, headers: { "cache-control": "no-store" } }
       )
     }
-  } else if (!isStaff(role)) {
+  } else if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -130,7 +123,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -189,7 +182,7 @@ export async function PUT(request: NextRequest) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -267,7 +260,7 @@ export async function DELETE(request: NextRequest) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

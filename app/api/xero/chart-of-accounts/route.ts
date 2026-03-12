@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import type { XeroAccount } from "@/lib/xero/types"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 type AccountResult = {
   xero_account_id: string
@@ -41,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaff(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const url = new URL(request.url)
   const typeFilter = url.searchParams.get("type")

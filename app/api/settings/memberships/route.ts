@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchMembershipsSettings } from "@/lib/settings/fetch-memberships-settings"
 import {
@@ -12,10 +13,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 const membershipYearSchema = z.object({
   start_month: z.number().int().min(1).max(12),
@@ -53,7 +50,7 @@ export async function GET() {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -93,7 +90,7 @@ export async function PATCH(request: Request) {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

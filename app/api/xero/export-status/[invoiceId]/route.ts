@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 type RouteContext = {
   params: Promise<{ invoiceId: string }>
@@ -26,7 +23,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaff(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { data, error } = await supabase
     .from("xero_invoices")

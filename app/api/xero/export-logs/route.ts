@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
@@ -21,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const url = new URL(request.url)
   const invoiceId = url.searchParams.get("invoiceId")

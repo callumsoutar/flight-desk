@@ -5,6 +5,7 @@ import { ReportsDashboard } from "@/components/reports/reports-dashboard"
 import { ReportsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteShell, AppRouteDetailContainer } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
+import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchReportData, resolveDateRange } from "@/lib/reports/fetch-report-data"
 import type { DateRangePreset } from "@/lib/reports/fetch-report-data"
@@ -85,12 +86,14 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   return (
-    <AppRouteShell>
-      <AppRouteDetailContainer>
-        <React.Suspense fallback={<ReportsPageSkeleton />}>
-          <ReportsContent tenantId={tenantId} searchParams={resolvedSearchParams} />
-        </React.Suspense>
-      </AppRouteDetailContainer>
-    </AppRouteShell>
+    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
+      <AppRouteShell>
+        <AppRouteDetailContainer>
+          <React.Suspense fallback={<ReportsPageSkeleton />}>
+            <ReportsContent tenantId={tenantId} searchParams={resolvedSearchParams} />
+          </React.Suspense>
+        </AppRouteDetailContainer>
+      </AppRouteShell>
+    </RoleGuard>
   )
 }

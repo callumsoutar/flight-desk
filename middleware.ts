@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
+import { isRoleAllowedForPath } from "@/lib/auth/route-permissions"
 import { updateSession } from "@/lib/supabase/middleware"
 import type { CookieToSet } from "@/lib/supabase/middleware"
 
@@ -13,7 +14,7 @@ function applyCookies(
 }
 
 export async function middleware(request: NextRequest) {
-  const { userId, cookiesToSet } = await updateSession(request)
+  const { userId, role, cookiesToSet } = await updateSession(request)
   const pathname = request.nextUrl.pathname
 
   if (!userId) {
@@ -21,6 +22,14 @@ export async function middleware(request: NextRequest) {
     url.pathname = "/login"
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`)
 
+    const response = NextResponse.redirect(url)
+    applyCookies(response, cookiesToSet)
+    return response
+  }
+
+  if (!isRoleAllowedForPath(pathname, role)) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/dashboard"
     const response = NextResponse.redirect(url)
     applyCookies(response, cookiesToSet)
     return response
@@ -44,5 +53,6 @@ export const config = {
     "/instructors/:path*",
     "/training/:path*",
     "/reports/:path*",
+    "/settings/:path*",
   ],
 }

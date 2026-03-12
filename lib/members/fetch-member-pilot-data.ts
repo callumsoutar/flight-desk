@@ -56,6 +56,7 @@ export async function fetchMemberPilotData(
     supabase
       .from("endorsements")
       .select("id, name, is_active, voided_at")
+      .eq("tenant_id", tenantId)
       .eq("is_active", true)
       .is("voided_at", null)
       .order("name", { ascending: true }),

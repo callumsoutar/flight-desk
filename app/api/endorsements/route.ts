@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -38,9 +31,11 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const includeInactive = url.searchParams.get("include_inactive") === "true"
 
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: includeInactive,
-    authoritativeRole: includeInactive,
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    includeRole: true,
+    includeTenant: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
     requireUser: true,
   })
 
@@ -50,15 +45,21 @@ export async function GET(request: NextRequest) {
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Missing tenant context" },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    )
+  }
 
   if (includeInactive) {
-    if (!isSettingsAdmin(role)) {
+    if (!isAdminRole(role)) {
       return NextResponse.json(
         { error: "Forbidden" },
         { status: 403, headers: { "cache-control": "no-store" } }
       )
     }
-  } else if (!isStaff(role)) {
+  } else if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("endorsements")
     .select("id, name, description, is_active, voided_at, updated_at, created_at")
+    .eq("tenant_id", tenantId)
     .is("voided_at", null)
     .order("name", { ascending: true })
 
@@ -91,9 +93,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getAuthSession(supabase, {
     includeRole: true,
+    includeTenant: true,
     authoritativeRole: true,
+    authoritativeTenant: true,
     requireUser: true,
   })
 
@@ -103,10 +107,16 @@ export async function POST(request: NextRequest) {
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
+    )
+  }
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Missing tenant context" },
+      { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -123,6 +133,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("endorsements")
     .insert({
+      tenant_id: tenantId,
       name: payload.name.trim(),
       description: normalizeNullableString(payload.description),
       is_active: payload.is_active ?? true,
@@ -145,9 +156,11 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getAuthSession(supabase, {
     includeRole: true,
+    includeTenant: true,
     authoritativeRole: true,
+    authoritativeTenant: true,
     requireUser: true,
   })
 
@@ -157,10 +170,16 @@ export async function PUT(request: NextRequest) {
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
+    )
+  }
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Missing tenant context" },
+      { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -189,6 +208,7 @@ export async function PUT(request: NextRequest) {
   const { data: existing, error: existingError } = await supabase
     .from("endorsements")
     .select("id")
+    .eq("tenant_id", tenantId)
     .eq("id", id)
     .is("voided_at", null)
     .maybeSingle()
@@ -200,7 +220,11 @@ export async function PUT(request: NextRequest) {
     )
   }
 
-  const { error } = await supabase.from("endorsements").update(updateData).eq("id", id)
+  const { error } = await supabase
+    .from("endorsements")
+    .update(updateData)
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
   if (error) {
     return NextResponse.json(
       { error: "Failed to update endorsement" },
@@ -213,9 +237,11 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getAuthSession(supabase, {
     includeRole: true,
+    includeTenant: true,
     authoritativeRole: true,
+    authoritativeTenant: true,
     requireUser: true,
   })
 
@@ -225,10 +251,16 @@ export async function DELETE(request: NextRequest) {
       { status: 401, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
+    )
+  }
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Missing tenant context" },
+      { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -251,6 +283,7 @@ export async function DELETE(request: NextRequest) {
   const { data: existing, error: existingError } = await supabase
     .from("endorsements")
     .select("id, is_active, voided_at")
+    .eq("tenant_id", tenantId)
     .eq("id", id)
     .maybeSingle()
 
@@ -265,7 +298,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
   }
 
-  const { error } = await supabase.from("endorsements").update({ is_active: false }).eq("id", id)
+  const { error } = await supabase
+    .from("endorsements")
+    .update({ is_active: false })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
   if (error) {
     return NextResponse.json(
       { error: "Failed to deactivate endorsement" },

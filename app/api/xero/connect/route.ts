@@ -2,15 +2,12 @@ import { randomUUID } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroEnv } from "@/lib/xero/env"
 
 export const dynamic = "force-dynamic"
-
-function isAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 type XeroStatePayload = {
   tenantId: string
@@ -34,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { clientId, redirectUri, scopes } = getXeroEnv()
   const nonce = randomUUID()

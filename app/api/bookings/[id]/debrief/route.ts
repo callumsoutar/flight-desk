@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getZonedYyyyMmDdAndHHmm, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
@@ -19,10 +20,6 @@ const putSchema = z.object({
   weather_conditions: z.string().nullable().optional(),
   safety_concerns: z.string().nullable().optional(),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 async function fetchBookingContext(
   tenantId: string,
@@ -97,7 +94,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
   if (!tenantId) {
     return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
   }
 
@@ -139,7 +136,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   if (!tenantId) {
     return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
   }
 

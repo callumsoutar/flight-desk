@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { getEffectiveInvoiceStatus } from "@/lib/invoices/effective-status"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
@@ -58,7 +55,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     )
   }
 
-  if (!isStaff(role) && data.user_id !== user.id) {
+  if (!isStaffRole(role) && data.user_id !== user.id) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

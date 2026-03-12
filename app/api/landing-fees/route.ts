@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { getUserTenantId } from "@/lib/auth/tenant"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -60,7 +57,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (includeInactive && !isSettingsAdmin(role)) {
+  if (includeInactive && !isAdminRole(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -127,7 +124,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
@@ -178,7 +175,7 @@ export async function PATCH(request: NextRequest) {
   })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
@@ -236,7 +233,7 @@ export async function DELETE(request: NextRequest) {
   })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const tenantId = await getUserTenantId(supabase, user.id)
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })

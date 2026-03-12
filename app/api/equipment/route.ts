@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { equipmentCreateSchema } from "@/lib/validation/equipment"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 function optionalTrimmedValue(value?: string): string | null {
   if (!value) return null
@@ -38,7 +35,7 @@ export async function POST(request: NextRequest) {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Only staff can add equipment" },
       { status: 403, headers: { "cache-control": "no-store" } }

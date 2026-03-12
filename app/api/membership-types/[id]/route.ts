@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -60,7 +57,7 @@ export async function PATCH(
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -174,7 +171,7 @@ export async function DELETE(
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

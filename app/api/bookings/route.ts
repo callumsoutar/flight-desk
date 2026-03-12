@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
 import { fetchBookings } from "@/lib/bookings/fetch-bookings"
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
   const userIdParam = request.nextUrl.searchParams.get("user_id")
   const targetUserId = userIdParam ?? user.id
 
-  const canViewOtherMembers = role === "owner" || role === "admin" || role === "instructor"
+  const canViewOtherMembers = isStaffRole(role)
   if (targetUserId !== user.id && !canViewOtherMembers) {
     return NextResponse.json(
       { error: "Forbidden" },

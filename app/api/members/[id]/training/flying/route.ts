@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { TrainingFlyingResponse, TrainingLessonStatus } from "@/lib/types/training-flying"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 function cleanSyllabusId(value: string | null) {
   const v = (value ?? "").trim()
@@ -46,7 +43,7 @@ export async function GET(
     )
   }
 
-  const canViewOtherMembers = isStaff(role)
+  const canViewOtherMembers = isStaffRole(role)
   if (targetUserId !== user.id && !canViewOtherMembers) {
     return NextResponse.json(
       { error: "Forbidden" },

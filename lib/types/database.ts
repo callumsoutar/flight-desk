@@ -962,6 +962,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          tenant_id: string
           updated_at: string
           voided_at: string | null
         }
@@ -971,6 +972,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          tenant_id: string
           updated_at?: string
           voided_at?: string | null
         }
@@ -980,10 +982,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          tenant_id?: string
           updated_at?: string
           voided_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "endorsements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment: {
         Row: {

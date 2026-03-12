@@ -5,6 +5,7 @@ import { InvoicesPageClient } from "@/components/invoices/invoices-page-client"
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
+import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoices } from "@/lib/invoices/fetch-invoices"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
@@ -59,12 +60,14 @@ export default async function InvoicesPage() {
   }
 
   return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <React.Suspense fallback={<ListPageSkeleton showTabs />}>
-          <InvoicesContent tenantId={tenantId} />
-        </React.Suspense>
-      </AppRouteListContainer>
-    </AppRouteShell>
+    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <React.Suspense fallback={<ListPageSkeleton showTabs />}>
+            <InvoicesContent tenantId={tenantId} />
+          </React.Suspense>
+        </AppRouteListContainer>
+      </AppRouteShell>
+    </RoleGuard>
   )
 }

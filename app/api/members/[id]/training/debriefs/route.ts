@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { TrainingDebriefsResponse } from "@/lib/types/training-debriefs"
@@ -10,10 +11,6 @@ function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10)
   if (!Number.isFinite(parsed) || parsed < 0) return fallback
   return parsed
-}
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
 }
 
 function cleanSyllabusId(value: string | null) {
@@ -44,7 +41,7 @@ export async function GET(
     )
   }
 
-  const canViewOtherMembers = isStaff(role)
+  const canViewOtherMembers = isStaffRole(role)
   if (targetUserId !== user.id && !canViewOtherMembers) {
     return NextResponse.json(
       { error: "Forbidden" },

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -8,10 +9,6 @@ export const dynamic = "force-dynamic"
 function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
   return Array.isArray(value) ? (value[0] ?? null) : value
-}
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
 }
 
 export async function GET() {
@@ -93,7 +90,7 @@ export async function GET() {
       }>
     = []
 
-  if (isStaff(role)) {
+  if (isStaffRole(role)) {
     const membersResult = await supabase
       .from("tenant_users")
       .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")

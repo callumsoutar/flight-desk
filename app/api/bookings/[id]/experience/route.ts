@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -17,10 +18,6 @@ const entrySchema = z.object({
 const putSchema = z.object({
   entries: z.array(entrySchema),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 async function fetchBookingContext(
   tenantId: string,
@@ -57,7 +54,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -112,7 +109,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

@@ -5,6 +5,7 @@ import { SettingsPageClient } from "@/components/settings/settings-page-client"
 import { SettingsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
+import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
@@ -142,12 +143,14 @@ export default async function SettingsPage() {
   }
 
   return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <React.Suspense fallback={<SettingsPageSkeleton />}>
-          <SettingsContent tenantId={tenantId} canManageSettings={canManageSettings} />
-        </React.Suspense>
-      </AppRouteListContainer>
-    </AppRouteShell>
+    <RoleGuard allowedRoles={["owner", "admin"]}>
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <React.Suspense fallback={<SettingsPageSkeleton />}>
+            <SettingsContent tenantId={tenantId} canManageSettings={canManageSettings} />
+          </React.Suspense>
+        </AppRouteListContainer>
+      </AppRouteShell>
+    </RoleGuard>
   )
 }

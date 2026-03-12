@@ -5,7 +5,8 @@ import { getUserTenantId } from "@/lib/auth/tenant"
 import type { Database } from "@/lib/types"
 import type { UserRole } from "@/lib/types/roles"
 
-const STRICT_CLAIMS_MODE = process.env.AUTH_CLAIMS_STRICT === "true"
+// Default to strict claims mode; allow explicit opt-out for emergency rollback.
+const STRICT_CLAIMS_MODE = process.env.AUTH_CLAIMS_STRICT !== "false"
 const LOG_CLAIMS_FALLBACKS = process.env.AUTH_LOG_CLAIMS_FALLBACKS === "true"
 
 export type JwtClaims = {

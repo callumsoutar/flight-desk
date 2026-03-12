@@ -1,0 +1,43 @@
+import type { UserRole } from "@/lib/types/roles"
+
+type RoutePermission = {
+  prefix: string
+  allowedRoles: UserRole[]
+}
+
+const ALL_ROLES: UserRole[] = ["owner", "admin", "instructor", "member", "student"]
+const STAFF_ROLES: UserRole[] = ["owner", "admin", "instructor"]
+const ADMIN_ROLES: UserRole[] = ["owner", "admin"]
+
+// Most-specific prefixes first to avoid broad prefix collisions.
+const ROUTE_PERMISSIONS: RoutePermission[] = [
+  { prefix: "/invoices", allowedRoles: STAFF_ROLES },
+  { prefix: "/members", allowedRoles: STAFF_ROLES },
+  { prefix: "/reports", allowedRoles: STAFF_ROLES },
+  { prefix: "/training", allowedRoles: STAFF_ROLES },
+  { prefix: "/instructors", allowedRoles: STAFF_ROLES },
+  { prefix: "/equipment", allowedRoles: STAFF_ROLES },
+  { prefix: "/rosters", allowedRoles: STAFF_ROLES },
+  { prefix: "/settings", allowedRoles: ADMIN_ROLES },
+  { prefix: "/aircraft", allowedRoles: ALL_ROLES },
+  { prefix: "/bookings", allowedRoles: ALL_ROLES },
+  { prefix: "/scheduler", allowedRoles: ALL_ROLES },
+  { prefix: "/dashboard", allowedRoles: ALL_ROLES },
+]
+
+export function getAllowedRolesForPath(pathname: string): UserRole[] | null {
+  for (const rule of ROUTE_PERMISSIONS) {
+    if (pathname === rule.prefix || pathname.startsWith(`${rule.prefix}/`)) {
+      return rule.allowedRoles
+    }
+  }
+  return null
+}
+
+export function isRoleAllowedForPath(pathname: string, role: UserRole | null): boolean {
+  const allowedRoles = getAllowedRolesForPath(pathname)
+  if (!allowedRoles) return true
+  if (!role) return false
+  return allowedRoles.includes(role)
+}
+

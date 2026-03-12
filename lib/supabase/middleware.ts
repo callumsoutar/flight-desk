@@ -2,7 +2,9 @@ import { createServerClient } from "@supabase/ssr"
 import type { CookieOptions } from "@supabase/ssr"
 import type { NextRequest } from "next/server"
 
+import { claimsRoleToUserRole } from "@/lib/auth/roles"
 import type { Database } from "@/lib/types"
+import type { UserRole } from "@/lib/types/roles"
 import { getSupabasePublicEnv } from "@/lib/supabase/env"
 
 export type CookieToSet = {
@@ -13,6 +15,7 @@ export type CookieToSet = {
 
 export async function updateSession(request: NextRequest): Promise<{
   userId: string | null
+  role: UserRole | null
   cookiesToSet: CookieToSet[]
 }> {
   const cookiesToSet: CookieToSet[] = []
@@ -31,10 +34,13 @@ export async function updateSession(request: NextRequest): Promise<{
 
   // Middleware is on the hot path: rely on JWT/JWKS claims verification only.
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims()
-  const claimedUserId = claimsData?.claims?.sub
+  const claims = claimsData?.claims as Record<string, unknown> | undefined
+  const claimedUserId = claims?.sub
+  const claimedRole =
+    claimsRoleToUserRole(claims?.app_role) ?? claimsRoleToUserRole(claims?.role) ?? null
   if (!claimsError && typeof claimedUserId === "string" && claimedUserId) {
-    return { userId: claimedUserId, cookiesToSet }
+    return { userId: claimedUserId, role: claimedRole, cookiesToSet }
   }
 
-  return { userId: null, cookiesToSet }
+  return { userId: null, role: null, cookiesToSet }
 }

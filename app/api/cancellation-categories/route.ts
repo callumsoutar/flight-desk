@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -11,10 +12,6 @@ type CancellationCategory = {
   name: string
   description: string | null
   is_global: boolean
-}
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
 }
 
 function normalizeOptionalString(value: string | null | undefined) {
@@ -122,7 +119,7 @@ export async function POST(request: Request) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -187,7 +184,7 @@ export async function PATCH(request: Request) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -301,7 +298,7 @@ export async function DELETE(request: Request) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

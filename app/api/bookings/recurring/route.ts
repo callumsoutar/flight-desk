@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -20,10 +21,6 @@ const createRecurringBookingsSchema = createBookingPayloadSchema
       .min(1)
       .max(366),
   })
-
-function isStaffRole(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 function resolveBatchStatus({
   total,

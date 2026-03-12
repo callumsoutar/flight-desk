@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -42,7 +39,7 @@ export async function POST(
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

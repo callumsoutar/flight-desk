@@ -5,6 +5,7 @@ import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { TrainingPageClient } from "@/components/training/training-page-client"
+import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { fetchTrainingOverview } from "@/lib/training/fetch-training-overview"
@@ -73,12 +74,14 @@ export default async function TrainingPage() {
   if (!role || !TRAINING_ALLOWED_ROLES.includes(role)) redirect("/dashboard")
 
   return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <React.Suspense fallback={<ListPageSkeleton />}>
-          <TrainingContent tenantId={tenantId} userId={user.id} role={role} />
-        </React.Suspense>
-      </AppRouteListContainer>
-    </AppRouteShell>
+    <RoleGuard allowedRoles={TRAINING_ALLOWED_ROLES}>
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <React.Suspense fallback={<ListPageSkeleton />}>
+            <TrainingContent tenantId={tenantId} userId={user.id} role={role} />
+          </React.Suspense>
+        </AppRouteListContainer>
+      </AppRouteShell>
+    </RoleGuard>
   )
 }

@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { syncXeroAccounts } from "@/lib/xero/sync-accounts"
 
 export const dynamic = "force-dynamic"
-
-function isAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 export async function POST() {
   const supabase = await createSupabaseServerClient()
@@ -22,7 +19,7 @@ export async function POST() {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
     const result = await syncXeroAccounts(tenantId, user.id)

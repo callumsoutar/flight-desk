@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import { DEFAULT_BOOKINGS_SETTINGS } from "@/lib/settings/bookings-settings"
@@ -9,10 +10,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function clampNonNegativeHours(value: number, fallback: number, maxHours = 24) {
   if (!Number.isFinite(value)) return fallback
@@ -54,7 +51,7 @@ export async function GET() {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -96,7 +93,7 @@ export async function PATCH(request: Request) {
     )
   }
 
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

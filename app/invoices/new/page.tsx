@@ -5,6 +5,8 @@ import { InvoiceCreateClient } from "@/components/invoices/invoice-create-client
 import { InvoiceDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
+import { RoleGuard } from "@/components/auth/role-guard"
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceCreateData } from "@/lib/invoices/fetch-invoice-create-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -65,7 +67,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
     )
   }
 
-  const isStaff = role === "owner" || role === "admin" || role === "instructor"
+  const isStaff = isStaffRole(role)
   if (!isStaff) {
     return (
       <AppRouteShell>
@@ -85,11 +87,13 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   const defaultUserId = pickSearchParam(resolvedSearch.user_id)
 
   return (
-    <AppRouteShell>
-      <React.Suspense fallback={<InvoiceDetailSkeleton />}>
-        <NewInvoiceContent tenantId={tenantId} defaultUserId={defaultUserId} />
-      </React.Suspense>
-    </AppRouteShell>
+    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
+      <AppRouteShell>
+        <React.Suspense fallback={<InvoiceDetailSkeleton />}>
+          <NewInvoiceContent tenantId={tenantId} defaultUserId={defaultUserId} />
+        </React.Suspense>
+      </AppRouteShell>
+    </RoleGuard>
   )
 }
 

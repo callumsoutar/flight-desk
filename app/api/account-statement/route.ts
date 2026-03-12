@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/types/account-statement"
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
   const startDateParam = request.nextUrl.searchParams.get("start_date")
   const endDateParam = request.nextUrl.searchParams.get("end_date")
 
-  const canViewOtherMembers = role === "owner" || role === "admin" || role === "instructor"
+  const canViewOtherMembers = isStaffRole(role)
   if (targetUserId !== user.id && !canViewOtherMembers) {
     return NextResponse.json(
       { error: "Forbidden" },

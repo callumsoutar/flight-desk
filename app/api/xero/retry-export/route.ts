@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -11,10 +12,6 @@ export const dynamic = "force-dynamic"
 const schema = z.object({
   invoiceId: z.string().uuid(),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
@@ -28,7 +25,7 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaff(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const parsed = schema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })

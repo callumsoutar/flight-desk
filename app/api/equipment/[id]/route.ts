@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { EquipmentUpdate } from "@/lib/types"
@@ -33,14 +34,6 @@ const equipmentUpdateSchema = z.object({
   type: equipmentTypeSchema.optional(),
   notes: z.string().trim().nullable().optional(),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
-
-function canDelete(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params
@@ -113,7 +106,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Only staff can update equipment" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -188,7 +181,7 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!canDelete(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Only owners and admins can delete equipment" },
       { status: 403, headers: { "cache-control": "no-store" } }

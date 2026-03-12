@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -14,10 +15,6 @@ const createMemberSchema = z.object({
   street_address: z.string().trim().max(200, "Street address too long").nullable().optional(),
   send_invitation: z.boolean().optional().default(false),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 function optionalTrimmed(value: string | null | undefined): string | null {
   if (!value) return null
@@ -47,7 +44,7 @@ export async function POST(request: NextRequest) {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Only staff can add members" },
       { status: 403, headers: { "cache-control": "no-store" } }

@@ -210,6 +210,11 @@ export const publicTransactionTypeSchema = z.union([
   z.literal("adjustment"),
 ]);
 
+export const publicChargeableTypeScopeSchema = z.union([
+  z.literal("tenant"),
+  z.literal("system"),
+]);
+
 export const publicUserRoleSchema = z.union([
   z.literal("admin"),
   z.literal("instructor"),
@@ -1005,9 +1010,9 @@ export const publicChargeableTypesRowSchema = z.object({
   gl_code: z.string().nullable(),
   id: z.string(),
   is_active: z.boolean().nullable(),
-  is_global: z.boolean(),
-  is_system: z.boolean().nullable(),
   name: z.string(),
+  scope: publicChargeableTypeScopeSchema,
+  system_key: z.string().nullable(),
   tenant_id: z.string().nullable(),
   updated_at: z.string().nullable(),
 });
@@ -1019,9 +1024,9 @@ export const publicChargeableTypesInsertSchema = z.object({
   gl_code: z.string().optional().nullable(),
   id: z.string().optional(),
   is_active: z.boolean().optional().nullable(),
-  is_global: z.boolean().optional(),
-  is_system: z.boolean().optional().nullable(),
   name: z.string(),
+  scope: publicChargeableTypeScopeSchema.optional(),
+  system_key: z.string().optional().nullable(),
   tenant_id: z.string().optional().nullable(),
   updated_at: z.string().optional().nullable(),
 });
@@ -1033,9 +1038,9 @@ export const publicChargeableTypesUpdateSchema = z.object({
   gl_code: z.string().optional().nullable(),
   id: z.string().optional(),
   is_active: z.boolean().optional().nullable(),
-  is_global: z.boolean().optional(),
-  is_system: z.boolean().optional().nullable(),
   name: z.string().optional(),
+  scope: publicChargeableTypeScopeSchema.optional(),
+  system_key: z.string().optional().nullable(),
   tenant_id: z.string().optional().nullable(),
   updated_at: z.string().optional().nullable(),
 });
@@ -1200,6 +1205,7 @@ export const publicEndorsementsRowSchema = z.object({
   id: z.string(),
   is_active: z.boolean(),
   name: z.string(),
+  tenant_id: z.string(),
   updated_at: z.string(),
   voided_at: z.string().nullable(),
 });
@@ -1210,6 +1216,7 @@ export const publicEndorsementsInsertSchema = z.object({
   id: z.string().optional(),
   is_active: z.boolean().optional(),
   name: z.string(),
+  tenant_id: z.string(),
   updated_at: z.string().optional(),
   voided_at: z.string().optional().nullable(),
 });
@@ -1220,9 +1227,20 @@ export const publicEndorsementsUpdateSchema = z.object({
   id: z.string().optional(),
   is_active: z.boolean().optional(),
   name: z.string().optional(),
+  tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
   voided_at: z.string().optional().nullable(),
 });
+
+export const publicEndorsementsRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("endorsements_tenant_id_fkey"),
+    columns: z.tuple([z.literal("tenant_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("tenants"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+]);
 
 export const publicEquipmentRowSchema = z.object({
   created_at: z.string(),
@@ -4702,6 +4720,9 @@ export type PublicTransactionStatus = z.infer<
   typeof publicTransactionStatusSchema
 >;
 export type PublicTransactionType = z.infer<typeof publicTransactionTypeSchema>;
+export type PublicChargeableTypeScope = z.infer<
+  typeof publicChargeableTypeScopeSchema
+>;
 export type PublicUserRole = z.infer<typeof publicUserRoleSchema>;
 export type PublicXeroExportStatus = z.infer<
   typeof publicXeroExportStatusSchema
@@ -4819,6 +4840,9 @@ export type PublicEndorsementsInsert = z.infer<
 >;
 export type PublicEndorsementsUpdate = z.infer<
   typeof publicEndorsementsUpdateSchema
+>;
+export type PublicEndorsementsRelationships = z.infer<
+  typeof publicEndorsementsRelationshipsSchema
 >;
 export type PublicEquipmentRow = z.infer<typeof publicEquipmentRowSchema>;
 export type PublicEquipmentInsert = z.infer<typeof publicEquipmentInsertSchema>;

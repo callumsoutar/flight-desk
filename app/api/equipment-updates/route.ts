@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -11,10 +12,6 @@ const createUpdateSchema = z.object({
   next_due_at: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 function dateInputToUtcIso(value: string): string | null {
   const [yearRaw, monthRaw, dayRaw] = value.split("-")
@@ -51,7 +48,7 @@ export async function POST(request: NextRequest) {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Only staff can log equipment updates" },
       { status: 403, headers: { "cache-control": "no-store" } }

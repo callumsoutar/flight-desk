@@ -3,6 +3,7 @@ import { randomUUID } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -29,10 +30,6 @@ const trialBookingSchema = z.object({
   status: z.enum(["unconfirmed", "confirmed"]).optional(),
 })
 
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
-
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await getAuthSession(supabase, {
@@ -55,7 +52,7 @@ export async function POST(request: NextRequest) {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isStaff(role)) {
+  if (!isStaffRole(role)) {
     return NextResponse.json(
       { error: "Only staff can create trial flight bookings" },
       { status: 403, headers: { "cache-control": "no-store" } }

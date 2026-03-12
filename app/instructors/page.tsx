@@ -5,6 +5,7 @@ import { InstructorsPageClient } from "@/components/instructors/instructors-page
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
+import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInstructors } from "@/lib/instructors/fetch-instructors"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -50,12 +51,14 @@ export default async function InstructorsPage() {
   }
 
   return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <React.Suspense fallback={<ListPageSkeleton />}>
-          <InstructorsContent tenantId={tenantId} />
-        </React.Suspense>
-      </AppRouteListContainer>
-    </AppRouteShell>
+    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
+      <AppRouteShell>
+        <AppRouteListContainer>
+          <React.Suspense fallback={<ListPageSkeleton />}>
+            <InstructorsContent tenantId={tenantId} />
+          </React.Suspense>
+        </AppRouteListContainer>
+      </AppRouteShell>
+    </RoleGuard>
   )
 }

@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { TENANT_LOGO_BUCKET, isProbablyUrl } from "@/lib/settings/logo-storage"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function fileExtensionFromMime(mime: string) {
   const normalized = mime.toLowerCase().trim()
@@ -52,7 +49,7 @@ export async function POST(request: Request) {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -179,7 +176,7 @@ export async function DELETE() {
       { status: 400, headers: { "cache-control": "no-store" } }
     )
   }
-  if (!isSettingsAdmin(role)) {
+  if (!isAdminRole(role)) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }

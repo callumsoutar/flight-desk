@@ -23,3 +23,11 @@ export function claimsRoleToUserRole(roleClaim: unknown): UserRole | null {
 export function isUserRole(value: unknown): value is UserRole {
   return typeof value === "string" && USER_ROLES.has(value as UserRole)
 }
+
+export function isStaffRole(role: string | null | undefined): role is UserRole {
+  return role === "owner" || role === "admin" || role === "instructor"
+}
+
+export function isAdminRole(role: string | null | undefined): role is UserRole {
+  return role === "owner" || role === "admin"
+}

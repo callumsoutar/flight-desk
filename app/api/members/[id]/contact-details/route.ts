@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchMemberContactDetails } from "@/lib/members/fetch-member-contact-details"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -26,7 +27,7 @@ export async function GET(
     )
   }
 
-  const isStaff = role === "owner" || role === "admin" || role === "instructor"
+  const isStaff = isStaffRole(role)
   const isOwn = user.id === memberId
   if (!isStaff && !isOwn) {
     return NextResponse.json(

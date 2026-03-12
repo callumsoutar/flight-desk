@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -21,10 +22,6 @@ const patchSchema = z.object({
   aircraft_id: z.string().uuid().nullable().optional(),
   instructor_id: z.string().uuid().nullable().optional(),
 })
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
@@ -65,7 +62,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     )
   }
 
-  if (!isStaff(role) && data.user_id !== user.id) {
+  if (!isStaffRole(role) && data.user_id !== user.id) {
     return NextResponse.json(
       { error: "Forbidden" },
       { status: 403, headers: { "cache-control": "no-store" } }
@@ -130,7 +127,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     )
   }
 
-  const staff = isStaff(role)
+  const staff = isStaffRole(role)
   const isOwn = existing.user_id === user.id
 
   const nextStatus = payload.data.status

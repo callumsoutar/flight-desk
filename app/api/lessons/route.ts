@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { publicSyllabusStageSchema } from "@/lib/schema/generated"
 
 export const dynamic = "force-dynamic"
-
-function isStaff(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
-}
-
-function isSettingsAdmin(role: string | null) {
-  return role === "owner" || role === "admin"
-}
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -60,8 +53,8 @@ export async function GET(request: NextRequest) {
   }
 
   if (includeInactive) {
-    if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  } else if (!isStaff(role)) {
+    if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  } else if (!isStaffRole(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -96,7 +89,7 @@ export async function POST(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
@@ -154,7 +147,7 @@ export async function PATCH(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
@@ -205,7 +198,7 @@ export async function DELETE(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isSettingsAdmin(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const url = new URL(request.url)
   const idFromQuery = url.searchParams.get("id")
