@@ -32,6 +32,7 @@ function clampNonNegativeInt(value: number, fallback: number, max = 3650) {
 
 const invoicingPatchSchema = z.object({
   invoice_prefix: z.string().trim().min(1).max(24).optional(),
+  invoice_number_mode: z.enum(["internal", "xero"]).optional(),
   default_invoice_due_days: z.number().int().min(0).max(3650).optional(),
   invoice_footer_message: z.string().trim().max(2000).nullable().optional(),
   include_logo_on_invoice: z.boolean().optional(),
@@ -130,6 +131,7 @@ export async function PATCH(request: Request) {
   const normalized: Record<string, Json> = {}
 
   if (patch.invoice_prefix !== undefined) normalized.invoice_prefix = patch.invoice_prefix.trim()
+  if (patch.invoice_number_mode !== undefined) normalized.invoice_number_mode = patch.invoice_number_mode
   if (patch.default_invoice_due_days !== undefined) {
     normalized.default_invoice_due_days = clampNonNegativeInt(
       patch.default_invoice_due_days,

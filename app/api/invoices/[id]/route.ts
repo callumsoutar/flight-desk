@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { getAuthSession } from "@/lib/auth/session"
+import { getEffectiveInvoiceStatus } from "@/lib/invoices/effective-status"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -64,8 +65,17 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     )
   }
 
+  const invoice = {
+    ...data,
+    status: getEffectiveInvoiceStatus({
+      status: data.status,
+      dueDate: data.due_date,
+      balanceDue: data.balance_due,
+    }),
+  }
+
   return NextResponse.json(
-    { invoice: data },
+    { invoice },
     { headers: { "cache-control": "no-store" } }
   )
 }

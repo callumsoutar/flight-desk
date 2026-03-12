@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { getEffectiveInvoiceStatus } from "@/lib/invoices/effective-status"
 import type { Database } from "@/lib/types"
 import type {
   InvoicesFilter,
@@ -50,6 +51,13 @@ export async function fetchInvoices(
   filters?: InvoicesFilter,
   xeroEnabled = false
 ): Promise<InvoiceWithRelations[]> {
+  const requestedStatuses = filters?.status ?? []
+  const includesOverdue = requestedStatuses.includes("overdue")
+  const dbStatuses = requestedStatuses.filter((status) => status !== "overdue")
+  if (includesOverdue && !dbStatuses.includes("authorised")) {
+    dbStatuses.push("authorised")
+  }
+
   let query = supabase
     .from("invoices")
     .select(
@@ -71,17 +79,26 @@ export async function fetchInvoices(
     query = query.lte("issue_date", filters!.end_date!)
   }
 
-  if (filters?.status?.length) {
-    query = query.in("status", filters.status)
+  if (dbStatuses.length) {
+    query = query.in("status", dbStatuses)
   }
 
   const { data, error } = await query
   if (error) throw error
 
-  const normalized = (data ?? []).map<InvoiceWithRelations>((row) => ({
-    ...row,
-    user: pickMaybeOne(row.user),
-  }))
+  const normalized = (data ?? []).map<InvoiceWithRelations>((row) => {
+    const effectiveStatus = getEffectiveInvoiceStatus({
+      status: row.status,
+      dueDate: row.due_date,
+      balanceDue: row.balance_due,
+    })
+
+    return {
+      ...row,
+      status: effectiveStatus,
+      user: pickMaybeOne(row.user),
+    }
+  })
 
   if (xeroEnabled && normalized.length > 0) {
     const invoiceIds = normalized.map((invoice) => invoice.id)

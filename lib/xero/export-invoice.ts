@@ -3,6 +3,7 @@ import { syncXeroContact } from "@/lib/xero/sync-contact"
 import { XeroApiError } from "@/lib/xero/types"
 import type { XeroInvoiceLineItem } from "@/lib/xero/types"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
+import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
 import type { Json } from "@/lib/types"
 
@@ -55,27 +56,46 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
   if (existingExport?.export_status === "pending") {
     return { invoiceId, status: "skipped" as const, reason: "pending" }
   }
-  if (existingExport?.export_status === "failed" || existingExport?.export_status === "voided") {
-    await admin.from("xero_invoices").delete().eq("id", existingExport.id)
-  }
+  let lockRow: { id: string } | null = null
+  let lockError: { message: string } | null = null
 
-  const { data: lockRow, error: lockError } = await admin
-    .from("xero_invoices")
-    .insert({
-      tenant_id: tenantId,
-      invoice_id: invoiceId,
-      export_status: "pending",
-    })
-    .select("id")
-    .single()
+  if (existingExport?.export_status === "failed" || existingExport?.export_status === "voided") {
+    const { data: updatedRow, error: updateError } = await admin
+      .from("xero_invoices")
+      .update({
+        export_status: "pending",
+        xero_invoice_id: null,
+        exported_at: null,
+        error_message: null,
+      })
+      .eq("id", existingExport.id)
+      .select("id")
+      .single()
+
+    lockRow = updatedRow
+    lockError = updateError
+  } else {
+    const { data: insertedLockRow, error: insertedLockError } = await admin
+      .from("xero_invoices")
+      .insert({
+        tenant_id: tenantId,
+        invoice_id: invoiceId,
+        export_status: "pending",
+      })
+      .select("id")
+      .single()
+    lockRow = insertedLockRow
+    lockError = insertedLockError
+  }
 
   if (lockError || !lockRow) {
     return { invoiceId, status: "failed" as const, error: "Could not create export lock" }
   }
 
   try {
-    const [xeroSettings, itemsResult] = await Promise.all([
+    const [xeroSettings, invoicingSettings, itemsResult] = await Promise.all([
       fetchXeroSettings(admin, tenantId),
+      fetchInvoicingSettings(admin, tenantId),
       admin
         .from("invoice_items")
         .select("description, quantity, unit_price, amount, tax_rate, tax_amount, gl_code, xero_tax_type, rate_inclusive, line_total")
@@ -141,33 +161,40 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       )
     }
 
-    const buildPayload = (xeroContactId: string) => ({
-      Type: "ACCREC" as const,
-      Contact: { ContactID: xeroContactId },
-      Date: invoice.issue_date.slice(0, 10),
-      DueDate: invoice.due_date ? invoice.due_date.slice(0, 10) : null,
-      InvoiceNumber: invoice.invoice_number ?? invoice.id,
-      Reference: invoice.reference ?? null,
-      Status: "AUTHORISED" as const,
-      LineAmountTypes: "Inclusive" as const,
-      LineItems: resolvedItems.map((item) => {
-        const taxRate = item.tax_rate ?? 0
-        const unitAmountInclusive = item.rate_inclusive
-          ?? roundToTwoDecimals(item.unit_price * (1 + taxRate))
-        const lineAmountInclusive = item.line_total
-          ?? roundToTwoDecimals(item.quantity * unitAmountInclusive)
+    const buildPayload = (xeroContactId: string) => {
+      const payload = {
+        Type: "ACCREC" as const,
+        Contact: { ContactID: xeroContactId },
+        Date: invoice.issue_date.slice(0, 10),
+        DueDate: invoice.due_date ? invoice.due_date.slice(0, 10) : null,
+        Reference: invoice.reference ?? null,
+        Status: "AUTHORISED" as const,
+        LineAmountTypes: "Inclusive" as const,
+        LineItems: resolvedItems.map((item) => {
+          const taxRate = item.tax_rate ?? 0
+          const unitAmountInclusive = item.rate_inclusive
+            ?? roundToTwoDecimals(item.unit_price * (1 + taxRate))
+          const lineAmountInclusive = item.line_total
+            ?? roundToTwoDecimals(item.quantity * unitAmountInclusive)
 
-        const lineItem: XeroInvoiceLineItem = {
-          Description: item.description,
-          Quantity: item.quantity,
-          UnitAmount: unitAmountInclusive,
-          AccountCode: item.gl_code!,
-          LineAmount: lineAmountInclusive,
-        }
-        lineItem.TaxType = item.xero_tax_type ?? "NONE"
-        return lineItem
-      }),
-    })
+          const lineItem: XeroInvoiceLineItem = {
+            Description: item.description,
+            Quantity: item.quantity,
+            UnitAmount: unitAmountInclusive,
+            AccountCode: item.gl_code!,
+            LineAmount: lineAmountInclusive,
+          }
+          lineItem.TaxType = item.xero_tax_type ?? "NONE"
+          return lineItem
+        }),
+      }
+
+      if (invoicingSettings.invoice_number_mode !== "xero") {
+        return { ...payload, InvoiceNumber: invoice.invoice_number ?? invoice.id }
+      }
+
+      return payload
+    }
 
     const idempotencyKey = `tenant-${tenantId}-invoice-${invoiceId}`
     let xeroContactId = await syncXeroContact(admin, client, tenantId, invoice.user_id, initiatedBy)

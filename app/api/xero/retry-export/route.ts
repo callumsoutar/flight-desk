@@ -46,7 +46,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invoice is not in failed export state" }, { status: 400 })
   }
 
-  await admin.from("xero_invoices").delete().eq("id", failedRow.id)
+  const { error: resetError } = await admin
+    .from("xero_invoices")
+    .update({
+      export_status: "voided",
+      error_message: "Retry requested by user",
+    })
+    .eq("id", failedRow.id)
+
+  if (resetError) {
+    return NextResponse.json({ error: "Failed to reset export state" }, { status: 500 })
+  }
+
   const result = await exportInvoiceToXero(tenantId, parsed.data.invoiceId, user.id)
 
   await admin.from("xero_export_logs").insert({

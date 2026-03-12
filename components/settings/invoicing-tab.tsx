@@ -48,6 +48,7 @@ async function patchInvoicingSettings(payload: unknown): Promise<InvoicingSettin
 function createFormState(settings: InvoicingSettings | null) {
   return {
     invoice_prefix: settings?.invoice_prefix ?? "INV",
+    invoice_number_mode: settings?.invoice_number_mode ?? "internal",
     default_invoice_due_days: settings?.default_invoice_due_days ?? 7,
     invoice_footer_message: settings?.invoice_footer_message ?? "Thank you for your business.",
     include_logo_on_invoice: settings?.include_logo_on_invoice ?? true,
@@ -75,6 +76,7 @@ export function InvoicingTab({
 
   const dirty =
     form.invoice_prefix.trim() !== baseForm.invoice_prefix.trim() ||
+    form.invoice_number_mode !== baseForm.invoice_number_mode ||
     form.default_invoice_due_days !== baseForm.default_invoice_due_days ||
     form.invoice_footer_message !== baseForm.invoice_footer_message ||
     form.include_logo_on_invoice !== baseForm.include_logo_on_invoice
@@ -112,6 +114,7 @@ export function InvoicingTab({
       const result = await patchInvoicingSettings({
         invoicing: {
           invoice_prefix: form.invoice_prefix.trim(),
+          invoice_number_mode: form.invoice_number_mode,
           default_invoice_due_days: form.default_invoice_due_days,
           invoice_footer_message: form.invoice_footer_message,
           include_logo_on_invoice: form.include_logo_on_invoice,
@@ -177,6 +180,28 @@ export function InvoicingTab({
                 />
                 <p className="text-[11px] font-medium text-slate-500">
                   Used as the first part of invoice numbers (e.g. INV-000123).
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Number source
+                </Label>
+                <select
+                  id="invoice-number-mode"
+                  value={form.invoice_number_mode}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      invoice_number_mode: e.target.value === "xero" ? "xero" : "internal",
+                    }))
+                  }
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                >
+                  <option value="internal">Use Aero Safety invoice numbers</option>
+                  <option value="xero">Use Xero invoice numbering</option>
+                </select>
+                <p className="text-[11px] font-medium text-slate-500">
+                  Internal mode sends your invoice number to Xero. Xero mode lets Xero allocate invoice numbers.
                 </p>
               </div>
               <div className="space-y-2">

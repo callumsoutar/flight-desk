@@ -81,7 +81,7 @@ export type XeroCreateInvoicePayload = {
   Contact: { ContactID: string }
   Date: string
   DueDate: string | null
-  InvoiceNumber: string
+  InvoiceNumber?: string
   Reference: string | null
   Status: "DRAFT" | "AUTHORISED"
   LineAmountTypes: "Inclusive" | "Exclusive" | "NoTax"
@@ -89,7 +89,7 @@ export type XeroCreateInvoicePayload = {
 }
 
 export type XeroInvoicesResponse = {
-  Invoices?: Array<{ InvoiceID: string }>
+  Invoices?: Array<{ InvoiceID: string; InvoiceNumber?: string }>
 }
 
 export class XeroApiError extends Error {
