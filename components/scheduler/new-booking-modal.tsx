@@ -1730,7 +1730,7 @@ export function NewBookingModal({
                   onClick={() => {
                     void submit("unconfirmed")
                   }}
-                  className="h-11 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900"
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
                 >
                   {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : "Save Booking"}
                 </Button>

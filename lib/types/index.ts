@@ -15,6 +15,11 @@ export { ROLE_HIERARCHY, isRoleAtLeast } from "./roles"
 // Dashboard types
 export type { DashboardData, DashboardMetrics, DashboardBookingLite, DashboardAircraftStatus } from "./dashboard"
 export type {
+  AircraftTechLogReadingSource,
+  AircraftTechLogResponse,
+  AircraftTechLogRow,
+} from "./aircraft-tech-log"
+export type {
   BookingWarningCategory,
   BookingWarningGroup,
   BookingWarningItem,

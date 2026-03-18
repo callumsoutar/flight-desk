@@ -2,9 +2,11 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { isJsonObject } from "@/lib/settings/utils"
 import type { Database } from "@/lib/types"
 import type {
   MembershipRecord,
+  MembershipYearSettings,
   MembershipSummary,
   TenantDefaultTaxRate,
   MembershipTypeWithChargeable,
@@ -20,6 +22,7 @@ export type MemberMembershipsData = {
   summary: MembershipSummary
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
+  membershipYear: MembershipYearSettings | null
 }
 
 export async function fetchMemberMembershipsData(
@@ -29,7 +32,7 @@ export async function fetchMemberMembershipsData(
   timeZone: string
 ): Promise<MemberMembershipsData> {
   const today = new Date().toISOString().slice(0, 10)
-  const [membershipsResult, membershipTypesResult, taxResult] = await Promise.all([
+  const [membershipsResult, membershipTypesResult, taxResult, tenantSettingsResult] = await Promise.all([
     supabase
       .from("memberships")
       .select(
@@ -56,11 +59,17 @@ export async function fetchMemberMembershipsData(
       .order("effective_from", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("tenant_settings")
+      .select("settings")
+      .eq("tenant_id", tenantId)
+      .maybeSingle(),
   ])
 
   if (membershipsResult.error) throw membershipsResult.error
   if (membershipTypesResult.error) throw membershipTypesResult.error
   if (taxResult.error) throw taxResult.error
+  if (tenantSettingsResult.error) throw tenantSettingsResult.error
 
   const membershipHistory: MembershipRecord[] = (membershipsResult.data ?? []).map(
     (row) => ({
@@ -105,5 +114,34 @@ export async function fetchMemberMembershipsData(
       }
     : null
 
-  return { summary, membershipTypes, defaultTaxRate }
+  let membershipYear: MembershipYearSettings | null = null
+  const rawSettings = tenantSettingsResult.data?.settings
+  if (isJsonObject(rawSettings)) {
+    const rawMembershipYear = rawSettings.membership_year
+    if (isJsonObject(rawMembershipYear)) {
+      const endMonth = rawMembershipYear.end_month
+      const endDay = rawMembershipYear.end_day
+      if (
+        typeof endMonth === "number" &&
+        Number.isInteger(endMonth) &&
+        endMonth >= 1 &&
+        endMonth <= 12 &&
+        typeof endDay === "number" &&
+        Number.isInteger(endDay) &&
+        endDay >= 1 &&
+        endDay <= 31
+      ) {
+        membershipYear = {
+          end_month: endMonth,
+          end_day: endDay,
+          description:
+            typeof rawMembershipYear.description === "string"
+              ? rawMembershipYear.description
+              : undefined,
+        }
+      }
+    }
+  }
+
+  return { summary, membershipTypes, defaultTaxRate, membershipYear }
 }

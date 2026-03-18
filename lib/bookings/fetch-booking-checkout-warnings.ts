@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { buildAircraftWarnings } from "@/lib/aircraft/aircraft-warning-utils"
 import type { Database } from "@/lib/types"
 import type { BookingWarningsResponse, BookingWarningCategory, BookingWarningItem, BookingWarningSeverity } from "@/lib/types/booking-warnings"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
@@ -100,23 +101,6 @@ function getDateSeverity(daysRemaining: number): BookingWarningSeverity | null {
   return null
 }
 
-function getHoursSeverity(hoursRemaining: number): BookingWarningSeverity | null {
-  if (hoursRemaining < 0) return "critical"
-  if (hoursRemaining <= 1) return "high"
-  if (hoursRemaining <= 5) return "medium"
-  if (hoursRemaining <= 10) return "low"
-  return null
-}
-
-function getMostUrgentSeverity(
-  left: BookingWarningSeverity | null,
-  right: BookingWarningSeverity | null
-) {
-  if (!left) return right
-  if (!right) return left
-  return SEVERITY_ORDER[left] <= SEVERITY_ORDER[right] ? left : right
-}
-
 function getCountdownLabel(params: { daysRemaining?: number | null; hoursRemaining?: number | null }) {
   if (typeof params.daysRemaining === "number") {
     if (params.daysRemaining < 0) {
@@ -180,16 +164,6 @@ function buildExpiryWarning(params: {
     action_label: null,
     observation_id: null,
   } satisfies BookingWarningItem
-}
-
-function normalizeObservationSeverity(priority: string | null): {
-  severity: BookingWarningSeverity
-  blocking: boolean
-} {
-  const normalized = (priority ?? "medium").trim().toLowerCase()
-  if (normalized === "high") return { severity: "critical", blocking: true }
-  if (normalized === "low") return { severity: "medium", blocking: false }
-  return { severity: "high", blocking: false }
 }
 
 function sortWarnings(source: BookingWarningItem[]) {
@@ -621,125 +595,13 @@ export async function fetchBookingCheckoutWarnings(
 
   if (aircraft) {
     subjectLabels.aircraft = aircraft.registration
-    if (!aircraft.on_line) {
-      addWarning(groups, {
-        id: "aircraft-offline",
-        code: "aircraft_offline",
-        category: "aircraft",
-        severity: "critical",
-        blocking: true,
-        title: "Aircraft is offline",
-        detail: `${aircraft.registration} is not online for scheduling.`,
-        source_label: "Aircraft availability",
-        due_at: null,
-        days_remaining: null,
-        hours_remaining: null,
-        countdown_label: null,
-        action_href: `/aircraft/${aircraft.id}`,
-        action_label: "Open aircraft",
-        observation_id: null,
-      })
-    }
-
-  }
-
-  for (const visit of maintenanceVisitsResult.data ?? []) {
-    const startDate = visit.scheduled_for ?? visit.visit_date
-    addWarning(groups, {
-      id: `aircraft-maintenance-${visit.id}`,
-      code: "aircraft_in_maintenance",
-      category: "aircraft",
-      severity: "critical",
-      blocking: true,
-      title: "Aircraft is currently in maintenance",
-      detail: startDate
-        ? `${visit.description} started ${formatDateLabel(startDate)} and is still open.`
-        : `${visit.description} is still open in maintenance.`,
-      source_label: "Maintenance visit",
-      due_at: startDate,
-      days_remaining: startDate ? diffCalendarDays(startDate, todayKey) : null,
-      hours_remaining: null,
-      countdown_label: null,
-      action_href: aircraft?.id ? `/aircraft/${aircraft.id}` : null,
-      action_label: aircraft?.id ? "Open aircraft" : null,
-      observation_id: null,
-    })
-  }
-
-  const totalTimeInService = Number(aircraft?.total_time_in_service ?? 0)
-  for (const component of componentsResult.data ?? []) {
-    const dueDateDays = component.current_due_date ? diffCalendarDays(component.current_due_date, todayKey) : null
-    const dueHoursRemaining =
-      typeof component.current_due_hours === "number"
-        ? component.current_due_hours - totalTimeInService
-        : null
-
-    const severity = getMostUrgentSeverity(
-      typeof dueDateDays === "number" ? getDateSeverity(dueDateDays) : null,
-      typeof dueHoursRemaining === "number" ? getHoursSeverity(dueHoursRemaining) : null
-    )
-
-    if (!severity) continue
-
-    const dueByDate =
-      component.current_due_date && dueDateDays !== null
-        ? `Due date ${formatDateLabel(component.current_due_date)}`
-        : null
-    const dueByHours =
-      typeof dueHoursRemaining === "number"
-        ? dueHoursRemaining < 0
-          ? `Overdue by ${Math.abs(dueHoursRemaining).toFixed(1)} hrs`
-          : `Due in ${dueHoursRemaining.toFixed(1)} hrs`
-        : null
-    const detailParts = [dueByDate, dueByHours, component.notes?.trim() || null].filter(Boolean)
-
-    addWarning(groups, {
-      id: `aircraft-component-${component.id}`,
-      code: "aircraft_component_due",
-      category: "aircraft",
-      severity,
-      blocking: severity === "critical",
-      title:
-        severity === "critical"
-          ? `${component.name} is overdue`
-          : `${component.name} is approaching its maintenance limit`,
-      detail: detailParts.join(". "),
-      source_label: "Maintenance item",
-      due_at: component.current_due_date,
-      days_remaining: dueDateDays,
-      hours_remaining: dueHoursRemaining,
-      countdown_label: getCountdownLabel({
-        daysRemaining: dueDateDays,
-        hoursRemaining: dueDateDays === null ? dueHoursRemaining : null,
-      }),
-      action_href: aircraft?.id ? `/aircraft/${aircraft.id}` : null,
-      action_label: aircraft?.id ? "Open aircraft" : null,
-      observation_id: null,
-    })
-  }
-
-  for (const observation of observationsResult.data ?? []) {
-    const severityMeta = normalizeObservationSeverity(observation.priority)
-    const reportedDate = observation.reported_date ? formatDateLabel(observation.reported_date) : null
-    addWarning(groups, {
-      id: `aircraft-observation-${observation.id}`,
-      code: "aircraft_observation_open",
-      category: "aircraft",
-      severity: severityMeta.severity,
-      blocking: severityMeta.blocking,
-      title: observation.name,
-      detail: `${observation.stage.charAt(0).toUpperCase()}${observation.stage.slice(1)} observation${
-        reportedDate ? ` reported ${reportedDate}` : ""
-      }.`,
-      source_label: observation.priority ? `${observation.priority} priority observation` : "Aircraft observation",
-      due_at: observation.reported_date,
-      days_remaining: observation.reported_date ? diffCalendarDays(observation.reported_date, todayKey) : null,
-      hours_remaining: null,
-      countdown_label: null,
-      action_href: aircraft?.id ? `/aircraft/${aircraft.id}` : null,
-      action_label: "View observation",
-      observation_id: observation.id,
-    })
+    buildAircraftWarnings({
+      aircraft,
+      components: componentsResult.data ?? [],
+      observations: observationsResult.data ?? [],
+      maintenanceVisits: maintenanceVisitsResult.data ?? [],
+      todayKey,
+    }).forEach((warning) => addWarning(groups, warning))
   }
 
   return buildResponse({

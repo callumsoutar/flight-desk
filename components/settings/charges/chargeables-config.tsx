@@ -5,14 +5,22 @@ import {
   IconCashBanknote,
   IconFilter,
   IconLoader2,
+  IconPencil,
   IconPlus,
   IconSearch,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { XeroTaxTypeSelect } from "@/components/settings/xero-tax-type-select"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -23,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import type { ChargeablesRow, ChargeableTypesRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
@@ -35,7 +44,6 @@ type Chargeable = Pick<
   | "name"
   | "description"
   | "rate"
-  | "xero_tax_type"
   | "is_taxable"
   | "is_active"
   | "chargeable_type_id"
@@ -49,7 +57,6 @@ type ChargeableFormData = {
   description: string
   chargeable_type_id: string
   rate_inclusive: string
-  xero_tax_type: string
   is_taxable: boolean
   is_active: boolean
 }
@@ -86,11 +93,6 @@ function normalizeDescription(value: string) {
   return value.trim()
 }
 
-function normalizeRateInput(value: string) {
-  const parsed = parseOptionalNumber(value)
-  if (parsed == null) return ""
-  return roundToTwoDecimals(parsed).toFixed(2)
-}
 
 function createBlankFormData(): ChargeableFormData {
   return {
@@ -98,7 +100,6 @@ function createBlankFormData(): ChargeableFormData {
     description: "",
     chargeable_type_id: "",
     rate_inclusive: "",
-    xero_tax_type: "",
     is_taxable: true,
     is_active: true,
   }
@@ -153,7 +154,6 @@ function createEditFormData(chargeable: Chargeable, taxRate: number): Chargeable
     description: chargeable.description ?? "",
     chargeable_type_id: chargeable.chargeable_type_id ?? "",
     rate_inclusive: roundToTwoDecimals(rateInclusive).toFixed(2),
-    xero_tax_type: chargeable.xero_tax_type ?? "",
     is_taxable: chargeable.is_taxable ?? true,
     is_active: chargeable.is_active ?? true,
   }
@@ -165,23 +165,21 @@ export function ChargeablesConfig() {
   const [taxRate, setTaxRate] = React.useState(0.15)
 
   const [loading, setLoading] = React.useState(true)
-  const [xeroEnabled, setXeroEnabled] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = React.useState("")
   const [filterTypeId, setFilterTypeId] = React.useState<string>("all")
 
-  const [selectedChargeableId, setSelectedChargeableId] = React.useState<string | null>(null)
-  const [createMode, setCreateMode] = React.useState(false)
-  const [descriptionOpen, setDescriptionOpen] = React.useState(false)
+  const [addOpen, setAddOpen] = React.useState(false)
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [editingId, setEditingId] = React.useState<string | null>(null)
 
-  const [baseForm, setBaseForm] = React.useState<ChargeableFormData | null>(null)
   const [form, setForm] = React.useState<ChargeableFormData>(() => createBlankFormData())
 
-  const selectedChargeable = React.useMemo(
-    () => (selectedChargeableId ? chargeables.find((item) => item.id === selectedChargeableId) ?? null : null),
-    [chargeables, selectedChargeableId]
+  const editingChargeable = React.useMemo(
+    () => (editingId ? chargeables.find((item) => item.id === editingId) ?? null : null),
+    [chargeables, editingId]
   )
 
   const load = React.useCallback(async () => {
@@ -209,116 +207,29 @@ export function ChargeablesConfig() {
     void load()
   }, [load])
 
-  React.useEffect(() => {
-    void (async () => {
-      const response = await fetch("/api/xero/status", { cache: "no-store" })
-      if (!response.ok) return
-      const body = (await response.json().catch(() => null)) as { enabled?: boolean } | null
-      setXeroEnabled(Boolean(body?.enabled))
-    })()
-  }, [])
-
-  const resetEditorToBlank = React.useCallback(() => {
-    const blank = createBlankFormData()
-    setBaseForm(blank)
-    setForm(blank)
-    setDescriptionOpen(false)
-  }, [])
-
-  const hydrateEditorForChargeable = React.useCallback(
-    (item: Chargeable) => {
-      const next = createEditFormData(item, taxRate)
-      setSelectedChargeableId(item.id)
-      setCreateMode(false)
-      setBaseForm(next)
-      setForm(next)
-      setDescriptionOpen(Boolean(normalizeDescription(next.description)))
-    },
-    [taxRate]
-  )
-
-  const hydrateEditorFromFreshLoad = React.useCallback((id: string, items: Chargeable[], nextTaxRate: number) => {
-    const found = items.find((candidate) => candidate.id === id) ?? null
-    if (!found) {
-      setSelectedChargeableId(null)
-      setCreateMode(false)
-      setBaseForm(null)
-      return
-    }
-    const next = createEditFormData(found, nextTaxRate)
-    setSelectedChargeableId(found.id)
-    setCreateMode(false)
-    setBaseForm(next)
-    setForm(next)
-    setDescriptionOpen(Boolean(normalizeDescription(next.description)))
-  }, [])
-
-  const isDirty = React.useMemo(() => {
-    if (!baseForm) return false
-    if (normalizeName(form.name) !== normalizeName(baseForm.name)) return true
-    if (normalizeDescription(form.description) !== normalizeDescription(baseForm.description)) return true
-    if (form.chargeable_type_id !== baseForm.chargeable_type_id) return true
-    if (form.is_taxable !== baseForm.is_taxable) return true
-    if (form.is_active !== baseForm.is_active) return true
-    if (xeroEnabled && form.xero_tax_type.trim() !== baseForm.xero_tax_type.trim()) return true
-    if (normalizeRateInput(form.rate_inclusive) !== normalizeRateInput(baseForm.rate_inclusive)) return true
-    return false
-  }, [baseForm, form, xeroEnabled])
-
-  const confirmDiscardIfNeeded = React.useCallback(() => {
-    if (!isDirty) return true
-    return window.confirm("Discard your unsaved changes?")
-  }, [isDirty])
-
-  const startCreate = React.useCallback(() => {
-    setSelectedChargeableId(null)
-    setCreateMode(true)
-    resetEditorToBlank()
-  }, [resetEditorToBlank])
-
-  const onStartCreate = React.useCallback(() => {
-    if (!confirmDiscardIfNeeded()) return
-    startCreate()
-  }, [confirmDiscardIfNeeded, startCreate])
-
-  const onSelectChargeable = React.useCallback(
-    (item: Chargeable) => {
-      if (!confirmDiscardIfNeeded()) return
-      hydrateEditorForChargeable(item)
-    },
-    [confirmDiscardIfNeeded, hydrateEditorForChargeable]
-  )
-
   const applyTaxableToggle = React.useCallback(
     (current: ChargeableFormData, nextIsTaxable: boolean) => {
       const currentTaxRate = current.is_taxable ? taxRate : 0
-      const nextTaxRate = nextIsTaxable ? taxRate : 0
+      const nextTaxRateVal = nextIsTaxable ? taxRate : 0
 
       const rateInclusive = parseOptionalNumber(current.rate_inclusive)
       const rateExclusive = rateInclusive == null ? null : inclusiveToExclusive(rateInclusive, currentTaxRate)
       const nextInclusive =
-        rateExclusive == null ? "" : roundToTwoDecimals(exclusiveToInclusive(rateExclusive, nextTaxRate)).toFixed(2)
+        rateExclusive == null ? "" : roundToTwoDecimals(exclusiveToInclusive(rateExclusive, nextTaxRateVal)).toFixed(2)
 
       return { ...current, is_taxable: nextIsTaxable, rate_inclusive: nextInclusive }
     },
     [taxRate]
   )
 
-  const onUndo = React.useCallback(() => {
-    if (!baseForm) return
-    setForm(baseForm)
-    setError(null)
-  }, [baseForm])
-
   const canSave = React.useMemo(() => {
     if (saving) return false
-    if (!isDirty) return false
     if (!normalizeName(form.name).length) return false
     if (!form.chargeable_type_id) return false
     const rateInclusive = parseOptionalNumber(form.rate_inclusive)
     if (rateInclusive == null || rateInclusive < 0) return false
     return true
-  }, [form.chargeable_type_id, form.name, form.rate_inclusive, isDirty, saving])
+  }, [form.chargeable_type_id, form.name, form.rate_inclusive, saving])
 
   const handleDeactivate = React.useCallback(
     async (item: Chargeable) => {
@@ -340,11 +251,9 @@ export function ChargeablesConfig() {
               : "Failed to deactivate chargeable"
           throw new Error(message)
         }
-
-        const loaded = await load()
-        if (loaded) {
-          hydrateEditorFromFreshLoad(item.id, loaded.items, loaded.taxRate)
-        }
+        await load()
+        setEditOpen(false)
+        setEditingId(null)
         toast.success("Chargeable deactivated")
       } catch (err) {
         toast.error(getErrorMessage(err))
@@ -353,12 +262,11 @@ export function ChargeablesConfig() {
         setSaving(false)
       }
     },
-    [hydrateEditorFromFreshLoad, load]
+    [load]
   )
 
-  const handleSave = async () => {
-    if (!normalizeName(form.name).length) return
-    if (!form.chargeable_type_id) return
+  const handleCreate = async () => {
+    if (!normalizeName(form.name).length || !form.chargeable_type_id) return
 
     const rateInclusive = parseOptionalNumber(form.rate_inclusive)
     if (rateInclusive == null || rateInclusive < 0) {
@@ -372,55 +280,68 @@ export function ChargeablesConfig() {
       const itemTaxRate = form.is_taxable ? taxRate : 0
       const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(rateInclusive, itemTaxRate))
 
-      if (createMode) {
-        const response = await fetch("/api/chargeables", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            name: normalizeName(form.name),
-            description: normalizeDescription(form.description),
-            chargeable_type_id: form.chargeable_type_id,
-            is_taxable: form.is_taxable,
-            is_active: form.is_active,
-            rate: rateExclusive,
-            xero_tax_type: xeroEnabled ? form.xero_tax_type.trim() || null : null,
-          }),
-        })
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-          const message =
-            data && typeof data === "object" && typeof data.error === "string"
-              ? data.error
-              : "Failed to create chargeable"
-          throw new Error(message)
-        }
-
-        const result = (await response.json().catch(() => null)) as { chargeable?: { id?: unknown } } | null
-        const createdId =
-          result && typeof result.chargeable?.id === "string" ? result.chargeable.id : null
-
-        const loaded = await load()
-        if (loaded && createdId) {
-          hydrateEditorFromFreshLoad(createdId, loaded.items, loaded.taxRate)
-        }
-        toast.success("Chargeable created")
-        return
-      }
-
-      if (!selectedChargeable) return
-
       const response = await fetch("/api/chargeables", {
-        method: "PATCH",
+        method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          id: selectedChargeable.id,
           name: normalizeName(form.name),
           description: normalizeDescription(form.description),
           chargeable_type_id: form.chargeable_type_id,
           is_taxable: form.is_taxable,
           is_active: form.is_active,
           rate: rateExclusive,
-          xero_tax_type: xeroEnabled ? form.xero_tax_type.trim() || null : null,
+          xero_tax_type: null,
+        }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        const message =
+          data && typeof data === "object" && typeof data.error === "string"
+            ? data.error
+            : "Failed to create chargeable"
+        throw new Error(message)
+      }
+
+      await load()
+      setAddOpen(false)
+      setForm(createBlankFormData())
+      toast.success("Chargeable created")
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+      setError(getErrorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editingChargeable) return
+    if (!normalizeName(form.name).length || !form.chargeable_type_id) return
+
+    const rateInclusive = parseOptionalNumber(form.rate_inclusive)
+    if (rateInclusive == null || rateInclusive < 0) {
+      setError("Rate is required.")
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const itemTaxRate = form.is_taxable ? taxRate : 0
+      const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(rateInclusive, itemTaxRate))
+
+      const response = await fetch("/api/chargeables", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: editingChargeable.id,
+          name: normalizeName(form.name),
+          description: normalizeDescription(form.description),
+          chargeable_type_id: form.chargeable_type_id,
+          is_taxable: form.is_taxable,
+          is_active: form.is_active,
+          rate: rateExclusive,
+          xero_tax_type: null,
         }),
       })
       if (!response.ok) {
@@ -432,12 +353,10 @@ export function ChargeablesConfig() {
         throw new Error(message)
       }
 
-      const loaded = await load()
-      if (loaded) {
-        hydrateEditorFromFreshLoad(selectedChargeable.id, loaded.items, loaded.taxRate)
-      } else {
-        hydrateEditorForChargeable(selectedChargeable)
-      }
+      await load()
+      setEditOpen(false)
+      setEditingId(null)
+      setForm(createBlankFormData())
       toast.success("Chargeable updated")
     } catch (err) {
       toast.error(getErrorMessage(err))
@@ -463,19 +382,6 @@ export function ChargeablesConfig() {
     return chargeables.filter((item) => matchesSearch(item) && matchesType(item))
   }, [chargeables, filterTypeId, searchTerm])
 
-  const groupedChargeables = React.useMemo(() => {
-    const groups = new Map<string, Chargeable[]>()
-    for (const item of filteredChargeables) {
-      const key = item.chargeable_type?.name ?? "Uncategorized"
-      const existing = groups.get(key) ?? []
-      existing.push(item)
-      groups.set(key, existing)
-    }
-    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-  }, [filteredChargeables])
-
-  const showEditor = createMode || Boolean(selectedChargeable) || Boolean(selectedChargeableId && baseForm)
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -492,393 +398,428 @@ export function ChargeablesConfig() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <div className="rounded-2xl border border-slate-200 bg-white flex flex-col lg:h-[640px] lg:col-span-2">
-          <div className="border-b border-border/40 p-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full">
-                  <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    placeholder="Search chargeables..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 rounded-xl border-slate-200 bg-white pl-9 shadow-none focus-visible:ring-0"
-                    disabled={loading}
-                  />
-                </div>
-
-                <Button
-                  onClick={onStartCreate}
-                  className="h-10 rounded-xl bg-indigo-600 font-semibold text-white hover:bg-indigo-700"
-                  disabled={loading || saving}
-                >
-                  <IconPlus className="mr-2 h-4 w-4" />
-                  Add
-                </Button>
-              </div>
-
-              <Select value={filterTypeId} onValueChange={setFilterTypeId}>
-                <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white shadow-none focus:ring-0">
-                  <div className="flex items-center gap-2">
-                    <IconFilter className="h-4 w-4 text-slate-400" />
-                    <SelectValue placeholder="Filter by type" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="all">All types</SelectItem>
-                  {chargeableTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:max-w-xs">
+            <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Search chargeables..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-10 rounded-xl border-slate-200 bg-white pl-9 shadow-none focus-visible:ring-0"
+              disabled={loading}
+            />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {loading ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-muted-foreground">
-                Loading chargeables…
+          <Select value={filterTypeId} onValueChange={setFilterTypeId}>
+            <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white shadow-none focus:ring-0 sm:w-48">
+              <div className="flex items-center gap-2">
+                <IconFilter className="h-4 w-4 text-slate-400" />
+                <SelectValue placeholder="Filter by type" />
               </div>
-            ) : filteredChargeables.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-10 text-center">
-                <p className="text-sm font-semibold text-slate-900">
-                  {searchTerm ? "No matching chargeables" : "No chargeables configured"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Add a chargeable to create reusable invoice/check-in items.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {groupedChargeables.map(([groupName, groupItems]) => (
-                  <div key={groupName} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                      {groupName}
-                    </div>
-                    {groupItems.map((item, index) => {
-                      const isSelected = selectedChargeableId === item.id && !createMode
-                      const itemTaxRate = item.is_taxable ? taxRate : 0
-                      const rateExclusive = Number.isFinite(item.rate) ? Number(item.rate) : 0
-                      const rateInclusive = roundToTwoDecimals(exclusiveToInclusive(rateExclusive, itemTaxRate)).toFixed(2)
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => onSelectChargeable(item)}
-                          className={cn(
-                            "w-full px-4 py-3 text-left transition-colors",
-                            index === 0 ? "" : "border-t border-slate-200",
-                            isSelected ? "bg-slate-50" : "bg-white hover:bg-slate-50"
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
-                                {item.is_active ? null : (
-                                  <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">
-                                    Inactive
-                                  </Badge>
-                                )}
-                              </div>
-                              {item.description ? (
-                                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-                              ) : null}
-                            </div>
-
-                            <div className="flex shrink-0 flex-col items-end gap-0.5 text-right">
-                              <p className="text-sm font-semibold tabular-nums text-slate-900">{rateInclusive}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.is_taxable ? "Taxable" : "Non-taxable"}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">All types</SelectItem>
+              {chargeableTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white lg:h-[640px] lg:col-span-3">
-          {!showEditor ? (
-            <div className="flex h-full items-center justify-center p-10">
-              <div className="text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
-                  <IconCashBanknote className="h-6 w-6 text-slate-600" />
-                </div>
-                <p className="mt-4 text-sm font-semibold text-slate-900">
-                  {chargeables.length ? "Select a chargeable to edit" : "No chargeables yet"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {chargeables.length
-                    ? "Choose an item from the list to update details and pricing."
-                    : "Create your first additional chargeable to get started."}
-                </p>
-                <Button
-                  className="mt-5 h-10 rounded-xl bg-slate-900 font-semibold text-white hover:bg-slate-800"
-                  onClick={onStartCreate}
-                  disabled={loading || saving}
-                >
-                  <IconPlus className="mr-2 h-4 w-4" />
-                  Add chargeable
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex h-full flex-col">
-              <div className="border-b border-border/40 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-lg font-semibold text-slate-900">
-                        {createMode ? "New chargeable" : "Chargeable details"}
-                      </h4>
-                      {createMode ? (
-                        <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700" variant="outline">
-                          New
-                        </Badge>
-                      ) : selectedChargeable?.is_active ? (
-                        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge className="border-slate-200 bg-white text-slate-600" variant="outline">
-                          Inactive
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {createMode ? "Create a chargeable with a default rate." : "Update details and default rate."}
-                    </p>
-                    <p className="text-[11px] font-medium text-slate-500">
-                      Default tax rate: {(taxRate * 100).toFixed(0)}%
-                    </p>
-                  </div>
+        <Dialog
+          open={addOpen}
+          onOpenChange={(open) => {
+            setAddOpen(open)
+            if (open) {
+              setForm(createBlankFormData())
+              setError(null)
+            }
+          }}
+        >
+          <Button
+            size="sm"
+            onClick={() => setAddOpen(true)}
+            disabled={loading || saving}
+            className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm shadow-indigo-100 transition-all active:scale-[0.98] whitespace-nowrap font-semibold border-none"
+          >
+            <IconPlus className="mr-1 h-4 w-4" />
+            Add chargeable
+          </Button>
 
-                  {!createMode && selectedChargeable ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9 rounded-xl text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-                      onClick={() => void handleDeactivate(selectedChargeable)}
-                      disabled={saving || !selectedChargeable.is_active}
-                      title="Deactivate"
-                    >
-                      Deactivate
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9 rounded-xl"
-                      onClick={() => {
-                        if (!confirmDiscardIfNeeded()) return
-                        setCreateMode(false)
-                        setSelectedChargeableId(null)
-                        setBaseForm(null)
-                        setError(null)
-                      }}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                  )}
+          <DialogContent
+            className={cn(
+              "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden",
+              "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[540px]",
+              "top-[calc(env(safe-area-inset-top)+1rem)] sm:top-[50%] translate-y-0 sm:translate-y-[-50%]",
+              "h-[calc(100dvh-2rem)] sm:flex sm:flex-col sm:h-auto sm:max-h-[calc(100dvh-4rem)]"
+            )}
+          >
+            <div className="flex flex-col flex-1 min-h-0 bg-white">
+              <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6 shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                    <IconCashBanknote className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                      Add Chargeable
+                    </DialogTitle>
+                    <DialogDescription className="mt-0.5 text-sm text-slate-500">
+                      Create a chargeable with a default rate. Required fields are marked with{" "}
+                      <span className="text-destructive">*</span>.
+                    </DialogDescription>
+                  </div>
                 </div>
+              </DialogHeader>
+
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6">
+                <ChargeableFormFields
+                  form={form}
+                  setForm={setForm}
+                  chargeableTypes={chargeableTypes}
+                  taxRate={taxRate}
+                  saving={saving}
+                  applyTaxableToggle={applyTaxableToggle}
+                />
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Name <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className="h-10 rounded-xl border-slate-200 bg-white"
-                      placeholder="e.g. Airways Fee"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Type <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={form.chargeable_type_id}
-                      onValueChange={(value) => setForm((prev) => ({ ...prev, chargeable_type_id: value }))}
-                    >
-                      <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white shadow-none focus:ring-0">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {chargeableTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {xeroEnabled ? (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Chargeable type GL code
-                    </Label>
-                    <Input
-                      value={
-                        chargeableTypes.find((type) => type.id === form.chargeable_type_id)?.gl_code ?? ""
-                      }
-                      readOnly
-                      className="h-10 rounded-xl border-slate-200 bg-slate-50 text-slate-600"
-                      placeholder="Configure on chargeable type"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      GL code is inherited from the selected chargeable type.
-                    </p>
-                  </div>
-                ) : null}
-
-                {xeroEnabled ? (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Xero tax type
-                    </Label>
-                    <XeroTaxTypeSelect
-                      value={form.xero_tax_type}
-                      onChange={(taxType) =>
-                        setForm((prev) => ({ ...prev, xero_tax_type: taxType }))
-                      }
-                      placeholder="Select tax type (optional)"
-                      disabled={saving}
-                      includeNoneOption={true}
-                      className="h-10 rounded-xl border-slate-200 bg-white"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Leave blank to use the default from Settings → Integrations.
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Default rate (tax inclusive) <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    value={form.rate_inclusive}
-                    onChange={(e) => setForm((prev) => ({ ...prev, rate_inclusive: e.target.value }))}
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    className="h-10 rounded-xl border-slate-200 bg-white tabular-nums"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 leading-none">Taxable</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Uses default tax rate.</p>
-                    </div>
-                    <Switch
-                      checked={form.is_taxable}
-                      onCheckedChange={(checked) => setForm((prev) => applyTaxableToggle(prev, checked))}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 leading-none">Active</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Available for use.</p>
-                    </div>
-                    <Switch
-                      checked={form.is_active}
-                      onCheckedChange={(checked) => setForm((prev) => ({ ...prev, is_active: checked }))}
-                    />
-                  </div>
-                </div>
-
-                <details
-                  className="rounded-2xl border border-slate-200 bg-white"
-                  open={descriptionOpen}
-                  onToggle={(event) => setDescriptionOpen((event.target as HTMLDetailsElement).open)}
-                >
-                  <summary className="cursor-pointer list-none px-4 py-2.5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900">Description</p>
-                        <p className="text-xs text-muted-foreground">Optional internal notes.</p>
-                      </div>
-                      <Badge variant="outline" className="border-slate-200 text-slate-600">
-                        Optional
-                      </Badge>
-                    </div>
-                  </summary>
-                  <div className="px-4 pb-4">
-                    <Textarea
-                      value={form.description}
-                      onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                      className="min-h-[72px] resize-none rounded-xl border-slate-200 bg-white"
-                      placeholder="Optional notes shown to staff."
-                    />
-                  </div>
-                </details>
-              </div>
-
-              <div className="border-t border-border/40 bg-white px-4 py-3">
+              <div className="shrink-0 border-t bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:pb-4">
                 <div className="flex items-center justify-between gap-3">
-                  {isDirty ? (
-                    <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
-                      Unsaved changes
-                    </Badge>
-                  ) : (
-                    <Badge className="border-slate-200 bg-white text-slate-600" variant="outline">
-                      Saved
-                    </Badge>
-                  )}
-
-                  <div className="flex items-center justify-end gap-2">
-                    {isDirty ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shadow-none"
-                        onClick={onUndo}
-                        disabled={saving}
-                      >
-                        Undo
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="bg-slate-900 font-semibold text-white shadow-none hover:bg-slate-800"
-                      onClick={() => void handleSave()}
-                      disabled={!canSave}
-                    >
-                      {saving ? <IconLoader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                      {saving ? "Saving…" : createMode ? "Create" : "Save"}
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAddOpen(false)}
+                    className="h-10 flex-1 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => void handleCreate()}
+                    disabled={saving || !canSave}
+                    className="h-10 flex-[1.4] rounded-xl bg-slate-900 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                  >
+                    {saving ? <IconLoader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                    Create Chargeable
+                  </Button>
                 </div>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-right">Rate (incl.)</TableHead>
+              <TableHead>Tax</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
+                  Loading chargeables…
+                </TableCell>
+              </TableRow>
+            ) : filteredChargeables.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
+                  {searchTerm || filterTypeId !== "all"
+                    ? "No chargeables match your filters."
+                    : "No chargeables configured. Add one to get started."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredChargeables.map((item) => {
+                const itemTaxRate = item.is_taxable ? taxRate : 0
+                const rateExclusive = Number.isFinite(item.rate) ? Number(item.rate) : 0
+                const rateInclusive = roundToTwoDecimals(exclusiveToInclusive(rateExclusive, itemTaxRate)).toFixed(2)
+
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                        {item.description ? (
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{item.description}</p>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-slate-700">
+                        {item.chargeable_type?.name ?? "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-sm font-semibold tabular-nums text-slate-900">${rateInclusive}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs",
+                          item.is_taxable
+                            ? "border-blue-200 bg-blue-50 text-blue-700"
+                            : "border-slate-200 bg-white text-slate-600"
+                        )}
+                      >
+                        {item.is_taxable ? "Taxable" : "Non-taxable"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-xs",
+                          item.is_active
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-white text-slate-600"
+                        )}
+                      >
+                        {item.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingId(item.id)
+                          setForm(createEditFormData(item, taxRate))
+                          setError(null)
+                          setEditOpen(true)
+                        }}
+                      >
+                        <IconPencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open)
+          if (!open) {
+            setEditingId(null)
+            setForm(createBlankFormData())
+            setError(null)
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden",
+            "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[540px]",
+            "top-[calc(env(safe-area-inset-top)+1rem)] sm:top-[50%] translate-y-0 sm:translate-y-[-50%]",
+            "h-[calc(100dvh-2rem)] sm:flex sm:flex-col sm:h-auto sm:max-h-[calc(100dvh-4rem)]"
           )}
+        >
+          <div className="flex flex-col flex-1 min-h-0 bg-white">
+            <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6 shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                  <IconPencil className="h-5 w-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
+                    Edit Chargeable
+                  </DialogTitle>
+                  <DialogDescription className="mt-0.5 text-sm text-slate-500">
+                    Update details and default rate. Required fields are marked with{" "}
+                    <span className="text-destructive">*</span>.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6">
+              <ChargeableFormFields
+                form={form}
+                setForm={setForm}
+                chargeableTypes={chargeableTypes}
+                taxRate={taxRate}
+                saving={saving}
+                applyTaxableToggle={applyTaxableToggle}
+              />
+            </div>
+
+            <div className="shrink-0 border-t bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:pb-4">
+              <div className="flex items-center justify-between gap-3">
+                {editingChargeable?.is_active ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => editingChargeable && void handleDeactivate(editingChargeable)}
+                    disabled={saving}
+                    className="h-10 rounded-xl border-orange-200 text-orange-600 text-xs font-bold shadow-none hover:bg-orange-50 hover:text-orange-700"
+                  >
+                    Deactivate
+                  </Button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditOpen(false)
+                      setEditingId(null)
+                      setForm(createBlankFormData())
+                      setError(null)
+                    }}
+                    className="h-10 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => void handleUpdate()}
+                    disabled={saving || !canSave}
+                    className="h-10 rounded-xl bg-slate-900 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                  >
+                    {saving ? <IconLoader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+type ChargeableFormFieldsProps = {
+  form: ChargeableFormData
+  setForm: React.Dispatch<React.SetStateAction<ChargeableFormData>>
+  chargeableTypes: ChargeableTypeLite[]
+  taxRate: number
+  saving: boolean
+  applyTaxableToggle: (current: ChargeableFormData, nextIsTaxable: boolean) => ChargeableFormData
+}
+
+function ChargeableFormFields({
+  form,
+  setForm,
+  chargeableTypes,
+  taxRate,
+  saving,
+  applyTaxableToggle,
+}: ChargeableFormFieldsProps) {
+  const [descriptionOpen, setDescriptionOpen] = React.useState(false)
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Name <span className="text-destructive">*</span>
+        </label>
+        <Input
+          value={form.name}
+          onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+          placeholder="e.g. Airways Fee"
+          className="h-11 rounded-xl border-slate-200 bg-white px-3 text-[15px] shadow-none transition-colors focus-visible:ring-0"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Category <span className="text-destructive">*</span>
+        </label>
+        <Select
+          value={form.chargeable_type_id}
+          onValueChange={(value) => setForm((prev) => ({ ...prev, chargeable_type_id: value }))}
+        >
+          <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white shadow-none focus:ring-0">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            {chargeableTypes.map((type) => (
+              <SelectItem key={type.id} value={type.id}>
+                {type.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Price <span className="text-destructive">*</span>
+        </label>
+        <Input
+          value={form.rate_inclusive}
+          onChange={(e) => setForm((prev) => ({ ...prev, rate_inclusive: e.target.value }))}
+          type="number"
+          min={0}
+          step="0.01"
+          className="h-11 rounded-xl border-slate-200 bg-white px-3 text-[15px] tabular-nums shadow-none transition-colors focus-visible:ring-0"
+          placeholder="0.00"
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          Entered price is tax inclusive. Default tax rate: {(taxRate * 100).toFixed(0)}%
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Label className="text-sm font-semibold text-slate-900 leading-none">Includes tax</Label>
+            <p className="mt-1 text-xs text-slate-600 leading-snug">
+              Applies the default tax rate to this chargeable.
+            </p>
+          </div>
+          <Switch
+            checked={form.is_taxable}
+            onCheckedChange={(checked) => setForm((prev) => applyTaxableToggle(prev, checked))}
+            disabled={saving}
+          />
         </div>
       </div>
+
+      <Collapsible open={descriptionOpen} onOpenChange={setDescriptionOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+              <IconPlus className="h-3.5 w-3.5" />
+            </span>
+            {descriptionOpen ? "Hide description" : "Add description"}
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Description
+            </label>
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="Optional notes shown to staff."
+              rows={3}
+              className="rounded-xl border-slate-200 bg-white px-3 py-2 text-[15px] shadow-none transition-colors focus-visible:ring-0"
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   )
 }

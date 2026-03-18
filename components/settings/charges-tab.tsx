@@ -4,8 +4,6 @@ import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconCashBanknote, IconCategory, IconPlane, IconReceiptTax } from "@tabler/icons-react"
 
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FlightTypesConfig } from "@/components/settings/charges/flight-types-config"
 import { LandingFeesConfig } from "@/components/settings/charges/landing-fees-config"
 import { ChargeablesConfig } from "@/components/settings/charges/chargeables-config"
@@ -116,78 +114,27 @@ export function ChargesTab() {
 
         <div className="w-full pt-6">
           <Tabs.Content value="aircraft" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Aircraft rates</CardTitle>
-                    <CardDescription>
-                      Configure the flight types that drive hourly aircraft rates and booking categories.
-                    </CardDescription>
-                  </div>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600">
-                    Flight types
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <FlightTypesConfig />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0">
+              <FlightTypesConfig />
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="landing" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Landing fees</CardTitle>
-                    <CardDescription>
-                      Manage landing fee chargeables and per-aircraft-type pricing.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <LandingFeesConfig />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0">
+              <LandingFeesConfig />
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="categories" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Chargeable categories</CardTitle>
-                    <CardDescription>
-                      Manage chargeable categories and the default GL code for each category.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ChargeableTypesConfig />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0">
+              <ChargeableTypesConfig />
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="additional" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Additional charges</CardTitle>
-                    <CardDescription>
-                      Configure any non-hourly, non-landing-fee chargeables (e.g. airways fees, admin fees).
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ChargeablesConfig />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0">
+              <ChargeablesConfig />
+            </div>
           </Tabs.Content>
         </div>
       </Tabs.Root>

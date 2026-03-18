@@ -7,6 +7,7 @@ import {
   IconAlertTriangle,
   IconArrowLeft,
   IconChartBar,
+  IconGauge,
   IconHistory,
   IconSettings,
   IconTool,
@@ -18,6 +19,7 @@ import { AircraftMaintenanceItemsTab } from "@/components/aircraft/aircraft-main
 import { AircraftObservationsTab } from "@/components/aircraft/aircraft-observations-tab"
 import { AircraftOverviewTab } from "@/components/aircraft/aircraft-overview-tab"
 import { AircraftSettingsTab } from "@/components/aircraft/aircraft-settings-tab"
+import { AircraftTechLogTab } from "@/components/aircraft/aircraft-tech-log-tab"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -43,6 +45,7 @@ type Props = {
 
 const tabItems = [
   { id: "overview", label: "Overview", icon: IconChartBar },
+  { id: "tech-log", label: "Tech Log", icon: IconGauge },
   { id: "flight-history", label: "Flight History", icon: IconHistory },
   { id: "observations", label: "Observations", icon: IconAlertTriangle },
   { id: "maintenance-items", label: "Maintenance Items", icon: IconTool },
@@ -64,7 +67,6 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
 
   const registration = aircraft.registration || ""
   const model = aircraft.model || ""
-  const type = aircraft.type || ""
   const imageUrl = aircraft.aircraft_image_url
   const availableForBookings = aircraft.on_line ?? true
   const totalHours = aircraft.total_time_in_service || 0
@@ -192,7 +194,6 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 sm:gap-4 sm:text-sm">
                     {model ? <span className="font-medium">{model}</span> : null}
-                    {type ? <span>{type}</span> : null}
                     {aircraft.aircraft_type?.name ? (
                       <span>{aircraft.aircraft_type.name}</span>
                     ) : null}
@@ -320,6 +321,10 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
 
                 <Tabs.Content value="flight-history">
                   <AircraftFlightHistoryTab flights={flights} />
+                </Tabs.Content>
+
+                <Tabs.Content value="tech-log">
+                  <AircraftTechLogTab aircraftId={aircraftId} aircraft={aircraft} />
                 </Tabs.Content>
 
                 <Tabs.Content value="observations">

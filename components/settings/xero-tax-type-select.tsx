@@ -50,6 +50,8 @@ export function XeroTaxTypeSelect({
   includeNoneOption?: boolean
   className?: string
 }) {
+  const [open, setOpen] = React.useState(false)
+
   const {
     data: taxRates = [],
     isLoading,
@@ -58,6 +60,7 @@ export function XeroTaxTypeSelect({
     queryKey: ["xero", "tax-rates"],
     queryFn: fetchTaxRates,
     staleTime: 60_000,
+    enabled: open,
   })
 
   const selectedRate = taxRates.find((r) => r.tax_type === value)
@@ -71,25 +74,10 @@ export function XeroTaxTypeSelect({
     return list
   }, [taxRates, value])
 
-  if (isLoading) {
-    return (
-      <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>Loading tax rates…</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-        {error instanceof Error ? error.message : "Failed to load tax rates"}
-      </div>
-    )
-  }
-
   return (
     <Select
+      open={open}
+      onOpenChange={setOpen}
       value={value || "__none__"}
       onValueChange={(v) => onChange(v === "__none__" ? "" : v)}
       disabled={disabled}
@@ -102,16 +90,29 @@ export function XeroTaxTypeSelect({
         </SelectValue>
       </SelectTrigger>
       <SelectContent className="rounded-xl">
-        {includeNoneOption ? (
-          <SelectItem value="__none__">
-            <span className="text-muted-foreground">None</span>
-          </SelectItem>
-        ) : null}
-        {options.map((rate) => (
-          <SelectItem key={rate.tax_type} value={rate.tax_type}>
-            {formatLabel(rate)}
-          </SelectItem>
-        ))}
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-2 py-4 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading tax rates…
+          </div>
+        ) : error ? (
+          <div className="px-3 py-4 text-center text-sm text-destructive">
+            {error instanceof Error ? error.message : "Failed to load tax rates"}
+          </div>
+        ) : (
+          <>
+            {includeNoneOption ? (
+              <SelectItem value="__none__">
+                <span className="text-muted-foreground">None</span>
+              </SelectItem>
+            ) : null}
+            {options.map((rate) => (
+              <SelectItem key={rate.tax_type} value={rate.tax_type}>
+                {formatLabel(rate)}
+              </SelectItem>
+            ))}
+          </>
+        )}
       </SelectContent>
     </Select>
   )

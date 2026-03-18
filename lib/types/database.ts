@@ -4047,6 +4047,26 @@ export type Database = {
               visit_count: number
             }[]
           }
+      get_aircraft_tech_log: {
+        Args: {
+          p_aircraft_id: string
+          p_limit?: number
+          p_offset?: number
+          p_time_zone?: string
+        }
+        Returns: {
+          computed_ttis: number | null
+          daily_delta: number | null
+          daily_ttis_delta: number | null
+          entry_count: number
+          latest_entry_at: string | null
+          latest_reading: number | null
+          reading_source: string
+          tech_log_date: string
+          total_rows: number
+          total_time_method: Database["public"]["Enums"]["total_time_method"] | null
+        }[]
+      }
       get_auth_user_details: {
         Args: { user_uuid: string }
         Returns: {

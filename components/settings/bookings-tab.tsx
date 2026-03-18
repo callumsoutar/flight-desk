@@ -8,7 +8,6 @@ import { toast } from "sonner"
 
 import { CancellationCategoriesTab } from "@/components/settings/bookings/cancellation-categories-tab"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
@@ -175,23 +174,19 @@ export function BookingsTab({
 
   if (loading) {
     return (
-      <Card className="border border-border/50 bg-card shadow-sm">
-        <CardContent className="flex items-center justify-center gap-2 py-12 text-slate-600">
-          <IconLoader2 className="h-5 w-5 animate-spin text-slate-400" />
-          <span className="text-sm font-medium">Loading booking settings…</span>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center gap-2 py-12 text-slate-600">
+        <IconLoader2 className="h-5 w-5 animate-spin text-slate-400" />
+        <span className="text-sm font-medium">Loading booking settings…</span>
+      </div>
     )
   }
 
   if (loadError) {
     return (
-      <Card className="border border-border/50 bg-card shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg text-slate-900">Bookings</CardTitle>
-          <CardDescription>{loadError}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="space-y-1 py-2">
+        <h3 className="text-lg font-semibold text-slate-900">Bookings</h3>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+      </div>
     )
   }
 
@@ -264,70 +259,65 @@ export function BookingsTab({
 
         <div className="w-full pt-6">
           <Tabs.Content value="defaults" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg text-slate-900">Booking defaults</CardTitle>
-                  <CardDescription>
-                    Defaults that apply when creating new bookings.
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <IconClock className="h-4 w-4 text-slate-500" />
-                  Duration defaults
+            <div className="w-full min-w-0 space-y-6">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-slate-900">Booking defaults</h3>
+                <p className="text-sm text-muted-foreground">Defaults that apply when creating new bookings.</p>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <IconClock className="h-4 w-4 text-slate-500" />
+                Duration defaults
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="default-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Default duration (hours)
+                  </Label>
+                  <Input
+                    id="default-booking-duration"
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={form.default_booking_duration_hours}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        default_booking_duration_hours: Number.parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="h-11 rounded-xl border-slate-200 bg-white"
+                  />
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Used to prefill the end time when staff create bookings.
+                  </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="default-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Default duration (hours)
-                    </Label>
-                    <Input
-                      id="default-booking-duration"
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      value={form.default_booking_duration_hours}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          default_booking_duration_hours: Number.parseFloat(e.target.value) || 0,
-                        }))
-                      }
-                      className="h-11 rounded-xl border-slate-200 bg-white"
-                    />
-                    <p className="text-[11px] font-medium text-slate-500">
-                      Used to prefill the end time when staff create bookings.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="minimum-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Minimum duration (minutes)
-                    </Label>
-                    <Input
-                      id="minimum-booking-duration"
-                      type="number"
-                      min={0}
-                      step={5}
-                      value={form.minimum_booking_duration_minutes}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          minimum_booking_duration_minutes: Number.parseInt(e.target.value, 10) || 0,
-                        }))
-                      }
-                      className="h-11 rounded-xl border-slate-200 bg-white"
-                    />
-                    <p className="text-[11px] font-medium text-slate-500">
-                      Helps prevent very short bookings from being created accidentally.
-                    </p>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minimum-booking-duration" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Minimum duration (minutes)
+                  </Label>
+                  <Input
+                    id="minimum-booking-duration"
+                    type="number"
+                    min={0}
+                    step={5}
+                    value={form.minimum_booking_duration_minutes}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        minimum_booking_duration_minutes: Number.parseInt(e.target.value, 10) || 0,
+                      }))
+                    }
+                    className="h-11 rounded-xl border-slate-200 bg-white"
+                  />
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Helps prevent very short bookings from being created accidentally.
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="cancellations" className="outline-none">

@@ -77,6 +77,7 @@ async function MemberDetailContent({
         initialMembershipSummary={membershipsData.summary}
         membershipTypes={membershipsData.membershipTypes}
         defaultTaxRate={membershipsData.defaultTaxRate}
+        membershipYear={membershipsData.membershipYear}
       />
     </AppRouteDetailContainer>
   )

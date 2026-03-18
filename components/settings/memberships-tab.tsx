@@ -4,7 +4,6 @@ import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconCalendar, IconCreditCard, IconFileInvoice, IconGift } from "@tabler/icons-react"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { MembershipTypesConfig } from "@/components/settings/memberships/membership-types-config"
@@ -167,72 +166,44 @@ export function MembershipsTab({
 
         <div className="w-full pt-6">
           <Tabs.Content value="membership-types" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Membership types</CardTitle>
-                    <CardDescription>Define the plans your organization offers.</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <MembershipTypesConfig />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0 space-y-2">
+              <h3 className="text-lg font-semibold text-slate-900">Membership types</h3>
+              <p className="text-sm text-muted-foreground">Define the plans your organization offers.</p>
+              <MembershipTypesConfig />
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="membership-year" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg text-slate-900">Membership year</CardTitle>
-                    <CardDescription>Configure your membership year boundaries and renewals.</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <MembershipYearConfig
-                  initialSettings={initialSettings}
-                  initialLoadError={initialLoadError}
-                />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0 space-y-2">
+              <h3 className="text-lg font-semibold text-slate-900">Membership year</h3>
+              <p className="text-sm text-muted-foreground">Configure your membership year boundaries and renewals.</p>
+              <MembershipYearConfig
+                initialSettings={initialSettings}
+                initialLoadError={initialLoadError}
+              />
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="invoicing" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg text-slate-900">Invoicing</CardTitle>
-                  <CardDescription>Billing rules for membership invoices and renewals.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <PlaceholderPanel
-                  title="Membership invoicing settings will be configured here."
-                  description="This section will manage invoice cadence, due dates, and reminders."
-                />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0 space-y-2">
+              <h3 className="text-lg font-semibold text-slate-900">Invoicing</h3>
+              <p className="text-sm text-muted-foreground">Billing rules for membership invoices and renewals.</p>
+              <PlaceholderPanel
+                title="Membership invoicing settings will be configured here."
+                description="This section will manage invoice cadence, due dates, and reminders."
+              />
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="benefits" className="outline-none">
-            <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-              <CardHeader className="border-b border-border/40">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg text-slate-900">Benefits</CardTitle>
-                  <CardDescription>Configure benefits and feature access tied to plans.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <PlaceholderPanel
-                  title="Membership benefits will be configured here."
-                  description="This section will manage perks like discounts, booking limits, and training access."
-                />
-              </CardContent>
-            </Card>
+            <div className="w-full min-w-0 space-y-2">
+              <h3 className="text-lg font-semibold text-slate-900">Benefits</h3>
+              <p className="text-sm text-muted-foreground">Configure benefits and feature access tied to plans.</p>
+              <PlaceholderPanel
+                title="Membership benefits will be configured here."
+                description="This section will manage perks like discounts, booking limits, and training access."
+              />
+            </div>
           </Tabs.Content>
         </div>
       </Tabs.Root>

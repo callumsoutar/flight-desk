@@ -9,18 +9,13 @@ import {
   Users,
   XCircle,
 } from "lucide-react"
-import { toast } from "sonner"
-
-import {
-  createMemberMembershipAction,
-  renewMemberMembershipAction,
-} from "@/app/members/actions"
 import { CreateMembershipModal } from "@/components/members/create-membership-modal"
 import { RenewMembershipModal } from "@/components/members/renew-membership-modal"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import type {
+  MembershipYearSettings,
   MembershipSummary,
   TenantDefaultTaxRate,
   MembershipTypeWithChargeable,
@@ -43,17 +38,16 @@ export function MemberMemberships({
   initialSummary,
   membershipTypes,
   defaultTaxRate,
+  membershipYear,
 }: {
   memberId: string
   initialSummary: MembershipSummary
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
+  membershipYear: MembershipYearSettings | null
 }) {
   const { timeZone } = useTimezone()
-  const [membershipSummary, setMembershipSummary] =
-    React.useState<MembershipSummary | null>(initialSummary)
-  const [error, setError] = React.useState<string | null>(null)
-  const [isRenewing, setIsRenewing] = React.useState(false)
+  const membershipSummary = initialSummary
   const [showRenewalModal, setShowRenewalModal] = React.useState(false)
   const [showCreateModal, setShowCreateModal] = React.useState(false)
 
@@ -72,67 +66,6 @@ export function MemberMemberships({
       : status === "expired"
         ? "text-red-600"
         : "text-amber-600"
-
-  const handleRenewMembership = async (renewalData: {
-    membership_type_id?: string
-    notes?: string
-    create_invoice: boolean
-  }) => {
-    if (!membershipSummary?.current_membership?.id) {
-      toast.error("No active membership to renew")
-      return
-    }
-
-    setIsRenewing(true)
-    setError(null)
-    try {
-      const result = await renewMemberMembershipAction({
-        memberId,
-        currentMembershipId: membershipSummary.current_membership.id,
-        ...renewalData,
-      })
-      if (!result.ok) {
-        setError(result.error)
-        toast.error(result.error)
-        return
-      }
-      setMembershipSummary(result.summary)
-      setShowRenewalModal(false)
-      toast.success("Membership renewed successfully")
-    } finally {
-      setIsRenewing(false)
-    }
-  }
-
-  const handleCreateMembership = async (membershipData: {
-    user_id: string
-    membership_type_id: string
-    custom_expiry_date?: string
-    notes?: string
-    create_invoice: boolean
-  }) => {
-    setIsRenewing(true)
-    setError(null)
-    try {
-      const result = await createMemberMembershipAction({
-        memberId: membershipData.user_id,
-        membership_type_id: membershipData.membership_type_id,
-        custom_expiry_date: membershipData.custom_expiry_date ?? null,
-        notes: membershipData.notes ?? null,
-        create_invoice: membershipData.create_invoice,
-      })
-      if (!result.ok) {
-        setError(result.error)
-        toast.error(result.error)
-        return
-      }
-      setMembershipSummary(result.summary)
-      setShowCreateModal(false)
-      toast.success("Membership created successfully")
-    } finally {
-      setIsRenewing(false)
-    }
-  }
 
   return (
     <div className="w-full space-y-6">
@@ -235,16 +168,11 @@ export function MemberMemberships({
             <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row">
               <Button
                 onClick={() => setShowRenewalModal(true)}
-                disabled={isRenewing}
                 className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto"
                 size="sm"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRenewing ? "animate-spin" : ""}`} />
-                {isRenewing
-                  ? "Processing..."
-                  : status === "unpaid"
-                    ? "Pay / Renew Membership"
-                    : "Renew Membership"}
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {status === "unpaid" ? "Pay / Renew Membership" : "Renew Membership"}
               </Button>
               {currentMembership.invoice_id ? (
                 <Button
@@ -414,16 +342,15 @@ export function MemberMemberships({
         </Card>
       ) : null}
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
       {currentMembership ? (
         <RenewMembershipModal
           open={showRenewalModal}
           onClose={() => setShowRenewalModal(false)}
+          memberId={memberId}
           currentMembership={currentMembership}
           membershipTypes={membershipTypes}
           defaultTaxRate={defaultTaxRate}
-          onRenew={handleRenewMembership}
+          membershipYear={membershipYear}
         />
       ) : null}
 
@@ -434,7 +361,7 @@ export function MemberMemberships({
           memberId={memberId}
           membershipTypes={membershipTypes}
           defaultTaxRate={defaultTaxRate}
-          onCreateMembership={handleCreateMembership}
+          membershipYear={membershipYear}
         />
       ) : null}
     </div>

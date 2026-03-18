@@ -47,3 +47,9 @@ export type TenantDefaultTaxRate = {
   rate: number
   tax_name: string
 } | null
+
+export type MembershipYearSettings = {
+  end_day: number
+  end_month: number
+  description?: string
+}

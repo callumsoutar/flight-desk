@@ -3,19 +3,15 @@
 import * as React from "react"
 import {
   IconCurrencyDollar,
-  IconDeviceFloppy,
+  IconEngine,
   IconInfoCircle,
   IconPlus,
-  IconRotateClockwise,
   IconSettings,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import type { AircraftType, AircraftWithType } from "@/lib/types/aircraft"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -26,14 +22,18 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { StickyFormActions } from "@/components/ui/sticky-form-actions"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
 import AircraftChargeRatesTable from "@/components/aircraft/aircraft-charge-rates-table"
+import { cn } from "@/lib/utils"
 
 type Props = {
   aircraft: AircraftWithType
@@ -100,19 +100,101 @@ function parseNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function FieldGroup({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string
+  description?: string
+  icon: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="space-y-1">
+          <h4 className="text-sm font-semibold tracking-tight text-slate-950">{title}</h4>
+          {description ? <p className="text-sm leading-5 text-slate-500">{description}</p> : null}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function LabeledField({
+  label,
+  required = false,
+  children,
+}: {
+  label: string
+  required?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-semibold text-slate-800">
+        {label}
+        {required ? <span className="ml-1 text-rose-500">*</span> : null}
+      </Label>
+      {children}
+    </div>
+  )
+}
+
+function ToggleRow({
+  id,
+  label,
+  description,
+  checked,
+  onCheckedChange,
+  accentClassName,
+  compact = false,
+}: {
+  id: string
+  label: string
+  description?: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  accentClassName?: string
+  compact?: boolean
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "flex cursor-pointer justify-between rounded-lg transition-colors hover:bg-slate-50",
+        compact ? "items-center gap-3 px-2 py-2" : "items-start gap-4 px-3 py-3",
+        checked && "bg-slate-50",
+        accentClassName
+      )}
+    >
+      <div className={cn("pr-2", description ? "space-y-1" : "space-y-0")}>
+        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        {description ? <p className="text-sm leading-5 text-slate-500">{description}</p> : null}
+      </div>
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} className={compact ? "" : "mt-0.5"} />
+    </label>
+  )
+}
+
 export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
   const [formState, setFormState] = React.useState<AircraftFormState>(() => toFormState(aircraft))
   const [isSaving, setIsSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [aircraftTypes, setAircraftTypes] = React.useState<AircraftType[]>([])
+  const [isLoadingAircraftTypes, setIsLoadingAircraftTypes] = React.useState(true)
   const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = React.useState(false)
+  const [isAircraftTypeSelectOpen, setIsAircraftTypeSelectOpen] = React.useState(false)
   const [newTypeName, setNewTypeName] = React.useState("")
   const [newTypeCategory, setNewTypeCategory] = React.useState("")
   const [newTypeDescription, setNewTypeDescription] = React.useState("")
   const [isCreatingType, setIsCreatingType] = React.useState(false)
-  const isMobile = useIsMobile()
-
-  const [sidebarLeft, setSidebarLeft] = React.useState(0)
 
   React.useEffect(() => {
     const initial = toFormState(aircraft)
@@ -126,6 +208,7 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
 
   React.useEffect(() => {
     const loadAircraftTypes = async () => {
+      setIsLoadingAircraftTypes(true)
       try {
         const res = await fetch("/api/aircraft-types", { cache: "no-store" })
         if (!res.ok) throw new Error("Failed to fetch")
@@ -133,36 +216,26 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
         setAircraftTypes(payload.aircraft_types ?? [])
       } catch {
         toast.error("Failed to load aircraft types")
+      } finally {
+        setIsLoadingAircraftTypes(false)
       }
     }
     void loadAircraftTypes()
   }, [])
 
-  React.useEffect(() => {
-    if (isMobile) {
-      setSidebarLeft(0)
-      return
-    }
-
-    const updateSidebarPosition = () => {
-      const sidebarGap = document.querySelector('[data-slot="sidebar-gap"]')
-      if (sidebarGap) {
-        const computedWidth = window.getComputedStyle(sidebarGap).width
-        const width = Number.parseFloat(computedWidth) || 0
-        setSidebarLeft(width)
-        return
-      }
-      setSidebarLeft(0)
-    }
-
-    updateSidebarPosition()
-    window.addEventListener("resize", updateSidebarPosition)
-    return () => window.removeEventListener("resize", updateSidebarPosition)
-  }, [isMobile])
-
   const isDirty = React.useMemo(() => {
     return JSON.stringify(formState) !== JSON.stringify(initialStateRef.current)
   }, [formState])
+
+  const selectedAircraftTypeLabel = React.useMemo(() => {
+    if (!formState.aircraft_type_id) return ""
+
+    return (
+      aircraftTypes.find((type) => type.id === formState.aircraft_type_id)?.name ??
+      (aircraft.aircraft_type?.id === formState.aircraft_type_id ? aircraft.aircraft_type.name : "") ??
+      ""
+    )
+  }, [aircraft.aircraft_type, aircraftTypes, formState.aircraft_type_id])
 
   const updateField = <K extends keyof AircraftFormState>(key: K, value: AircraftFormState[K]) => {
     setFormState((prev) => ({ ...prev, [key]: value }))
@@ -275,270 +348,275 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
 
   return (
     <>
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900">Aircraft Information</h3>
+      <div className="mb-6 space-y-1">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold tracking-tight text-slate-950">Aircraft settings</h3>
+          <p className="max-w-2xl text-sm leading-6 text-slate-600">
+            Update the core details, time tracking setup, and booking behaviour for this aircraft.
+          </p>
+        </div>
       </div>
 
-      <Card className="mb-8 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-8">
-        <h4 className="mb-6 flex items-center gap-2 border-b pb-2 text-base font-semibold tracking-tight text-gray-900">
-          <IconInfoCircle className="h-5 w-5 text-indigo-500" />
-          General Info
-        </h4>
+      <div className="mb-8 border-t border-slate-200 pt-6">
+        <div className="space-y-8">
+          <FieldGroup
+            title="Aircraft identity"
+            description="Basic details used throughout the system, including registration, classification, and fuel profile."
+            icon={IconInfoCircle}
+          >
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <LabeledField label="Registration" required>
+                <Input
+                  value={formState.registration}
+                  onChange={(e) => updateField("registration", e.target.value)}
+                  className="border-slate-200 bg-white"
+                />
+              </LabeledField>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Manufacturer</Label>
-            <Input value={formState.manufacturer} onChange={(e) => updateField("manufacturer", e.target.value)} />
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Aircraft Type</Label>
-            <Select
-              value={formState.aircraft_type_id || undefined}
-              onValueChange={(v) => updateField("aircraft_type_id", v)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select aircraft type..." />
-              </SelectTrigger>
-              <SelectContent>
-                {aircraftTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-1 pl-0 text-indigo-600 hover:bg-transparent hover:text-indigo-700"
-              onClick={() => setIsAddTypeDialogOpen(true)}
-            >
-              <IconPlus className="mr-1 h-4 w-4" />
-              Add Aircraft Type
-            </Button>
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Model</Label>
-            <Input value={formState.model} onChange={(e) => updateField("model", e.target.value)} />
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Year Manufactured</Label>
-            <Input
-              type="number"
-              value={formState.year_manufactured}
-              onChange={(e) => updateField("year_manufactured", e.target.value)}
-            />
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Registration</Label>
-            <Input
-              value={formState.registration}
-              onChange={(e) => updateField("registration", e.target.value)}
-            />
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Capacity</Label>
-            <Input
-              type="number"
-              value={formState.capacity}
-              onChange={(e) => updateField("capacity", e.target.value)}
-            />
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Fuel Consumption (L/hr)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              value={formState.fuel_consumption}
-              onChange={(e) => updateField("fuel_consumption", e.target.value)}
-            />
-          </div>
-          <div>
-            <Label className="mb-1 block text-sm font-medium text-gray-800">Total Time Method</Label>
-            <Select
-              value={formState.total_time_method || undefined}
-              onValueChange={(v) => updateField("total_time_method", v)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a method..." />
-              </SelectTrigger>
-              <SelectContent>
-                {totalTimeMethods.map((method) => (
-                  <SelectItem key={method} value={method}>
-                    {method}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <LabeledField label="Aircraft type">
+                <Select
+                  open={isAircraftTypeSelectOpen}
+                  onOpenChange={setIsAircraftTypeSelectOpen}
+                  value={formState.aircraft_type_id || undefined}
+                  onValueChange={(v) => updateField("aircraft_type_id", v)}
+                >
+                  <SelectTrigger className="w-full border-slate-200 bg-white">
+                    <SelectValue placeholder={isLoadingAircraftTypes ? "Loading aircraft types..." : "Select aircraft type..."}>
+                      {selectedAircraftTypeLabel || undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingAircraftTypes ? (
+                      <div className="px-2 py-2 text-sm text-slate-500">Loading aircraft types...</div>
+                    ) : null}
+                    {aircraftTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                    <SelectSeparator />
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm font-medium text-indigo-600 outline-none transition-colors hover:bg-slate-50"
+                      onPointerDown={(event) => {
+                        event.preventDefault()
+                        setIsAircraftTypeSelectOpen(false)
+                        setIsAddTypeDialogOpen(true)
+                      }}
+                    >
+                      <IconPlus className="h-4 w-4" />
+                      Add aircraft type
+                    </button>
+                  </SelectContent>
+                </Select>
+              </LabeledField>
+
+              <LabeledField label="Manufacturer">
+                <Input
+                  value={formState.manufacturer}
+                  onChange={(e) => updateField("manufacturer", e.target.value)}
+                  className="border-slate-200 bg-white"
+                />
+              </LabeledField>
+
+              <LabeledField label="Model">
+                <Input
+                  value={formState.model}
+                  onChange={(e) => updateField("model", e.target.value)}
+                  className="border-slate-200 bg-white"
+                />
+              </LabeledField>
+
+              <LabeledField label="Year manufactured">
+                <Input
+                  type="number"
+                  value={formState.year_manufactured}
+                  onChange={(e) => updateField("year_manufactured", e.target.value)}
+                  className="border-slate-200 bg-white"
+                />
+              </LabeledField>
+
+              <LabeledField label="Capacity">
+                <Input
+                  type="number"
+                  value={formState.capacity}
+                  onChange={(e) => updateField("capacity", e.target.value)}
+                  className="border-slate-200 bg-white"
+                />
+              </LabeledField>
+
+              <LabeledField label="Fuel consumption">
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={formState.fuel_consumption}
+                  onChange={(e) => updateField("fuel_consumption", e.target.value)}
+                  className="border-slate-200 bg-white"
+                />
+              </LabeledField>
+            </div>
+          </FieldGroup>
+
+          <div className="border-t border-slate-200" />
+
+          <FieldGroup
+            title="Time tracking"
+            icon={IconEngine}
+          >
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Totals setup</p>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <LabeledField label="Total Time in Service (TTIS)">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={aircraft.total_time_in_service?.toFixed(1) || "0.0"}
+                      disabled
+                      className="cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500"
+                    />
+                  </LabeledField>
+
+                  <LabeledField label="Total time method">
+                    <Select
+                      value={formState.total_time_method || undefined}
+                      onValueChange={(v) => updateField("total_time_method", v)}
+                    >
+                      <SelectTrigger className="w-full border-slate-200 bg-white">
+                        <SelectValue placeholder="Select a method..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {totalTimeMethods.map((method) => (
+                          <SelectItem key={method} value={method}>
+                            {method}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </LabeledField>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current readings</p>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <LabeledField label="Current tach">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={formState.current_tach}
+                      onChange={(e) => updateField("current_tach", e.target.value)}
+                      className="border-slate-200 bg-white"
+                    />
+                  </LabeledField>
+
+                  <LabeledField label="Current Hobbs">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={formState.current_hobbs}
+                      onChange={(e) => updateField("current_hobbs", e.target.value)}
+                      className="border-slate-200 bg-white"
+                    />
+                  </LabeledField>
+                </div>
+              </div>
+            </div>
+          </FieldGroup>
+
+          <div className="border-t border-slate-200" />
+
+          <FieldGroup
+            title="Operational preferences"
+            icon={IconSettings}
+          >
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Booking and scheduling
+                </p>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-1 xl:grid-cols-2">
+                  <ToggleRow
+                    id="on_line"
+                    label="Available for bookings"
+                    description="Show this aircraft in booking workflows and allow it to be assigned to new bookings."
+                    checked={formState.on_line}
+                    onCheckedChange={(checked) => updateField("on_line", checked)}
+                  />
+                  <ToggleRow
+                    id="prioritise_scheduling"
+                    label="Prioritise scheduling"
+                    description="Prefer this aircraft when scheduling options are being compared or surfaced first."
+                    checked={formState.prioritise_scheduling}
+                    onCheckedChange={(checked) => updateField("prioritise_scheduling", checked)}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200" />
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Operations and tracking
+                </p>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-1 xl:grid-cols-2">
+                  <ToggleRow
+                    id="for_ato"
+                    label="Used for ATO"
+                    checked={formState.for_ato}
+                    onCheckedChange={(checked) => updateField("for_ato", checked)}
+                    compact
+                  />
+                  <ToggleRow
+                    id="record_tacho"
+                    label="Record tach"
+                    checked={formState.record_tacho}
+                    onCheckedChange={(checked) => updateField("record_tacho", checked)}
+                    compact
+                  />
+                  <ToggleRow
+                    id="record_hobbs"
+                    label="Record Hobbs"
+                    checked={formState.record_hobbs}
+                    onCheckedChange={(checked) => updateField("record_hobbs", checked)}
+                    compact
+                  />
+                  <ToggleRow
+                    id="record_airswitch"
+                    label="Record airswitch"
+                    checked={formState.record_airswitch}
+                    onCheckedChange={(checked) => updateField("record_airswitch", checked)}
+                    compact
+                  />
+                </div>
+              </div>
+            </div>
+          </FieldGroup>
+
+          <div className="border-t border-slate-200" />
+
+          <FieldGroup
+            title="Charge rates"
+            description="Maintain aircraft-specific rates without leaving the aircraft settings tab."
+            icon={IconCurrencyDollar}
+          >
+            <AircraftChargeRatesTable aircraftId={aircraftId} />
+          </FieldGroup>
         </div>
-
-        <div className="my-8 border-t border-gray-200" />
-
-        <div>
-          <h4 className="mb-6 flex items-center gap-2 text-base font-semibold tracking-tight text-gray-900">
-            <IconSettings className="h-5 w-5 text-indigo-500" />
-            Operational
-          </h4>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label className="mb-1 block text-sm font-medium text-gray-800">
-                Total Time in Service (TTIS)
-              </Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={aircraft.total_time_in_service?.toFixed(1) || "0.0"}
-                disabled
-                className="cursor-not-allowed bg-gray-50"
-              />
-              <p className="mt-1 text-xs text-gray-500">Updated automatically via flight check-ins</p>
-            </div>
-            <div>
-              <Label className="mb-1 block text-sm font-medium text-gray-800">Current Tach</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={formState.current_tach}
-                onChange={(e) => updateField("current_tach", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label className="mb-1 block text-sm font-medium text-gray-800">Current Hobbs</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={formState.current_hobbs}
-                onChange={(e) => updateField("current_hobbs", e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-            <Checkbox
-              id="on_line"
-              className="mt-0.5"
-              checked={formState.on_line}
-              onCheckedChange={(checked) => updateField("on_line", Boolean(checked))}
-            />
-            <div>
-              <Label htmlFor="on_line" className="text-sm font-medium text-gray-900">
-                Available for Bookings
-              </Label>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-            <Checkbox
-              id="prioritise_scheduling"
-              className="mt-0.5"
-              checked={formState.prioritise_scheduling}
-              onCheckedChange={(checked) =>
-                updateField("prioritise_scheduling", Boolean(checked))
-              }
-            />
-            <div>
-              <Label htmlFor="prioritise_scheduling" className="text-sm font-medium text-gray-900">
-                Prioritise Scheduling
-              </Label>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-            <Checkbox
-              id="record_tacho"
-              className="mt-0.5"
-              checked={formState.record_tacho}
-              onCheckedChange={(checked) => updateField("record_tacho", Boolean(checked))}
-            />
-            <div>
-              <Label htmlFor="record_tacho" className="text-sm font-medium text-gray-900">
-                Record Tacho
-              </Label>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-            <Checkbox
-              id="record_hobbs"
-              className="mt-0.5"
-              checked={formState.record_hobbs}
-              onCheckedChange={(checked) => updateField("record_hobbs", Boolean(checked))}
-            />
-            <div>
-              <Label htmlFor="record_hobbs" className="text-sm font-medium text-gray-900">
-                Record Hobbs
-              </Label>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-            <Checkbox
-              id="record_airswitch"
-              className="mt-0.5"
-              checked={formState.record_airswitch}
-              onCheckedChange={(checked) => updateField("record_airswitch", Boolean(checked))}
-            />
-            <div>
-              <Label htmlFor="record_airswitch" className="text-sm font-medium text-gray-900">
-                Record Airswitch
-              </Label>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-            <Checkbox
-              id="for_ato"
-              className="mt-0.5"
-              checked={formState.for_ato}
-              onCheckedChange={(checked) => updateField("for_ato", Boolean(checked))}
-            />
-            <div>
-              <Label htmlFor="for_ato" className="text-sm font-medium text-gray-900">
-                For ATO
-              </Label>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="mb-8 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-8">
-        <h4 className="mb-6 flex items-center gap-2 border-b pb-2 text-base font-semibold tracking-tight text-gray-900">
-          <IconCurrencyDollar className="h-5 w-5 text-indigo-500" />
-          Charge Rates
-        </h4>
-        <AircraftChargeRatesTable aircraftId={aircraftId} />
-      </Card>
+      </div>
 
       {error ? <p className="mt-2 text-xs text-red-500">{error}</p> : null}
       {isDirty ? <div className="h-24" /> : null}
 
-      {isDirty ? (
-        <div
-          className="fixed right-0 bottom-0 z-50 border-t border-gray-200 bg-white shadow-xl"
-          style={{ left: isMobile ? 0 : `${sidebarLeft}px` }}
-        >
-          <div className="mx-auto flex max-w-7xl items-center justify-end gap-4 px-4 py-4 sm:px-6 lg:px-8">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handleUndo}
-              disabled={isSaving}
-              className={isMobile ? "h-12 max-w-[200px] flex-1" : "h-12 min-w-[160px] px-8"}
-            >
-              <IconRotateClockwise className="mr-2 h-4 w-4" />
-              Undo Changes
-            </Button>
-            <Button
-              size="lg"
-              onClick={handleSave}
-              disabled={isSaving}
-              className={isMobile ? "h-12 max-w-[200px] flex-1" : "h-12 min-w-[160px] px-8"}
-            >
-              <IconDeviceFloppy className="mr-2 h-4 w-4" />
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <StickyFormActions
+        isDirty={isDirty}
+        isSaving={isSaving}
+        onUndo={handleUndo}
+        onSave={handleSave}
+        message="You have unsaved aircraft details."
+        undoLabel="Undo Changes"
+        saveLabel="Save Changes"
+      />
 
       <Dialog open={isAddTypeDialogOpen} onOpenChange={setIsAddTypeDialogOpen}>
         <DialogContent>

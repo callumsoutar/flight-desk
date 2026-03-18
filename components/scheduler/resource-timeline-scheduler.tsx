@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  AlertTriangle,
   CalendarDays,
   CheckCircle,
   ChevronLeft,
@@ -53,18 +54,27 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { AircraftWithType } from "@/lib/types/aircraft"
+import type { BookingWarningItem, BookingWarningSeverity } from "@/lib/types/booking-warnings"
 import type { BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
-import type { SchedulerBusinessHours, SchedulerInstructor, SchedulerPageData } from "@/lib/types/scheduler"
+import type {
+  SchedulerAircraftWarningSummary,
+  SchedulerBusinessHours,
+  SchedulerInstructor,
+  SchedulerPageData,
+} from "@/lib/types/scheduler"
 
 type AircraftResource = {
   id: string
   registration: string
   type: string
+  warningSummary: SchedulerAircraftWarningSummary | null
 }
 
 type InstructorResource = {
   id: string
   name: string
+  endorsements: string[]
+  displayName: string
 }
 
 type Resource =
@@ -335,8 +345,163 @@ function getMemberDisplayName(instructor: SchedulerInstructor) {
   return full || instructor.user?.email || "Unnamed instructor"
 }
 
+function getInstructorEndorsementLabels(instructor: SchedulerInstructor) {
+  const endorsements = [
+    instructor.tawa_removal ? "TAWA" : null,
+    instructor.night_removal ? "Night" : null,
+    instructor.aerobatics_removal ? "Aerobatics" : null,
+    instructor.multi_removal ? "Multi" : null,
+    instructor.ifr_removal ? "IFR" : null,
+  ]
+
+  return endorsements.filter((value): value is string => Boolean(value))
+}
+
+function formatInstructorDisplayName(name: string, endorsements: string[]) {
+  if (endorsements.length === 0) return name
+  return `${name} (${endorsements.join(", ")})`
+}
+
+const WARNING_SEVERITY_STYLES: Record<
+  BookingWarningSeverity,
+  {
+    badgeClassName: string
+    dotClassName: string
+  }
+> = {
+  critical: {
+    badgeClassName: "border-red-200 bg-red-50 text-red-700",
+    dotClassName: "bg-red-500",
+  },
+  high: {
+    badgeClassName: "border-orange-200 bg-orange-50 text-orange-700",
+    dotClassName: "bg-orange-500",
+  },
+  medium: {
+    badgeClassName: "border-amber-200 bg-amber-50 text-amber-700",
+    dotClassName: "bg-amber-500",
+  },
+  low: {
+    badgeClassName: "border-sky-200 bg-sky-50 text-sky-700",
+    dotClassName: "bg-sky-500",
+  },
+}
+
+function getAircraftWarningTone(summary: SchedulerAircraftWarningSummary) {
+  if (summary.has_blockers) {
+    return {
+      iconClassName: "text-red-600",
+      triggerClassName: "border-red-200 bg-red-50/90 text-red-700 hover:bg-red-100/90",
+      headerClassName: "border-red-200/80 bg-red-50/70",
+      eyebrow: "Needs attention",
+    }
+  }
+
+  return {
+    iconClassName: "text-amber-600",
+    triggerClassName: "border-amber-200 bg-amber-50/90 text-amber-700 hover:bg-amber-100/90",
+    headerClassName: "border-amber-200/80 bg-amber-50/70",
+    eyebrow: "Warnings present",
+  }
+}
+
+function getAircraftWarningSummaryLine(summary: SchedulerAircraftWarningSummary) {
+  if (summary.has_blockers) {
+    const noteCount = Math.max(0, summary.total_count - summary.blocking_count)
+    return `${summary.blocking_count} critical${noteCount > 0 ? `, ${noteCount} note${noteCount === 1 ? "" : "s"}` : ""}`
+  }
+
+  return `${summary.total_count} issue${summary.total_count === 1 ? "" : "s"}`
+}
+
+function AircraftWarningTooltipItem({ warning }: { warning: BookingWarningItem }) {
+  const styles = WARNING_SEVERITY_STYLES[warning.severity]
+
+  return (
+    <div className="space-y-1.5 py-2">
+      <div className="flex items-start gap-2">
+        <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", styles.dotClassName)} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium leading-5 text-slate-900">{warning.title}</span>
+            <span
+              className={cn(
+                "inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                styles.badgeClassName
+              )}
+            >
+              {warning.severity}
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-slate-600">{warning.detail}</p>
+          {warning.countdown_label ? (
+            <p className="text-[11px] font-medium text-slate-500">{warning.countdown_label}</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AircraftWarningTooltip({ summary }: { summary: SchedulerAircraftWarningSummary }) {
+  const tone = getAircraftWarningTone(summary)
+  const visibleWarnings = summary.warnings.slice(0, 4)
+  const remainingCount = Math.max(0, summary.warnings.length - visibleWarnings.length)
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+            tone.triggerClassName
+          )}
+          role="button"
+          tabIndex={0}
+          aria-label={`Aircraft warnings: ${getAircraftWarningSummaryLine(summary)}`}
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+          }}
+        >
+          <AlertTriangle className={cn("h-3 w-3", tone.iconClassName)} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="right"
+        align="start"
+        sideOffset={10}
+        variant="card"
+        className="w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+      >
+        <div className={cn("border-b px-4 py-3", tone.headerClassName)}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{tone.eyebrow}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">Aircraft warnings</p>
+          <p className="mt-1 text-xs text-slate-600">{getAircraftWarningSummaryLine(summary)}</p>
+        </div>
+
+        <div className="divide-y divide-slate-100 px-4 py-2">
+          {visibleWarnings.map((warning) => (
+            <AircraftWarningTooltipItem key={warning.id} warning={warning} />
+          ))}
+          {remainingCount > 0 ? (
+            <p className="py-2 text-xs text-slate-500">
+              {remainingCount} more warning{remainingCount === 1 ? "" : "s"} on the aircraft record.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="border-t border-slate-200 bg-slate-50 px-4 py-2.5">
+          <p className="text-[11px] text-slate-500">Open the aircraft record for full maintenance and observation detail.</p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function getResourceTitle(resource: Resource) {
-  if (resource.kind === "instructor") return resource.data.name
+  if (resource.kind === "instructor") return resource.data.displayName
   return `${resource.data.registration} (${resource.data.type})`
 }
 
@@ -574,10 +739,17 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const instructorResources = React.useMemo<InstructorResource[]>(
     () =>
       data.instructors
-        .map((member) => ({
-          id: member.id,
-          name: getMemberDisplayName(member),
-        }))
+        .map((member) => {
+          const name = getMemberDisplayName(member)
+          const endorsements = getInstructorEndorsementLabels(member)
+
+          return {
+            id: member.id,
+            name,
+            endorsements,
+            displayName: formatInstructorDisplayName(name, endorsements),
+          }
+        })
         .sort((a, b) => a.name.localeCompare(b.name)),
     [data.instructors]
   )
@@ -588,8 +760,9 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         id: aircraft.id,
         registration: aircraft.registration,
         type: aircraft.type,
+        warningSummary: data.aircraftWarningsById[aircraft.id] ?? null,
       })),
-    [data.aircraft]
+    [data.aircraft, data.aircraftWarningsById]
   )
 
   const instructorResourceById = React.useMemo(() => {
@@ -625,7 +798,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const formatResourceLabel = React.useCallback(
     (kind: Resource["kind"], resourceId: string) => {
       if (kind === "instructor") {
-        return instructorResourceById.get(resourceId)?.name ?? "Instructor"
+        return instructorResourceById.get(resourceId)?.displayName ?? "Instructor"
       }
 
       const aircraft = aircraftResourceById.get(resourceId)
@@ -1199,7 +1372,16 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                   }}
                 >
                   <div className="min-w-0 truncate text-[13px] font-semibold leading-tight sm:text-sm">
-                    {inst.name}
+                    {inst.endorsements.length > 0 ? (
+                      <>
+                        {inst.name}{" "}
+                        <span className="font-medium text-muted-foreground/90">
+                          ({inst.endorsements.join(", ")})
+                        </span>
+                      </>
+                    ) : (
+                      inst.name
+                    )}
                   </div>
                 </div>
               ))}
@@ -1230,11 +1412,14 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                     })
                   }}
                 >
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-semibold leading-tight sm:text-sm">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="min-w-0 truncate text-[13px] font-semibold leading-tight sm:text-sm">
                       {ac.registration}{" "}
                       <span className="font-medium text-muted-foreground/90">({ac.type})</span>
                     </div>
+                    {ac.warningSummary && ac.warningSummary.total_count > 0 ? (
+                      <AircraftWarningTooltip summary={ac.warningSummary} />
+                    ) : null}
                   </div>
                 </div>
               ))}

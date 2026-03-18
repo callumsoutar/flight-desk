@@ -1,7 +1,9 @@
 import type {
+  MembershipYearSettings,
   MembershipRecord,
   MembershipStatus,
 } from "@/lib/types/memberships"
+import { addMonths, subDays } from "date-fns"
 import {
   addDaysYyyyMmDd,
   isValidDateKey,
@@ -130,4 +132,31 @@ export function calculateMembershipFee(
   }
 
   return currency
+}
+
+export function computeMembershipExpiryDefault(
+  startDate: Date,
+  durationMonths: number,
+  membershipYear?: MembershipYearSettings | null
+): Date {
+  if (!membershipYear?.end_month || !membershipYear?.end_day) {
+    return subDays(addMonths(startDate, durationMonths), 1)
+  }
+
+  const earliestExpiry = addMonths(startDate, durationMonths)
+  let candidate = new Date(
+    earliestExpiry.getFullYear(),
+    membershipYear.end_month - 1,
+    membershipYear.end_day
+  )
+
+  if (candidate < earliestExpiry) {
+    candidate = new Date(
+      earliestExpiry.getFullYear() + 1,
+      membershipYear.end_month - 1,
+      membershipYear.end_day
+    )
+  }
+
+  return candidate
 }

@@ -11,7 +11,6 @@ import {
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -90,23 +89,19 @@ export function InvoicingTab({
 
   if (loadError) {
     return (
-      <Card className="border border-border/50 bg-card shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg text-slate-900">Invoicing</CardTitle>
-          <CardDescription>{loadError}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="space-y-1 py-2">
+        <h3 className="text-lg font-semibold text-slate-900">Invoicing</h3>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+      </div>
     )
   }
 
   if (!initialSettings) {
     return (
-      <Card className="border border-border/50 bg-card shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg text-slate-900">Invoicing</CardTitle>
-          <CardDescription>Settings are not available yet for this tenant.</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="space-y-1 py-2">
+        <h3 className="text-lg font-semibold text-slate-900">Invoicing</h3>
+        <p className="text-sm text-muted-foreground">Settings are not available yet for this tenant.</p>
+      </div>
     )
   }
 
@@ -150,145 +145,140 @@ export function InvoicingTab({
         </div>
       </div>
 
-      <Card className="border border-border/50 bg-card shadow-sm overflow-hidden rounded-2xl">
-        <CardHeader className="border-b border-border/40">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-lg text-slate-900">Invoice defaults</CardTitle>
-              <CardDescription>
-                These values apply to new invoices and automated notifications.
-              </CardDescription>
-            </div>
+      <div className="space-y-8">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-slate-900">Invoice defaults</h3>
+          <p className="text-sm text-muted-foreground">
+            These values apply to new invoices and automated notifications.
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <IconFileInvoice className="h-4 w-4 text-slate-500" />
+            Numbering & due dates
           </div>
-        </CardHeader>
-
-        <CardContent className="space-y-8">
-          <div className="space-y-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <IconFileInvoice className="h-4 w-4 text-slate-500" />
-              Numbering & due dates
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="invoice-prefix" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Invoice prefix
+              </Label>
+              <Input
+                id="invoice-prefix"
+                value={form.invoice_prefix}
+                onChange={(e) => setForm((prev) => ({ ...prev, invoice_prefix: e.target.value }))}
+                className="h-11 rounded-xl border-slate-200 bg-white"
+                placeholder="INV"
+              />
+              <p className="text-[11px] font-medium text-slate-500">
+                Used as the first part of invoice numbers (e.g. INV-000123).
+              </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="invoice-prefix" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Invoice prefix
-                </Label>
-                <Input
-                  id="invoice-prefix"
-                  value={form.invoice_prefix}
-                  onChange={(e) => setForm((prev) => ({ ...prev, invoice_prefix: e.target.value }))}
-                  className="h-11 rounded-xl border-slate-200 bg-white"
-                  placeholder="INV"
-                />
-                <p className="text-[11px] font-medium text-slate-500">
-                  Used as the first part of invoice numbers (e.g. INV-000123).
-                </p>
-              </div>
-              <div className="space-y-2">
-                <TooltipProvider delayDuration={0}>
-                  <div className="flex items-center gap-1.5">
-                    <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Invoice numbering
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button type="button" className="outline-hidden rounded-sm">
-                          <IconInfoCircle className="h-3.5 w-3.5 text-slate-300 transition-colors hover:text-slate-400" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-[260px] text-[11px] font-medium leading-tight bg-slate-900 text-white border-slate-800 shadow-xl rounded-lg px-3 py-2">
-                        When enabled, Xero allocates invoice numbers. When disabled, FlightDesk uses its own invoice
-                        sequence and sends that invoice number to Xero.
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </TooltipProvider>
 
-                <div className="flex h-11 items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-3">
-                  <p className="text-sm font-semibold text-slate-900 leading-none">Use Xero invoice number sequencing</p>
-                  <Switch
-                    id="invoice-number-mode"
-                    checked={form.invoice_number_mode === "xero"}
-                    onCheckedChange={(checked) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        invoice_number_mode: checked ? "xero" : "internal",
-                      }))
-                    }
-                  />
+            <div className="space-y-2">
+              <TooltipProvider delayDuration={0}>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Invoice numbering
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="outline-hidden rounded-sm">
+                        <IconInfoCircle className="h-3.5 w-3.5 text-slate-300 transition-colors hover:text-slate-400" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[260px] text-[11px] font-medium leading-tight bg-slate-900 text-white border-slate-800 shadow-xl rounded-lg px-3 py-2">
+                      When enabled, Xero allocates invoice numbers. When disabled, FlightDesk uses its own invoice
+                      sequence and sends that invoice number to Xero.
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invoice-due-days" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Default due (days)
-                </Label>
-                <Input
-                  id="invoice-due-days"
-                  type="number"
-                  min={0}
-                  value={form.default_invoice_due_days}
-                  onChange={(e) =>
+              </TooltipProvider>
+
+              <div className="flex h-11 items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-3">
+                <p className="text-sm font-semibold text-slate-900 leading-none">Use Xero invoice number sequencing</p>
+                <Switch
+                  id="invoice-number-mode"
+                  checked={form.invoice_number_mode === "xero"}
+                  onCheckedChange={(checked) =>
                     setForm((prev) => ({
                       ...prev,
-                      default_invoice_due_days: Number.parseInt(e.target.value || "0", 10) || 0,
+                      invoice_number_mode: checked ? "xero" : "internal",
                     }))
                   }
-                  className="h-11 rounded-xl border-slate-200 bg-white"
                 />
-                <p className="text-[11px] font-medium text-slate-500">
-                  The default number of days until an invoice is due.
-                </p>
               </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <IconMessage className="h-4 w-4 text-slate-500" />
-              Invoice messages
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invoice-footer-message" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Footer message
+              <Label htmlFor="invoice-due-days" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Default due (days)
               </Label>
-              <Textarea
-                id="invoice-footer-message"
-                value={form.invoice_footer_message}
-                onChange={(e) => setForm((prev) => ({ ...prev, invoice_footer_message: e.target.value }))}
-                className="min-h-[96px] resize-none rounded-xl border-slate-200 bg-white"
-                placeholder="Thank you for your business."
+              <Input
+                id="invoice-due-days"
+                type="number"
+                min={0}
+                value={form.default_invoice_due_days}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    default_invoice_due_days: Number.parseInt(e.target.value || "0", 10) || 0,
+                  }))
+                }
+                className="h-11 rounded-xl border-slate-200 bg-white"
               />
-              <p className="text-[11px] font-medium text-slate-500">Displays at the bottom of invoices and receipts.</p>
+              <p className="text-[11px] font-medium text-slate-500">
+                The default number of days until an invoice is due.
+              </p>
             </div>
           </div>
+        </div>
 
-          <Separator />
+        <Separator />
 
-          <div className="space-y-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <IconAutomation className="h-4 w-4 text-slate-500" />
-              Invoice display
-            </div>
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <IconMessage className="h-4 w-4 text-slate-500" />
+            Invoice messages
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="invoice-footer-message" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Footer message
+            </Label>
+            <Textarea
+              id="invoice-footer-message"
+              value={form.invoice_footer_message}
+              onChange={(e) => setForm((prev) => ({ ...prev, invoice_footer_message: e.target.value }))}
+              className="min-h-[96px] resize-none rounded-xl border-slate-200 bg-white"
+              placeholder="Thank you for your business."
+            />
+            <p className="text-[11px] font-medium text-slate-500">Displays at the bottom of invoices and receipts.</p>
+          </div>
+        </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Include logo on invoices</p>
-                  <p className="text-sm text-muted-foreground">
-                    Use your company logo on printed invoices and PDFs.
-                  </p>
-                </div>
-                <Switch
-                  checked={form.include_logo_on_invoice}
-                  onCheckedChange={(checked) => setForm((prev) => ({ ...prev, include_logo_on_invoice: checked }))}
-                />
+        <Separator />
+
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <IconAutomation className="h-4 w-4 text-slate-500" />
+            Invoice display
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Include logo on invoices</p>
+                <p className="text-sm text-muted-foreground">
+                  Use your company logo on printed invoices and PDFs.
+                </p>
               </div>
+              <Switch
+                checked={form.include_logo_on_invoice}
+                onCheckedChange={(checked) => setForm((prev) => ({ ...prev, include_logo_on_invoice: checked }))}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <StickyFormActions
         isDirty={dirty}

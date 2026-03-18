@@ -1,4 +1,5 @@
 import type { AircraftWithType } from "@/lib/types/aircraft"
+import type { BookingWarningItem, BookingWarningSeverity, BookingWarningsStatus } from "@/lib/types/booking-warnings"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { InstructorRow, RosterRuleRow } from "@/lib/types/tables"
 
@@ -24,7 +25,17 @@ export type SchedulerRosterRule = Pick<
 
 export type SchedulerInstructor = Pick<
   InstructorRow,
-  "id" | "first_name" | "last_name" | "user_id" | "status" | "is_actively_instructing"
+  | "id"
+  | "first_name"
+  | "last_name"
+  | "user_id"
+  | "status"
+  | "is_actively_instructing"
+  | "night_removal"
+  | "multi_removal"
+  | "ifr_removal"
+  | "aerobatics_removal"
+  | "tawa_removal"
 > & {
   user: DirectoryUserLite | null
   roster_rules: SchedulerRosterRule[]
@@ -37,6 +48,15 @@ export type SchedulerBusinessHours = {
   isClosed: boolean
 }
 
+export type SchedulerAircraftWarningSummary = {
+  status: BookingWarningsStatus
+  has_blockers: boolean
+  total_count: number
+  blocking_count: number
+  counts: Record<BookingWarningSeverity, number>
+  warnings: BookingWarningItem[]
+}
+
 export type SchedulerPageData = {
   dateYyyyMmDd: string
   timeZone: string
@@ -44,6 +64,7 @@ export type SchedulerPageData = {
   rangeEndUtcIso: string
   businessHours: SchedulerBusinessHours
   aircraft: AircraftWithType[]
+  aircraftWarningsById: Record<string, SchedulerAircraftWarningSummary>
   instructors: SchedulerInstructor[]
   bookings: BookingWithRelations[]
 }

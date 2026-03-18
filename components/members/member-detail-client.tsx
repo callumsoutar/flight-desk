@@ -18,6 +18,7 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { MemberAccountAccessTab } from "@/components/members/member-account-access-tab"
 import { MemberContactDetails } from "@/components/members/member-contact-details"
 import { MemberFinances } from "@/components/members/member-finances"
 import { MemberFlightHistoryTab } from "@/components/members/member-flight-history-tab"
@@ -50,6 +51,7 @@ import type {
   UserEndorsementWithRelation,
 } from "@/lib/types/members"
 import type {
+  MembershipYearSettings,
   MembershipSummary,
   TenantDefaultTaxRate,
   MembershipTypeWithChargeable,
@@ -57,17 +59,6 @@ import type {
 import { getUserInitials } from "@/lib/utils"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
-
-function EmptyTabPanel({ title }: { title: string }) {
-  return (
-    <Card className="border border-border/60 bg-white shadow-sm">
-      <CardContent className="p-6">
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <p className="mt-2 text-sm text-muted-foreground">Content for this section will be added next.</p>
-      </CardContent>
-    </Card>
-  )
-}
 
 export function MemberDetailClient({
   member,
@@ -77,6 +68,7 @@ export function MemberDetailClient({
   initialMembershipSummary,
   membershipTypes,
   defaultTaxRate,
+  membershipYear,
 }: {
   member: MemberDetailWithRelations
   availableLicenses: LicenseLite[]
@@ -85,6 +77,7 @@ export function MemberDetailClient({
   initialMembershipSummary: MembershipSummary
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
+  membershipYear: MembershipYearSettings | null
 }) {
   const { timeZone } = useTimezone()
   const router = useRouter()
@@ -484,6 +477,7 @@ export function MemberDetailClient({
                   initialSummary={initialMembershipSummary}
                   membershipTypes={membershipTypes}
                   defaultTaxRate={defaultTaxRate}
+                  membershipYear={membershipYear}
                 />
               </Tabs.Content>
               <Tabs.Content value="finances">
@@ -499,7 +493,7 @@ export function MemberDetailClient({
                 <MemberTrainingTab memberId={currentMember.user_id} />
               </Tabs.Content>
               <Tabs.Content value="account">
-                <EmptyTabPanel title="Account" />
+                <MemberAccountAccessTab memberId={currentMember.user_id} />
               </Tabs.Content>
             </div>
           </Tabs.Root>

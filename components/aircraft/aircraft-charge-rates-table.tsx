@@ -1,9 +1,10 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { Check, Edit2, Info, Plus, Trash2, X } from "lucide-react"
+import { Check, Edit2, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -281,34 +282,6 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
     return taxExclusiveAmount * (1 + defaultTaxRate)
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
-          </div>
-          <div className="h-9 w-24 animate-pulse rounded bg-slate-200" />
-        </div>
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="space-y-3 p-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="grid grid-cols-4 items-center gap-4">
-                <div className="h-4 animate-pulse rounded bg-slate-200" />
-                <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
-                <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
-                <div className="flex justify-end gap-2">
-                  <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
-                  <div className="h-8 w-16 animate-pulse rounded bg-slate-200" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   const availableFlightTypes = flightTypes.filter((ft) => {
     const isCurrentFlightType = editingRate?.flight_type_id === ft.id
     const isAlreadyAssigned = rates.some(
@@ -317,21 +290,24 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
     return isCurrentFlightType || !isAlreadyAssigned
   })
 
+  const getChargeMethodLabel = (rate: Rate) => {
+    if (rate.charge_hobbs) return "Hobbs"
+    if (rate.charge_tacho) return "Tacho"
+    if (rate.charge_airswitch) return "Airswitch"
+    return "None"
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-slate-600">
-          <Info className="h-4 w-4 text-indigo-500" />
-          <p className="text-sm">
-            Rates include{" "}
-            <span className="font-semibold text-indigo-700">{Math.round(defaultTaxRate * 100)}% tax</span>
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-600">
+          Rates are tax inclusive. Default tax rate: {(defaultTaxRate * 100).toFixed(0)}%.
+        </p>
         <Button
           type="button"
           onClick={handleAddRate}
           size="sm"
-          className="w-full rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition-all hover:bg-indigo-700 sm:w-auto"
+          className="h-9 rounded-xl bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700"
           disabled={addingNewRate || !!editingRate}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -339,507 +315,248 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
         </Button>
       </div>
 
-      {rates.length === 0 && !addingNewRate ? (
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-12 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <Plus className="h-8 w-8 text-indigo-500" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">No rates configured</h3>
-              <p className="mx-auto mt-1 max-w-[240px] text-sm text-slate-500">
-                Set up your first flight type rate to begin tracking charges.
-              </p>
-            </div>
-            <Button
-              type="button"
-              onClick={handleAddRate}
-              variant="outline"
-              size="sm"
-              className="mt-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-            >
-              Add First Rate
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="block divide-y divide-slate-100 sm:hidden">
-            {rates.map((rate) => (
-              <div key={rate.id} className={`p-4 ${isEditing(rate.id) ? "bg-indigo-50/50" : ""}`}>
-                {isEditing(rate.id) ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-500">Flight Type</label>
-                      <Select
-                        value={editingRate?.flight_type_id}
-                        onValueChange={(value) =>
-                          setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
-                        }
-                      >
-                        <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableFlightTypes.map((ft) => (
-                            <SelectItem key={ft.id} value={ft.id}>
-                              {ft.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-500">Rate (Inc. Tax)</label>
-                      <div className="relative">
-                        <span className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editingRate?.rate_per_hour}
-                          onChange={(e) =>
-                            setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
-                          }
-                          className="h-10 rounded-xl border-slate-200 bg-white pl-7"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-500">Charge Method</label>
-                      <Select
-                        value={editingRate?.charge_method}
-                        onValueChange={(value) =>
-                          setEditingRate((prev) =>
-                            prev
-                              ? { ...prev, charge_method: value as "hobbs" | "tacho" | "airswitch" | "" }
-                              : null
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hobbs">Hobbs</SelectItem>
-                          <SelectItem value="tacho">Tacho</SelectItem>
-                          <SelectItem value="airswitch">Airswitch</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="flex-1 bg-indigo-600"
-                        onClick={handleSaveRate}
-                        disabled={saving}
-                      >
-                        <Check className="mr-2 h-4 w-4" />
-                        Save
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={handleCancelEdit}
-                        disabled={saving}
-                      >
-                        <X className="mr-2 h-4 w-4" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                        <span className="font-semibold text-gray-900">
-                          {flightTypes.find((ft) => ft.id === rate.flight_type_id)?.name || "Unknown"}
-                        </span>
-                      </div>
-                      <span className="text-lg font-bold text-indigo-600">
-                        ${calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour)).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-1">
-                        {rate.charge_hobbs ? (
-                          <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                            Hobbs
-                          </span>
-                        ) : null}
-                        {rate.charge_tacho ? (
-                          <span className="rounded-full border border-green-100 bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">
-                            Tacho
-                          </span>
-                        ) : null}
-                        {rate.charge_airswitch ? (
-                          <span className="rounded-full border border-purple-100 bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-700">
-                            Airswitch
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-500"
-                          onClick={() => handleEditRate(rate)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-500"
-                          onClick={() => handleDeleteRate(rate.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {isAddingNew() ? (
-              <div className="space-y-4 border-t border-blue-100 bg-blue-50/50 p-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-blue-600">Flight Type</label>
-                  <Select
-                    value={editingRate?.flight_type_id}
-                    onValueChange={(value) =>
-                      setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
-                    }
-                  >
-                    <SelectTrigger className="w-full border-blue-200 bg-white">
-                      <SelectValue placeholder="Select flight type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableFlightTypes.map((ft) => (
-                        <SelectItem key={ft.id} value={ft.id}>
-                          {ft.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-blue-600">Rate (Inc. Tax)</label>
-                  <div className="relative">
-                    <span className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={editingRate?.rate_per_hour}
-                      onChange={(e) =>
-                        setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
-                      }
-                      className="border-blue-200 bg-white pl-7"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-blue-600">Charge Method</label>
-                  <Select
-                    value={editingRate?.charge_method}
-                    onValueChange={(value) =>
-                      setEditingRate((prev) =>
-                        prev
-                          ? { ...prev, charge_method: value as "hobbs" | "tacho" | "airswitch" | "" }
-                          : null
-                      )
-                    }
-                  >
-                    <SelectTrigger className="w-full border-blue-200 bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hobbs">Hobbs</SelectItem>
-                      <SelectItem value="tacho">Tacho</SelectItem>
-                      <SelectItem value="airswitch">Airswitch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="flex-1 bg-blue-600"
-                    onClick={handleSaveNewRate}
-                    disabled={saving}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 border-blue-200"
-                    onClick={handleCancelNewRate}
-                    disabled={saving}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="hidden overflow-x-auto sm:block">
-            <Table>
-              <TableHeader className="bg-slate-50/60">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-1/3 px-6 py-4 font-semibold text-slate-900">Flight Type</TableHead>
-                  <TableHead className="w-1/4 px-6 py-4 font-semibold text-slate-900">Rate (Inc. Tax)</TableHead>
-                  <TableHead className="w-1/4 px-6 py-4 font-semibold text-slate-900">Charge Method</TableHead>
-                  <TableHead className="w-1/6 px-6 py-4 text-right font-semibold text-slate-900">Actions</TableHead>
+      <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[220px]">Flight type</TableHead>
+                <TableHead className="min-w-[170px]">Rate (incl.)</TableHead>
+                <TableHead className="min-w-[170px]">Charge method</TableHead>
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                    Loading rates...
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rates.map((rate) => (
-                  <TableRow
-                    key={rate.id}
-                    className={`group border-b border-slate-100 transition-colors ${
-                      isEditing(rate.id) ? "bg-indigo-50/50" : "hover:bg-slate-50/60"
-                    }`}
-                  >
-                    <TableCell className="px-6 py-4">
-                      {isEditing(rate.id) ? (
-                        <Select
-                          value={editingRate?.flight_type_id}
-                          onValueChange={(value) =>
-                            setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
-                          }
-                        >
-                          <SelectTrigger className="w-full bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableFlightTypes.map((ft) => (
-                              <SelectItem key={ft.id} value={ft.id}>
-                                {ft.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <div className="h-2 w-2 rounded-full bg-indigo-500 opacity-0 transition-opacity group-hover:opacity-100" />
-                          <span className="font-medium text-slate-900">
+              ) : null}
+
+              {!loading && rates.length === 0 && !addingNewRate ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                    No rates configured. Add one to get started.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+
+              {!loading
+                ? rates.map((rate) => (
+                    <TableRow key={rate.id} className={isEditing(rate.id) ? "bg-indigo-50/40" : ""}>
+                      <TableCell>
+                        {isEditing(rate.id) ? (
+                          <Select
+                            value={editingRate?.flight_type_id}
+                            onValueChange={(value) =>
+                              setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full border-slate-200 bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableFlightTypes.map((ft) => (
+                                <SelectItem key={ft.id} value={ft.id}>
+                                  {ft.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-sm font-semibold text-slate-900">
                             {flightTypes.find((ft) => ft.id === rate.flight_type_id)?.name || "Unknown"}
                           </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      {isEditing(rate.id) ? (
-                        <div className="relative max-w-[140px]">
-                          <span className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">$</span>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editingRate?.rate_per_hour}
-                            onChange={(e) =>
-                              setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
-                            }
-                            className="bg-white pl-7"
-                          />
-                        </div>
-                      ) : (
-                        <span className="font-semibold text-slate-900">
-                          ${calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour)).toFixed(2)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      {isEditing(rate.id) ? (
-                        <Select
-                          value={editingRate?.charge_method}
-                          onValueChange={(value) =>
-                            setEditingRate((prev) =>
-                              prev
-                                ? { ...prev, charge_method: value as "hobbs" | "tacho" | "airswitch" | "" }
-                                : null
-                            )
-                          }
-                        >
-                          <SelectTrigger className="max-w-[160px] bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="hobbs">Hobbs</SelectItem>
-                            <SelectItem value="tacho">Tacho</SelectItem>
-                            <SelectItem value="airswitch">Airswitch</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="flex gap-1">
-                          {rate.charge_hobbs ? (
-                            <span className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-                              Hobbs
-                            </span>
-                          ) : null}
-                          {rate.charge_tacho ? (
-                            <span className="rounded-md border border-green-100 bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
-                              Tacho
-                            </span>
-                          ) : null}
-                          {rate.charge_airswitch ? (
-                            <span className="rounded-md border border-purple-100 bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
-                              Airswitch
-                            </span>
-                          ) : null}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      {isEditing(rate.id) ? (
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSaveRate}
-                            disabled={saving}
-                            className="h-8 w-8 p-0 text-green-600 hover:bg-green-50 hover:text-green-700"
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleCancelEdit}
-                            disabled={saving}
-                            className="h-8 w-8 p-0 text-slate-400 hover:bg-slate-100 hover:text-slate-500"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditRate(rate)}
-                            className="h-8 w-8 p-0 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteRate(rate.id)}
-                            className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        )}
+                      </TableCell>
 
-                {isAddingNew() ? (
-                  <TableRow className="border-b border-blue-100 bg-blue-50/30">
-                    <TableCell className="px-6 py-4">
-                      <Select
-                        value={editingRate?.flight_type_id}
-                        onValueChange={(value) =>
-                          setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
+                      <TableCell>
+                        {isEditing(rate.id) ? (
+                          <div className="relative max-w-[140px]">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editingRate?.rate_per_hour}
+                              onChange={(e) =>
+                                setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
+                              }
+                              className="h-9 border-slate-200 bg-white pl-7"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-sm font-semibold tabular-nums text-slate-900">
+                            ${calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour)).toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {isEditing(rate.id) ? (
+                          <Select
+                            value={editingRate?.charge_method}
+                            onValueChange={(value) =>
+                              setEditingRate((prev) =>
+                                prev
+                                  ? { ...prev, charge_method: value as "hobbs" | "tacho" | "airswitch" | "" }
+                                  : null
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full max-w-[160px] border-slate-200 bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="hobbs">Hobbs</SelectItem>
+                              <SelectItem value="tacho">Tacho</SelectItem>
+                              <SelectItem value="airswitch">Airswitch</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge variant="outline" className="border-slate-200 bg-white text-slate-700">
+                            {getChargeMethodLabel(rate)}
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        {isEditing(rate.id) ? (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={handleCancelEdit}
+                              disabled={saving}
+                              className="h-8 rounded-lg border-slate-200 px-2"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleSaveRate}
+                              disabled={saving}
+                              className="h-8 rounded-lg bg-indigo-600 px-2 text-white hover:bg-indigo-700"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              onClick={() => handleEditRate(rate)}
+                              className="h-8 w-8 rounded-lg border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              onClick={() => handleDeleteRate(rate.id)}
+                              className="h-8 w-8 rounded-lg border-slate-200 text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : null}
+
+              {isAddingNew() ? (
+                <TableRow className="bg-indigo-50/40">
+                  <TableCell>
+                    <Select
+                      value={editingRate?.flight_type_id}
+                      onValueChange={(value) =>
+                        setEditingRate((prev) => (prev ? { ...prev, flight_type_id: value } : null))
+                      }
+                    >
+                      <SelectTrigger className="h-9 w-full border-indigo-200 bg-white">
+                        <SelectValue placeholder="Select flight type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableFlightTypes.map((ft) => (
+                          <SelectItem key={ft.id} value={ft.id}>
+                            {ft.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="relative max-w-[140px]">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editingRate?.rate_per_hour}
+                        onChange={(e) =>
+                          setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
                         }
+                        className="h-9 border-indigo-200 bg-white pl-7"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <Select
+                      value={editingRate?.charge_method}
+                      onValueChange={(value) =>
+                        setEditingRate((prev) =>
+                          prev ? { ...prev, charge_method: value as "hobbs" | "tacho" | "airswitch" | "" } : null
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-9 w-full max-w-[160px] border-indigo-200 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hobbs">Hobbs</SelectItem>
+                        <SelectItem value="tacho">Tacho</SelectItem>
+                        <SelectItem value="airswitch">Airswitch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelNewRate}
+                        disabled={saving}
+                        className="h-8 rounded-lg border-slate-200 px-2"
                       >
-                        <SelectTrigger className="w-full border-blue-200 bg-white">
-                          <SelectValue placeholder="Select flight type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableFlightTypes.map((ft) => (
-                            <SelectItem key={ft.id} value={ft.id}>
-                              {ft.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <div className="relative max-w-[140px]">
-                        <span className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editingRate?.rate_per_hour}
-                          onChange={(e) =>
-                            setEditingRate((prev) => (prev ? { ...prev, rate_per_hour: e.target.value } : null))
-                          }
-                          className="border-blue-200 bg-white pl-7"
-                          placeholder="0.00"
-                          autoFocus
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <Select
-                        value={editingRate?.charge_method}
-                        onValueChange={(value) =>
-                          setEditingRate((prev) =>
-                            prev
-                              ? { ...prev, charge_method: value as "hobbs" | "tacho" | "airswitch" | "" }
-                              : null
-                          )
-                        }
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSaveNewRate}
+                        disabled={saving}
+                        className="h-8 rounded-lg bg-indigo-600 px-2 text-white hover:bg-indigo-700"
                       >
-                        <SelectTrigger className="max-w-[160px] border-blue-200 bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hobbs">Hobbs</SelectItem>
-                          <SelectItem value="tacho">Tacho</SelectItem>
-                          <SelectItem value="airswitch">Airswitch</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleSaveNewRate}
-                          disabled={saving}
-                          className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCancelNewRate}
-                          disabled={saving}
-                          className="h-8 w-8 p-0 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+      </div>
     </div>
   )
 }

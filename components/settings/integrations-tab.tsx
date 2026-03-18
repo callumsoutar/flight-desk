@@ -4,7 +4,6 @@ import * as React from "react"
 
 import { XeroConnectionCard } from "@/components/settings/xero-connection-card"
 import { XeroSettingsForm } from "@/components/settings/xero-settings-form"
-import { Card, CardContent } from "@/components/ui/card"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
 
 export function IntegrationsTab({
@@ -26,11 +25,9 @@ export function IntegrationsTab({
   return (
     <div className="space-y-6" key={refreshKey}>
       {xeroLoadError ? (
-        <Card className="border-destructive/40">
-          <CardContent className="pt-6 text-sm text-destructive">
-            Xero settings unavailable: {xeroLoadError}
-          </CardContent>
-        </Card>
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          Xero settings unavailable: {xeroLoadError}
+        </div>
       ) : null}
 
       <XeroConnectionCard

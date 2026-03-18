@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { fetchAircraftWarningSummaries } from "@/lib/aircraft/fetch-aircraft-warning-summaries"
 import { dayOfWeekFromYyyyMmDd, zonedDayRangeUtcIso } from "@/lib/utils/timezone"
 import type { Database } from "@/lib/types"
 import type { AircraftWithType } from "@/lib/types/aircraft"
@@ -135,41 +136,57 @@ export async function fetchSchedulerPageData({
 
   const instructorIds = [...rosterRulesByInstructor.keys()]
   let instructors: SchedulerInstructor[] = []
+  let aircraftWarningsById = {}
 
-  if (instructorIds.length > 0) {
-    const instructorsResult = await supabase
-      .from("instructors")
-      .select(
-        "id, first_name, last_name, user_id, status, is_actively_instructing, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)"
-      )
-      .eq("tenant_id", tenantId)
-      .in("id", instructorIds)
+  const [instructorsResult, aircraftWarningsResult] = await Promise.all([
+    instructorIds.length > 0
+      ? supabase
+          .from("instructors")
+          .select(
+            "id, first_name, last_name, user_id, status, is_actively_instructing, night_removal, multi_removal, ifr_removal, aerobatics_removal, tawa_removal, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)"
+          )
+          .eq("tenant_id", tenantId)
+          .in("id", instructorIds)
+      : Promise.resolve({ data: [], error: null }),
+    fetchAircraftWarningSummaries({
+      supabase,
+      tenantId,
+      timeZone,
+      aircraft,
+    }),
+  ])
 
-    if (instructorsResult.error) throw instructorsResult.error
+  aircraftWarningsById = aircraftWarningsResult
 
-    instructors = (instructorsResult.data ?? []).map((row) => {
-      const user = pickMaybeOne(row.user)
-      return {
-        id: row.id,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        user_id: row.user_id,
-        status: row.status,
-        is_actively_instructing: row.is_actively_instructing,
-        user: user
-          ? {
-              id: user.id,
-              first_name: user.first_name,
-              last_name: user.last_name,
-              email: user.email,
-            }
-          : null,
-        roster_rules: rosterRulesByInstructor.get(row.id) ?? [],
-      } as SchedulerInstructor
-    })
+  if (instructorsResult.error) throw instructorsResult.error
 
-    instructors.sort((a, b) => getInstructorDisplayName(a).localeCompare(getInstructorDisplayName(b)))
-  }
+  instructors = (instructorsResult.data ?? []).map((row) => {
+    const user = pickMaybeOne(row.user)
+    return {
+      id: row.id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      user_id: row.user_id,
+      status: row.status,
+      is_actively_instructing: row.is_actively_instructing,
+      night_removal: row.night_removal,
+      multi_removal: row.multi_removal,
+      ifr_removal: row.ifr_removal,
+      aerobatics_removal: row.aerobatics_removal,
+      tawa_removal: row.tawa_removal,
+      user: user
+        ? {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+          }
+        : null,
+      roster_rules: rosterRulesByInstructor.get(row.id) ?? [],
+    } as SchedulerInstructor
+  })
+
+  instructors.sort((a, b) => getInstructorDisplayName(a).localeCompare(getInstructorDisplayName(b)))
 
   return {
     dateYyyyMmDd,
@@ -179,6 +196,7 @@ export async function fetchSchedulerPageData({
     businessHours,
     bookings,
     aircraft,
+    aircraftWarningsById,
     instructors,
   }
 }

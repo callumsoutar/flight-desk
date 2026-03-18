@@ -1,10 +1,9 @@
 "use client"
 
-import { Building2 } from "lucide-react"
+import Image from "next/image"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function XeroConnectionCard({
   connected,
@@ -18,48 +17,48 @@ export function XeroConnectionCard({
   onRefresh?: () => void
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-4 w-4" />
-          Xero Connection
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Image src="/images/xero-logo.png" alt="Xero" width={72} height={24} className="h-6 w-auto" />
+          <h3 className="text-base font-semibold text-slate-900">Xero</h3>
+        </div>
         {!connected ? (
-          <>
-            <p className="text-sm text-muted-foreground">Connect your Xero organisation to enable account sync and invoice export.</p>
-            <Button asChild>
-              <a href="/api/xero/connect">Connect to Xero</a>
-            </Button>
-          </>
+          <Button asChild>
+            <a href="/api/xero/connect">Connect</a>
+          </Button>
         ) : (
-          <>
-            <p className="text-sm">
-              Connected to <span className="font-semibold">{tenantName ?? "Xero tenant"}</span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Connected at: {connectedAt ? new Date(connectedAt).toLocaleString() : "Unknown"}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  const response = await fetch("/api/xero/disconnect", { method: "POST" })
-                  if (!response.ok) {
-                    toast.error("Failed to disconnect Xero")
-                    return
-                  }
-                  toast.success("Disconnected from Xero")
-                  onRefresh?.()
-                }}
-              >
-                Disconnect
-              </Button>
-            </div>
-          </>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const response = await fetch("/api/xero/disconnect", { method: "POST" })
+              if (!response.ok) {
+                toast.error("Failed to disconnect Xero")
+                return
+              }
+              toast.success("Disconnected from Xero")
+              onRefresh?.()
+            }}
+          >
+            Disconnect
+          </Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {!connected ? (
+        <p className="text-sm text-muted-foreground">
+          Connect your Xero organisation to enable account sync and invoice export.
+        </p>
+      ) : (
+        <div className="space-y-1">
+          <p className="text-sm">
+            Connected to <span className="font-semibold">{tenantName ?? "Xero tenant"}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Connected at: {connectedAt ? new Date(connectedAt).toLocaleString() : "Unknown"}
+          </p>
+        </div>
+      )}
+    </section>
   )
 }
