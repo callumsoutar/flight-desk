@@ -15,6 +15,7 @@ import {
   UserCircle,
   X,
 } from "lucide-react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -30,9 +31,21 @@ import {
   zonedTodayYyyyMmDd,
 } from "@/lib/utils/timezone"
 import { useAuth } from "@/contexts/auth-context"
-import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
-import { ContactDetailsModal } from "@/components/members/contact-details-modal"
-import { NewBookingModal, type SchedulerBookingDraft } from "@/components/scheduler/new-booking-modal"
+import type { CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
+import type { SchedulerBookingDraft } from "@/components/scheduler/new-booking-modal"
+
+const CancelBookingModal = dynamic(
+  () => import("@/components/bookings/cancel-booking-modal").then((mod) => mod.CancelBookingModal),
+  { ssr: false }
+)
+const ContactDetailsModal = dynamic(
+  () => import("@/components/members/contact-details-modal").then((mod) => mod.ContactDetailsModal),
+  { ssr: false }
+)
+const NewBookingModal = dynamic(
+  () => import("@/components/scheduler/new-booking-modal").then((mod) => mod.NewBookingModal),
+  { ssr: false }
+)
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"

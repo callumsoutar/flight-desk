@@ -164,8 +164,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const invoiceId = rpcResult.invoice_id
 
   if (invoiceId) {
-    const invoicingSettings = await fetchInvoicingSettings(supabase, tenantId).catch(() => null)
-    const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
+    const [invoicingSettings, xeroSettings] = await Promise.all([
+      fetchInvoicingSettings(supabase, tenantId).catch(() => null),
+      fetchXeroSettings(supabase, tenantId).catch(() => null),
+    ])
     const defaultTaxType = xeroSettings?.default_tax_type ?? null
 
     const { data: invoiceItems } = await supabase

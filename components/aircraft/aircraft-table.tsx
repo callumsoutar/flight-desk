@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import {
   flexRender,
   getCoreRowModel,
@@ -19,9 +20,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AddAircraftModal } from "@/components/aircraft/add-aircraft-modal"
-import { ReorderAircraftModal } from "@/components/aircraft/reorder-aircraft-modal"
 import type { AircraftWithType } from "@/lib/types/aircraft"
+
+const AddAircraftModal = dynamic(
+  () => import("@/components/aircraft/add-aircraft-modal").then((mod) => mod.AddAircraftModal),
+  { ssr: false }
+)
+
+const ReorderAircraftModal = dynamic(
+  () => import("@/components/aircraft/reorder-aircraft-modal").then((mod) => mod.ReorderAircraftModal),
+  { ssr: false }
+)
 
 interface AircraftTableProps {
   aircraft: AircraftWithType[]

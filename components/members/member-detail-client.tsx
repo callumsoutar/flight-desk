@@ -18,14 +18,38 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { MemberAccountAccessTab } from "@/components/members/member-account-access-tab"
+import dynamic from "next/dynamic"
+
 import { MemberContactDetails } from "@/components/members/member-contact-details"
-import { MemberFinances } from "@/components/members/member-finances"
-import { MemberFlightHistoryTab } from "@/components/members/member-flight-history-tab"
-import { MemberMemberships } from "@/components/members/member-memberships"
-import { MemberPilotDetails } from "@/components/members/member-pilot-details"
-import { MemberTrainingTab } from "@/components/members/member-training-tab"
-import { MemberUpcomingBookingsTable } from "@/components/members/member-upcoming-bookings-table"
+
+const MemberAccountAccessTab = dynamic(
+  () => import("@/components/members/member-account-access-tab").then((mod) => mod.MemberAccountAccessTab),
+  { ssr: false }
+)
+const MemberFinances = dynamic(
+  () => import("@/components/members/member-finances").then((mod) => mod.MemberFinances),
+  { ssr: false }
+)
+const MemberFlightHistoryTab = dynamic(
+  () => import("@/components/members/member-flight-history-tab").then((mod) => mod.MemberFlightHistoryTab),
+  { ssr: false }
+)
+const MemberMemberships = dynamic(
+  () => import("@/components/members/member-memberships").then((mod) => mod.MemberMemberships),
+  { ssr: false }
+)
+const MemberPilotDetails = dynamic(
+  () => import("@/components/members/member-pilot-details").then((mod) => mod.MemberPilotDetails),
+  { ssr: false }
+)
+const MemberTrainingTab = dynamic(
+  () => import("@/components/members/member-training-tab").then((mod) => mod.MemberTrainingTab),
+  { ssr: false }
+)
+const MemberUpcomingBookingsTable = dynamic(
+  () => import("@/components/members/member-upcoming-bookings-table").then((mod) => mod.MemberUpcomingBookingsTable),
+  { ssr: false }
+)
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

@@ -376,9 +376,12 @@ export function BookingCheckoutClient({
   const requiresWarningsAcknowledgement = warnings.summary.requires_acknowledgement
   const warningGateBlocked =
     isWarningsRefreshing || Boolean(warningsRefreshError) || (requiresWarningsAcknowledgement && !warningsAcknowledged)
-  const isDirty =
-    JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
-    JSON.stringify(checkoutForm) !== JSON.stringify(savedCheckoutForm)
+  const isDirty = React.useMemo(
+    () =>
+      JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
+      JSON.stringify(checkoutForm) !== JSON.stringify(savedCheckoutForm),
+    [bookingForm, savedBookingForm, checkoutForm, savedCheckoutForm]
+  )
 
   const studentName = booking.student ? formatUser(booking.student) : "Booking Checkout"
   const canSubmitCheckout =

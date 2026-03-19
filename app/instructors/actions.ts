@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInstructorDetail } from "@/lib/instructors/fetch-instructor-detail"
 import { fetchInstructorRates } from "@/lib/instructors/fetch-instructor-rates"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import type { Database } from "@/lib/types"
 
 const updateInstructorDetailsSchema = z.object({
   userId: z.string().uuid(),
@@ -81,8 +83,11 @@ function canEditInstructor(role: string | null) {
   return role === "owner" || role === "admin" || role === "instructor"
 }
 
-async function verifyInstructorInTenant(tenantId: string, userId: string) {
-  const supabase = await createSupabaseServerClient()
+async function verifyInstructorInTenant(
+  supabase: SupabaseClient<Database>,
+  tenantId: string,
+  userId: string
+) {
   const { data, error } = await supabase
     .from("instructors")
     .select("id")
@@ -95,10 +100,10 @@ async function verifyInstructorInTenant(tenantId: string, userId: string) {
 }
 
 async function verifyInstructorByIdInTenant(
+  supabase: SupabaseClient<Database>,
   tenantId: string,
   instructorId: string
 ) {
-  const supabase = await createSupabaseServerClient()
   const { data, error } = await supabase
     .from("instructors")
     .select("id, user_id")
@@ -110,8 +115,11 @@ async function verifyInstructorByIdInTenant(
   return data
 }
 
-async function verifyFlightTypeInTenant(tenantId: string, flightTypeId: string) {
-  const supabase = await createSupabaseServerClient()
+async function verifyFlightTypeInTenant(
+  supabase: SupabaseClient<Database>,
+  tenantId: string,
+  flightTypeId: string
+) {
   const { data, error } = await supabase
     .from("flight_types")
     .select("id")
@@ -152,7 +160,7 @@ export async function updateInstructorDetailsAction(input: unknown) {
     ifr_removal,
   } = parsed.data
 
-  const instructorId = await verifyInstructorInTenant(tenantId, userId)
+  const instructorId = await verifyInstructorInTenant(supabase, tenantId, userId)
   if (!instructorId) return { ok: false as const, error: "Instructor not found" }
 
   const { error: userUpdateError } = await supabase
@@ -204,7 +212,7 @@ export async function updateInstructorNotesAction(input: unknown) {
   if (!canEditInstructor(role)) return { ok: false as const, error: "Forbidden" }
 
   const { userId, notes } = parsed.data
-  const instructorId = await verifyInstructorInTenant(tenantId, userId)
+  const instructorId = await verifyInstructorInTenant(supabase, tenantId, userId)
   if (!instructorId) return { ok: false as const, error: "Instructor not found" }
 
   const { error } = await supabase
@@ -234,10 +242,11 @@ export async function createInstructorRateAction(input: unknown) {
   if (!canEditInstructor(role)) return { ok: false as const, error: "Forbidden" }
 
   const { instructorId, flight_type_id, rate_per_hour, effective_from, currency } = parsed.data
-  const instructor = await verifyInstructorByIdInTenant(tenantId, instructorId)
+  const [instructor, hasFlightType] = await Promise.all([
+    verifyInstructorByIdInTenant(supabase, tenantId, instructorId),
+    verifyFlightTypeInTenant(supabase, tenantId, flight_type_id),
+  ])
   if (!instructor) return { ok: false as const, error: "Instructor not found" }
-
-  const hasFlightType = await verifyFlightTypeInTenant(tenantId, flight_type_id)
   if (!hasFlightType) return { ok: false as const, error: "Flight type not found" }
 
   const { data: existingRate, error: existingRateError } = await supabase
@@ -303,7 +312,7 @@ export async function updateInstructorRateAction(input: unknown) {
 
   if (error) return { ok: false as const, error: "Failed to update rate" }
 
-  const instructor = await verifyInstructorByIdInTenant(tenantId, existingRate.instructor_id)
+  const instructor = await verifyInstructorByIdInTenant(supabase, tenantId, existingRate.instructor_id)
   if (!instructor) return { ok: false as const, error: "Instructor not found" }
 
   const rates = await fetchInstructorRates(supabase, tenantId, instructor.id)
@@ -342,7 +351,7 @@ export async function deleteInstructorRateAction(input: unknown) {
 
   if (error) return { ok: false as const, error: "Failed to delete rate" }
 
-  const instructor = await verifyInstructorByIdInTenant(tenantId, existingRate.instructor_id)
+  const instructor = await verifyInstructorByIdInTenant(supabase, tenantId, existingRate.instructor_id)
   if (!instructor) return { ok: false as const, error: "Instructor not found" }
 
   const rates = await fetchInstructorRates(supabase, tenantId, instructor.id)

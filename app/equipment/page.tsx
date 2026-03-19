@@ -24,19 +24,22 @@ async function EquipmentContent({
   let issueMembers: EquipmentIssuanceMember[] = []
   let loadError: string | null = null
 
-  try {
-    equipment = await fetchEquipment(supabase, tenantId)
-  } catch {
+  const [equipmentResult, membersResult] = await Promise.allSettled([
+    fetchEquipment(supabase, tenantId),
+    canIssueEquipment ? fetchEquipmentIssuanceMembers(supabase, tenantId) : Promise.resolve([]),
+  ])
+
+  if (equipmentResult.status === "fulfilled") {
+    equipment = equipmentResult.value
+  } else {
     equipment = []
     loadError = "Failed to load equipment. You may not have permission to view this page."
   }
 
-  if (canIssueEquipment) {
-    try {
-      issueMembers = await fetchEquipmentIssuanceMembers(supabase, tenantId)
-    } catch {
-      issueMembers = []
-    }
+  if (membersResult.status === "fulfilled") {
+    issueMembers = membersResult.value
+  } else {
+    issueMembers = []
   }
 
   return (

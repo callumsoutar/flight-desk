@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import * as Tabs from "@radix-ui/react-tabs"
 import {
@@ -22,8 +23,12 @@ import { Separator } from "@/components/ui/separator"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { TaxSettingsTab } from "@/components/settings/tax-settings-tab"
 import type { GeneralSettings } from "@/lib/settings/general-settings"
+
+const TaxSettingsTab = dynamic(
+  () => import("@/components/settings/tax-settings-tab").then((mod) => mod.TaxSettingsTab),
+  { ssr: false }
+)
 
 const generalTabs = [
   { id: "school", label: "School", icon: IconBuilding },

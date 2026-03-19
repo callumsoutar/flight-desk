@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconClock, IconListDetails, IconLoader2, IconSettings } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import ChargeableSearchDropdown from "@/components/invoices/chargeable-search-dropdown"
-import { CancellationCategoriesTab } from "@/components/settings/bookings/cancellation-categories-tab"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,14 @@ import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import type { BookingsSettings } from "@/lib/settings/bookings-settings"
 import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
+
+const CancellationCategoriesTab = dynamic(
+  () =>
+    import("@/components/settings/bookings/cancellation-categories-tab").then(
+      (mod) => mod.CancellationCategoriesTab
+    ),
+  { ssr: false }
+)
 
 type BookingsSettingsResponse = { settings: BookingsSettings }
 type ChargeablesResponse = { chargeables: InvoiceCreateChargeable[] }

@@ -1,14 +1,19 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { IconCalendar, IconChevronRight, IconPlus } from "@tabler/icons-react"
 
 import { useTimezone } from "@/contexts/timezone-context"
-import { UpdateEquipmentModal } from "@/components/equipment/update-equipment-modal"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { Equipment, EquipmentUpdate } from "@/lib/types/equipment"
 import { formatDate } from "@/lib/utils/date-format"
+
+const UpdateEquipmentModal = dynamic(
+  () => import("@/components/equipment/update-equipment-modal").then((mod) => mod.UpdateEquipmentModal),
+  { ssr: false }
+)
 
 interface EquipmentUpdatesTableProps {
   updates: EquipmentUpdate[]

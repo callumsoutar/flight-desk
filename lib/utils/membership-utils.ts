@@ -10,6 +10,11 @@ import {
   zonedTodayYyyyMmDd,
 } from "@/lib/utils/timezone"
 
+const membershipCurrencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+})
+
 function daysBetweenDateKeys(a: string, b: string): number {
   const msA = Date.UTC(
     parseInt(a.slice(0, 4)),
@@ -143,10 +148,7 @@ export function calculateMembershipFee(
     isTaxable && normalizedTaxRate > 0
       ? rate * (1 + normalizedTaxRate)
       : rate
-  const currency = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(finalAmount)
+  const currency = membershipCurrencyFormatter.format(finalAmount)
 
   if (isTaxable && normalizedTaxRate > 0) {
     const label = taxName?.trim() || "tax"

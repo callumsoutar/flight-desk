@@ -67,75 +67,70 @@ export async function createBookingInTenant({
       return { ok: false, status: 403, error: "Only staff can create confirmed bookings." }
     }
 
-    if (payload.aircraft_id) {
-      const { data: aircraft, error: aircraftError } = await supabase
-        .from("aircraft")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("id", payload.aircraft_id)
-        .eq("on_line", true)
-        .maybeSingle()
+    const [aircraftCheck, instructorCheck, memberCheck, flightTypeCheck, lessonCheck] =
+      await Promise.all([
+        payload.aircraft_id
+          ? supabase
+              .from("aircraft")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .eq("id", payload.aircraft_id)
+              .eq("on_line", true)
+              .maybeSingle()
+          : Promise.resolve({ data: true, error: null }),
+        payload.instructor_id
+          ? supabase
+              .from("instructors")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .eq("id", payload.instructor_id)
+              .eq("is_actively_instructing", true)
+              .maybeSingle()
+          : Promise.resolve({ data: true, error: null }),
+        resolvedUserId
+          ? supabase
+              .from("tenant_users")
+              .select("user_id")
+              .eq("tenant_id", tenantId)
+              .eq("user_id", resolvedUserId)
+              .eq("is_active", true)
+              .maybeSingle()
+          : Promise.resolve({ data: true, error: null }),
+        payload.flight_type_id
+          ? supabase
+              .from("flight_types")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .eq("id", payload.flight_type_id)
+              .eq("is_active", true)
+              .is("voided_at", null)
+              .maybeSingle()
+          : Promise.resolve({ data: true, error: null }),
+        payload.lesson_id
+          ? supabase
+              .from("lessons")
+              .select("id")
+              .eq("tenant_id", tenantId)
+              .eq("id", payload.lesson_id)
+              .eq("is_active", true)
+              .maybeSingle()
+          : Promise.resolve({ data: true, error: null }),
+      ])
 
-      if (aircraftError || !aircraft) {
-        return { ok: false, status: 404, error: "Selected aircraft was not found" }
-      }
+    if (aircraftCheck.error || !aircraftCheck.data) {
+      return { ok: false, status: 404, error: "Selected aircraft was not found" }
     }
-
-    if (payload.instructor_id) {
-      const { data: instructor, error: instructorError } = await supabase
-        .from("instructors")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("id", payload.instructor_id)
-        .eq("is_actively_instructing", true)
-        .maybeSingle()
-
-      if (instructorError || !instructor) {
-        return { ok: false, status: 404, error: "Selected instructor was not found" }
-      }
+    if (instructorCheck.error || !instructorCheck.data) {
+      return { ok: false, status: 404, error: "Selected instructor was not found" }
     }
-
-    if (resolvedUserId) {
-      const { data: member, error: memberError } = await supabase
-        .from("tenant_users")
-        .select("user_id")
-        .eq("tenant_id", tenantId)
-        .eq("user_id", resolvedUserId)
-        .eq("is_active", true)
-        .maybeSingle()
-
-      if (memberError || !member) {
-        return { ok: false, status: 404, error: "Selected member was not found" }
-      }
+    if (memberCheck.error || !memberCheck.data) {
+      return { ok: false, status: 404, error: "Selected member was not found" }
     }
-
-    if (payload.flight_type_id) {
-      const { data: flightType, error: flightTypeError } = await supabase
-        .from("flight_types")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("id", payload.flight_type_id)
-        .eq("is_active", true)
-        .is("voided_at", null)
-        .maybeSingle()
-
-      if (flightTypeError || !flightType) {
-        return { ok: false, status: 404, error: "Selected flight type was not found" }
-      }
+    if (flightTypeCheck.error || !flightTypeCheck.data) {
+      return { ok: false, status: 404, error: "Selected flight type was not found" }
     }
-
-    if (payload.lesson_id) {
-      const { data: lesson, error: lessonError } = await supabase
-        .from("lessons")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("id", payload.lesson_id)
-        .eq("is_active", true)
-        .maybeSingle()
-
-      if (lessonError || !lesson) {
-        return { ok: false, status: 404, error: "Selected lesson was not found" }
-      }
+    if (lessonCheck.error || !lessonCheck.data) {
+      return { ok: false, status: 404, error: "Selected lesson was not found" }
     }
 
     const { unavailableAircraftIds, unavailableInstructorIds } = await fetchUnavailableResourceIds({

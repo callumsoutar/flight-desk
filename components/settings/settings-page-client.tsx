@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import * as Tabs from "@radix-ui/react-tabs"
 import {
   IconCalendar,
@@ -12,13 +13,7 @@ import {
   IconSettings,
 } from "@tabler/icons-react"
 
-import { ChargesTab } from "@/components/settings/charges-tab"
-import { BookingsTab } from "@/components/settings/bookings-tab"
 import { GeneralTab } from "@/components/settings/general-tab"
-import { InvoicingTab } from "@/components/settings/invoicing-tab"
-import { MembershipsTab } from "@/components/settings/memberships-tab"
-import { IntegrationsTab } from "@/components/settings/integrations-tab"
-import { TrainingTab } from "@/components/settings/training-tab"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -33,6 +28,35 @@ import type { BookingsSettings } from "@/lib/settings/bookings-settings"
 import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
 import { cn } from "@/lib/utils"
+
+const InvoicingTab = dynamic(
+  () => import("@/components/settings/invoicing-tab").then((mod) => mod.InvoicingTab),
+  { ssr: false }
+)
+
+const ChargesTab = dynamic(() => import("@/components/settings/charges-tab").then((mod) => mod.ChargesTab), {
+  ssr: false,
+})
+
+const BookingsTab = dynamic(
+  () => import("@/components/settings/bookings-tab").then((mod) => mod.BookingsTab),
+  { ssr: false }
+)
+
+const TrainingTab = dynamic(
+  () => import("@/components/settings/training-tab").then((mod) => mod.TrainingTab),
+  { ssr: false }
+)
+
+const MembershipsTab = dynamic(
+  () => import("@/components/settings/memberships-tab").then((mod) => mod.MembershipsTab),
+  { ssr: false }
+)
+
+const IntegrationsTab = dynamic(
+  () => import("@/components/settings/integrations-tab").then((mod) => mod.IntegrationsTab),
+  { ssr: false }
+)
 
 const tabs = [
   { id: "general", label: "General", icon: IconSettings },

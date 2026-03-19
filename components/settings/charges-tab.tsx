@@ -1,13 +1,29 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconCashBanknote, IconCategory, IconPlane, IconReceiptTax } from "@tabler/icons-react"
 
 import { FlightTypesConfig } from "@/components/settings/charges/flight-types-config"
-import { LandingFeesConfig } from "@/components/settings/charges/landing-fees-config"
-import { ChargeablesConfig } from "@/components/settings/charges/chargeables-config"
-import { ChargeableTypesConfig } from "@/components/settings/charges/chargeable-types-config"
+
+const LandingFeesConfig = dynamic(
+  () => import("@/components/settings/charges/landing-fees-config").then((mod) => mod.LandingFeesConfig),
+  { ssr: false }
+)
+
+const ChargeableTypesConfig = dynamic(
+  () =>
+    import("@/components/settings/charges/chargeable-types-config").then(
+      (mod) => mod.ChargeableTypesConfig
+    ),
+  { ssr: false }
+)
+
+const ChargeablesConfig = dynamic(
+  () => import("@/components/settings/charges/chargeables-config").then((mod) => mod.ChargeablesConfig),
+  { ssr: false }
+)
 
 const chargeTabs = [
   { id: "aircraft", label: "Aircraft rates", icon: IconPlane },

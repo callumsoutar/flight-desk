@@ -52,21 +52,24 @@ async function InstructorDetailContent({
   let defaultTaxRate: Awaited<ReturnType<typeof fetchInstructorRateMetadata>>["defaultTaxRate"] = null
   let loadError: string | null = null
 
-  try {
-    const [rateRows, categories, rateMetadata] = await Promise.all([
-      fetchInstructorRates(supabase, tenantId, instructor.id),
-      fetchInstructorCategories(supabase),
-      fetchInstructorRateMetadata(supabase, tenantId),
-    ])
-    rates = rateRows
-    instructorCategories = categories
-    flightTypes = rateMetadata.flightTypes
-    defaultTaxRate = rateMetadata.defaultTaxRate
-  } catch {
-    rates = []
-    instructorCategories = []
-    flightTypes = []
-    defaultTaxRate = null
+  const [ratesResult, categoriesResult, metadataResult] = await Promise.allSettled([
+    fetchInstructorRates(supabase, tenantId, instructor.id),
+    fetchInstructorCategories(supabase),
+    fetchInstructorRateMetadata(supabase, tenantId),
+  ])
+
+  if (ratesResult.status === "fulfilled") rates = ratesResult.value
+  if (categoriesResult.status === "fulfilled") instructorCategories = categoriesResult.value
+  if (metadataResult.status === "fulfilled") {
+    flightTypes = metadataResult.value.flightTypes
+    defaultTaxRate = metadataResult.value.defaultTaxRate
+  }
+
+  if (
+    ratesResult.status === "rejected" ||
+    categoriesResult.status === "rejected" ||
+    metadataResult.status === "rejected"
+  ) {
     loadError = "Some instructor sections could not be loaded."
   }
 

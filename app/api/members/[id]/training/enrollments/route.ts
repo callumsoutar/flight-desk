@@ -55,68 +55,67 @@ export async function POST(
     )
   }
 
-  const { data: tenant, error: tenantError } = await supabase
-    .from("tenants")
-    .select("timezone")
-    .eq("id", tenantId)
-    .maybeSingle()
+  const [tenantResult, syllabusResult, instructorResult, aircraftTypeResult] = await Promise.all([
+    supabase
+      .from("tenants")
+      .select("timezone")
+      .eq("id", tenantId)
+      .maybeSingle(),
+    supabase
+      .from("syllabus")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("id", parsed.data.syllabus_id)
+      .eq("is_active", true)
+      .is("voided_at", null)
+      .maybeSingle(),
+    parsed.data.primary_instructor_id
+      ? supabase
+          .from("instructors")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("id", parsed.data.primary_instructor_id)
+          .maybeSingle()
+      : Promise.resolve({ data: true, error: null }),
+    parsed.data.aircraft_type
+      ? supabase
+          .from("aircraft_types")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("id", parsed.data.aircraft_type)
+          .maybeSingle()
+      : Promise.resolve({ data: true, error: null }),
+  ])
 
-  if (tenantError) {
+  if (tenantResult.error) {
     return NextResponse.json(
       { error: "Failed to resolve tenant settings" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
   }
 
-  const timeZone = tenant?.timezone ?? "Pacific/Auckland"
+  const timeZone = tenantResult.data?.timezone ?? "Pacific/Auckland"
   const enrolledAt = parsed.data.enrolled_at ?? zonedTodayYyyyMmDd(timeZone)
 
-  const { data: syllabus } = await supabase
-    .from("syllabus")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("id", parsed.data.syllabus_id)
-    .eq("is_active", true)
-    .is("voided_at", null)
-    .maybeSingle()
-
-  if (!syllabus) {
+  if (!syllabusResult.data) {
     return NextResponse.json(
       { error: "Selected syllabus was not found" },
       { status: 404, headers: { "cache-control": "no-store" } }
     )
   }
 
-  if (parsed.data.primary_instructor_id) {
-    const { data: instructor } = await supabase
-      .from("instructors")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("id", parsed.data.primary_instructor_id)
-      .maybeSingle()
-
-    if (!instructor) {
-      return NextResponse.json(
-        { error: "Selected instructor was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
-    }
+  if (parsed.data.primary_instructor_id && !instructorResult.data) {
+    return NextResponse.json(
+      { error: "Selected instructor was not found" },
+      { status: 404, headers: { "cache-control": "no-store" } }
+    )
   }
 
-  if (parsed.data.aircraft_type) {
-    const { data: aircraftType } = await supabase
-      .from("aircraft_types")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("id", parsed.data.aircraft_type)
-      .maybeSingle()
-
-    if (!aircraftType) {
-      return NextResponse.json(
-        { error: "Selected aircraft type was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
-    }
+  if (parsed.data.aircraft_type && !aircraftTypeResult.data) {
+    return NextResponse.json(
+      { error: "Selected aircraft type was not found" },
+      { status: 404, headers: { "cache-control": "no-store" } }
+    )
   }
 
   const { data, error } = await supabase

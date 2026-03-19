@@ -57,16 +57,19 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "One or more aircraft were not found" }, { status: 404 })
   }
 
-  for (const item of items) {
-    const { error } = await supabase
-      .from("aircraft")
-      .update({ order: item.order })
-      .eq("tenant_id", tenantId)
-      .eq("id", item.id)
+  const updateResults = await Promise.all(
+    items.map((item) =>
+      supabase
+        .from("aircraft")
+        .update({ order: item.order })
+        .eq("tenant_id", tenantId)
+        .eq("id", item.id)
+    )
+  )
 
-    if (error) {
-      return NextResponse.json({ error: "Failed to update aircraft order" }, { status: 500 })
-    }
+  const updateError = updateResults.find((result) => result.error)?.error
+  if (updateError) {
+    return NextResponse.json({ error: "Failed to update aircraft order" }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

@@ -1,7 +1,12 @@
 "use client"
 
-import { RosterScheduler } from "@/components/rosters/roster-scheduler"
+import dynamic from "next/dynamic"
 import type { RosterInstructor, RosterRule, TimelineConfig } from "@/lib/types/roster"
+
+const RosterScheduler = dynamic(
+  () => import("@/components/rosters/roster-scheduler").then((mod) => mod.RosterScheduler),
+  { ssr: false }
+)
 
 export function RostersPageClient({
   instructors,

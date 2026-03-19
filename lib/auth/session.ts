@@ -157,29 +157,41 @@ export async function getAuthSession(
   }
 
   let role: UserRole | null = null
+  let tenantId: string | null = null
+  let rolePromise: Promise<UserRole | null> | null = null
+  let tenantPromise: Promise<string | null> | null = null
+
   if (includeRole) {
     if (authoritativeRole) {
-      role = await resolveRoleFromDatabase(supabase, claimedUserId)
+      rolePromise = resolveRoleFromDatabase(supabase, claimedUserId)
     } else {
       role = resolveRoleFromClaims(claims)
       if (!role && !STRICT_CLAIMS_MODE) {
         logClaimsFallback("role", claimedUserId)
-        role = await resolveRoleFromDatabase(supabase, claimedUserId)
+        rolePromise = resolveRoleFromDatabase(supabase, claimedUserId)
       }
     }
   }
 
-  let tenantId: string | null = null
   if (includeTenant) {
     if (authoritativeTenant) {
-      tenantId = await resolveTenantFromDatabase(supabase, claimedUserId)
+      tenantPromise = resolveTenantFromDatabase(supabase, claimedUserId)
     } else {
       tenantId = resolveTenantFromClaims(claims)
       if (!tenantId && !STRICT_CLAIMS_MODE) {
         logClaimsFallback("tenant", claimedUserId)
-        tenantId = await resolveTenantFromDatabase(supabase, claimedUserId)
+        tenantPromise = resolveTenantFromDatabase(supabase, claimedUserId)
       }
     }
+  }
+
+  if (rolePromise || tenantPromise) {
+    const [resolvedRole, resolvedTenantId] = await Promise.all([
+      rolePromise ?? Promise.resolve(role),
+      tenantPromise ?? Promise.resolve(tenantId),
+    ])
+    role = resolvedRole
+    tenantId = resolvedTenantId
   }
 
   return { user, claims, role, tenantId }

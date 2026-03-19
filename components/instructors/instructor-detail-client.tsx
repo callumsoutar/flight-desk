@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import * as Tabs from "@radix-ui/react-tabs"
 import { toast } from "sonner"
@@ -20,7 +21,6 @@ import {
   updateInstructorDetailsAction,
   updateInstructorNotesAction,
 } from "@/app/instructors/actions"
-import { InstructorChargeRatesTable } from "@/components/instructors/instructor-charge-rates-table"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -45,6 +45,14 @@ import type {
   InstructorFlightTypeLite,
   InstructorRateWithFlightType,
 } from "@/lib/types/instructors"
+
+const InstructorChargeRatesTable = dynamic(
+  () =>
+    import("@/components/instructors/instructor-charge-rates-table").then(
+      (mod) => mod.InstructorChargeRatesTable
+    ),
+  { ssr: false }
+)
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Active" },

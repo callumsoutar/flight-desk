@@ -29,10 +29,23 @@ async function InvoiceDetailContent({
 }) {
   const supabase = await createSupabaseServerClient()
 
-  let detail: Awaited<ReturnType<typeof fetchInvoiceDetail>>
-  try {
-    detail = await fetchInvoiceDetail(supabase, tenantId, id)
-  } catch {
+  const loadErrors: string[] = []
+  let settings = DEFAULT_INVOICING_SETTINGS
+  let xeroEnabled = false
+  let xeroStatus: {
+    export_status: "pending" | "exported" | "failed" | "voided"
+    xero_invoice_id: string | null
+    exported_at: string | null
+    error_message: string | null
+  } | null = null
+
+  const [detailResult, settingsResult, xeroSettingsResult] = await Promise.all([
+    fetchInvoiceDetail(supabase, tenantId, id).catch(() => null),
+    fetchInvoicingSettings(supabase, tenantId).catch(() => null),
+    fetchXeroSettings(supabase, tenantId).catch(() => null),
+  ])
+
+  if (!detailResult) {
     return (
       <AppRouteNarrowDetailContainer>
         <Card>
@@ -45,27 +58,15 @@ async function InvoiceDetailContent({
     )
   }
 
-  const loadErrors: string[] = []
-  let settings = DEFAULT_INVOICING_SETTINGS
-  let xeroEnabled = false
-  let xeroStatus: {
-    export_status: "pending" | "exported" | "failed" | "voided"
-    xero_invoice_id: string | null
-    exported_at: string | null
-    error_message: string | null
-  } | null = null
-  try {
-    settings = await fetchInvoicingSettings(supabase, tenantId)
-  } catch {
+  const detail = detailResult
+
+  if (settingsResult) {
+    settings = settingsResult
+  } else {
     loadErrors.push("invoicing settings")
   }
 
-  try {
-    const xeroSettings = await fetchXeroSettings(supabase, tenantId)
-    xeroEnabled = xeroSettings.enabled
-  } catch {
-    xeroEnabled = false
-  }
+  xeroEnabled = xeroSettingsResult?.enabled ?? false
 
   if (!detail.invoice) {
     notFound()

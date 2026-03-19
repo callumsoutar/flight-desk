@@ -195,7 +195,8 @@ export async function fetchReportData(
     lessonProgressResult,
     enrollmentsResult,
     syllabiResult,
-    observationsResult,
+    observationsInRangeResult,
+    observationsStageResult,
     cancellationCategoriesResult,
   ] = await Promise.all([
     supabase
@@ -238,7 +239,14 @@ export async function fetchReportData(
 
     supabase
       .from("observations")
-      .select("id, reported_date, stage")
+      .select("reported_date")
+      .eq("tenant_id", tenantId)
+      .gte("reported_date", startDate)
+      .lte("reported_date", endDate),
+
+    supabase
+      .from("observations")
+      .select("stage")
       .eq("tenant_id", tenantId),
 
     supabase
@@ -253,7 +261,8 @@ export async function fetchReportData(
   const lessonProgress = lessonProgressResult.data ?? []
   const enrollments = enrollmentsResult.data ?? []
   const syllabi = syllabiResult.data ?? []
-  const observations = observationsResult.data ?? []
+  const observationsInRange = observationsInRangeResult.data ?? []
+  const observationsByStageRows = observationsStageResult.data ?? []
   const cancellationCategories = cancellationCategoriesResult.data ?? []
 
   // --- Booking Volume ---
@@ -420,7 +429,7 @@ export async function fetchReportData(
   // --- Observation Trends (last 12 months only) ---
   const obsByMonth = new Map<string, number>()
   for (const m of months) obsByMonth.set(m, 0)
-  for (const o of observations) {
+  for (const o of observationsInRange) {
     const ym = toYearMonth(o.reported_date)
     if (obsByMonth.has(ym)) {
       obsByMonth.set(ym, (obsByMonth.get(ym) ?? 0) + 1)
@@ -434,7 +443,7 @@ export async function fetchReportData(
 
   // --- Observations by Stage (all time) ---
   const stageCounts = new Map<string, number>()
-  for (const o of observations) {
+  for (const o of observationsByStageRows) {
     const stage = o.stage as string
     stageCounts.set(stage, (stageCounts.get(stage) ?? 0) + 1)
   }
@@ -457,7 +466,7 @@ export async function fetchReportData(
     .reduce((sum, b) => sum + (b.billing_hours ?? b.flight_time_hobbs ?? 0), 0)
   const activeAircraft = aircraft.filter((a) => a.on_line).length
   const activeStudents = new Set(lessonProgress.map((lp) => lp.user_id)).size
-  const openObservations = observations.filter(
+  const openObservations = observationsByStageRows.filter(
     (o) => (o.stage as string) !== "closed"
   ).length
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
+import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
@@ -20,24 +21,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login`)
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, tenantId } = await getAuthSession(supabase, {
+    includeTenant: true,
+    requireUser: true,
+    authoritativeTenant: true,
+  })
 
-  if (user) {
-    const { data: tenantUser } = await supabase
-      .from("tenant_users")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle()
+  if (!user) {
+    return NextResponse.redirect(`${origin}/login`)
+  }
 
-    if (!tenantUser) {
-      return NextResponse.redirect(
-        `${origin}/login?error=${encodeURIComponent("No organization found for your account. Please contact your administrator or sign up.")}`
-      )
-    }
+  if (!tenantId) {
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent("No organization found for your account. Please contact your administrator or sign up.")}`
+    )
   }
 
   return NextResponse.redirect(`${origin}${next}`)

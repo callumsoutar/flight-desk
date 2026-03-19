@@ -62,53 +62,56 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   if (!isStaff(role)) return { ok: false as const, error: "Only staff can create invoices" }
 
   const payload: CreateInvoiceInput = parsed.data
+  const chargeableIds = Array.from(new Set(payload.items.map((item) => item.chargeableId)))
 
-  const { data: memberMatch, error: memberError } = await supabase
-    .from("tenant_users")
-    .select("user_id")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .eq("user_id", payload.userId)
-    .maybeSingle()
+  const [memberResult, taxRatesResult, invoicingSettingsResult, xeroSettingsResult, chargeablesResult] =
+    await Promise.all([
+      supabase
+        .from("tenant_users")
+        .select("user_id")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .eq("user_id", payload.userId)
+        .maybeSingle(),
+      supabase
+        .from("tax_rates")
+        .select("rate, is_default, effective_from")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("is_default", { ascending: false })
+        .order("effective_from", { ascending: false }),
+      fetchInvoicingSettings(supabase, tenantId).catch(() => null),
+      fetchXeroSettings(supabase, tenantId).catch(() => null),
+      supabase
+        .from("chargeables")
+        .select("id, name, is_taxable, xero_tax_type, chargeable_type_id, gl_code")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .is("voided_at", null)
+        .in("id", chargeableIds),
+    ])
 
-  if (memberError) {
+  if (memberResult.error) {
     return { ok: false as const, error: "Failed to validate selected member" }
   }
-  if (!memberMatch?.user_id) {
+  if (!memberResult.data?.user_id) {
     return { ok: false as const, error: "Selected member is not in this tenant" }
   }
 
-  const { data: taxRates, error: taxError } = await supabase
-    .from("tax_rates")
-    .select("rate, is_default, effective_from")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .order("is_default", { ascending: false })
-    .order("effective_from", { ascending: false })
-
-  if (taxError) {
+  if (taxRatesResult.error) {
     return { ok: false as const, error: "Failed to resolve tenant tax rate" }
   }
 
-  const rawTaxRate = taxRates?.[0]?.rate
-  const defaultTaxRate =
-    typeof rawTaxRate === "number" && rawTaxRate >= 0 && rawTaxRate <= 1 ? rawTaxRate : 0
-  const invoicingSettings = await fetchInvoicingSettings(supabase, tenantId).catch(() => null)
-  const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
-  const defaultXeroTaxType = xeroSettings?.default_tax_type ?? null
-  const chargeableIds = Array.from(new Set(payload.items.map((item) => item.chargeableId)))
-
-  const { data: chargeables, error: chargeablesError } = await supabase
-    .from("chargeables")
-    .select("id, name, is_taxable, xero_tax_type, chargeable_type_id, gl_code")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .is("voided_at", null)
-    .in("id", chargeableIds)
-
-  if (chargeablesError) {
+  if (chargeablesResult.error) {
     return { ok: false as const, error: "Failed to resolve invoice line items" }
   }
+
+  const rawTaxRate = taxRatesResult.data?.[0]?.rate
+  const defaultTaxRate =
+    typeof rawTaxRate === "number" && rawTaxRate >= 0 && rawTaxRate <= 1 ? rawTaxRate : 0
+  const invoicingSettings = invoicingSettingsResult
+  const defaultXeroTaxType = xeroSettingsResult?.default_tax_type ?? null
+  const chargeables = chargeablesResult.data
 
   const chargeableMap = new Map((chargeables ?? []).map((row) => [row.id, row]))
 

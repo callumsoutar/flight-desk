@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { Tabs } from "radix-ui"
 import {
@@ -13,13 +14,7 @@ import {
   IconTool,
 } from "@tabler/icons-react"
 
-import { AircraftFlightHistoryTab } from "@/components/aircraft/aircraft-flight-history-tab"
-import { AircraftMaintenanceHistoryTab } from "@/components/aircraft/aircraft-maintenance-history-tab"
-import { AircraftMaintenanceItemsTab } from "@/components/aircraft/aircraft-maintenance-items-tab"
-import { AircraftObservationsTab } from "@/components/aircraft/aircraft-observations-tab"
 import { AircraftOverviewTab } from "@/components/aircraft/aircraft-overview-tab"
-import { AircraftSettingsTab } from "@/components/aircraft/aircraft-settings-tab"
-import { AircraftTechLogTab } from "@/components/aircraft/aircraft-tech-log-tab"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -31,6 +26,49 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { AircraftDetailData } from "@/lib/types/aircraft-detail"
+
+const AircraftTechLogTab = dynamic(
+  () => import("@/components/aircraft/aircraft-tech-log-tab").then((mod) => mod.AircraftTechLogTab),
+  { ssr: false }
+)
+
+const AircraftFlightHistoryTab = dynamic(
+  () =>
+    import("@/components/aircraft/aircraft-flight-history-tab").then(
+      (mod) => mod.AircraftFlightHistoryTab
+    ),
+  { ssr: false }
+)
+
+const AircraftObservationsTab = dynamic(
+  () =>
+    import("@/components/aircraft/aircraft-observations-tab").then(
+      (mod) => mod.AircraftObservationsTab
+    ),
+  { ssr: false }
+)
+
+const AircraftMaintenanceItemsTab = dynamic(
+  () =>
+    import("@/components/aircraft/aircraft-maintenance-items-tab").then(
+      (mod) => mod.AircraftMaintenanceItemsTab
+    ),
+  { ssr: false }
+)
+
+const AircraftMaintenanceHistoryTab = dynamic(
+  () =>
+    import("@/components/aircraft/aircraft-maintenance-history-tab").then(
+      (mod) => mod.AircraftMaintenanceHistoryTab
+    ),
+  { ssr: false }
+)
+
+const AircraftSettingsTab = dynamic(
+  () =>
+    import("@/components/aircraft/aircraft-settings-tab").then((mod) => mod.AircraftSettingsTab),
+  { ssr: false }
+)
 
 function formatTotalHours(hours: number | null | undefined): string {
   if (hours === null || hours === undefined) return "0.0h"

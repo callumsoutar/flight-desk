@@ -25,17 +25,18 @@ export default async function RootLayout({
     includeRole: true,
     includeTenant: true,
   })
-  const profile = user ? await fetchUserProfile(supabase, user) : null
 
-  let tenantTimezone = "Pacific/Auckland"
-  if (tenantId) {
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("timezone")
-      .eq("id", tenantId)
-      .maybeSingle()
-    if (tenant?.timezone) tenantTimezone = tenant.timezone
-  }
+  const [profile, tenantTimezone] = await Promise.all([
+    user ? fetchUserProfile(supabase, user) : Promise.resolve(null),
+    tenantId
+      ? supabase
+          .from("tenants")
+          .select("timezone")
+          .eq("id", tenantId)
+          .maybeSingle()
+          .then(({ data }) => data?.timezone ?? "Pacific/Auckland")
+      : Promise.resolve("Pacific/Auckland"),
+  ])
 
   return (
     <html lang="en" suppressHydrationWarning>

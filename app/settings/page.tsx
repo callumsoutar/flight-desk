@@ -23,16 +23,49 @@ async function SettingsContent({
 }) {
   const supabase = await createSupabaseServerClient()
 
-  let generalSettings: Awaited<ReturnType<typeof fetchGeneralSettings>> | null = null
-  let generalLoadError: string | null = null
-  let invoicingSettings: Awaited<ReturnType<typeof fetchInvoicingSettings>> | null = null
-  let invoicingLoadError: string | null = null
-  let bookingsSettings: Awaited<ReturnType<typeof fetchBookingsSettings>> | null = null
-  let bookingsLoadError: string | null = null
-  let membershipsSettings: Awaited<ReturnType<typeof fetchMembershipsSettings>> | null = null
-  let membershipsLoadError: string | null = null
-  let xeroSettings: Awaited<ReturnType<typeof fetchXeroSettings>> | null = null
-  let xeroLoadError: string | null = null
+  const [
+    generalResult,
+    invoicingResult,
+    bookingsResult,
+    membershipsResult,
+    xeroResult,
+    xeroConnectionResult,
+  ] = await Promise.allSettled([
+    fetchGeneralSettings(supabase, tenantId),
+    fetchInvoicingSettings(supabase, tenantId),
+    fetchBookingsSettings(supabase, tenantId),
+    fetchMembershipsSettings(supabase, tenantId),
+    fetchXeroSettings(supabase, tenantId),
+    supabase
+      .from("xero_connections")
+      .select("xero_tenant_name, created_at")
+      .eq("tenant_id", tenantId)
+      .maybeSingle(),
+  ])
+
+  const generalSettings = generalResult.status === "fulfilled" ? generalResult.value : null
+  const generalLoadError = generalResult.status === "rejected" ? "Failed to load settings." : null
+
+  const invoicingSettings = invoicingResult.status === "fulfilled" ? invoicingResult.value : null
+  const invoicingLoadError =
+    invoicingResult.status === "rejected" ? "Failed to load settings." : null
+
+  const bookingsSettings = bookingsResult.status === "fulfilled" ? bookingsResult.value : null
+  const bookingsLoadError =
+    bookingsResult.status === "rejected" ? "Failed to load booking settings." : null
+
+  const membershipsSettings = membershipsResult.status === "fulfilled" ? membershipsResult.value : null
+  const membershipsLoadError =
+    membershipsResult.status === "rejected" ? "Failed to load membership settings." : null
+
+  const xeroSettings = xeroResult.status === "fulfilled" ? xeroResult.value : null
+  const xeroLoadError = xeroResult.status === "rejected" ? "Failed to load Xero settings." : null
+
+  const xeroConnection =
+    xeroConnectionResult.status === "fulfilled" && !xeroConnectionResult.value.error
+      ? xeroConnectionResult.value.data
+      : null
+
   let xeroConnectionStatus: { connected: boolean; xero_tenant_name: string | null; connected_at: string | null } =
     {
       connected: false,
@@ -40,50 +73,12 @@ async function SettingsContent({
       connected_at: null,
     }
 
-  try {
-    generalSettings = await fetchGeneralSettings(supabase, tenantId)
-  } catch {
-    generalSettings = null
-    generalLoadError = "Failed to load settings."
-  }
-
-  try {
-    invoicingSettings = await fetchInvoicingSettings(supabase, tenantId)
-  } catch {
-    invoicingSettings = null
-    invoicingLoadError = "Failed to load settings."
-  }
-
-  try {
-    bookingsSettings = await fetchBookingsSettings(supabase, tenantId)
-  } catch {
-    bookingsSettings = null
-    bookingsLoadError = "Failed to load booking settings."
-  }
-
-  try {
-    membershipsSettings = await fetchMembershipsSettings(supabase, tenantId)
-  } catch {
-    membershipsSettings = null
-    membershipsLoadError = "Failed to load membership settings."
-  }
-
-  try {
-    xeroSettings = await fetchXeroSettings(supabase, tenantId)
-    const { data: connection } = await supabase
-      .from("xero_connections")
-      .select("xero_tenant_name, created_at")
-      .eq("tenant_id", tenantId)
-      .maybeSingle()
-
+  if (xeroSettings || xeroConnection) {
     xeroConnectionStatus = {
-      connected: Boolean(connection),
-      xero_tenant_name: connection?.xero_tenant_name ?? null,
-      connected_at: xeroSettings.connected_at ?? connection?.created_at ?? null,
+      connected: Boolean(xeroConnection),
+      xero_tenant_name: xeroConnection?.xero_tenant_name ?? null,
+      connected_at: xeroSettings?.connected_at ?? xeroConnection?.created_at ?? null,
     }
-  } catch {
-    xeroSettings = null
-    xeroLoadError = "Failed to load Xero settings."
   }
 
   return (

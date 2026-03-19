@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Tabs } from "radix-ui"
@@ -16,10 +17,6 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 
-import { IssueEquipmentModal } from "@/components/equipment/issue-equipment-modal"
-import { ReturnEquipmentModal } from "@/components/equipment/return-equipment-modal"
-import { EquipmentIssuanceTable } from "@/components/equipment/equipment-issuance-table"
-import { EquipmentUpdatesTable } from "@/components/equipment/equipment-updates-table"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import {
   Dialog,
@@ -60,6 +57,32 @@ import {
   type EquipmentUpdate,
   type EquipmentWithIssuance,
 } from "@/lib/types/equipment"
+
+const IssueEquipmentModal = dynamic(
+  () => import("@/components/equipment/issue-equipment-modal").then((mod) => mod.IssueEquipmentModal),
+  { ssr: false }
+)
+
+const ReturnEquipmentModal = dynamic(
+  () => import("@/components/equipment/return-equipment-modal").then((mod) => mod.ReturnEquipmentModal),
+  { ssr: false }
+)
+
+const EquipmentIssuanceTable = dynamic(
+  () =>
+    import("@/components/equipment/equipment-issuance-table").then(
+      (mod) => mod.EquipmentIssuanceTable
+    ),
+  { ssr: false }
+)
+
+const EquipmentUpdatesTable = dynamic(
+  () =>
+    import("@/components/equipment/equipment-updates-table").then(
+      (mod) => mod.EquipmentUpdatesTable
+    ),
+  { ssr: false }
+)
 
 type Props = {
   equipmentId: string

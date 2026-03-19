@@ -62,32 +62,36 @@ export async function POST(request: NextRequest) {
   const payload = parsed.data
   const email = payload.email.trim().toLowerCase()
 
-  const { data: memberRole, error: roleError } = await supabase
-    .from("roles")
-    .select("id")
-    .eq("name", "member")
-    .eq("is_active", true)
-    .maybeSingle()
+  const [memberRoleResult, existingUserResult] = await Promise.all([
+    supabase
+      .from("roles")
+      .select("id")
+      .eq("name", "member")
+      .eq("is_active", true)
+      .maybeSingle(),
+    supabase
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle(),
+  ])
 
-  if (roleError || !memberRole) {
+  if (memberRoleResult.error || !memberRoleResult.data) {
     return NextResponse.json(
       { error: "Unable to resolve member role" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
   }
 
-  const { data: existingUser, error: existingUserError } = await supabase
-    .from("users")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle()
-
-  if (existingUserError) {
+  if (existingUserResult.error) {
     return NextResponse.json(
       { error: "Failed to validate email" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
   }
+
+  const memberRole = memberRoleResult.data
+  const existingUser = existingUserResult.data
 
   let userId = existingUser?.id ?? null
 

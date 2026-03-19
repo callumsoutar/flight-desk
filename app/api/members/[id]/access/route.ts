@@ -48,38 +48,42 @@ export async function GET(
   }
 
   try {
-    const { data: memberUser, error: userError } = await supabase
-      .from("users")
-      .select("id, email")
-      .eq("id", memberId)
-      .maybeSingle()
+    const [memberUserResult, tenantUserResult, allRolesResult] = await Promise.all([
+      supabase
+        .from("users")
+        .select("id, email")
+        .eq("id", memberId)
+        .maybeSingle(),
+      supabase
+        .from("tenant_users")
+        .select("role:roles!tenant_users_role_id_fkey(id, name)")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", memberId)
+        .maybeSingle(),
+      supabase
+        .from("roles")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name"),
+    ])
 
-    if (userError || !memberUser) {
+    if (memberUserResult.error || !memberUserResult.data) {
       return NextResponse.json(
         { error: "Member not found" },
         { status: 404, headers: { "cache-control": "no-store" } }
       )
     }
 
-    const { data: tenantUser, error: tuError } = await supabase
-      .from("tenant_users")
-      .select("role:roles!tenant_users_role_id_fkey(id, name)")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", memberId)
-      .maybeSingle()
-
-    if (tuError || !tenantUser) {
+    if (tenantUserResult.error || !tenantUserResult.data) {
       return NextResponse.json(
         { error: "Member not found in tenant" },
         { status: 404, headers: { "cache-control": "no-store" } }
       )
     }
 
-    const { data: allRoles } = await supabase
-      .from("roles")
-      .select("id, name")
-      .eq("is_active", true)
-      .order("name")
+    const memberUser = memberUserResult.data
+    const tenantUser = tenantUserResult.data
+    const allRoles = allRolesResult.data
 
     const currentRole = Array.isArray(tenantUser.role)
       ? tenantUser.role[0]

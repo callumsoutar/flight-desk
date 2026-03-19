@@ -240,22 +240,25 @@ export async function fetchBookingCheckoutWarnings(
   tenantId: string,
   overrides: CheckoutWarningOverrides
 ): Promise<BookingWarningsResponse> {
-  const { data: booking, error: bookingError } = await supabase
-    .from("bookings")
-    .select("id, user_id, instructor_id, aircraft_id")
-    .eq("tenant_id", tenantId)
-    .eq("id", overrides.bookingId)
-    .maybeSingle()
+  const [bookingResult, tenantResult] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("id, user_id, instructor_id, aircraft_id")
+      .eq("tenant_id", tenantId)
+      .eq("id", overrides.bookingId)
+      .maybeSingle(),
+    supabase
+      .from("tenants")
+      .select("timezone")
+      .eq("id", tenantId)
+      .maybeSingle(),
+  ])
 
-  if (bookingError) throw bookingError
+  if (bookingResult.error) throw bookingResult.error
+  const booking = bookingResult.data
   if (!booking) throw new Error("Booking not found")
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("timezone")
-    .eq("id", tenantId)
-    .maybeSingle()
-  const timeZone = tenant?.timezone ?? "Pacific/Auckland"
+  const timeZone = tenantResult.data?.timezone ?? "Pacific/Auckland"
   const todayKey = zonedTodayYyyyMmDd(timeZone)
 
   const context = {

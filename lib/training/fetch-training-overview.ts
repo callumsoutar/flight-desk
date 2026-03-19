@@ -126,44 +126,47 @@ export async function fetchTrainingOverview(
     string,
     { id: string; first_name: string | null; last_name: string | null; user_id: string }
   >()
-  if (primaryInstructorIds.length) {
-    const { data: instructors, error } = await supabase
-      .from("instructors")
-      .select("id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(first_name, last_name)")
-      .eq("tenant_id", tenantId)
-      .in("id", primaryInstructorIds)
+  const lessonsTotalBySyllabusId = new Map<string, number>()
+  const [instructorsResult, lessonsResult] = await Promise.all([
+    primaryInstructorIds.length
+      ? supabase
+          .from("instructors")
+          .select(
+            "id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(first_name, last_name)"
+          )
+          .eq("tenant_id", tenantId)
+          .in("id", primaryInstructorIds)
+      : Promise.resolve({ data: null, error: null }),
+    syllabusIds.length
+      ? supabase
+          .from("lessons")
+          .select("id, syllabus_id, is_active, is_required")
+          .eq("tenant_id", tenantId)
+          .in("syllabus_id", syllabusIds)
+      : Promise.resolve({ data: null, error: null }),
+  ])
 
-    if (error) throw error
-    for (const i of instructors ?? []) {
-      const user = (i as unknown as { user: { first_name: string | null; last_name: string | null } | null }).user
-      primaryInstructorById.set(i.id, {
-        id: i.id,
-        first_name: user?.first_name ?? i.first_name,
-        last_name: user?.last_name ?? i.last_name,
-        user_id: i.user_id,
-      })
-    }
+  if (instructorsResult.error) throw instructorsResult.error
+  if (lessonsResult.error) throw lessonsResult.error
+
+  for (const i of instructorsResult.data ?? []) {
+    const user = (i as unknown as { user: { first_name: string | null; last_name: string | null } | null }).user
+    primaryInstructorById.set(i.id, {
+      id: i.id,
+      first_name: user?.first_name ?? i.first_name,
+      last_name: user?.last_name ?? i.last_name,
+      user_id: i.user_id,
+    })
   }
 
-  const lessonsTotalBySyllabusId = new Map<string, number>()
-  if (syllabusIds.length) {
-    const { data: lessons, error } = await supabase
-      .from("lessons")
-      .select("id, syllabus_id, is_active, is_required")
-      .eq("tenant_id", tenantId)
-      .in("syllabus_id", syllabusIds)
-
-    if (error) throw error
-
-    for (const lesson of lessons ?? []) {
-      if (!lesson.syllabus_id) continue
-      if (!lesson.is_active) continue
-      if (lesson.is_required === false) continue
-      lessonsTotalBySyllabusId.set(
-        lesson.syllabus_id,
-        (lessonsTotalBySyllabusId.get(lesson.syllabus_id) ?? 0) + 1
-      )
-    }
+  for (const lesson of lessonsResult.data ?? []) {
+    if (!lesson.syllabus_id) continue
+    if (!lesson.is_active) continue
+    if (lesson.is_required === false) continue
+    lessonsTotalBySyllabusId.set(
+      lesson.syllabus_id,
+      (lessonsTotalBySyllabusId.get(lesson.syllabus_id) ?? 0) + 1
+    )
   }
 
   const progressMap = new Map<

@@ -26,9 +26,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import InvoiceReportPDF from "@/components/invoices/invoice-report-pdf"
-import RecordPaymentModal from "@/components/invoices/record-payment-modal"
-import { VoidAndReissueModal } from "@/components/invoices/void-and-reissue-modal"
+import dynamic from "next/dynamic"
+
+const RecordPaymentModal = dynamic(
+  () => import("@/components/invoices/record-payment-modal"),
+  { ssr: false }
+)
+const VoidAndReissueModal = dynamic(
+  () => import("@/components/invoices/void-and-reissue-modal").then((mod) => mod.VoidAndReissueModal),
+  { ssr: false }
+)
+
 import type {
   InvoiceDocumentData,
   InvoiceDocumentItem,
@@ -96,7 +104,10 @@ export default function InvoiceViewActions({
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
     try {
-      const { pdf } = await import("@react-pdf/renderer")
+      const [{ pdf }, { default: InvoiceReportPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/invoices/invoice-report-pdf"),
+      ])
       const blob = await pdf(
         <InvoiceReportPDF invoice={invoice} items={items} settings={settings} timeZone={timeZone} />
       ).toBlob()

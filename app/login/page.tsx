@@ -9,9 +9,13 @@ export default async function LoginPage({
 }: {
   searchParams?: Promise<{ next?: string }>
 }) {
-  const next = (await searchParams)?.next
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const [resolvedSearchParams, session] = await Promise.all([
+    searchParams,
+    getAuthSession(supabase),
+  ])
+  const next = resolvedSearchParams?.next
+  const { user } = session
 
   if (user) redirect(next || "/dashboard")
 

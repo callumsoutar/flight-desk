@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { toast } from "sonner"
 
-import { RosterShiftModal } from "@/components/rosters/roster-shift-modal"
 import {
   buildTimeSlots,
   formatTimeLabel,
@@ -16,6 +16,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type { RosterInstructor, RosterRule, TimelineConfig } from "@/lib/types/roster"
+
+const RosterShiftModal = dynamic(
+  () => import("@/components/rosters/roster-shift-modal").then((mod) => mod.RosterShiftModal),
+  { ssr: false }
+)
 
 const ROW_HEIGHT = 44
 const LEFT_COL_WIDTH = "w-[160px] sm:w-[220px]"

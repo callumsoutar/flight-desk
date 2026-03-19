@@ -1,10 +1,15 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 
-import { AddMemberModal } from "@/components/members/add-member-modal"
 import { MembersTable } from "@/components/members/members-table"
+
+const AddMemberModal = dynamic(
+  () => import("@/components/members/add-member-modal").then((mod) => mod.AddMemberModal),
+  { ssr: false }
+)
 import type { MemberWithRelations, PersonType } from "@/lib/types/members"
 
 type Props = {

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import {
   IconAlertTriangle,
   IconChecks,
@@ -13,7 +14,6 @@ import {
   IconSearch,
 } from "@tabler/icons-react"
 
-import { TrainingStudentSheet } from "@/components/training/training-student-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,6 +26,11 @@ import type {
   TrainingOverviewRow,
   TrainingOverviewView,
 } from "@/lib/types/training-overview"
+
+const TrainingStudentSheet = dynamic(
+  () => import("@/components/training/training-student-sheet").then((mod) => mod.TrainingStudentSheet),
+  { ssr: false }
+)
 
 type SortKey = "name" | "syllabus" | "enrolled" | "last_flight" | "progress" | "status"
 

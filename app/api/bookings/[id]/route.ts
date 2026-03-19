@@ -259,47 +259,49 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const nextInstructorId =
       "instructor_id" in payload.data ? payload.data.instructor_id : existing.instructor_id
 
-    if (nextAircraftId) {
-      const { data: aircraft, error: aircraftError } = await supabase
-        .from("aircraft")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("id", nextAircraftId)
-        .eq("on_line", true)
-        .maybeSingle()
+    const [aircraftCheck, instructorCheck, availabilityResult] = await Promise.all([
+      nextAircraftId
+        ? supabase
+            .from("aircraft")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .eq("id", nextAircraftId)
+            .eq("on_line", true)
+            .maybeSingle()
+        : Promise.resolve({ data: true, error: null }),
+      nextInstructorId
+        ? supabase
+            .from("instructors")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .eq("id", nextInstructorId)
+            .eq("is_actively_instructing", true)
+            .maybeSingle()
+        : Promise.resolve({ data: true, error: null }),
+      fetchUnavailableResourceIds({
+        supabase,
+        tenantId,
+        startTimeIso: nextStartDate.toISOString(),
+        endTimeIso: nextEndDate.toISOString(),
+        excludeBookingId: id,
+      }),
+    ])
 
-      if (aircraftError || !aircraft) {
-        return NextResponse.json(
-          { error: "Selected aircraft was not found" },
-          { status: 404, headers: { "cache-control": "no-store" } }
-        )
-      }
+    if (aircraftCheck.error || !aircraftCheck.data) {
+      return NextResponse.json(
+        { error: "Selected aircraft was not found" },
+        { status: 404, headers: { "cache-control": "no-store" } }
+      )
     }
 
-    if (nextInstructorId) {
-      const { data: instructor, error: instructorError } = await supabase
-        .from("instructors")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("id", nextInstructorId)
-        .eq("is_actively_instructing", true)
-        .maybeSingle()
-
-      if (instructorError || !instructor) {
-        return NextResponse.json(
-          { error: "Selected instructor was not found" },
-          { status: 404, headers: { "cache-control": "no-store" } }
-        )
-      }
+    if (instructorCheck.error || !instructorCheck.data) {
+      return NextResponse.json(
+        { error: "Selected instructor was not found" },
+        { status: 404, headers: { "cache-control": "no-store" } }
+      )
     }
 
-    const { unavailableAircraftIds, unavailableInstructorIds } = await fetchUnavailableResourceIds({
-      supabase,
-      tenantId,
-      startTimeIso: nextStartDate.toISOString(),
-      endTimeIso: nextEndDate.toISOString(),
-      excludeBookingId: id,
-    })
+    const { unavailableAircraftIds, unavailableInstructorIds } = availabilityResult
 
     if (nextAircraftId && unavailableAircraftIds.includes(nextAircraftId)) {
       return NextResponse.json(

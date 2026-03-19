@@ -61,32 +61,34 @@ async function EquipmentDetailContent({
   let updatesError: string | null = null
   let issueMembers: EquipmentIssuanceMember[] = []
 
-  try {
-    const issuanceHistory = await fetchEquipmentIssuanceHistory(supabase, tenantId, id)
-    issuances = issuanceHistory.issuances
-    issuanceUserMap = issuanceHistory.userMap
-  } catch {
+  const [issuanceResult, updatesResult, issueMembersResult] = await Promise.allSettled([
+    fetchEquipmentIssuanceHistory(supabase, tenantId, id),
+    fetchEquipmentUpdatesHistory(supabase, tenantId, id),
+    canIssueEquipment ? fetchEquipmentIssuanceMembers(supabase, tenantId) : Promise.resolve([]),
+  ])
+
+  if (issuanceResult.status === "fulfilled") {
+    issuances = issuanceResult.value.issuances
+    issuanceUserMap = issuanceResult.value.userMap
+  } else {
     issuances = []
     issuanceUserMap = {}
     issuanceError = "Failed to load issuance history."
   }
 
-  try {
-    const updatesHistory = await fetchEquipmentUpdatesHistory(supabase, tenantId, id)
-    updates = updatesHistory.updates
-    updatesUserMap = updatesHistory.userMap
-  } catch {
+  if (updatesResult.status === "fulfilled") {
+    updates = updatesResult.value.updates
+    updatesUserMap = updatesResult.value.userMap
+  } else {
     updates = []
     updatesUserMap = {}
     updatesError = "Failed to load update history."
   }
 
-  if (canIssueEquipment) {
-    try {
-      issueMembers = await fetchEquipmentIssuanceMembers(supabase, tenantId)
-    } catch {
-      issueMembers = []
-    }
+  if (issueMembersResult.status === "fulfilled") {
+    issueMembers = issueMembersResult.value
+  } else {
+    issueMembers = []
   }
 
   return (

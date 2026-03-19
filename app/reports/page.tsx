@@ -1,7 +1,7 @@
 import * as React from "react"
 import { redirect } from "next/navigation"
 
-import { ReportsDashboard } from "@/components/reports/reports-dashboard"
+import { ReportsPageClient } from "@/components/reports/reports-page-client"
 import { ReportsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteShell, AppRouteDetailContainer } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
@@ -60,16 +60,18 @@ async function ReportsContent({
     )
   }
 
-  return <ReportsDashboard data={data} dateRange={dateRange} />
+  return <ReportsPageClient data={data} dateRange={dateRange} />
 }
 
 export default async function ReportsPage({ searchParams }: PageProps) {
-  const resolvedSearchParams = await searchParams
-
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-  })
+  const [resolvedSearchParams, session] = await Promise.all([
+    searchParams,
+    getAuthSession(supabase, {
+      includeTenant: true,
+    }),
+  ])
+  const { user, tenantId } = session
 
   if (!user) redirect("/login")
   if (!tenantId) {

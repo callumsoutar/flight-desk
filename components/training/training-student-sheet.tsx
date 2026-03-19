@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
@@ -13,14 +14,42 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TrainingStudentDebriefsTab } from "@/components/training/training-student-debriefs-tab"
-import { TrainingStudentFlyingTab } from "@/components/training/training-student-flying-tab"
 import { TrainingStudentOverviewTab } from "@/components/training/training-student-overview-tab"
-import { TrainingStudentProgrammeTab } from "@/components/training/training-student-programme-tab"
-import { TrainingStudentTheoryTab } from "@/components/training/training-student-theory-tab"
 import { cn, getUserInitials } from "@/lib/utils"
 import type { MemberTrainingResponse } from "@/lib/types/member-training"
 import type { TrainingOverviewRow } from "@/lib/types/training-overview"
+
+const TrainingStudentFlyingTab = dynamic(
+  () =>
+    import("@/components/training/training-student-flying-tab").then(
+      (mod) => mod.TrainingStudentFlyingTab
+    ),
+  { ssr: false }
+)
+
+const TrainingStudentDebriefsTab = dynamic(
+  () =>
+    import("@/components/training/training-student-debriefs-tab").then(
+      (mod) => mod.TrainingStudentDebriefsTab
+    ),
+  { ssr: false }
+)
+
+const TrainingStudentTheoryTab = dynamic(
+  () =>
+    import("@/components/training/training-student-theory-tab").then(
+      (mod) => mod.TrainingStudentTheoryTab
+    ),
+  { ssr: false }
+)
+
+const TrainingStudentProgrammeTab = dynamic(
+  () =>
+    import("@/components/training/training-student-programme-tab").then(
+      (mod) => mod.TrainingStudentProgrammeTab
+    ),
+  { ssr: false }
+)
 
 function statusBadge(status: TrainingOverviewRow["activity_status"]) {
   if (status === "active") {

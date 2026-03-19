@@ -28,7 +28,19 @@ export async function GET() {
     )
   }
 
-  const [aircraftResult, instructorsResult, flightTypesResult, syllabiResult, lessonsResult] =
+  const membersPromise = isStaffRole(role)
+    ? supabase
+        .from("tenant_users")
+        .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+    : supabase
+        .from("user_directory")
+        .select("id, first_name, last_name, email")
+        .eq("id", user.id)
+        .maybeSingle()
+
+  const [aircraftResult, instructorsResult, flightTypesResult, syllabiResult, lessonsResult, membersResult] =
     await Promise.all([
       supabase
         .from("aircraft")
@@ -66,6 +78,7 @@ export async function GET() {
         .eq("tenant_id", tenantId)
         .eq("is_active", true)
         .order("order", { ascending: true }),
+      membersPromise,
     ])
 
   if (
@@ -73,7 +86,8 @@ export async function GET() {
     instructorsResult.error ||
     flightTypesResult.error ||
     syllabiResult.error ||
-    lessonsResult.error
+    lessonsResult.error ||
+    membersResult.error
   ) {
     return NextResponse.json(
       { error: "Failed to load booking options" },
@@ -81,30 +95,21 @@ export async function GET() {
     )
   }
 
-  let members:
-    | Array<{
-        id: string
-        first_name: string | null
-        last_name: string | null
-        email: string
-      }>
-    = []
+  let members: Array<{
+    id: string
+    first_name: string | null
+    last_name: string | null
+    email: string
+  }> = []
 
   if (isStaffRole(role)) {
-    const membersResult = await supabase
-      .from("tenant_users")
-      .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")
-      .eq("tenant_id", tenantId)
-      .eq("is_active", true)
-
-    if (membersResult.error) {
-      return NextResponse.json(
-        { error: "Failed to load members" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
-    }
-
-    members = (membersResult.data ?? [])
+    const rows = (membersResult.data ?? []) as Array<{
+      user:
+        | { id: string; first_name: string | null; last_name: string | null; email: string }
+        | Array<{ id: string; first_name: string | null; last_name: string | null; email: string }>
+        | null
+    }>
+    members = rows
       .map((row) => pickMaybeOne(row.user))
       .filter(
         (
@@ -117,37 +122,16 @@ export async function GET() {
         } => Boolean(member && member.id && member.email)
       )
   } else {
-    const meResult = await supabase
-      .from("user_directory")
-      .select("id, first_name, last_name, email")
-      .eq("id", user.id)
-      .maybeSingle()
-
-    if (meResult.error) {
-      return NextResponse.json(
-        { error: "Failed to load member profile" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
-    }
-
-    if (meResult.data?.id && meResult.data.email) {
-      members = [
-        {
-          id: meResult.data.id,
-          first_name: meResult.data.first_name,
-          last_name: meResult.data.last_name,
-          email: meResult.data.email,
-        },
-      ]
+    const me = membersResult.data as {
+      id: string
+      first_name: string | null
+      last_name: string | null
+      email: string
+    } | null
+    if (me?.id && me.email) {
+      members = [me]
     } else if (user.email) {
-      members = [
-        {
-          id: user.id,
-          first_name: null,
-          last_name: null,
-          email: user.email,
-        },
-      ]
+      members = [{ id: user.id, first_name: null, last_name: null, email: user.email }]
     }
   }
 

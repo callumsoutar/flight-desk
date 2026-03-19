@@ -97,17 +97,31 @@ export async function POST(request: Request) {
 
   const payload = parsed.data
 
-  const { data: duplicate, error: duplicateError } = await supabase
+  const duplicatePromise = supabase
     .from("aircraft")
     .select("id")
     .eq("tenant_id", tenantId)
     .ilike("registration", payload.registration)
     .maybeSingle()
 
-  if (duplicateError) {
+  const aircraftTypePromise = payload.aircraft_type_id
+    ? supabase
+        .from("aircraft_types")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("id", payload.aircraft_type_id)
+        .maybeSingle()
+    : null
+
+  const [duplicateResult, aircraftTypeResult] = await Promise.all([
+    duplicatePromise,
+    aircraftTypePromise,
+  ])
+
+  if (duplicateResult.error) {
     return NextResponse.json({ error: "Failed to validate registration" }, { status: 500 })
   }
-  if (duplicate) {
+  if (duplicateResult.data) {
     return NextResponse.json(
       { error: "An aircraft with that registration already exists." },
       { status: 409 }
@@ -115,14 +129,7 @@ export async function POST(request: Request) {
   }
 
   if (payload.aircraft_type_id) {
-    const { data: aircraftType, error: aircraftTypeError } = await supabase
-      .from("aircraft_types")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("id", payload.aircraft_type_id)
-      .maybeSingle()
-
-    if (aircraftTypeError || !aircraftType) {
+    if (aircraftTypeResult?.error || !aircraftTypeResult?.data) {
       return NextResponse.json({ error: "Aircraft type not found" }, { status: 404 })
     }
   }

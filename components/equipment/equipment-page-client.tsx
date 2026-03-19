@@ -1,13 +1,26 @@
 "use client"
 
 import * as React from "react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 
-import { AddEquipmentModal } from "@/components/equipment/add-equipment-modal"
-import { IssueEquipmentModal } from "@/components/equipment/issue-equipment-modal"
-import { ReturnEquipmentModal } from "@/components/equipment/return-equipment-modal"
 import { EquipmentTable } from "@/components/equipment/equipment-table"
 import type { EquipmentIssuanceMember, EquipmentWithIssuance } from "@/lib/types/equipment"
+
+const AddEquipmentModal = dynamic(
+  () => import("@/components/equipment/add-equipment-modal").then((mod) => mod.AddEquipmentModal),
+  { ssr: false }
+)
+
+const IssueEquipmentModal = dynamic(
+  () => import("@/components/equipment/issue-equipment-modal").then((mod) => mod.IssueEquipmentModal),
+  { ssr: false }
+)
+
+const ReturnEquipmentModal = dynamic(
+  () => import("@/components/equipment/return-equipment-modal").then((mod) => mod.ReturnEquipmentModal),
+  { ssr: false }
+)
 
 type Props = {
   equipment: EquipmentWithIssuance[]

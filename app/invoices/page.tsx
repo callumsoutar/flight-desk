@@ -10,26 +10,20 @@ import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoices } from "@/lib/invoices/fetch-invoices"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import type { InvoiceWithRelations } from "@/lib/types/invoices"
 
 async function InvoicesContent({ tenantId }: { tenantId: string }) {
   const supabase = await createSupabaseServerClient()
 
-  let invoices: InvoiceWithRelations[] = []
   let loadError: string | null = null
-  let xeroEnabled = false
 
-  try {
-    const xeroSettings = await fetchXeroSettings(supabase, tenantId)
-    xeroEnabled = xeroSettings.enabled
-  } catch {
-    xeroEnabled = false
-  }
+  const [xeroSettingsResult, invoicesResult] = await Promise.all([
+    fetchXeroSettings(supabase, tenantId).catch(() => null),
+    fetchInvoices(supabase, tenantId, undefined, true).catch(() => null),
+  ])
 
-  try {
-    invoices = await fetchInvoices(supabase, tenantId, undefined, xeroEnabled)
-  } catch {
-    invoices = []
+  const xeroEnabled = xeroSettingsResult?.enabled ?? false
+  const invoices = invoicesResult ?? []
+  if (!invoicesResult) {
     loadError = "Failed to load invoices."
   }
 
