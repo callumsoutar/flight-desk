@@ -28,6 +28,7 @@ import {
   getMembershipCardBorderClass,
   getStatusBadgeClasses,
   getStatusText,
+  isMembershipEligibleForRenewal,
   isMembershipExpiringSoon,
 } from "@/lib/utils/membership-utils"
 import { useTimezone } from "@/contexts/timezone-context"
@@ -53,6 +54,9 @@ export function MemberMemberships({
 
   const currentMembership = membershipSummary?.current_membership
   const status = membershipSummary?.status ?? "none"
+  const canRenewMembership = currentMembership
+    ? isMembershipEligibleForRenewal(currentMembership, timeZone)
+    : false
   const borderClass = getMembershipCardBorderClass(status)
   const IconComponent =
     status === "active"
@@ -166,14 +170,16 @@ export function MemberMemberships({
             ) : null}
 
             <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row">
-              <Button
-                onClick={() => setShowRenewalModal(true)}
-                className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto"
-                size="sm"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {status === "unpaid" ? "Pay / Renew Membership" : "Renew Membership"}
-              </Button>
+              {canRenewMembership ? (
+                <Button
+                  onClick={() => setShowRenewalModal(true)}
+                  className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto"
+                  size="sm"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {status === "unpaid" ? "Pay / Renew Membership" : "Renew Membership"}
+                </Button>
+              ) : null}
               {currentMembership.invoice_id ? (
                 <Button
                   variant="outline"
@@ -350,7 +356,6 @@ export function MemberMemberships({
           currentMembership={currentMembership}
           membershipTypes={membershipTypes}
           defaultTaxRate={defaultTaxRate}
-          membershipYear={membershipYear}
         />
       ) : null}
 

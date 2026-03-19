@@ -14,6 +14,13 @@ function normalizeNullableString(value: unknown): string | null {
   return trimmed.length ? trimmed : null
 }
 
+function parsePositiveInt(value: string | null, fallback: number, min: number, max: number) {
+  if (!value) return fallback
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(max, Math.max(min, parsed))
+}
+
 const xeroTaxTypeSchema = z.preprocess(
   (value) => {
     const normalized = normalizeNullableString(value)
@@ -70,6 +77,9 @@ export async function GET(request: NextRequest) {
   const typeIdFromQuery = url.searchParams.get("type_id")
   const typeCode = url.searchParams.get("type") || url.searchParams.get("type_code")
   const excludeTypeCode = url.searchParams.get("exclude_type_code")
+  const searchTerm = (url.searchParams.get("search") || "").trim()
+  const page = parsePositiveInt(url.searchParams.get("page"), 1, 1, 10_000)
+  const pageSize = parsePositiveInt(url.searchParams.get("page_size"), 25, 1, 100)
 
   const { user, role } = await getAuthSession(supabase, {
     includeRole: includeInactive,
@@ -103,6 +113,12 @@ export async function GET(request: NextRequest) {
     ? await resolveTypeIdByCode(supabase, tenantId, excludeTypeCode).catch(() => null)
     : null
 
+  let countQuery = supabase
+    .from("chargeables")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .is("voided_at", null)
+
   let query = supabase
     .from("chargeables")
     .select(
@@ -113,16 +129,34 @@ export async function GET(request: NextRequest) {
     .order("name", { ascending: true })
 
   if (!includeInactive) {
+    countQuery = countQuery.eq("is_active", true)
     query = query.eq("is_active", true)
   }
   if (typeId) {
+    countQuery = countQuery.eq("chargeable_type_id", typeId)
     query = query.eq("chargeable_type_id", typeId)
   }
   if (excludeTypeId) {
+    countQuery = countQuery.neq("chargeable_type_id", excludeTypeId)
     query = query.neq("chargeable_type_id", excludeTypeId)
   }
+  if (searchTerm.length) {
+    const escapedSearch = searchTerm.replaceAll("%", "\\%").replaceAll(",", "\\,")
+    const expression = `name.ilike.%${escapedSearch}%,description.ilike.%${escapedSearch}%`
+    countQuery = countQuery.or(expression)
+    query = query.or(expression)
+  }
 
-  const { data: rows, error } = await query
+  const { count, error: countError } = await countQuery
+  if (countError) {
+    return NextResponse.json({ error: "Failed to count chargeables" }, { status: 500 })
+  }
+
+  const total = Math.max(0, count ?? 0)
+  const start = (page - 1) * pageSize
+  const end = start + pageSize - 1
+
+  const { data: rows, error } = await query.range(start, end)
   if (error) {
     return NextResponse.json({ error: "Failed to fetch chargeables" }, { status: 500 })
   }
@@ -150,7 +184,15 @@ export async function GET(request: NextRequest) {
     chargeable_type: typeById.get(row.chargeable_type_id) ?? null,
   }))
 
-  return NextResponse.json({ chargeables }, { headers: { "cache-control": "no-store" } })
+  return NextResponse.json(
+    {
+      chargeables,
+      total,
+      page,
+      page_size: pageSize,
+    },
+    { headers: { "cache-control": "no-store" } }
+  )
 }
 
 export async function POST(request: NextRequest) {

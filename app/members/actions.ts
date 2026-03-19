@@ -5,7 +5,14 @@ import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchMemberMembershipsData } from "@/lib/members/fetch-member-memberships-data"
+import { fetchMembershipsSettings } from "@/lib/settings/fetch-memberships-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import {
+  MEMBERSHIP_RENEWAL_WINDOW_DAYS,
+  computeMembershipExpiryDefault,
+  computeMembershipRenewalExpiry,
+  parseMembershipDateKey,
+} from "@/lib/utils/membership-utils"
 
 async function fetchTenantTimezone(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -228,10 +235,26 @@ export async function removeMemberEndorsementAction(input: RemoveMemberEndorseme
   return { ok: true as const }
 }
 
-function addMonths(dateValue: Date, months: number) {
-  const next = new Date(dateValue)
-  next.setMonth(next.getMonth() + months)
-  return next
+function formatDateKey(dateValue: Date) {
+  return dateValue.toISOString().slice(0, 10)
+}
+
+function daysUntilDateKey(dateKey: string, now = new Date()): number | null {
+  const targetDate = parseMembershipDateKey(dateKey)
+  if (!targetDate) return null
+  const utcToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const utcTarget = Date.UTC(
+    targetDate.getFullYear(),
+    targetDate.getMonth(),
+    targetDate.getDate()
+  )
+  return Math.round((utcTarget - utcToday) / 86_400_000)
+}
+
+function canRenewMembershipByExpiryDate(expiryDateKey: string): boolean {
+  const daysUntilExpiry = daysUntilDateKey(expiryDateKey)
+  if (daysUntilExpiry === null) return false
+  return daysUntilExpiry <= MEMBERSHIP_RENEWAL_WINDOW_DAYS
 }
 
 export async function renewMemberMembershipAction(input: RenewMemberMembershipInput) {
@@ -259,6 +282,12 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
   if (currentError || !currentMembership) {
     return { ok: false as const, error: "Current membership not found" }
   }
+  if (!canRenewMembershipByExpiryDate(currentMembership.expiry_date)) {
+    return {
+      ok: false as const,
+      error: `Membership can only be renewed within ${MEMBERSHIP_RENEWAL_WINDOW_DAYS} days of expiry or after expiry.`,
+    }
+  }
 
   const nextTypeId = membership_type_id ?? currentMembership.membership_type_id
 
@@ -273,14 +302,18 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
     return { ok: false as const, error: "Membership type not found" }
   }
 
+  const currentExpiryDate = parseMembershipDateKey(currentMembership.expiry_date)
+  if (!currentExpiryDate) {
+    return { ok: false as const, error: "Current membership expiry date is invalid" }
+  }
   const startDate = new Date()
-  const expiryDate = addMonths(startDate, nextType.duration_months)
+  const expiryDate = computeMembershipRenewalExpiry(currentExpiryDate, nextType.duration_months)
 
   const { error: deactivateError } = await supabase
     .from("memberships")
     .update({
       is_active: false,
-      end_date: new Date().toISOString().slice(0, 10),
+      end_date: formatDateKey(startDate),
       updated_by: user.id,
     })
     .eq("tenant_id", tenantId)
@@ -292,9 +325,9 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
     user_id: memberId,
     membership_type_id: nextType.id,
     is_active: true,
-    start_date: startDate.toISOString().slice(0, 10),
-    purchased_date: startDate.toISOString().slice(0, 10),
-    expiry_date: expiryDate.toISOString().slice(0, 10),
+    start_date: formatDateKey(startDate),
+    purchased_date: formatDateKey(startDate),
+    expiry_date: formatDateKey(expiryDate),
     grace_period_days: currentMembership.grace_period_days ?? 14,
     notes: notes ?? null,
     updated_by: user.id,
@@ -335,7 +368,12 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
   }
 
   const startDate = new Date()
-  const defaultExpiry = addMonths(startDate, membershipType.duration_months)
+  const membershipsSettings = await fetchMembershipsSettings(supabase, tenantId)
+  const defaultExpiry = computeMembershipExpiryDefault(
+    startDate,
+    membershipType.duration_months,
+    membershipsSettings.membership_year
+  )
   const finalExpiry = custom_expiry_date
     ? new Date(custom_expiry_date)
     : defaultExpiry
@@ -344,7 +382,7 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
     .from("memberships")
     .update({
       is_active: false,
-      end_date: new Date().toISOString().slice(0, 10),
+      end_date: formatDateKey(startDate),
       updated_by: user.id,
     })
     .eq("tenant_id", tenantId)
@@ -357,9 +395,9 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
     user_id: memberId,
     membership_type_id: membershipType.id,
     is_active: true,
-    start_date: startDate.toISOString().slice(0, 10),
-    purchased_date: startDate.toISOString().slice(0, 10),
-    expiry_date: finalExpiry.toISOString().slice(0, 10),
+    start_date: formatDateKey(startDate),
+    purchased_date: formatDateKey(startDate),
+    expiry_date: formatDateKey(finalExpiry),
     grace_period_days: 14,
     notes: notes ?? null,
     updated_by: user.id,

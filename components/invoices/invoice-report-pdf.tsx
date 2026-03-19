@@ -281,6 +281,8 @@ export default function InvoiceReportPDF({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {showLogo && (
+              // react-pdf Image does not support DOM alt text props.
+              // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={settings.logoUrl!} style={styles.logo} />
             )}
             <Text style={styles.title}>INVOICE</Text>

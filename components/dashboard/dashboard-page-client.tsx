@@ -15,39 +15,35 @@ function formatLongDate(nowIso: string, timeZone: string) {
     timeZone,
     weekday: "long",
     month: "long",
-    day: "2-digit",
+    day: "numeric",
     year: "numeric",
   }).format(date)
 }
 
 export function DashboardPageClient({ data }: { data: DashboardData }) {
-  const dateLabel = React.useMemo(() => formatLongDate(data.nowIso, data.timeZone), [data.nowIso, data.timeZone])
+  const dateLabel = React.useMemo(
+    () => formatLongDate(data.nowIso, data.timeZone),
+    [data.nowIso, data.timeZone]
+  )
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            {data.tenantName} • {dateLabel}
-          </p>
-        </div>
-
-        <div />
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          {data.tenantName} &mdash; {dateLabel}
+        </p>
       </div>
 
       <DashboardStatCards metrics={data.metrics} />
 
-      <div className="space-y-6">
-        <UpcomingTodayCard bookings={data.upcomingTodayBookings} timeZone={data.timeZone} />
-
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <FlyingNowCard bookings={data.flyingNowBookings} timeZone={data.timeZone} nowIso={data.nowIso} />
-          </div>
-          <div className="lg:col-span-5">
-            <BookingRequestsCard bookings={data.bookingRequests} timeZone={data.timeZone} />
-          </div>
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-6 lg:col-span-7">
+          <UpcomingTodayCard bookings={data.upcomingTodayBookings} timeZone={data.timeZone} />
+          <FlyingNowCard bookings={data.flyingNowBookings} timeZone={data.timeZone} nowIso={data.nowIso} />
+        </div>
+        <div className="lg:col-span-5">
+          <BookingRequestsCard bookings={data.bookingRequests} timeZone={data.timeZone} />
         </div>
       </div>
     </div>

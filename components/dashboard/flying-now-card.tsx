@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { IconChevronRight, IconNavigation, IconPlane, IconRocket } from "@tabler/icons-react"
+import { IconChevronRight, IconNavigation, IconPlane } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,22 +25,6 @@ function formatTime(value: string, timeZone: string) {
     minute: "2-digit",
     hourCycle: "h23",
   }).format(date)
-}
-
-function formatEta({
-  endIso,
-  nowIso,
-  timeZone,
-}: {
-  endIso: string
-  nowIso: string
-  timeZone: string
-}) {
-  const end = new Date(endIso).getTime()
-  const now = new Date(nowIso).getTime()
-  if (!Number.isFinite(end) || !Number.isFinite(now)) return { label: "—", overdue: false }
-  const overdue = end < now
-  return { label: formatTime(endIso, timeZone), overdue }
 }
 
 function formatStatus({
@@ -81,27 +65,29 @@ export function FlyingNowCard({
 }) {
   return (
     <Card className="border border-border/50 shadow-sm">
-      <CardHeader className="space-y-2">
+      <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-              <span className="bg-muted/50 flex h-8 w-8 items-center justify-center rounded-lg">
-                <IconRocket className="h-4 w-4 text-muted-foreground" />
-              </span>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
               Flying now
+              {bookings.length > 0 && (
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+              )}
             </CardTitle>
-            <CardDescription>Bookings currently in the air.</CardDescription>
+            <CardDescription className="text-xs">Aircraft currently in the air</CardDescription>
           </div>
-
-          <Button asChild variant="ghost" size="sm" className="h-8 gap-1">
+          <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-xs">
             <Link href="/bookings?tab=flying">
-              Bookings <IconChevronRight className="h-4 w-4" />
+              Bookings <IconChevronRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="pb-2">
+      <CardContent>
         {bookings.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 py-8 text-center">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
@@ -111,59 +97,43 @@ export function FlyingNowCard({
             <p className="mt-1 text-xs text-muted-foreground">Nothing is marked as flying right now.</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border/60 bg-background">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/60 bg-muted/30 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <div>Flight</div>
-              <div className="text-right">Time</div>
-              <div className="text-right">Actions</div>
-            </div>
-
+          <div className="space-y-0.5">
             {bookings.map((booking) => {
               const href = getBookingOpenPath(booking.id, booking.status)
               const studentName = formatUser(booking.student)
               const aircraft = booking.aircraft?.registration ?? "No aircraft"
               const status = formatStatus({ endIso: booking.end_time, nowIso })
-              const eta = formatEta({ endIso: booking.end_time, nowIso, timeZone })
 
               return (
-                <div
+                <Link
                   key={booking.id}
-                  className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border/50 px-4 py-2 last:border-0 hover:bg-muted/20"
+                  href={href}
+                  className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50"
                 >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/40">
-                      <IconPlane className="h-3 w-3 text-muted-foreground" />
-                    </span>
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {studentName}
-                      <span className="ml-1.5 text-muted-foreground">·</span>
-                      <span className="ml-1 truncate text-xs text-muted-foreground">{aircraft}</span>
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+                    <IconPlane className="h-3.5 w-3.5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">{studentName}</p>
+                      <span className="text-xs text-muted-foreground">{aircraft}</span>
+                    </div>
+                    <p className="text-xs tabular-nums text-muted-foreground">
+                      {formatTime(booking.start_time, timeZone)} – {formatTime(booking.end_time, timeZone)}
                     </p>
                   </div>
-
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span className="text-xs tabular-nums text-foreground">
-                      {formatTime(booking.start_time, timeZone)}–{eta.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "text-[11px] tabular-nums",
-                        status.overdue ? "text-rose-600" : "text-muted-foreground"
-                      )}
-                    >
-                      {status.label}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-end">
-                    <Link
-                      href={href}
-                      className="text-xs font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
-                    >
-                      Check in
-                    </Link>
-                  </div>
-                </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                      status.overdue
+                        ? "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200"
+                        : "bg-muted/70 text-muted-foreground ring-1 ring-inset ring-border/50"
+                    )}
+                  >
+                    {status.label}
+                  </span>
+                  <IconChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+                </Link>
               )
             })}
           </div>

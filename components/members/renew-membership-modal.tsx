@@ -8,10 +8,9 @@ import {
   CreditCard,
   FileText,
   Gift,
-  RotateCcw,
   RefreshCw,
 } from "lucide-react"
-import { addDays, addMonths, format } from "date-fns"
+import { addDays, format } from "date-fns"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -36,14 +35,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useMembershipSubmit } from "@/hooks/useMembershipSubmit"
 import type {
-  MembershipYearSettings,
   MembershipRecord,
   MembershipTypeWithChargeable,
   TenantDefaultTaxRate,
 } from "@/lib/types/memberships"
 import {
   calculateMembershipFee,
-  computeMembershipExpiryDefault,
+  computeMembershipRenewalExpiry,
+  isMembershipEligibleForRenewal,
+  parseMembershipDateKey,
 } from "@/lib/utils/membership-utils"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
@@ -51,13 +51,6 @@ import { formatDate } from "@/lib/utils/date-format"
 function toInputDate(value: Date | null): string | null {
   if (!value) return null
   return format(value, "yyyy-MM-dd")
-}
-
-function fromInputDate(value: string | null): Date | null {
-  if (!value) return null
-  const [year, month, day] = value.split("-").map(Number)
-  if (!year || !month || !day) return null
-  return new Date(year, month - 1, day)
 }
 
 function getInvoiceReadyChargeable(
@@ -81,7 +74,6 @@ export function RenewMembershipModal({
   currentMembership,
   membershipTypes,
   defaultTaxRate,
-  membershipYear,
 }: {
   open: boolean
   onClose: () => void
@@ -89,7 +81,6 @@ export function RenewMembershipModal({
   currentMembership: MembershipRecord
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
-  membershipYear: MembershipYearSettings | null
 }) {
   const router = useRouter()
   const activeTypes = React.useMemo(
@@ -104,7 +95,10 @@ export function RenewMembershipModal({
   const [createInvoice, setCreateInvoice] = React.useState(true)
   const [startDate, setStartDate] = React.useState(() => new Date())
   const [expiryDate, setExpiryDate] = React.useState<Date | null>(null)
-  const [expiryIsManual, setExpiryIsManual] = React.useState(false)
+  const currentExpiryDate = React.useMemo(
+    () => parseMembershipDateKey(currentMembership.expiry_date),
+    [currentMembership.expiry_date]
+  )
   const { submit, loading, error } = useMembershipSubmit({
     onSuccess: ({ invoiceId }) => {
       toast.success(invoiceId ? "Membership renewed with invoice" : "Membership renewed")
@@ -124,22 +118,26 @@ export function RenewMembershipModal({
       ? currentMembership.membership_type_id
       : (activeTypes[0]?.id ?? "")
 
+    const nextStartDate = currentExpiryDate ? addDays(currentExpiryDate, 1) : new Date()
     setSelectedTypeId(initialTypeId)
     setNotes("")
     setShowNotes(false)
     setCreateInvoice(true)
-    setStartDate(new Date())
+    setStartDate(nextStartDate)
     setExpiryDate(null)
-    setExpiryIsManual(false)
-  }, [open, activeTypes, currentMembership.membership_type_id])
+  }, [open, activeTypes, currentMembership.membership_type_id, currentExpiryDate])
 
   const selectedType = activeTypes.find((type) => type.id === selectedTypeId) ?? null
+  const canRenew = isMembershipEligibleForRenewal(currentMembership, timeZone)
   const selectedChargeable = getInvoiceReadyChargeable(selectedType?.chargeables ?? null)
   const recommendedExpiry = React.useMemo(() => {
-    if (!selectedType) return null
-    return computeMembershipExpiryDefault(startDate, selectedType.duration_months, membershipYear)
-  }, [selectedType, startDate, membershipYear])
-  const minExpiryDate = React.useMemo(() => addDays(startDate, 1), [startDate])
+    if (!selectedType || !currentExpiryDate) return null
+    return computeMembershipRenewalExpiry(currentExpiryDate, selectedType.duration_months)
+  }, [selectedType, currentExpiryDate])
+  const minExpiryDate = React.useMemo(
+    () => (currentExpiryDate ? addDays(currentExpiryDate, 1) : addDays(startDate, 1)),
+    [currentExpiryDate, startDate]
+  )
   const hasLinkedChargeable = Boolean(selectedType?.chargeable_id)
 
   React.useEffect(() => {
@@ -149,36 +147,29 @@ export function RenewMembershipModal({
   }, [createInvoice, selectedType])
 
   React.useEffect(() => {
-    if (!expiryIsManual && recommendedExpiry) {
+    if (recommendedExpiry) {
       setExpiryDate(recommendedExpiry)
     }
-  }, [expiryIsManual, recommendedExpiry])
-
-  const handleExpiryChange = (value: string | null) => {
-    setExpiryDate(fromInputDate(value))
-    setExpiryIsManual(true)
-  }
-
-  const handleResetExpiry = () => {
-    if (!recommendedExpiry) return
-    setExpiryDate(recommendedExpiry)
-    setExpiryIsManual(false)
-  }
+  }, [recommendedExpiry])
 
   const handleSubmit = async () => {
     if (!selectedType || loading) return
+    if (!canRenew) {
+      toast.error("Membership can only be renewed within 30 days of expiry or after expiry.")
+      return
+    }
     if (!expiryDate) {
       toast.error("Expiry date is required.")
       return
     }
 
-    if (expiryDate <= startDate) {
-      toast.error("Expiry date must be after the start date.")
+    if (currentExpiryDate && expiryDate <= currentExpiryDate) {
+      toast.error("Expiry date must be after the current expiry date.")
       return
     }
 
-    if (expiryDate < addMonths(startDate, 1)) {
-      toast.error("Expiry date must be at least 1 month after the start date.")
+    if (!currentExpiryDate) {
+      toast.error("Current expiry date is invalid. Please refresh and try again.")
       return
     }
 
@@ -195,6 +186,7 @@ export function RenewMembershipModal({
         chargeable: selectedChargeable,
         startDate,
         expiryDate,
+        renewalBaseExpiryDate: currentExpiryDate ?? undefined,
         notes: notes.trim() || undefined,
         autoRenew: false,
         gracePeriodDays: currentMembership.grace_period_days ?? 30,
@@ -292,55 +284,31 @@ export function RenewMembershipModal({
                 <DatePicker
                   id="renew-membership-start-date"
                   date={toInputDate(startDate)}
-                  onChange={(value) => {
-                    const parsed = fromInputDate(value)
-                    if (parsed) setStartDate(parsed)
-                  }}
-                  disabled={loading}
+                  onChange={() => {}}
+                  disabled={true}
                   className="h-11 rounded-xl border-slate-300"
                 />
+                <p className="text-xs text-slate-500">
+                  Starts on the day after the current expiry date.
+                </p>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex min-h-7 items-center justify-between">
                   <label className="text-sm font-medium text-slate-800">Expiry Date</label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleResetExpiry}
-                          disabled={loading || !recommendedExpiry}
-                          className="h-7 w-7"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Reset to recommended date</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <span aria-hidden="true" className="h-7 w-7" />
                 </div>
                 <DatePicker
                   id="renew-membership-expiry-date"
                   date={toInputDate(expiryDate)}
-                  onChange={handleExpiryChange}
+                  onChange={() => {}}
                   min={toInputDate(minExpiryDate) ?? undefined}
-                  disabled={loading || !selectedType}
+                  disabled={true}
                   className="h-11 rounded-xl border-slate-300"
                 />
                 {selectedType ? (
-                  membershipYear ? (
-                    <p className="text-xs text-slate-500">
-                      {expiryIsManual && recommendedExpiry
-                        ? `Custom date set. Recommended: ${format(recommendedExpiry, "dd MMM yyyy")}`
-                        : `Aligned to membership year end (${membershipYear.description ?? `${membershipYear.end_day}/${membershipYear.end_month}`})`}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-500">
-                      Based on {selectedType.duration_months}-month membership period.
-                    </p>
-                  )
+                  <p className="text-xs text-slate-500">
+                    {`Renews by extending ${selectedType.duration_months} months from current expiry.`}
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -422,7 +390,7 @@ export function RenewMembershipModal({
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || !selectedType}
+                disabled={loading || !selectedType || !canRenew}
                 className="bg-slate-900 px-6 text-white hover:bg-slate-800"
                 size="lg"
               >

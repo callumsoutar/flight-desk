@@ -3,6 +3,8 @@
 import * as React from "react"
 import {
   IconCashBanknote,
+  IconChevronLeft,
+  IconChevronRight,
   IconFilter,
   IconLoader2,
   IconPencil,
@@ -61,6 +63,13 @@ type ChargeableFormData = {
   is_active: boolean
 }
 
+type ChargeablesResponse = {
+  chargeables: Chargeable[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
   return "Something went wrong."
@@ -109,8 +118,22 @@ function createBlankFormData(): ChargeableFormData {
   }
 }
 
-async function fetchChargeables(): Promise<Chargeable[]> {
-  const response = await fetch("/api/chargeables?include_inactive=true&exclude_type_code=landing_fees", {
+async function fetchChargeables(params: {
+  page: number
+  pageSize: number
+  searchTerm: string
+  filterTypeId: string
+}): Promise<ChargeablesResponse> {
+  const query = new URLSearchParams({
+    include_inactive: "true",
+    exclude_type_code: "landing_fees",
+    page: String(params.page),
+    page_size: String(params.pageSize),
+  })
+  if (params.searchTerm.trim()) query.set("search", params.searchTerm.trim())
+  if (params.filterTypeId !== "all") query.set("type_id", params.filterTypeId)
+
+  const response = await fetch(`/api/chargeables?${query.toString()}`, {
     cache: "no-store",
   })
   if (!response.ok) {
@@ -122,8 +145,19 @@ async function fetchChargeables(): Promise<Chargeable[]> {
     throw new Error(message)
   }
 
-  const data = (await response.json().catch(() => null)) as { chargeables?: unknown } | null
-  return Array.isArray(data?.chargeables) ? (data?.chargeables as Chargeable[]) : []
+  const data = (await response.json().catch(() => null)) as {
+    chargeables?: unknown
+    total?: unknown
+    page?: unknown
+    page_size?: unknown
+  } | null
+  return {
+    chargeables: Array.isArray(data?.chargeables) ? (data?.chargeables as Chargeable[]) : [],
+    total: typeof data?.total === "number" && Number.isFinite(data.total) ? data.total : 0,
+    page: typeof data?.page === "number" && Number.isFinite(data.page) ? data.page : params.page,
+    pageSize:
+      typeof data?.page_size === "number" && Number.isFinite(data.page_size) ? data.page_size : params.pageSize,
+  }
 }
 
 async function fetchChargeableTypes(): Promise<ChargeableTypeLite[]> {
@@ -164,7 +198,9 @@ function createEditFormData(chargeable: Chargeable, taxRate: number): Chargeable
 }
 
 export function ChargeablesConfig() {
+  const PAGE_SIZE = 25
   const [chargeables, setChargeables] = React.useState<Chargeable[]>([])
+  const [totalChargeables, setTotalChargeables] = React.useState(0)
   const [chargeableTypes, setChargeableTypes] = React.useState<ChargeableTypeLite[]>([])
   const [taxRate, setTaxRate] = React.useState(0.15)
 
@@ -173,7 +209,9 @@ export function ChargeablesConfig() {
   const [error, setError] = React.useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = React.useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = React.useState("")
   const [filterTypeId, setFilterTypeId] = React.useState<string>("all")
+  const [page, setPage] = React.useState(1)
 
   const [addOpen, setAddOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
@@ -186,26 +224,43 @@ export function ChargeablesConfig() {
     [chargeables, editingId]
   )
 
+  React.useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 250)
+    return () => window.clearTimeout(timeoutId)
+  }, [searchTerm])
+
+  React.useEffect(() => {
+    setPage(1)
+  }, [debouncedSearchTerm, filterTypeId])
+
   const load = React.useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [items, types, nextTaxRate] = await Promise.all([
-        fetchChargeables(),
+      const [itemsResponse, types, nextTaxRate] = await Promise.all([
+        fetchChargeables({
+          page,
+          pageSize: PAGE_SIZE,
+          searchTerm: debouncedSearchTerm,
+          filterTypeId,
+        }),
         fetchChargeableTypes(),
         fetchDefaultTaxRate(),
       ])
-      setChargeables(items)
+      setChargeables(itemsResponse.chargeables)
+      setTotalChargeables(itemsResponse.total)
       setChargeableTypes(types)
       setTaxRate(nextTaxRate)
-      return { items, types, taxRate: nextTaxRate }
+      return { items: itemsResponse.chargeables, total: itemsResponse.total, types, taxRate: nextTaxRate }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load chargeables")
       return null
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [debouncedSearchTerm, filterTypeId, page, PAGE_SIZE])
 
   React.useEffect(() => {
     void load()
@@ -370,21 +425,15 @@ export function ChargeablesConfig() {
     }
   }
 
-  const filteredChargeables = React.useMemo(() => {
-    const term = searchTerm.trim().toLowerCase()
-    const matchesSearch = (item: Chargeable) => {
-      const typeName = item.chargeable_type?.name ?? ""
-      const haystack = [item.name, item.description ?? "", typeName].join(" ").toLowerCase()
-      return !term || haystack.includes(term)
-    }
+  const totalPages = Math.max(1, Math.ceil(totalChargeables / PAGE_SIZE))
+  const pageStart = totalChargeables === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(page * PAGE_SIZE, totalChargeables)
 
-    const matchesType = (item: Chargeable) => {
-      if (filterTypeId === "all") return true
-      return item.chargeable_type_id === filterTypeId
+  React.useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
     }
-
-    return chargeables.filter((item) => matchesSearch(item) && matchesType(item))
-  }, [chargeables, filterTypeId, searchTerm])
+  }, [page, totalPages])
 
   return (
     <div className="space-y-6">
@@ -534,7 +583,7 @@ export function ChargeablesConfig() {
                   Loading chargeables…
                 </TableCell>
               </TableRow>
-            ) : filteredChargeables.length === 0 ? (
+            ) : chargeables.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
                   {searchTerm || filterTypeId !== "all"
@@ -543,7 +592,7 @@ export function ChargeablesConfig() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredChargeables.map((item) => {
+              chargeables.map((item) => {
                 const itemTaxRate = item.is_taxable ? taxRate : 0
                 const rateExclusive = Number.isFinite(item.rate) ? Number(item.rate) : 0
                 const rateInclusive = roundToTwoDecimals(exclusiveToInclusive(rateExclusive, itemTaxRate)).toFixed(2)
@@ -612,6 +661,39 @@ export function ChargeablesConfig() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground">
+          Showing {pageStart}-{pageEnd} of {totalChargeables}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 px-2.5"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={loading || page <= 1}
+          >
+            <IconChevronLeft className="mr-1 h-4 w-4" />
+            Previous
+          </Button>
+          <span className="min-w-20 text-center text-xs text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 px-2.5"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={loading || page >= totalPages}
+          >
+            Next
+            <IconChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <Dialog

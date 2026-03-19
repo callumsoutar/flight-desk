@@ -4,6 +4,7 @@ import { useState } from "react"
 import { addMonths, format } from "date-fns"
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
+import { MEMBERSHIP_RENEWAL_WINDOW_DAYS } from "@/lib/utils/membership-utils"
 
 type MembershipMode = "create" | "renew"
 
@@ -47,6 +48,7 @@ export interface MembershipFormPayload {
   chargeable?: ChargeableInput
   startDate: Date
   expiryDate: Date
+  renewalBaseExpiryDate?: Date
   notes?: string
   autoRenew?: boolean
   gracePeriodDays?: number
@@ -79,12 +81,46 @@ export function useMembershipSubmit(options?: UseMembershipSubmitOptions) {
         throw new Error("Expiry date is required.")
       }
 
-      if (payload.expiryDate <= payload.startDate) {
-        throw new Error("Expiry date must be after the start date.")
-      }
+      const effectiveExpiryDate =
+        payload.mode === "renew"
+          ? (() => {
+              if (!payload.renewalBaseExpiryDate) {
+                throw new Error("Current expiry date is required to renew membership.")
+              }
+              return addMonths(payload.renewalBaseExpiryDate, payload.membershipType.duration_months)
+            })()
+          : payload.expiryDate
 
-      if (payload.expiryDate < addMonths(payload.startDate, 1)) {
-        throw new Error("Expiry date must be at least 1 month after the start date.")
+      if (payload.mode === "renew") {
+        if (!payload.renewalBaseExpiryDate) {
+          throw new Error("Current expiry date is required to renew membership.")
+        }
+        const now = new Date()
+        const todayKey = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const expiryKey = new Date(
+          payload.renewalBaseExpiryDate.getFullYear(),
+          payload.renewalBaseExpiryDate.getMonth(),
+          payload.renewalBaseExpiryDate.getDate()
+        )
+        const daysUntilExpiry = Math.round(
+          (expiryKey.getTime() - todayKey.getTime()) / 86_400_000
+        )
+        if (daysUntilExpiry > MEMBERSHIP_RENEWAL_WINDOW_DAYS) {
+          throw new Error(
+            `Membership can only be renewed within ${MEMBERSHIP_RENEWAL_WINDOW_DAYS} days of expiry or after expiry.`
+          )
+        }
+        if (effectiveExpiryDate <= payload.renewalBaseExpiryDate) {
+          throw new Error("Renewed expiry date must be after the current expiry date.")
+        }
+      } else {
+        if (effectiveExpiryDate <= payload.startDate) {
+          throw new Error("Expiry date must be after the start date.")
+        }
+
+        if (effectiveExpiryDate < addMonths(payload.startDate, 1)) {
+          throw new Error("Expiry date must be at least 1 month after the start date.")
+        }
       }
 
       let invoiceId: string | null = null
@@ -168,7 +204,7 @@ export function useMembershipSubmit(options?: UseMembershipSubmitOptions) {
           user_id: payload.userId,
           membership_type_id: payload.membershipTypeId,
           start_date: payload.startDate.toISOString(),
-          expiry_date: format(payload.expiryDate, "yyyy-MM-dd"),
+          expiry_date: format(effectiveExpiryDate, "yyyy-MM-dd"),
           purchased_date: new Date().toISOString(),
           is_active: true,
           auto_renew: payload.autoRenew ?? false,

@@ -101,6 +101,28 @@ export function isMembershipExpiringSoon(
   return days > 0 && days <= 30
 }
 
+export const MEMBERSHIP_RENEWAL_WINDOW_DAYS = 30
+
+export function isMembershipExpired(
+  membership: MembershipRecord,
+  timeZone: string
+): boolean {
+  const expiryKey = membership.expiry_date
+  if (!expiryKey || !isValidDateKey(expiryKey)) return true
+  const todayKey = zonedTodayYyyyMmDd(timeZone)
+  return expiryKey < todayKey
+}
+
+export function isMembershipEligibleForRenewal(
+  membership: MembershipRecord,
+  timeZone: string,
+  windowDays = MEMBERSHIP_RENEWAL_WINDOW_DAYS
+): boolean {
+  if (isMembershipExpired(membership, timeZone)) return true
+  const daysUntilExpiry = getDaysUntilExpiry(membership, timeZone)
+  return daysUntilExpiry <= windowDays
+}
+
 export function getMembershipCardBorderClass(status: MembershipStatus): string {
   if (status === "active") return "border-l-green-500"
   if (status === "grace") return "border-l-amber-500"
@@ -159,4 +181,18 @@ export function computeMembershipExpiryDefault(
   }
 
   return candidate
+}
+
+export function parseMembershipDateKey(value: string | null | undefined): Date | null {
+  if (!value || !isValidDateKey(value)) return null
+  const [year, month, day] = value.split("-").map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+export function computeMembershipRenewalExpiry(
+  currentExpiryDate: Date,
+  durationMonths: number
+): Date {
+  return addMonths(currentExpiryDate, durationMonths)
 }
