@@ -281,7 +281,7 @@ export default function InvoiceReportPDF({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {showLogo && (
-              <Image src={settings.logoUrl!} alt="School logo" style={styles.logo} />
+              <Image src={settings.logoUrl!} style={styles.logo} />
             )}
             <Text style={styles.title}>INVOICE</Text>
             <Text style={styles.schoolName}>{settings.schoolName}</Text>
