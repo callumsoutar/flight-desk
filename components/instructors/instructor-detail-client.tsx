@@ -8,7 +8,6 @@ import {
   IconArrowLeft,
   IconBriefcase,
   IconCertificate,
-  IconClock,
   IconCurrencyDollar,
   IconMail,
   IconNotes,
@@ -122,7 +121,6 @@ const ENDORSEMENT_FIELDS: Array<{ name: EndorsementFieldName; label: string }> =
 const tabItems = [
   { id: "details", label: "Details", icon: IconUser },
   { id: "rates", label: "Charge Rates", icon: IconCurrencyDollar },
-  { id: "history", label: "History", icon: IconClock },
   { id: "notes", label: "Notes", icon: IconNotes },
 ] as const
 
@@ -669,18 +667,6 @@ export function InstructorDetailClient({
                     flightTypes={flightTypes}
                     defaultTaxRate={defaultTaxRate}
                   />
-                </div>
-              </Tabs.Content>
-
-              <Tabs.Content value="history">
-                <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-12 text-center">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
-                    <IconClock className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <h4 className="mb-1 text-base font-semibold text-gray-900">No Activity Yet</h4>
-                  <p className="mx-auto max-w-xs text-sm text-gray-500">
-                    Activity history for this instructor will appear here as bookings and logs are created.
-                  </p>
                 </div>
               </Tabs.Content>
 

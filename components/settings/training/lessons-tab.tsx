@@ -179,8 +179,6 @@ export function LessonsTab() {
   }
 
   const selectedSyllabusData = syllabi.find((s) => s.id === selectedSyllabus)
-  const requiredLessonsCount = lessons.filter((lesson) => lesson.is_required ?? true).length
-  const inactiveLessonsCount = lessons.filter((lesson) => !lesson.is_active).length
   const hasNoSyllabi = syllabi.length === 0
   const noSelectedSyllabus = !selectedSyllabus
 
@@ -188,12 +186,8 @@ export function LessonsTab() {
     <div className="w-full min-w-0 space-y-4">
       <LessonsToolbar
         selectedSyllabus={selectedSyllabus}
-        selectedSyllabusData={selectedSyllabusData}
         syllabi={syllabi}
         syllabusLoading={syllabusLoading}
-        totalLessons={lessons.length}
-        requiredLessons={requiredLessonsCount}
-        inactiveLessons={inactiveLessonsCount}
         onSelectSyllabus={setSelectedSyllabus}
         onAddLesson={() => {
           setEditingLesson(null)

@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import type { Database } from "@/lib/types"
 import type { AuditLog, AuditLookupMaps, BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 
@@ -45,6 +46,7 @@ async function fetchOptions(
     chargeablesResult,
     chargeableTypesResult,
     landingFeeRatesResult,
+    bookingsSettings,
   ] = await Promise.all([
       supabase
         .from("aircraft")
@@ -104,6 +106,7 @@ async function fetchOptions(
         .from("landing_fee_rates")
         .select("id, chargeable_id, aircraft_type_id, rate")
         .eq("tenant_id", tenantId),
+      fetchBookingsSettings(supabase, tenantId),
     ])
 
   if (aircraftResult.error) throw aircraftResult.error
@@ -133,6 +136,7 @@ async function fetchOptions(
     syllabi: (syllabiResult.data ?? []) as BookingOptions["syllabi"],
     lessons: (lessonsResult.data ?? []) as BookingOptions["lessons"],
     chargeables: (chargeablesResult.data ?? []) as NonNullable<BookingOptions["chargeables"]>,
+    bookingsSettings,
     chargeableTypes: (chargeableTypesResult.data ?? []) as NonNullable<BookingOptions["chargeableTypes"]>,
     landingFeeRates: (landingFeeRatesResult.data ?? []) as NonNullable<BookingOptions["landingFeeRates"]>,
   }

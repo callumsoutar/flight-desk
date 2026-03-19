@@ -21,6 +21,8 @@ function clampNonNegativeHours(value: number, fallback: number, maxHours = 24) {
 const bookingsPatchSchema = z.object({
   default_booking_duration_hours: z.number().min(0).max(24).optional(),
   minimum_booking_duration_minutes: z.number().int().min(0).max(1440).optional(),
+  default_booking_briefing_charge_enabled: z.boolean().optional(),
+  default_booking_briefing_chargeable_id: z.string().uuid().nullable().optional(),
 })
 
 const patchSchema = z.object({
@@ -126,6 +128,14 @@ export async function PATCH(request: Request) {
     )
   }
 
+  if (patch.default_booking_briefing_charge_enabled !== undefined) {
+    normalized.default_booking_briefing_charge_enabled = patch.default_booking_briefing_charge_enabled
+  }
+
+  if (patch.default_booking_briefing_chargeable_id !== undefined) {
+    normalized.default_booking_briefing_chargeable_id = patch.default_booking_briefing_chargeable_id
+  }
+
   if (Object.keys(normalized).length === 0) {
     return NextResponse.json(
       { error: "No updates provided" },
@@ -184,4 +194,3 @@ export async function PATCH(request: Request) {
     )
   }
 }
-

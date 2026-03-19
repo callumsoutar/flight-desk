@@ -7,13 +7,10 @@ import {
   IconPencil,
   IconPlus,
   IconSearch,
-  IconShieldCheck,
   IconTrash,
-  IconUser,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -27,7 +24,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
 import type { CancellationCategory } from "@/lib/types/cancellations"
 
 type CategoryFormData = {
@@ -102,7 +98,6 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
   }, [])
 
   const openEditDialog = React.useCallback((category: CancellationCategory) => {
-    if (category.is_global) return
     setEditingCategory(category)
     setFormData({
       name: category.name ?? "",
@@ -165,7 +160,7 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
 
   const handleEdit = async () => {
     const current = editingCategory
-    if (!current || current.is_global) return
+    if (!current) return
 
     const name = normalizeName(formData.name)
     if (!name.length) {
@@ -210,8 +205,6 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
   }
 
   const handleDelete = async (category: CancellationCategory) => {
-    if (category.is_global) return
-
     if (!confirm(`Delete "${category.name}"?`)) return
 
     setSaving(true)
@@ -260,7 +253,7 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
               <h3 className="text-lg font-semibold text-slate-900">Cancellation categories</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Global categories are available to all tenants and can&apos;t be modified.
+              Create and manage cancellation categories for your organization.
             </p>
           </div>
         </div>
@@ -356,7 +349,6 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
             <TableHeader>
               <TableRow className="bg-slate-50 hover:bg-slate-50">
                 <TableHead className="font-semibold text-slate-700">Name</TableHead>
-                <TableHead className="font-semibold text-slate-700 w-[140px]">Scope</TableHead>
                 <TableHead className="text-right font-semibold text-slate-700 w-[140px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -373,28 +365,14 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
                       ) : null}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {category.is_global ? (
-                      <Badge variant="secondary" className="gap-1 bg-blue-50 text-blue-700 border-blue-100">
-                        <IconShieldCheck className="h-3 w-3" />
-                        System
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1 bg-slate-100 text-slate-700 border-slate-200">
-                        <IconUser className="h-3 w-3" />
-                        Custom
-                      </Badge>
-                    )}
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="outline"
                         size="icon-sm"
                         onClick={() => openEditDialog(category)}
-                        disabled={saving || category.is_global}
-                        className={cn(category.is_global ? "opacity-50" : "")}
-                        title={category.is_global ? "System categories cannot be edited" : "Edit category"}
+                        disabled={saving}
+                        title="Edit category"
                       >
                         <IconPencil className="h-4 w-4" />
                       </Button>
@@ -402,13 +380,9 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
                         variant="outline"
                         size="icon-sm"
                         onClick={() => handleDelete(category)}
-                        disabled={saving || category.is_global}
-                        className={cn(
-                          category.is_global
-                            ? "opacity-50"
-                            : "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                        )}
-                        title={category.is_global ? "System categories cannot be deleted" : "Delete category"}
+                        disabled={saving}
+                        className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        title="Delete category"
                       >
                         <IconTrash className="h-4 w-4" />
                       </Button>
@@ -475,7 +449,7 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
             </Button>
             <Button
               onClick={handleEdit}
-              disabled={saving || !normalizeName(formData.name).length || !editingCategory || editingCategory.is_global}
+              disabled={saving || !normalizeName(formData.name).length || !editingCategory}
             >
               {saving ? "Saving…" : "Save"}
             </Button>

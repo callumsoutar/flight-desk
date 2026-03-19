@@ -8,6 +8,7 @@ import {
   calculateItemAmounts,
 } from "@/lib/invoices/invoice-calculations"
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { InvoiceCreateActionInput } from "@/lib/types/invoice-create"
@@ -92,6 +93,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   const rawTaxRate = taxRates?.[0]?.rate
   const defaultTaxRate =
     typeof rawTaxRate === "number" && rawTaxRate >= 0 && rawTaxRate <= 1 ? rawTaxRate : 0
+  const invoicingSettings = await fetchInvoicingSettings(supabase, tenantId).catch(() => null)
   const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
   const defaultXeroTaxType = xeroSettings?.default_tax_type ?? null
   const chargeableIds = Array.from(new Set(payload.items.map((item) => item.chargeableId)))
@@ -120,7 +122,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   const { data: chargeableTypes, error: chargeableTypesError } = chargeableTypeIds.length
     ? await supabase
         .from("chargeable_types")
-        .select("id, gl_code")
+        .select("id, code, gl_code")
         .or(`tenant_id.eq.${tenantId},scope.eq.system`)
         .in("id", chargeableTypeIds)
     : { data: [], error: null }
@@ -128,9 +130,7 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
   if (chargeableTypesError) {
     return { ok: false as const, error: "Failed to resolve chargeable type GL codes" }
   }
-  const chargeableTypeGlCodeMap = new Map(
-    (chargeableTypes ?? []).map((type) => [type.id, type.gl_code ?? null])
-  )
+  const chargeableTypeById = new Map((chargeableTypes ?? []).map((type) => [type.id, type]))
 
   for (const chargeableId of chargeableIds) {
     if (!chargeableMap.has(chargeableId)) {
@@ -155,7 +155,16 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
     return {
       chargeable_id: chargeable.id,
       description: chargeable.name,
-      gl_code: chargeable.gl_code ?? chargeableTypeGlCodeMap.get(chargeable.chargeable_type_id) ?? null,
+      gl_code: (() => {
+        const chargeableType = chargeableTypeById.get(chargeable.chargeable_type_id)
+        if (chargeableType?.code === "landing_fees") {
+          return invoicingSettings?.landing_fee_gl_code || null
+        }
+        if (chargeableType?.code === "airways_fees") {
+          return invoicingSettings?.airways_fee_gl_code || null
+        }
+        return chargeable.gl_code ?? chargeableType?.gl_code ?? null
+      })(),
       xero_tax_type: taxRate > 0 ? chargeable.xero_tax_type ?? defaultXeroTaxType : null,
       quantity: item.quantity,
       unit_price: unitPrice,

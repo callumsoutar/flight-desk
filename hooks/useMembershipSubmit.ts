@@ -129,7 +129,7 @@ export function useMembershipSubmit(options?: UseMembershipSubmitOptions) {
           {
             p_user_id: payload.userId,
             p_booking_id: undefined,
-            p_status: "draft",
+            p_status: "authorised",
             p_invoice_number: undefined,
             p_issue_date: undefined,
             p_due_date: undefined,

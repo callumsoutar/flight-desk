@@ -9,6 +9,8 @@ export type InvoicingSettings = {
   contactEmail: string
   invoiceFooter: string
   paymentTerms: string
+  logoUrl: string | null
+  includeLogoOnInvoice: boolean
 }
 
 export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
@@ -19,6 +21,8 @@ export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
   contactEmail: "",
   invoiceFooter: "Thank you for your business.",
   paymentTerms: "Payment terms: Net 30 days.",
+  logoUrl: null,
+  includeLogoOnInvoice: false,
 }
 
 type ResolveInvoicingSettingsInput = {
@@ -29,6 +33,7 @@ type ResolveInvoicingSettingsInput = {
   tenantContactPhone: string | null
   tenantGstNumber: string | null
   tenantSettings: Json | null
+  tenantLogoUrl: string | null
 }
 
 function readStringSetting(containers: JsonObject[], keys: string[]): string | null {
@@ -101,6 +106,17 @@ export function resolveInvoicingSettings(input: ResolveInvoicingSettingsInput): 
     readStringSetting(containers, ["invoice_footer_message", "invoice_footer", "invoiceFooter"]) ??
     DEFAULT_INVOICING_SETTINGS.invoiceFooter
 
+  let includeLogoOnInvoice = false
+  for (const container of containers) {
+    const val = container["include_logo_on_invoice"]
+    if (typeof val === "boolean") {
+      includeLogoOnInvoice = val
+      break
+    }
+  }
+
+  const logoUrl = includeLogoOnInvoice ? (input.tenantLogoUrl ?? null) : null
+
   return {
     schoolName,
     billingAddress,
@@ -109,5 +125,7 @@ export function resolveInvoicingSettings(input: ResolveInvoicingSettingsInput): 
     contactEmail,
     invoiceFooter,
     paymentTerms,
+    logoUrl,
+    includeLogoOnInvoice,
   }
 }

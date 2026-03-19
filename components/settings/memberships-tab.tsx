@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
-import { IconCalendar, IconCreditCard, IconFileInvoice, IconGift } from "@tabler/icons-react"
+import { IconCalendar, IconCreditCard } from "@tabler/icons-react"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
@@ -13,24 +13,7 @@ import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
 const membershipTabs = [
   { id: "membership-types", label: "Membership Types", icon: IconCreditCard },
   { id: "membership-year", label: "Membership Year", icon: IconCalendar },
-  { id: "invoicing", label: "Invoicing", icon: IconFileInvoice },
-  { id: "benefits", label: "Benefits", icon: IconGift },
 ] as const
-
-function PlaceholderPanel({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6">
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
-  )
-}
 
 export function MembershipsTab({
   initialSettings = null,
@@ -180,28 +163,6 @@ export function MembershipsTab({
               <MembershipYearConfig
                 initialSettings={initialSettings}
                 initialLoadError={initialLoadError}
-              />
-            </div>
-          </Tabs.Content>
-
-          <Tabs.Content value="invoicing" className="outline-none">
-            <div className="w-full min-w-0 space-y-2">
-              <h3 className="text-lg font-semibold text-slate-900">Invoicing</h3>
-              <p className="text-sm text-muted-foreground">Billing rules for membership invoices and renewals.</p>
-              <PlaceholderPanel
-                title="Membership invoicing settings will be configured here."
-                description="This section will manage invoice cadence, due dates, and reminders."
-              />
-            </div>
-          </Tabs.Content>
-
-          <Tabs.Content value="benefits" className="outline-none">
-            <div className="w-full min-w-0 space-y-2">
-              <h3 className="text-lg font-semibold text-slate-900">Benefits</h3>
-              <p className="text-sm text-muted-foreground">Configure benefits and feature access tied to plans.</p>
-              <PlaceholderPanel
-                title="Membership benefits will be configured here."
-                description="This section will manage perks like discounts, booking limits, and training access."
               />
             </div>
           </Tabs.Content>

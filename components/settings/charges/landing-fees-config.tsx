@@ -57,6 +57,10 @@ function roundToTwoDecimals(value: number) {
   return Math.round(value * 100) / 100
 }
 
+function roundToStoragePrecision(value: number) {
+  return Math.round(value * 1_000_000) / 1_000_000
+}
+
 function exclusiveToInclusive(unitPrice: number, taxRate: number): number {
   return unitPrice * (1 + taxRate)
 }
@@ -287,7 +291,7 @@ export function LandingFeesConfig() {
           continue
         }
 
-        const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(parsed, itemTaxRate))
+        const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(parsed, itemTaxRate))
         if (existing) {
           operations.push(
             fetch("/api/landing-fee-rates", {
@@ -350,7 +354,7 @@ export function LandingFeesConfig() {
 
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
-      const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(defaultInclusive, itemTaxRate))
+      const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(defaultInclusive, itemTaxRate))
 
       const response = await fetch("/api/landing-fees", {
         method: "POST",
@@ -412,7 +416,7 @@ export function LandingFeesConfig() {
     setError(null)
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
-      const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(defaultInclusive, itemTaxRate))
+      const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(defaultInclusive, itemTaxRate))
 
       const response = await fetch("/api/landing-fees", {
         method: "PATCH",

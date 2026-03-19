@@ -6,14 +6,30 @@ import * as Tabs from "@radix-ui/react-tabs"
 import { IconClock, IconListDetails, IconLoader2, IconSettings } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import ChargeableSearchDropdown from "@/components/invoices/chargeable-search-dropdown"
 import { CancellationCategoriesTab } from "@/components/settings/bookings/cancellation-categories-tab"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
+import { Switch } from "@/components/ui/switch"
 import type { BookingsSettings } from "@/lib/settings/bookings-settings"
+import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
 
 type BookingsSettingsResponse = { settings: BookingsSettings }
+type ChargeablesResponse = { chargeables: InvoiceCreateChargeable[] }
+
+async function fetchDefaultTaxRate(signal?: AbortSignal): Promise<number> {
+  try {
+    const response = await fetch("/api/tax-rates?is_default=true", { cache: "no-store", signal })
+    if (!response.ok) return 0.15
+    const data = (await response.json().catch(() => null)) as { tax_rates?: Array<{ rate?: unknown }> } | null
+    const defaultRate = data?.tax_rates?.[0]?.rate
+    return typeof defaultRate === "number" ? defaultRate : 0.15
+  } catch {
+    return 0.15
+  }
+}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
@@ -53,6 +69,23 @@ async function patchBookingsSettings(payload: unknown): Promise<BookingsSettings
   return (await response.json()) as BookingsSettingsResponse
 }
 
+async function fetchChargeables(signal?: AbortSignal): Promise<ChargeablesResponse> {
+  const response = await fetch("/api/chargeables?include_inactive=true", {
+    cache: "no-store",
+    signal,
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    const message =
+      data && typeof data === "object" && typeof data.error === "string"
+        ? data.error
+        : "Failed to load chargeables"
+    throw new Error(message)
+  }
+
+  return (await response.json()) as ChargeablesResponse
+}
+
 function roundToQuarterHour(value: number) {
   return Math.round(value * 4) / 4
 }
@@ -61,6 +94,8 @@ function createFormState(settings: BookingsSettings | null) {
   return {
     default_booking_duration_hours: roundToQuarterHour(settings?.default_booking_duration_hours ?? 2),
     minimum_booking_duration_minutes: settings?.minimum_booking_duration_minutes ?? 30,
+    default_booking_briefing_charge_enabled: settings?.default_booking_briefing_charge_enabled ?? false,
+    default_booking_briefing_chargeable_id: settings?.default_booking_briefing_chargeable_id ?? "",
   }
 }
 
@@ -89,6 +124,34 @@ export function BookingsTab({
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
   const [showScrollLeft, setShowScrollLeft] = React.useState(false)
   const [showScrollRight, setShowScrollRight] = React.useState(false)
+  const [chargeables, setChargeables] = React.useState<InvoiceCreateChargeable[]>([])
+  const [chargeablesLoading, setChargeablesLoading] = React.useState(true)
+  const [chargeablesLoadError, setChargeablesLoadError] = React.useState<string | null>(null)
+  const [taxRate, setTaxRate] = React.useState(0.15)
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    setChargeablesLoading(true)
+    setChargeablesLoadError(null)
+
+    void Promise.all([
+      fetchChargeables(controller.signal),
+      fetchDefaultTaxRate(controller.signal),
+    ])
+      .then(([chargeablesResult, nextTaxRate]) => {
+        setChargeables(chargeablesResult.chargeables ?? [])
+        setTaxRate(nextTaxRate)
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setChargeablesLoadError(getErrorMessage(error))
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setChargeablesLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [])
 
   React.useEffect(() => {
     if (initialSettings || initialLoadError) return
@@ -118,17 +181,26 @@ export function BookingsTab({
   const dirty =
     roundToQuarterHour(form.default_booking_duration_hours) !==
       roundToQuarterHour(baseForm.default_booking_duration_hours) ||
-    form.minimum_booking_duration_minutes !== baseForm.minimum_booking_duration_minutes
+    form.minimum_booking_duration_minutes !== baseForm.minimum_booking_duration_minutes ||
+    form.default_booking_briefing_charge_enabled !== baseForm.default_booking_briefing_charge_enabled ||
+    form.default_booking_briefing_chargeable_id !== baseForm.default_booking_briefing_chargeable_id
 
   const onUndo = () => setForm(baseForm)
 
   const onSave = async () => {
+    if (form.default_booking_briefing_charge_enabled && !form.default_booking_briefing_chargeable_id) {
+      toast.error("Select a default briefing chargeable before enabling this setting")
+      return
+    }
+
     setIsSaving(true)
     try {
       const result = await patchBookingsSettings({
         bookings: {
           default_booking_duration_hours: roundToQuarterHour(form.default_booking_duration_hours),
           minimum_booking_duration_minutes: form.minimum_booking_duration_minutes,
+          default_booking_briefing_charge_enabled: form.default_booking_briefing_charge_enabled,
+          default_booking_briefing_chargeable_id: form.default_booking_briefing_chargeable_id || null,
         },
       })
       setBaseSettings(result.settings)
@@ -317,6 +389,79 @@ export function BookingsTab({
                   </p>
                 </div>
               </div>
+
+              <div className="space-y-4 border-t border-slate-200 pt-5">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold text-slate-900">Default briefing charge</h3>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, completed booking briefings add the selected chargeable by default during check-in.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 pr-4">
+                      <Label
+                        htmlFor="default-booking-briefing-charge-enabled"
+                        className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                      >
+                        Enable automatic briefing charge
+                      </Label>
+                      <p className="text-[11px] font-medium text-slate-500">
+                        If disabled, no briefing charge is added when briefing is completed.
+                      </p>
+                    </div>
+                    <Switch
+                      id="default-booking-briefing-charge-enabled"
+                      checked={form.default_booking_briefing_charge_enabled}
+                      onCheckedChange={(checked) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          default_booking_briefing_charge_enabled: checked,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-2 sm:max-w-xl">
+                    <Label
+                      htmlFor="default-booking-briefing-chargeable"
+                      className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                    >
+                      Briefing chargeable
+                    </Label>
+                    {chargeablesLoading ? (
+                      <div className="flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500">
+                        <IconLoader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        Loading chargeables…
+                      </div>
+                    ) : chargeablesLoadError ? (
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {chargeablesLoadError}
+                      </div>
+                    ) : (
+                      <div id="default-booking-briefing-chargeable">
+                        <ChargeableSearchDropdown
+                          chargeables={chargeables}
+                          value={form.default_booking_briefing_chargeable_id}
+                          taxRate={taxRate}
+                          disabled={!form.default_booking_briefing_charge_enabled}
+                          onSelect={(chargeable) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              default_booking_briefing_chargeable_id: chargeable?.id ?? "",
+                            }))
+                          }
+                          placeholder="Select a chargeable"
+                        />
+                      </div>
+                    )}
+                    <p className="text-[11px] font-medium text-slate-500">
+                      Search and choose the chargeable used for preflight briefing charges on check-in.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </Tabs.Content>
 
@@ -333,7 +478,7 @@ export function BookingsTab({
           isSaveDisabled={!dirty || isSaving}
           onUndo={onUndo}
           onSave={onSave}
-          message="You have unsaved booking duration changes."
+          message="You have unsaved booking settings changes."
           saveLabel="Save booking settings"
         />
       ) : null}

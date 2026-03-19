@@ -11,6 +11,8 @@ import {
   Mail,
   PlusCircle,
   Printer,
+  RefreshCw,
+  Scissors,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -20,16 +22,25 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
 import InvoiceReportPDF from "@/components/invoices/invoice-report-pdf"
 import RecordPaymentModal from "@/components/invoices/record-payment-modal"
+import { VoidAndReissueModal } from "@/components/invoices/void-and-reissue-modal"
 import type {
   InvoiceDocumentData,
   InvoiceDocumentItem,
   InvoicingSettings,
 } from "@/components/invoices/invoice-document-view"
+
+type XeroStatusData = {
+  export_status: "pending" | "exported" | "failed" | "voided"
+  xero_invoice_id: string | null
+  exported_at: string | null
+  error_message: string | null
+}
 
 export type InvoiceViewActionsProps = {
   invoiceId: string
@@ -40,8 +51,11 @@ export type InvoiceViewActionsProps = {
   billToEmail?: string | null
   bookingId?: string | null
   xeroEnabled?: boolean
+  xeroStatus?: XeroStatusData | null
   onPaymentSuccess?: () => void
 }
+
+const XERO_EXPORTABLE = new Set(["authorised", "paid", "overdue"])
 
 export default function InvoiceViewActions({
   invoiceId,
@@ -52,19 +66,32 @@ export default function InvoiceViewActions({
   billToEmail,
   bookingId,
   xeroEnabled = false,
+  xeroStatus = null,
   onPaymentSuccess,
 }: InvoiceViewActionsProps) {
   const router = useRouter()
   const { timeZone } = useTimezone()
   const [paymentOpen, setPaymentOpen] = React.useState(false)
+  const [voidOpen, setVoidOpen] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
   const [isPrinting, setIsPrinting] = React.useState(false)
+  const [isExporting, setIsExporting] = React.useState(false)
 
   const canEmail = Boolean(billToEmail)
   const hasBalanceDue = typeof invoice.balanceDue === "number" ? invoice.balanceDue > 0 : true
   const canRecordPayment = (status === "authorised" || status === "overdue") && hasBalanceDue
+
   const canExportToXero =
-    xeroEnabled && (status === "authorised" || status === "paid" || status === "overdue")
+    xeroEnabled &&
+    !!status &&
+    XERO_EXPORTABLE.has(status) &&
+    (!xeroStatus || xeroStatus.export_status === "voided")
+  const canRetryXero = xeroEnabled && xeroStatus?.export_status === "failed"
+  const canViewInXero =
+    xeroEnabled && xeroStatus?.export_status === "exported" && !!xeroStatus?.xero_invoice_id
+  const canVoidAndReissue = canViewInXero
+
+  const showXeroSection = xeroEnabled && (canExportToXero || canRetryXero || canViewInXero)
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
@@ -99,6 +126,27 @@ export default function InvoiceViewActions({
     setIsPrinting(false)
   }
 
+  const handleExportToXero = async () => {
+    setIsExporting(true)
+    try {
+      const response = await fetch("/api/xero/export-invoices", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ invoiceIds: [invoiceId] }),
+      })
+      if (!response.ok) {
+        toast.error("Failed to export to Xero")
+        return
+      }
+      toast.success("Invoice exported to Xero")
+      router.refresh()
+    } catch {
+      toast.error("Failed to export to Xero")
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const emailInvoice = () => {
     if (!billToEmail) return
     const subject = encodeURIComponent(`Invoice ${invoice.invoiceNumber || ""}`.trim())
@@ -131,27 +179,18 @@ export default function InvoiceViewActions({
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onSelect={(event) => {
-              event.preventDefault()
-              emailInvoice()
-            }} disabled={!canEmail}>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); emailInvoice() }} disabled={!canEmail}>
               <Mail className="mr-2 h-4 w-4" />
               Email Invoice
             </DropdownMenuItem>
 
-            <DropdownMenuItem onSelect={(event) => {
-              event.preventDefault()
-              void handleDownloadPDF()
-            }} disabled={isDownloading}>
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handleDownloadPDF() }} disabled={isDownloading}>
               {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               Download PDF
             </DropdownMenuItem>
 
-            <DropdownMenuItem onSelect={(event) => {
-              event.preventDefault()
-              void handlePrint()
-            }} disabled={isPrinting}>
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handlePrint() }} disabled={isPrinting}>
               {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
               Print PDF
             </DropdownMenuItem>
@@ -170,26 +209,44 @@ export default function InvoiceViewActions({
               </DropdownMenuItem>
             ) : null}
 
-            {canExportToXero ? (
-              <DropdownMenuItem
-                onSelect={async (event) => {
-                  event.preventDefault()
-                  const response = await fetch("/api/xero/export-invoices", {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ invoiceIds: [invoiceId] }),
-                  })
-                  if (!response.ok) {
-                    toast.error("Failed to export to Xero")
-                    return
-                  }
-                  toast.success("Export sent to Xero")
-                  router.refresh()
-                }}
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Export to Xero
-              </DropdownMenuItem>
+            {showXeroSection ? (
+              <>
+                <DropdownMenuSeparator />
+
+                {(canExportToXero || canRetryXero) ? (
+                  <DropdownMenuItem
+                    onSelect={(e) => { e.preventDefault(); void handleExportToXero() }}
+                    disabled={isExporting}
+                  >
+                    {isExporting
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <RefreshCw className="mr-2 h-4 w-4" />}
+                    {canRetryXero ? "Retry Xero Export" : "Export to Xero"}
+                  </DropdownMenuItem>
+                ) : null}
+
+                {canViewInXero ? (
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      window.open(
+                        `https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${xeroStatus!.xero_invoice_id}`,
+                        "_blank",
+                        "noreferrer"
+                      )
+                    }
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    View in Xero
+                  </DropdownMenuItem>
+                ) : null}
+
+                {canVoidAndReissue ? (
+                  <DropdownMenuItem onSelect={() => setVoidOpen(true)}>
+                    <Scissors className="mr-2 h-4 w-4" />
+                    Void &amp; Reissue
+                  </DropdownMenuItem>
+                ) : null}
+              </>
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -204,6 +261,14 @@ export default function InvoiceViewActions({
         totalPaid={invoice.totalPaid ?? null}
         balanceDue={invoice.balanceDue ?? null}
         onSuccess={onPaymentSuccess}
+      />
+
+      <VoidAndReissueModal
+        open={voidOpen}
+        onOpenChange={setVoidOpen}
+        invoiceId={invoiceId}
+        invoiceNumber={invoice.invoiceNumber}
+        onSuccess={() => router.refresh()}
       />
     </>
   )

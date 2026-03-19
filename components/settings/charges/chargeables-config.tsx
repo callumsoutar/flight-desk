@@ -70,6 +70,10 @@ function roundToTwoDecimals(value: number) {
   return Math.round(value * 100) / 100
 }
 
+function roundToStoragePrecision(value: number) {
+  return Math.round(value * 1_000_000) / 1_000_000
+}
+
 function exclusiveToInclusive(unitPrice: number, taxRate: number): number {
   return unitPrice * (1 + taxRate)
 }
@@ -278,7 +282,7 @@ export function ChargeablesConfig() {
     setError(null)
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
-      const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(rateInclusive, itemTaxRate))
+      const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(rateInclusive, itemTaxRate))
 
       const response = await fetch("/api/chargeables", {
         method: "POST",
@@ -328,7 +332,7 @@ export function ChargeablesConfig() {
     setError(null)
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
-      const rateExclusive = roundToTwoDecimals(inclusiveToExclusive(rateInclusive, itemTaxRate))
+      const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(rateInclusive, itemTaxRate))
 
       const response = await fetch("/api/chargeables", {
         method: "PATCH",

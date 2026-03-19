@@ -256,7 +256,10 @@ export function CreateMembershipModal({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-800">Start Date</label>
+                <div className="flex min-h-7 items-center justify-between">
+                  <label className="text-sm font-medium text-slate-800">Start Date</label>
+                  <span aria-hidden="true" className="h-7 w-7" />
+                </div>
                 <DatePicker
                   id="create-membership-start-date"
                   date={toInputDate(startDate)}

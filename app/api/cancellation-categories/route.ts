@@ -11,7 +11,6 @@ type CancellationCategory = {
   id: string
   name: string
   description: string | null
-  is_global: boolean
 }
 
 function normalizeOptionalString(value: string | null | undefined) {
@@ -49,45 +48,20 @@ export async function GET() {
     )
   }
 
-  const [globalResult, tenantResult] = await Promise.all([
-    supabase
-      .from("cancellation_categories")
-      .select("id, name, description, is_global")
-      .eq("is_global", true)
-      .is("voided_at", null),
-    supabase
-      .from("cancellation_categories")
-      .select("id, name, description, is_global")
-      .eq("tenant_id", tenantId)
-      .is("voided_at", null),
-  ])
+  const { data, error } = await supabase
+    .from("cancellation_categories")
+    .select("id, name, description")
+    .eq("tenant_id", tenantId)
+    .is("voided_at", null)
 
-  if (globalResult.error || tenantResult.error) {
+  if (error) {
     return NextResponse.json(
       { error: "Failed to load cancellation categories" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
   }
 
-  const byId = new Map<string, CancellationCategory>()
-  for (const category of globalResult.data ?? []) {
-    byId.set(category.id, {
-      id: category.id,
-      name: category.name,
-      description: category.description,
-      is_global: category.is_global,
-    })
-  }
-  for (const category of tenantResult.data ?? []) {
-    byId.set(category.id, {
-      id: category.id,
-      name: category.name,
-      description: category.description,
-      is_global: category.is_global,
-    })
-  }
-
-  const categories = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+  const categories = (data as CancellationCategory[]).sort((a, b) => a.name.localeCompare(b.name))
 
   return NextResponse.json(
     { categories },
@@ -142,7 +116,6 @@ export async function POST(request: Request) {
       name: name.trim(),
       description: normalizeOptionalString(description) ?? null,
       tenant_id: tenantId,
-      is_global: false,
     })
     .select("id")
     .single()
@@ -203,7 +176,7 @@ export async function PATCH(request: Request) {
 
   const { data: existing, error: existingError } = await supabase
     .from("cancellation_categories")
-    .select("id, tenant_id, is_global, voided_at")
+    .select("id, tenant_id, voided_at")
     .eq("id", id)
     .maybeSingle()
 
@@ -218,13 +191,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json(
       { error: "Cancellation category not found" },
       { status: 404, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (existing.is_global) {
-    return NextResponse.json(
-      { error: "System categories cannot be modified" },
-      { status: 403, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -307,7 +273,7 @@ export async function DELETE(request: Request) {
 
   const { data: existing, error: existingError } = await supabase
     .from("cancellation_categories")
-    .select("id, tenant_id, is_global, voided_at")
+    .select("id, tenant_id, voided_at")
     .eq("id", id)
     .maybeSingle()
 
@@ -322,13 +288,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json(
       { error: "Cancellation category not found" },
       { status: 404, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (existing.is_global) {
-    return NextResponse.json(
-      { error: "System categories cannot be deleted" },
-      { status: 403, headers: { "cache-control": "no-store" } }
     )
   }
 

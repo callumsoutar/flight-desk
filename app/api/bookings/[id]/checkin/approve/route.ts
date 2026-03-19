@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const invoiceId = rpcResult.invoice_id
 
   if (invoiceId) {
+    const invoicingSettings = await fetchInvoicingSettings(supabase, tenantId).catch(() => null)
     const xeroSettings = await fetchXeroSettings(supabase, tenantId).catch(() => null)
     const defaultTaxType = xeroSettings?.default_tax_type ?? null
 
@@ -198,13 +200,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const { data: chargeableTypes } = chargeableTypeIds.length
       ? await supabase
           .from("chargeable_types")
-          .select("id, gl_code")
+          .select("id, code, gl_code")
           .or(`tenant_id.eq.${tenantId},scope.eq.system`)
           .in("id", chargeableTypeIds)
       : { data: [] }
 
     const chargeableById = new Map((chargeables ?? []).map((row) => [row.id, row]))
-    const typeGlById = new Map((chargeableTypes ?? []).map((row) => [row.id, row.gl_code ?? null]))
+    const chargeableTypeById = new Map((chargeableTypes ?? []).map((row) => [row.id, row]))
 
     const itemUpdates = (invoiceItems ?? []).map((item) => {
       let glCode: string | null = null
@@ -213,7 +215,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         const chargeable = chargeableById.get(item.chargeable_id)
         xeroTaxType = (item.tax_rate ?? 0) > 0 ? chargeable?.xero_tax_type ?? defaultTaxType : null
         if (chargeable?.chargeable_type_id) {
-          glCode = chargeable.gl_code ?? typeGlById.get(chargeable.chargeable_type_id) ?? null
+          const chargeableType = chargeableTypeById.get(chargeable.chargeable_type_id)
+          if (chargeableType?.code === "landing_fees") {
+            glCode = invoicingSettings?.landing_fee_gl_code || null
+          } else if (chargeableType?.code === "airways_fees") {
+            glCode = invoicingSettings?.airways_fee_gl_code || null
+          } else {
+            glCode = chargeable.gl_code ?? chargeableType?.gl_code ?? null
+          }
         }
       } else {
         const desc = (item.description ?? "").toLowerCase()

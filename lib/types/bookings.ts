@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/types/database"
 import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
+import type { BookingsSettings } from "@/lib/settings/bookings-settings"
 import type {
   AircraftRow,
   AircraftTypesRow,
@@ -96,6 +97,7 @@ export type BookingOptions = {
   syllabi: Array<{ id: string; name: string }>
   lessons: Array<Pick<LessonRow, "id" | "name" | "description" | "order" | "syllabus_id">>
   chargeables?: InvoiceCreateChargeable[]
+  bookingsSettings?: BookingsSettings
   aircraftTypes?: Array<Pick<AircraftTypesRow, "id" | "name">>
   chargeableTypes?: Array<
     Pick<ChargeableTypesRow, "id" | "code" | "name" | "description" | "scope" | "system_key" | "is_active">

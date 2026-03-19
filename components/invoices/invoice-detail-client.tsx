@@ -9,7 +9,6 @@ import { approveDraftInvoiceAction } from "@/app/invoices/[id]/actions"
 import InvoiceActionsToolbar from "@/components/invoices/invoice-actions-toolbar"
 import InvoiceDocumentView from "@/components/invoices/invoice-document-view"
 import InvoiceViewActions from "@/components/invoices/invoice-view-actions"
-import { XeroInvoiceStatus } from "@/components/invoices/xero-invoice-status"
 import type { UserResult } from "@/components/invoices/member-select"
 import { Card } from "@/components/ui/card"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
@@ -101,6 +100,7 @@ export function InvoiceDetailClient({
                   status={invoice.status}
                   settings={settings}
                   xeroEnabled={xeroEnabled}
+                  xeroStatus={xeroStatus}
                   bookingId={invoice.booking_id}
                   invoice={{
                     invoiceNumber: invoice.invoice_number || `#${invoice.id.slice(0, 8)}`,
@@ -187,14 +187,6 @@ export function InvoiceDetailClient({
             </div>
           </Card>
 
-          <XeroInvoiceStatus
-            invoiceId={invoice.id}
-            invoiceNumber={invoice.invoice_number}
-            invoiceStatus={invoice.status}
-            xeroEnabled={xeroEnabled}
-            status={xeroStatus}
-            onRefresh={() => router.refresh()}
-          />
         </div>
       </div>
     </div>

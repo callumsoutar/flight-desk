@@ -4,11 +4,9 @@ import { useEffect, useMemo, useState } from "react"
 import {
   AlertCircle,
   Archive,
-  ChevronDown,
-  ChevronRight,
   Edit,
+  Filter,
   FileText,
-  GraduationCap,
   Plus,
   Search,
 } from "lucide-react"
@@ -44,6 +42,7 @@ export function ExamsConfig() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedSyllabusFilter, setSelectedSyllabusFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
@@ -54,7 +53,6 @@ export function ExamsConfig() {
     passing_score: 70,
     is_active: true,
   })
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
   const fetchExams = async () => {
     try {
@@ -197,37 +195,28 @@ export function ExamsConfig() {
 
   const getSyllabusName = (syllabusId: string) => {
     const syllabus = syllabi.find((s) => s.id === syllabusId)
-    return syllabus ? syllabus.name : "Independent Exams"
-  }
-
-  const toggleGroup = (syllabusId: string) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [syllabusId]: !prev[syllabusId],
-    }))
+    return syllabus ? syllabus.name : "Independent"
   }
 
   const filteredExams = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
-    if (!term) return exams
+
     return exams.filter((exam) => {
+      const matchesSyllabus =
+        selectedSyllabusFilter === "all"
+          ? true
+          : selectedSyllabusFilter === "none"
+            ? !exam.syllabus_id
+            : exam.syllabus_id === selectedSyllabusFilter
+
+      if (!matchesSyllabus) return false
+      if (!term) return true
+
       return (
         exam.name.toLowerCase().includes(term) || (exam.description || "").toLowerCase().includes(term)
       )
     })
-  }, [exams, searchTerm])
-
-  const groupedExams = useMemo(() => {
-    return filteredExams.reduce(
-      (groups, exam) => {
-        const key = exam.syllabus_id || "no-syllabus"
-        if (!groups[key]) groups[key] = []
-        groups[key].push(exam)
-        return groups
-      },
-      {} as Record<string, Exam[]>
-    )
-  }, [filteredExams])
+  }, [exams, searchTerm, selectedSyllabusFilter])
 
   if (loading) {
     return (
@@ -257,18 +246,38 @@ export function ExamsConfig() {
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2 mb-6 bg-slate-50/80 p-1.5 rounded-2xl border border-slate-100/80">
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:flex-row sm:items-end">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <Input
             placeholder="Search exams..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10 pl-10 bg-white border-slate-200 rounded-xl shadow-none focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500 transition-all border-none"
+            className="h-10 rounded-xl border-slate-200 bg-white pl-10 shadow-none transition-all focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20"
           />
         </div>
 
-        <div className="h-6 w-px bg-slate-200 mx-1" />
+        <div className="w-full sm:w-[260px]">
+          <Label className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <Filter className="h-3.5 w-3.5" />
+            Syllabus
+          </Label>
+          <Select value={selectedSyllabusFilter} onValueChange={setSelectedSyllabusFilter}>
+            <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white text-sm font-medium shadow-none">
+              <SelectValue placeholder="All syllabi" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All syllabi</SelectItem>
+              <SelectItem value="none">Independent exams</SelectItem>
+              {syllabi.map((syllabus) => (
+                <SelectItem key={syllabus.id} value={syllabus.id}>
+                  {syllabus.name}
+                  {!syllabus.is_active ? " (inactive)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <Dialog
           open={isAddDialogOpen}
@@ -438,131 +447,94 @@ export function ExamsConfig() {
         </Dialog>
       </div>
 
-      {Object.keys(groupedExams).length === 0 ? (
-        <div className="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+      {filteredExams.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center">
           <FileText className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-          <p className="text-slate-900 font-semibold mb-2">No exams configured</p>
-          <p className="text-sm text-slate-500 mb-4">Click &quot;Add New&quot; to get started.</p>
+          <p className="mb-2 font-semibold text-slate-900">
+            {exams.length === 0 ? "No exams configured" : "No exams match this view"}
+          </p>
+          <p className="mb-4 text-sm text-slate-500">
+            {exams.length === 0
+              ? 'Click "Add New" to get started.'
+              : "Try a different search term or syllabus filter."}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4 min-w-0 w-full">
-          {Object.entries(groupedExams).map(([syllabusId, syllabusExams]) => {
-            const isExpanded = expandedGroups[syllabusId] || false
-            return (
-              <div
-                key={syllabusId}
-                className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm"
-              >
-                <div
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors border-b border-transparent data-[expanded=true]:border-slate-100"
-                  data-expanded={isExpanded}
-                  onClick={() => toggleGroup(syllabusId)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                      {syllabusId === "no-syllabus" ? (
-                        <FileText className="h-4 w-4" />
-                      ) : (
-                        <GraduationCap className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-slate-900">
-                        {syllabusId === "no-syllabus" ? "Independent Exams" : getSyllabusName(syllabusId)}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">
-                        {syllabusExams.length} exam{syllabusExams.length !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-slate-500" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-slate-500" />
-                    )}
-                  </div>
-                </div>
-
-                {isExpanded ? (
-                  <div className="overflow-x-auto min-w-0 w-full">
-                    <Table className="table-fixed w-full">
-                      <TableHeader>
-                        <TableRow className="bg-slate-50 hover:bg-slate-50 border-t">
-                          <TableHead className="font-semibold text-slate-700 pl-6">Exam Name</TableHead>
-                          <TableHead className="font-semibold text-slate-700 text-center whitespace-nowrap">Pass Mark</TableHead>
-                          <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Status</TableHead>
-                          <TableHead className="text-right font-semibold text-slate-700 pr-6 whitespace-nowrap">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {syllabusExams.map((exam) => (
-                          <TableRow key={exam.id} className="hover:bg-slate-50">
-                            <TableCell className="font-medium text-slate-900 pl-6 py-4 whitespace-normal min-w-0 align-top">
-                              <div>
-                                <div>{exam.name}</div>
-                                {exam.description ? (
-                                  <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">
-                                    {exam.description}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center text-slate-600">
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                                {Math.round(exam.passing_score)}%
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span
-                                className={cn(
-                                  "inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border",
-                                  exam.is_active
-                                    ? "bg-green-50 text-green-700 border-green-200"
-                                    : "bg-slate-100 text-slate-600 border-slate-200"
-                                )}
-                              >
-                                {exam.is_active ? "Active" : "Inactive"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right pr-6">
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    openEditDialog(exam)
-                                  }}
-                                  className="hover:bg-slate-50"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                {exam.is_active ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      void handleDelete(exam.id)
-                                    }}
-                                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                    title="Deactivate exam"
-                                  >
-                                    <Archive className="w-4 h-4" />
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : null}
-              </div>
-            )
-          })}
+        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="min-w-0 w-full overflow-x-auto">
+            <Table className="table-fixed w-full">
+              <TableHeader>
+                <TableRow className="border-t bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="pl-6 font-semibold text-slate-700">Exam</TableHead>
+                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Syllabus</TableHead>
+                  <TableHead className="text-center font-semibold text-slate-700 whitespace-nowrap">Pass Mark</TableHead>
+                  <TableHead className="font-semibold text-slate-700 whitespace-nowrap">Status</TableHead>
+                  <TableHead className="pr-6 text-right font-semibold text-slate-700 whitespace-nowrap">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredExams.map((exam) => (
+                  <TableRow key={exam.id} className="hover:bg-slate-50">
+                    <TableCell className="min-w-0 whitespace-normal py-4 pl-6 align-top font-medium text-slate-900">
+                      <div>
+                        <div>{exam.name}</div>
+                        {exam.description ? (
+                          <div className="mt-0.5 line-clamp-1 text-xs text-slate-500">{exam.description}</div>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
+                        {exam.syllabus_id ? getSyllabusName(exam.syllabus_id) : "Independent"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center text-slate-600">
+                      <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        {Math.round(exam.passing_score)}%
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold",
+                          exam.is_active
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
+                        )}
+                      >
+                        {exam.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(exam)}
+                          className="hover:bg-slate-50"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        {exam.is_active ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              void handleDelete(exam.id)
+                            }}
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            title="Deactivate exam"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

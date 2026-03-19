@@ -73,6 +73,12 @@ function getStatusBadgeVariant(status: InvoiceStatus): "default" | "secondary" |
   }
 }
 
+function getStatusBadgeClassName(status: InvoiceStatus): string {
+  if (status === "authorised") return "bg-blue-100 text-blue-700"
+  if (status === "paid") return "bg-green-100 text-green-700"
+  return ""
+}
+
 function getStatusLabel(status: InvoiceStatus) {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
@@ -249,7 +255,7 @@ export function InvoicesTable({
         cell: ({ row }) => {
           const status = row.original.status
           return (
-            <Badge variant={getStatusBadgeVariant(status)} className="font-medium">
+            <Badge variant={getStatusBadgeVariant(status)} className={`font-medium ${getStatusBadgeClassName(status)}`}>
               {getStatusLabel(status)}
             </Badge>
           )
@@ -542,7 +548,7 @@ export function InvoicesTable({
                         />
                       </div>
                     ) : null}
-                    <Badge variant={getStatusBadgeVariant(invoice.status)} className="font-medium">
+                    <Badge variant={getStatusBadgeVariant(invoice.status)} className={`font-medium ${getStatusBadgeClassName(invoice.status)}`}>
                       {getStatusLabel(invoice.status)}
                     </Badge>
                   </div>

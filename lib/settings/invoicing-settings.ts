@@ -7,6 +7,8 @@ export type InvoicingSettings = {
   default_invoice_due_days: number
   invoice_footer_message: string
   include_logo_on_invoice: boolean
+  landing_fee_gl_code: string
+  airways_fee_gl_code: string
 }
 
 export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
@@ -15,6 +17,8 @@ export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
   default_invoice_due_days: 7,
   invoice_footer_message: "Thank you for your business.",
   include_logo_on_invoice: true,
+  landing_fee_gl_code: "",
+  airways_fee_gl_code: "",
 }
 
 function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
@@ -56,6 +60,12 @@ export function resolveInvoicingSettings(settings: Json | null | undefined): Inv
       settings.include_logo_on_invoice,
       DEFAULT_INVOICING_SETTINGS.include_logo_on_invoice
     ),
+    landing_fee_gl_code:
+      normalizeNullableString(settings.landing_fee_gl_code) ??
+      DEFAULT_INVOICING_SETTINGS.landing_fee_gl_code,
+    airways_fee_gl_code:
+      normalizeNullableString(settings.airways_fee_gl_code) ??
+      DEFAULT_INVOICING_SETTINGS.airways_fee_gl_code,
   }
 }
 

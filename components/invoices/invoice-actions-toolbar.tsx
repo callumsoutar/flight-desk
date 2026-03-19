@@ -69,6 +69,12 @@ export default function InvoiceActionsToolbar({
     }
   }
 
+  const getStatusBadgeClassName = (value?: InvoiceStatus) => {
+    if (value === "authorised") return "bg-blue-100 text-blue-700"
+    if (value === "paid") return "bg-green-100 text-green-700"
+    return ""
+  }
+
   const getStatusLabel = (value?: InvoiceStatus) => {
     if (!value) return "Draft"
     return value.charAt(0).toUpperCase() + value.slice(1)
@@ -104,7 +110,7 @@ export default function InvoiceActionsToolbar({
               {status ? (
                 <Badge
                   variant={getStatusBadgeVariant(status)}
-                  className="shrink-0 rounded-md border-none px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm"
+                  className={`shrink-0 rounded-md border-none px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm ${getStatusBadgeClassName(status)}`}
                 >
                   {getStatusLabel(status)}
                 </Badge>

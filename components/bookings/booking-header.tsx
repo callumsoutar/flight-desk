@@ -27,6 +27,8 @@ interface BookingHeaderProps {
   extra?: React.ReactNode
 }
 
+type FlightInstructionType = NonNullable<BookingWithRelations["flight_type"]>["instruction_type"]
+
 function getStatusBadgeStyles(status: BookingStatus): string {
   switch (status) {
     case "flying":
@@ -65,6 +67,32 @@ function getStatusLabel(status: BookingStatus) {
   }
 }
 
+function getInstructionTypeLabel(instructionType: FlightInstructionType) {
+  switch (instructionType) {
+    case "solo":
+      return "Solo"
+    case "dual":
+      return "Dual"
+    case "trial":
+      return "Trial"
+    default:
+      return null
+  }
+}
+
+function getInstructionBadgeStyles(instructionType: FlightInstructionType) {
+  switch (instructionType) {
+    case "solo":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+    case "dual":
+      return "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200"
+    case "trial":
+      return "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-200"
+    default:
+      return "border-border bg-muted text-foreground"
+  }
+}
+
 function formatDisplayName(user: { first_name: string | null; last_name: string | null; email: string | null }) {
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email
 }
@@ -82,6 +110,9 @@ export function BookingHeader({
   const status = booking.status
   const badgeLabel = getStatusLabel(status)
   const badgeStyles = getStatusBadgeStyles(status)
+  const instructionType = booking.booking_type === "flight" ? booking.flight_type?.instruction_type ?? null : null
+  const instructionLabel = instructionType ? getInstructionTypeLabel(instructionType) : null
+  const instructionBadgeStyles = instructionType ? getInstructionBadgeStyles(instructionType) : null
 
   const studentName = booking.student ? formatDisplayName(booking.student) : null
 
@@ -111,6 +142,18 @@ export function BookingHeader({
 
           <div className="flex items-center gap-2">
             {extra}
+            {instructionType && instructionLabel && instructionBadgeStyles ? (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide sm:px-3",
+                  instructionBadgeStyles
+                )}
+              >
+                <IconSchool className="mr-1.5 inline h-3.5 w-3.5" />
+                {instructionLabel}
+              </Badge>
+            ) : null}
             <Badge
               className={cn(
                 "rounded-full border-none px-2.5 py-1 text-xs font-bold uppercase tracking-wider shadow-sm sm:px-3",

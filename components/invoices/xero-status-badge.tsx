@@ -1,5 +1,7 @@
 "use client"
 
+import { CheckCircle2, XCircle } from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
 import type { Database } from "@/lib/types"
 
@@ -9,7 +11,21 @@ export function XeroStatusBadge({ status }: { status: XeroStatus }) {
   if (!status) return <span className="text-muted-foreground">-</span>
 
   if (status === "exported") {
-    return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Exported</Badge>
+    return (
+      <span className="inline-flex items-center gap-1 text-emerald-600">
+        <CheckCircle2 className="h-4 w-4" />
+        <span className="text-xs font-medium">Exported</span>
+      </span>
+    )
+  }
+
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-red-600">
+        <XCircle className="h-4 w-4" />
+        <span className="text-xs font-medium">Failed</span>
+      </span>
+    )
   }
 
   if (status === "pending") {
@@ -20,5 +36,5 @@ export function XeroStatusBadge({ status }: { status: XeroStatus }) {
     return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Voided</Badge>
   }
 
-  return <Badge variant="destructive">Failed</Badge>
+  return null
 }

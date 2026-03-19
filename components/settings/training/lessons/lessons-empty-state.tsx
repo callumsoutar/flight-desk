@@ -39,8 +39,11 @@ export function LessonsEmptyState({ variant, syllabusName, onAddLesson }: Lesson
       <Plus className="mb-3 h-5 w-5 text-slate-400" />
       <h4 className="mb-1 text-sm font-semibold text-slate-900">No lessons yet</h4>
       <p className="mb-4 max-w-[260px] text-sm text-slate-500">Add the first lesson to {syllabusName}.</p>
-      <Button onClick={onAddLesson} className="h-10 rounded-lg px-4">
-        <Plus className="mr-1.5 h-4 w-4" />
+      <Button
+        onClick={onAddLesson}
+        className="h-10 rounded-xl border-none bg-indigo-600 px-4 font-semibold text-white shadow-sm shadow-indigo-100 transition-all hover:bg-indigo-700 active:scale-[0.98]"
+      >
+        <Plus className="h-4 w-4" />
         Add Lesson
       </Button>
     </div>

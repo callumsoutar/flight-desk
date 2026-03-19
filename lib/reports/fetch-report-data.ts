@@ -244,7 +244,7 @@ export async function fetchReportData(
     supabase
       .from("cancellation_categories")
       .select("id, name")
-      .or(`tenant_id.eq.${tenantId},is_global.eq.true`),
+      .eq("tenant_id", tenantId),
   ])
 
   const bookings = bookingsResult.data ?? []

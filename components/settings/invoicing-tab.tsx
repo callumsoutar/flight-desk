@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -53,6 +54,8 @@ function createFormState(settings: InvoicingSettings | null) {
     default_invoice_due_days: settings?.default_invoice_due_days ?? 7,
     invoice_footer_message: settings?.invoice_footer_message ?? "Thank you for your business.",
     include_logo_on_invoice: settings?.include_logo_on_invoice ?? true,
+    landing_fee_gl_code: settings?.landing_fee_gl_code ?? "",
+    airways_fee_gl_code: settings?.airways_fee_gl_code ?? "",
   }
 }
 
@@ -80,7 +83,9 @@ export function InvoicingTab({
     form.invoice_number_mode !== baseForm.invoice_number_mode ||
     form.default_invoice_due_days !== baseForm.default_invoice_due_days ||
     form.invoice_footer_message !== baseForm.invoice_footer_message ||
-    form.include_logo_on_invoice !== baseForm.include_logo_on_invoice
+    form.include_logo_on_invoice !== baseForm.include_logo_on_invoice ||
+    form.landing_fee_gl_code !== baseForm.landing_fee_gl_code ||
+    form.airways_fee_gl_code !== baseForm.airways_fee_gl_code
 
   const canSave = dirty && form.invoice_prefix.trim().length > 0 && !isSaving
   const onUndo = () => {
@@ -115,6 +120,8 @@ export function InvoicingTab({
           default_invoice_due_days: form.default_invoice_due_days,
           invoice_footer_message: form.invoice_footer_message,
           include_logo_on_invoice: form.include_logo_on_invoice,
+          landing_fee_gl_code: form.landing_fee_gl_code || null,
+          airways_fee_gl_code: form.airways_fee_gl_code || null,
         },
       })
       setBaseSettings(result.settings)
@@ -252,6 +259,52 @@ export function InvoicingTab({
               placeholder="Thank you for your business."
             />
             <p className="text-[11px] font-medium text-slate-500">Displays at the bottom of invoices and receipts.</p>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <IconFileInvoice className="h-4 w-4 text-slate-500" />
+            Fee GL defaults
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label
+                htmlFor="landing-fee-gl-code"
+                className="text-xs font-bold uppercase tracking-wider text-slate-500"
+              >
+                Landing Fee Account Code
+              </Label>
+              <XeroAccountSelect
+                value={form.landing_fee_gl_code}
+                onChange={(code) => setForm((prev) => ({ ...prev, landing_fee_gl_code: code }))}
+                accountTypes={["REVENUE"]}
+                className="h-11"
+              />
+              <p className="text-[11px] font-medium text-slate-500">
+                Applied to invoice line items where chargeable type is landing fees.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="airways-fee-gl-code"
+                className="text-xs font-bold uppercase tracking-wider text-slate-500"
+              >
+                Airways Fee Account Code
+              </Label>
+              <XeroAccountSelect
+                value={form.airways_fee_gl_code}
+                onChange={(code) => setForm((prev) => ({ ...prev, airways_fee_gl_code: code }))}
+                accountTypes={["REVENUE"]}
+                className="h-11"
+              />
+              <p className="text-[11px] font-medium text-slate-500">
+                Applied to invoice line items where chargeable type is airways fees.
+              </p>
+            </div>
           </div>
         </div>
 

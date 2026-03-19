@@ -56,6 +56,7 @@ type ChargeRate = {
 }
 
 type ManualItemGroup = "landing_fees" | "airways_fees" | "other"
+type GeneratedItemGroup = "briefing" | "flight_hire"
 
 type InvoiceBuilderItem = {
   id: string
@@ -66,6 +67,7 @@ type InvoiceBuilderItem = {
   tax_rate: number | null
   notes?: string | null
   source: "generated" | "manual"
+  generated_group?: GeneratedItemGroup
   manual_group?: ManualItemGroup
   chargeable_type_id?: string | null
   chargeable_type_code?: string | null
@@ -306,6 +308,7 @@ export function BookingCheckinClient({
     null
   )
   const [showLandingFeeAircraftTypeEditor, setShowLandingFeeAircraftTypeEditor] = React.useState(false)
+  const [isBriefingNoticeDismissed, setIsBriefingNoticeDismissed] = React.useState(false)
   const [draftCalculation, setDraftCalculation] = React.useState<null | {
     signature: string
     calculated_at: string
@@ -386,6 +389,7 @@ export function BookingCheckinClient({
     return options.flightTypes.find((item) => item.id === selectedFlightTypeId) ?? booking.flight_type ?? null
   }, [booking.flight_type, options.flightTypes, selectedFlightTypeId])
   const chargeables = React.useMemo(() => options.chargeables ?? [], [options.chargeables])
+  const bookingsSettings = options.bookingsSettings ?? null
   const chargeableTypes = React.useMemo(() => options.chargeableTypes ?? [], [options.chargeableTypes])
   const landingFeeRates = React.useMemo(() => options.landingFeeRates ?? [], [options.landingFeeRates])
   const chargeableMap = React.useMemo(
@@ -503,6 +507,12 @@ export function BookingCheckinClient({
   }, [landingFeeRates])
 
   const instructionType = selectedFlightType?.instruction_type ?? null
+  const defaultBriefingChargeable = React.useMemo(() => {
+    if (!bookingsSettings?.default_booking_briefing_charge_enabled) return null
+    const chargeableId = bookingsSettings.default_booking_briefing_chargeable_id
+    if (!chargeableId) return null
+    return chargeableMap.get(chargeableId) ?? null
+  }, [bookingsSettings, chargeableMap])
 
   const aircraftBillingBasis = React.useMemo(
     () => deriveChargeBasisFromFlags(aircraftChargeRate),
@@ -1029,18 +1039,36 @@ export function BookingCheckinClient({
       booking.aircraft
     const aircraftReg = selectedAircraft?.registration ?? "Aircraft"
 
-    const items: InvoiceBuilderItem[] = [
-      {
-        id: "generated-aircraft-hire",
-        chargeable_id: null,
-        description: `Aircraft Hire (${aircraftReg})`,
-        quantity: billingHours,
-        unit_price: aircraftRate,
-        tax_rate: taxRate,
-        notes: `Booking ${booking.id}; basis=${aircraftBillingBasis}; total=${billingHours.toFixed(1)}h; dual=${splitTimes.dual.toFixed(1)}h; solo=${splitTimes.solo.toFixed(1)}h`,
+    const items: InvoiceBuilderItem[] = []
+
+    if (booking.briefing_completed && defaultBriefingChargeable) {
+      items.push({
+        id: "generated-default-briefing-charge",
+        chargeable_id: defaultBriefingChargeable.id,
+        description: defaultBriefingChargeable.name,
+        quantity: 1,
+        unit_price: Number.isFinite(defaultBriefingChargeable.rate) ? Number(defaultBriefingChargeable.rate) : 0,
+        tax_rate: defaultBriefingChargeable.is_taxable ? taxRate : 0,
+        notes: `Auto-added from booking briefing setting; booking ${booking.id}`,
         source: "generated",
-      },
-    ]
+        generated_group: "briefing",
+        chargeable_type_id: defaultBriefingChargeable.chargeable_type_id,
+        chargeable_type_code:
+          chargeableTypeCodeById.get(defaultBriefingChargeable.chargeable_type_id) ?? null,
+      })
+    }
+
+    items.push({
+      id: "generated-aircraft-hire",
+      chargeable_id: null,
+      description: `Aircraft Hire (${aircraftReg})`,
+      quantity: billingHours,
+      unit_price: aircraftRate,
+      tax_rate: taxRate,
+      notes: `Booking ${booking.id}; basis=${aircraftBillingBasis}; total=${billingHours.toFixed(1)}h; dual=${splitTimes.dual.toFixed(1)}h; solo=${splitTimes.solo.toFixed(1)}h`,
+      source: "generated",
+      generated_group: "flight_hire",
+    })
 
     if (selectedInstructorId && instructorRatePerHourExclTax != null && instructionType !== "solo") {
       const selectedInstructor =
@@ -1062,6 +1090,7 @@ export function BookingCheckinClient({
           tax_rate: taxRate,
           notes: `Booking ${booking.id}; dual_time=${splitTimes.dual.toFixed(1)}h`,
           source: "generated",
+          generated_group: "flight_hire",
         })
       }
     }
@@ -1072,10 +1101,13 @@ export function BookingCheckinClient({
     aircraftChargeRate,
     billingHours,
     booking.aircraft,
+    booking.briefing_completed,
     booking.checked_out_aircraft,
     booking.checked_out_instructor,
     booking.id,
     booking.instructor,
+    chargeableTypeCodeById,
+    defaultBriefingChargeable,
     instructionType,
     instructorRatePerHourExclTax,
     options.aircraft,
@@ -1154,10 +1186,23 @@ export function BookingCheckinClient({
   const invoiceBuilderLineGroups = React.useMemo(() => {
     const groups: Array<{ id: string; label: string; lines: CalculatedInvoiceLine[] }> = []
 
-    const generatedLines = invoiceBuilderLines.filter((line) => line.source === "generated")
+    const briefingLines = invoiceBuilderLines.filter(
+      (line) => line.source === "generated" && (line.generated_group ?? "flight_hire") === "briefing"
+    )
+    if (briefingLines.length > 0) {
+      groups.push({
+        id: "generated-briefing",
+        label: "Preflight Briefing",
+        lines: briefingLines,
+      })
+    }
+
+    const generatedLines = invoiceBuilderLines.filter(
+      (line) => line.source === "generated" && (line.generated_group ?? "flight_hire") === "flight_hire"
+    )
     if (generatedLines.length > 0) {
       groups.push({
-        id: "generated",
+        id: "generated-flight-hire",
         label: "Flight Hire",
         lines: generatedLines,
       })
@@ -1178,6 +1223,20 @@ export function BookingCheckinClient({
 
     return groups
   }, [invoiceBuilderLines])
+
+  const hasAutoBriefingCharge = React.useMemo(
+    () =>
+      invoiceBuilderLines.some(
+        (line) => line.id === "generated-default-briefing-charge" && line.source === "generated"
+      ),
+    [invoiceBuilderLines]
+  )
+
+  React.useEffect(() => {
+    if (!hasAutoBriefingCharge) {
+      setIsBriefingNoticeDismissed(false)
+    }
+  }, [hasAutoBriefingCharge])
 
   const invoiceBuilderTotals = React.useMemo(() => {
     const subtotal = roundToTwoDecimals(invoiceBuilderLines.reduce((sum, line) => sum + line.amount, 0))
@@ -1303,6 +1362,7 @@ export function BookingCheckinClient({
       setGeneratedItemOverrides({})
       setRemovedGeneratedItemIds({})
       setEditingLineItem(null)
+      setIsBriefingNoticeDismissed(false)
       toast.success("Draft invoice calculated")
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -1854,23 +1914,43 @@ export function BookingCheckinClient({
                     {invoiceBuilderLines.length} {invoiceBuilderLines.length === 1 ? "item" : "items"}
                   </span>
                 </div>
-                {!isDraftCalculated ? (
-                  <p className="text-sm text-muted-foreground">
-                    Calculate flight charges to generate line items, then add any extra fees below.
-                  </p>
-                ) : isDraftStale ? (
-                  <div className="mt-1 flex items-center gap-2 text-sm text-destructive">
-                    <IconAlertCircle className="h-4 w-4 shrink-0" />
-                    Draft is out of date. Recalculate before approving.
-                  </div>
-                ) : (
-                  <div className="mt-1 flex items-center gap-2 text-sm text-emerald-700">
-                    <IconCheck className="h-4 w-4 shrink-0" />
-                    Draft is up to date and ready for approval.
-                  </div>
-                )}
               </CardHeader>
               <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  {!isDraftCalculated ? (
+                    <p className="text-sm text-muted-foreground">
+                      Calculate flight charges to generate line items, then add any extra fees below.
+                    </p>
+                  ) : isDraftStale ? (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <IconAlertCircle className="h-4 w-4 shrink-0" />
+                      <span>Draft is out of date. Recalculate before approving.</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-emerald-700">
+                      <IconCheck className="h-4 w-4 shrink-0" />
+                      <span>Draft is up to date and ready for approval.</span>
+                    </div>
+                  )}
+
+                  {hasAutoBriefingCharge && !isBriefingNoticeDismissed ? (
+                    <div className="flex items-start justify-between gap-3 pl-6 text-sm text-amber-700">
+                      <span>
+                        A default preflight briefing charge has been added because briefing was marked as completed.
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto px-0 py-0 text-xs font-medium text-amber-700 hover:bg-transparent hover:text-amber-800"
+                        onClick={() => setIsBriefingNoticeDismissed(true)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+
                 {invoiceBuilderLines.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
                     No invoice items yet. Set flight details and calculate charges to generate line items.
@@ -2198,6 +2278,7 @@ export function BookingCheckinClient({
                     type="button"
                     onClick={() => void approveDraft({ continueToDebrief: instructionType !== "solo" })}
                     disabled={!canApprove}
+                    className="h-10 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
                   >
                     {isApproving ? (
                       <>

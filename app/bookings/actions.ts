@@ -135,8 +135,8 @@ export async function cancelBookingAction(
     .from("cancellation_categories")
     .select("id")
     .eq("id", parsed.data.cancellation_category_id)
+    .eq("tenant_id", tenantId)
     .is("voided_at", null)
-    .or(`tenant_id.eq.${tenantId},is_global.eq.true`)
     .maybeSingle()
 
   if (categoryError || !category) {

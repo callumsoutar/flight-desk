@@ -21,6 +21,8 @@ const invoicingPatchSchema = z.object({
   default_invoice_due_days: z.number().int().min(0).max(3650).optional(),
   invoice_footer_message: z.string().trim().max(2000).nullable().optional(),
   include_logo_on_invoice: z.boolean().optional(),
+  landing_fee_gl_code: z.string().trim().max(20).nullable().optional(),
+  airways_fee_gl_code: z.string().trim().max(20).nullable().optional(),
 })
 
 const patchSchema = z.object({
@@ -128,6 +130,12 @@ export async function PATCH(request: Request) {
     normalized.invoice_footer_message = normalizeOptionalString(patch.invoice_footer_message) ?? null
   }
   if (patch.include_logo_on_invoice !== undefined) normalized.include_logo_on_invoice = patch.include_logo_on_invoice
+  if (patch.landing_fee_gl_code !== undefined) {
+    normalized.landing_fee_gl_code = normalizeOptionalString(patch.landing_fee_gl_code) ?? null
+  }
+  if (patch.airways_fee_gl_code !== undefined) {
+    normalized.airways_fee_gl_code = normalizeOptionalString(patch.airways_fee_gl_code) ?? null
+  }
 
   if (Object.keys(normalized).length === 0) {
     return NextResponse.json(
