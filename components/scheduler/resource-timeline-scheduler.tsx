@@ -18,6 +18,7 @@ import {
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { getBookingOpenPath } from "@/lib/bookings/navigation"
 import { getBookingLayout } from "@/lib/scheduler/timeline"
@@ -92,6 +93,7 @@ type SchedulerBooking = {
   aircraftId: string
   userId: string | null
   status: BookingStatus
+  bookingType: string | null
   aircraftLabel?: string
   instructorLabel?: string
   canOpen: boolean
@@ -444,6 +446,7 @@ function AircraftWarningTooltipItem({ warning }: { warning: BookingWarningItem }
 }
 
 function AircraftWarningTooltip({ summary }: { summary: SchedulerAircraftWarningSummary }) {
+  const isMobile = useIsMobile()
   const tone = getAircraftWarningTone(summary)
   const visibleWarnings = summary.warnings.slice(0, 4)
   const remainingCount = Math.max(0, summary.warnings.length - visibleWarnings.length)
@@ -469,10 +472,13 @@ function AircraftWarningTooltip({ summary }: { summary: SchedulerAircraftWarning
         </span>
       </PopoverTrigger>
       <PopoverContent
-        side="right"
-        align="start"
-        sideOffset={10}
-        className="w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 shadow-xl"
+        side={isMobile ? "bottom" : "right"}
+        align={isMobile ? "center" : "start"}
+        sideOffset={isMobile ? 16 : 10}
+        className={cn(
+          "overflow-hidden rounded-xl border border-slate-200 bg-white p-0 shadow-xl",
+          isMobile ? "w-[min(360px,100vw-24px)] max-w-[100vw-24px]" : "w-[320px]"
+        )}
       >
         <div className={cn("border-b px-4 py-3", tone.headerClassName)}>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{tone.eyebrow}</p>
@@ -627,6 +633,7 @@ function bookingToSchedulerBooking(
     aircraftId: booking.aircraft_id,
     userId: booking.user_id,
     status: booking.status,
+    bookingType: booking.booking_type ?? null,
     aircraftLabel,
     instructorLabel,
     canOpen,
@@ -641,6 +648,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const { role, user } = useAuth()
 
   const isStaff = role === "owner" || role === "admin" || role === "instructor"
+  const isMobile = useIsMobile()
 
   const [selectedDateKey, setSelectedDateKey] = React.useState<string>(data.dateYyyyMmDd)
   const [newBookingModalOpen, setNewBookingModalOpen] = React.useState(false)
@@ -917,6 +925,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
 
   const handleBookingPointerDown = React.useCallback(
     (payload: SchedulerBookingPointerDownPayload) => {
+      if (isMobile) return
       if (!isStaff) return
       if (payload.button !== 0) return
       if (pendingMove || isApplyingMove || isUpdatingStatus) return
@@ -935,7 +944,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
       dragPreviewRef.current = null
       setDragPreview(null)
     },
-    [isApplyingMove, isStaff, isUpdatingStatus, pendingMove]
+    [isApplyingMove, isMobile, isStaff, isUpdatingStatus, pendingMove]
   )
 
   React.useEffect(() => {
@@ -1491,7 +1500,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                         isSlotAvailable={(slot) => isMinutesWithinAnyWindow(getMinutesInTimeZone(slot, data.timeZone), windows)}
                         onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                         onBookingPointerDown={handleBookingPointerDown}
-                        canDragBookings={isStaff}
+                        canDragBookings={isStaff && !isMobile}
                         onBookingClick={handleBookingClick}
                         onViewContactDetails={openContactDetails}
                         onStatusUpdate={(variables) => {
@@ -1533,7 +1542,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
                         resourceTitle={getResourceTitle(resource)}
                         onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                         onBookingPointerDown={handleBookingPointerDown}
-                        canDragBookings={isStaff}
+                        canDragBookings={isStaff && !isMobile}
                         onBookingClick={handleBookingClick}
                         onViewContactDetails={openContactDetails}
                         onStatusUpdate={(variables) => {
@@ -1968,7 +1977,9 @@ function TimelineRow({
                           }}
                           className={cn(
                             "group h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all hover:brightness-[1.02] hover:shadow-md focus:ring-2 focus:ring-blue-500/40 focus:outline-none",
-                            statusPillClasses(booking.status),
+                            booking.bookingType === "maintenance"
+                              ? "bg-slate-300 text-slate-700"
+                              : statusPillClasses(booking.status),
                             canDragThisBooking ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
                             item.isPreview
                               ? item.previewValid
@@ -1991,7 +2002,10 @@ function TimelineRow({
                     <TooltipContent variant="card" side="top" sideOffset={8} className="max-w-[360px]">
                       <div className="relative">
                         <div
-                          className={cn("absolute left-0 top-0 h-full w-1.5", statusIndicatorClasses(booking.status))}
+                          className={cn(
+                            "absolute left-0 top-0 h-full w-1.5",
+                            booking.bookingType === "maintenance" ? "bg-slate-400" : statusIndicatorClasses(booking.status)
+                          )}
                           aria-hidden="true"
                         />
                         <div className="space-y-2 p-3 pl-5">

@@ -48,57 +48,59 @@ export default function InvoiceDocumentView({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="p-10">
+      <div className="p-4 sm:p-10">
 
         {/* ── Header + Addresses ─────────────────────────────────────── */}
-        <div className="flex items-start justify-between mb-10 pb-10 border-b border-gray-100">
-          {/* Left: title + from + bill to */}
-          <div className="flex-1 pr-10">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 mb-8">INVOICE</h1>
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">From</div>
-                <div className="font-semibold text-gray-900">{settings.schoolName || "Flight School"}</div>
-                {settings.billingAddress && (
-                  <p className="mt-1 text-sm text-gray-500 whitespace-pre-line">{settings.billingAddress}</p>
-                )}
-                {settings.gstNumber && (
-                  <p className="text-sm text-gray-500">GST: {settings.gstNumber}</p>
-                )}
-                {settings.contactPhone && (
-                  <p className="text-sm text-gray-500">{settings.contactPhone}</p>
-                )}
-                {settings.contactEmail && (
-                  <p className="text-sm text-gray-500">{settings.contactEmail}</p>
-                )}
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Bill To</div>
-                <div className="font-semibold text-gray-900">{invoice.billToName}</div>
-              </div>
+        <div className="mb-6 pb-6 border-b border-gray-100 sm:mb-10 sm:pb-10">
+          {/* Title row: INVOICE label + invoice meta (stacked on mobile, side-by-side on sm+) */}
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">INVOICE</h1>
+
+            {/* Invoice meta — right-aligned */}
+            <div className="text-right text-sm shrink-0">
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-0.5">Invoice Number</div>
+              <div className="font-semibold text-gray-900 text-sm sm:text-base">{invoice.invoiceNumber || "—"}</div>
+              <div className="mt-2 text-xs uppercase tracking-wider text-gray-400 mb-0.5">Invoice Date</div>
+              <div className="text-gray-700">{formatDate(invoice.issueDate, timeZone, "medium") || "—"}</div>
+              <div className="mt-2 text-xs uppercase tracking-wider text-gray-400 mb-0.5">Due Date</div>
+              <div className="text-gray-700">{formatDate(invoice.dueDate, timeZone, "medium") || "—"}</div>
             </div>
           </div>
 
-          {/* Right: invoice meta */}
-          <div className="text-right text-sm shrink-0">
-            <div className="text-xs uppercase tracking-wider text-gray-400 mb-1">Invoice Number</div>
-            <div className="font-semibold text-gray-900 text-base">{invoice.invoiceNumber || "—"}</div>
-            <div className="mt-3 text-xs uppercase tracking-wider text-gray-400 mb-1">Invoice Date</div>
-            <div className="text-gray-700">{formatDate(invoice.issueDate, timeZone, "medium") || "—"}</div>
-            <div className="mt-3 text-xs uppercase tracking-wider text-gray-400 mb-1">Due Date</div>
-            <div className="text-gray-700">{formatDate(invoice.dueDate, timeZone, "medium") || "—"}</div>
+          {/* From + Bill To — stacked on mobile, 2-col on sm+ */}
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-8">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">From</div>
+              <div className="font-semibold text-gray-900">{settings.schoolName || "Flight School"}</div>
+              {settings.billingAddress && (
+                <p className="mt-1 text-sm text-gray-500 whitespace-pre-line">{settings.billingAddress}</p>
+              )}
+              {settings.gstNumber && (
+                <p className="text-sm text-gray-500">GST: {settings.gstNumber}</p>
+              )}
+              {settings.contactPhone && (
+                <p className="text-sm text-gray-500">{settings.contactPhone}</p>
+              )}
+              {settings.contactEmail && (
+                <p className="text-sm text-gray-500">{settings.contactEmail}</p>
+              )}
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-400 mb-2">Bill To</div>
+              <div className="font-semibold text-gray-900">{invoice.billToName}</div>
+            </div>
           </div>
         </div>
 
         {/* ── Line Items ─────────────────────────────────────────────── */}
-        <div className="overflow-hidden rounded-lg border border-gray-100">
+        <div className="overflow-x-auto rounded-lg border border-gray-100 -mx-4 sm:mx-0">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">Description</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Qty</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Rate (incl. tax)</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">Amount</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Qty</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Rate (incl. tax)</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400 whitespace-nowrap">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -110,8 +112,8 @@ export default function InvoiceDocumentView({
                   >
                     <td className="px-4 py-3 text-gray-700">{item.description}</td>
                     <td className="px-4 py-3 text-right text-gray-700">{item.quantity}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">{formatMoney(item.rate_inclusive ?? item.unit_price)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">{formatMoney(item.line_total ?? 0)}</td>
+                    <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{formatMoney(item.rate_inclusive ?? item.unit_price)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-gray-900 whitespace-nowrap">{formatMoney(item.line_total ?? 0)}</td>
                   </tr>
                 ))
               ) : (
@@ -127,7 +129,7 @@ export default function InvoiceDocumentView({
 
         {/* ── Totals ─────────────────────────────────────────────────── */}
         <div className="mt-6 flex justify-end">
-          <div className="w-72 text-sm">
+          <div className="w-full sm:w-72 text-sm">
             <div className="flex justify-between py-1.5">
               <span className="text-gray-500">Subtotal (excl. tax)</span>
               <span className="text-gray-700 tabular-nums">{formatMoney(invoice.subtotal)}</span>
@@ -153,7 +155,7 @@ export default function InvoiceDocumentView({
 
         {/* ── Footer ─────────────────────────────────────────────────── */}
         {(settings.invoiceFooter || settings.paymentTerms) && (
-          <div className="mt-10 pt-6 border-t border-gray-100 text-center space-y-1">
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center space-y-1 sm:mt-10">
             {settings.invoiceFooter && (
               <p className="text-sm text-gray-500">{settings.invoiceFooter}</p>
             )}

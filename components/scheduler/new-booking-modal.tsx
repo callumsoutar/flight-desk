@@ -14,6 +14,7 @@ import {
   Plus,
   Ticket,
   User,
+  Wrench,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -34,7 +35,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -46,6 +50,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { LessonSearchDropdown } from "@/components/bookings/lesson-search-dropdown"
 import { MemberTrainingPeek } from "@/components/bookings/member-training-peek"
+import type { MemberTrainingPeekResponse } from "@/lib/types/member-training-peek"
 import MemberSelect, { type UserResult } from "@/components/invoices/member-select"
 
 type SchedulerBookingDraft = {
@@ -66,6 +71,7 @@ type BookingOptionsResponse = {
       id: string
       registration: string
       type: string
+      aircraft_type_id: string | null
       model: string | null
       manufacturer: string | null
     }>
@@ -310,7 +316,7 @@ export function NewBookingModal({
   const isMemberOrStudent = !isStaff
   const defaultDurationMinutes = 120
 
-  const [bookingMode, setBookingMode] = React.useState<"regular" | "trial">("regular")
+  const [bookingMode, setBookingMode] = React.useState<"regular" | "trial" | "maintenance">("regular")
   const [form, setForm] = React.useState<FormState | null>(null)
   const [errors, setErrors] = React.useState<ErrorState>({})
   const [moreOptionsOpen, setMoreOptionsOpen] = React.useState(false)
@@ -327,6 +333,8 @@ export function NewBookingModal({
 
   const [occurrenceConflicts, setOccurrenceConflicts] = React.useState<Record<string, { aircraft: boolean; instructor: boolean }>>({})
   const [checkingOccurrences, setCheckingOccurrences] = React.useState(false)
+
+  const [memberEnrollment, setMemberEnrollment] = React.useState<MemberTrainingPeekResponse["enrollment"] | null>(null)
 
   React.useEffect(() => {
     if (!open || !draft) return
@@ -376,6 +384,26 @@ export function NewBookingModal({
 
   const memberId = form?.memberId ?? null
   const members = React.useMemo(() => options?.members ?? [], [options?.members])
+
+  React.useEffect(() => {
+    if (!open || !memberId) {
+      setMemberEnrollment(null)
+      return
+    }
+    const controller = new AbortController()
+    void fetch(`/api/members/${memberId}/training/peek`, {
+      cache: "no-store",
+      headers: { "cache-control": "no-store" },
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = (await res.json()) as MemberTrainingPeekResponse
+        if (!controller.signal.aborted) setMemberEnrollment(data.enrollment ?? null)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [open, memberId])
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
     if (!memberId) return null
@@ -476,6 +504,24 @@ export function NewBookingModal({
     if (exists) return
     setForm((prev) => (prev ? { ...prev, flightTypeId: null } : prev))
   }, [open, form?.flightTypeId, filteredFlightTypes])
+
+  React.useEffect(() => {
+    if (!open || bookingMode !== "maintenance") return
+    setForm((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        bookingType: "maintenance",
+        memberId: null,
+        instructorId: null,
+        flightTypeId: null,
+        lessonId: null,
+        isRecurring: false,
+        recurringDays: [],
+        repeatUntil: null,
+      }
+    })
+  }, [open, bookingMode])
 
   const isValidTimeRange = React.useMemo(() => {
     if (!form?.date || !form?.endDate || !form?.startTime || !form?.endTime) return false
@@ -617,6 +663,30 @@ export function NewBookingModal({
     return filtered
   }, [options?.instructors, isValidTimeRange, unavailableInstructorSet, instructorRosterWindows])
 
+  const enrollmentAircraftTypeId = memberEnrollment?.aircraft_type?.id ?? null
+  const enrollmentAircraftTypeName = memberEnrollment?.aircraft_type?.name ?? null
+  const enrollmentPrimaryInstructorId = memberEnrollment?.primary_instructor?.id ?? null
+
+  const suggestedAircraft = React.useMemo(() => {
+    if (!enrollmentAircraftTypeId) return []
+    return availableAircraft.filter((a) => a.aircraft_type_id === enrollmentAircraftTypeId)
+  }, [availableAircraft, enrollmentAircraftTypeId])
+
+  const otherAircraft = React.useMemo(() => {
+    if (!enrollmentAircraftTypeId) return availableAircraft
+    return availableAircraft.filter((a) => a.aircraft_type_id !== enrollmentAircraftTypeId)
+  }, [availableAircraft, enrollmentAircraftTypeId])
+
+  const primaryInstructor = React.useMemo(() => {
+    if (!enrollmentPrimaryInstructorId) return null
+    return availableInstructors.find((i) => i.id === enrollmentPrimaryInstructorId) ?? null
+  }, [availableInstructors, enrollmentPrimaryInstructorId])
+
+  const otherInstructors = React.useMemo(() => {
+    if (!enrollmentPrimaryInstructorId) return availableInstructors
+    return availableInstructors.filter((i) => i.id !== enrollmentPrimaryInstructorId)
+  }, [availableInstructors, enrollmentPrimaryInstructorId])
+
   React.useEffect(() => {
     if (!open || !isValidTimeRange) return
 
@@ -731,15 +801,13 @@ export function NewBookingModal({
     const hasAdvancedValues =
       advancedIsRecurring ||
       Boolean(advancedRemarks.trim()) ||
-      endDateIsDifferent ||
-      (bookingMode === "regular" && advancedBookingType !== "flight")
+      endDateIsDifferent
 
     if (hasAdvancedValues) {
       setMoreOptionsOpen(true)
     }
   }, [
     open,
-    bookingMode,
     advancedBookingType,
     advancedDate,
     advancedEndDate,
@@ -762,7 +830,7 @@ export function NewBookingModal({
   )
 
   const validate = React.useCallback(
-    (values: FormState, mode: "regular" | "trial") => {
+    (values: FormState, mode: "regular" | "trial" | "maintenance") => {
       const nextErrors: ErrorState = {}
 
       const start = parseTimeToMinutes(values.startTime)
@@ -802,7 +870,7 @@ export function NewBookingModal({
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.trialEmail.trim())) {
           nextErrors.trialEmail = "Please enter a valid email"
         }
-      } else {
+      } else if (mode !== "maintenance") {
         if (isStaff && !values.memberId) {
           nextErrors.memberId = "Member is required"
         }
@@ -1004,18 +1072,20 @@ export function NewBookingModal({
             <div className="flex items-center gap-4">
               <div className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-full",
-                bookingMode === "trial" ? "bg-violet-50 text-violet-600" : "bg-emerald-50 text-emerald-600"
+                bookingMode === "trial" ? "bg-violet-50 text-violet-600" : bookingMode === "maintenance" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
               )}>
-                {bookingMode === "trial" ? <Plane className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                {bookingMode === "trial" ? <Plane className="h-5 w-5" /> : bookingMode === "maintenance" ? <Wrench className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
-                  {bookingMode === "trial" ? "Trial Flight Booking" : "New Booking"}
+                  {bookingMode === "trial" ? "Trial Flight Booking" : bookingMode === "maintenance" ? "Maintenance Booking" : "New Booking"}
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 text-sm text-slate-500">
                   {bookingMode === "trial"
                     ? "Create a trial flight for a new guest. Guest details and booking will be saved together."
-                    : <>Enter details for the new booking. Required fields are marked with <span className="text-destructive">*</span>.</>
+                    : bookingMode === "maintenance"
+                      ? "Block out an aircraft for maintenance. Only aircraft and time details are required."
+                      : <>Enter details for the new booking. Required fields are marked with <span className="text-destructive">*</span>.</>
                   }
                 </DialogDescription>
               </div>
@@ -1039,10 +1109,14 @@ export function NewBookingModal({
                       <span className="text-[13px] font-semibold text-slate-900">Booking Mode</span>
                     </div>
                     <Tabs value={bookingMode} onValueChange={(value) => {
-                      setBookingMode(value as "regular" | "trial")
+                      const newMode = value as "regular" | "trial" | "maintenance"
+                      if (newMode === "regular" && bookingMode === "maintenance") {
+                        setForm((prev) => prev ? { ...prev, bookingType: "flight" } : prev)
+                      }
+                      setBookingMode(newMode)
                       setErrors({})
                     }} className="w-full">
-                      <TabsList className="grid h-9 w-full grid-cols-2 rounded-[12px] bg-slate-50 p-1 ring-1 ring-slate-100">
+                      <TabsList className="grid h-9 w-full grid-cols-3 rounded-[12px] bg-slate-50 p-1 ring-1 ring-slate-100">
                         <TabsTrigger
                           value="regular"
                           className="gap-2 rounded-[8px] py-1 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200"
@@ -1057,6 +1131,13 @@ export function NewBookingModal({
                           <Plane className="h-3.5 w-3.5" />
                           Trial Flight
                         </TabsTrigger>
+                        <TabsTrigger
+                          value="maintenance"
+                          className="gap-2 rounded-[8px] py-1 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200"
+                        >
+                          <Wrench className="h-3.5 w-3.5" />
+                          Maintenance
+                        </TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </section>
@@ -1064,14 +1145,14 @@ export function NewBookingModal({
 
                 {bookingMode === "trial" ? (
                   <section>
-                    <div className="mb-3 flex items-center gap-2">
-                      <User className="h-4 w-4 text-slate-400" />
+                    <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <User className="h-4 w-4 text-slate-500" />
                       <span className="text-[13px] font-semibold text-slate-900">Guest Details</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           FIRST NAME <span className="text-destructive">*</span>
                         </label>
                         <div className="relative">
@@ -1080,13 +1161,13 @@ export function NewBookingModal({
                             placeholder="First name"
                             value={form.trialFirstName}
                             onChange={(e) => updateForm("trialFirstName", e.target.value)}
-                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                           />
                         </div>
                         {errors.trialFirstName ? <p className="mt-1 text-[10px] text-destructive">{errors.trialFirstName}</p> : null}
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           LAST NAME <span className="text-destructive">*</span>
                         </label>
                         <div className="relative">
@@ -1095,13 +1176,13 @@ export function NewBookingModal({
                             placeholder="Last name"
                             value={form.trialLastName}
                             onChange={(e) => updateForm("trialLastName", e.target.value)}
-                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                           />
                         </div>
                         {errors.trialLastName ? <p className="mt-1 text-[10px] text-destructive">{errors.trialLastName}</p> : null}
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           EMAIL <span className="text-destructive">*</span>
                         </label>
                         <div className="relative">
@@ -1111,13 +1192,13 @@ export function NewBookingModal({
                             placeholder="guest@example.com"
                             value={form.trialEmail}
                             onChange={(e) => updateForm("trialEmail", e.target.value)}
-                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                           />
                         </div>
                         {errors.trialEmail ? <p className="mt-1 text-[10px] text-destructive">{errors.trialEmail}</p> : null}
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           PHONE
                         </label>
                         <div className="relative">
@@ -1127,13 +1208,13 @@ export function NewBookingModal({
                             placeholder="Phone number (optional)"
                             value={form.trialPhone}
                             onChange={(e) => updateForm("trialPhone", e.target.value)}
-                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                           />
                         </div>
                         {errors.trialPhone ? <p className="mt-1 text-[10px] text-destructive">{errors.trialPhone}</p> : null}
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           VOUCHER NUMBER
                         </label>
                         <div className="relative">
@@ -1142,7 +1223,7 @@ export function NewBookingModal({
                             placeholder="e.g. TF-2026-001"
                             value={form.voucherNumber}
                             onChange={(e) => updateForm("voucherNumber", e.target.value)}
-                            className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                           />
                         </div>
                         {errors.voucherNumber ? <p className="mt-1 text-[10px] text-destructive">{errors.voucherNumber}</p> : null}
@@ -1163,13 +1244,13 @@ export function NewBookingModal({
                 ) : null}
 
                 <section>
-                  <div className="mb-3 flex items-center justify-between">
+                  <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-slate-400" />
+                      <Clock className="h-4 w-4 text-slate-500" />
                       <span className="text-[13px] font-semibold text-slate-900">Date & Time</span>
                     </div>
                     {durationLabel ? (
-                      <span className="text-[11px] font-medium tabular-nums text-slate-500">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600">
                         {durationLabel}
                       </span>
                     ) : null}
@@ -1177,7 +1258,7 @@ export function NewBookingModal({
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                     <div>
-                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         START DATE <span className="text-destructive">*</span>
                       </label>
                       <Popover>
@@ -1185,7 +1266,7 @@ export function NewBookingModal({
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-10 w-full justify-start rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                            className="h-10 w-full justify-start rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                           >
                             <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
                             <span className="truncate">{formatDate(form.date, timeZone)}</span>
@@ -1207,11 +1288,11 @@ export function NewBookingModal({
                     </div>
 
                     <div>
-                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         START TIME <span className="text-destructive">*</span>
                       </label>
                       <Select value={form.startTime} onValueChange={(value) => updateForm("startTime", value)}>
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue placeholder="Start" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
@@ -1227,7 +1308,7 @@ export function NewBookingModal({
 
                     {!form.isRecurring ? (
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           END DATE <span className="text-slate-400">(optional)</span>
                         </label>
                         <Popover>
@@ -1235,7 +1316,7 @@ export function NewBookingModal({
                             <Button
                               type="button"
                               variant="outline"
-                              className="h-10 w-full justify-start rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                              className="h-10 w-full justify-start rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                             >
                               <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
                               <span className="truncate">{formatDate(form.endDate, timeZone)}</span>
@@ -1261,7 +1342,7 @@ export function NewBookingModal({
                     ) : null}
 
                     <div>
-                      <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         END TIME <span className="text-destructive">*</span>
                         {sameDay && rosterMaxEndMinutes !== null ? (
                           <Tooltip>
@@ -1277,7 +1358,7 @@ export function NewBookingModal({
                         ) : null}
                       </label>
                       <Select value={form.endTime} onValueChange={(value) => updateForm("endTime", value)}>
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue placeholder="End" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
@@ -1293,47 +1374,146 @@ export function NewBookingModal({
                   </div>
                 </section>
 
+                {bookingMode === "maintenance" ? (
+                  <section>
+                    <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <Wrench className="h-4 w-4 text-slate-500" />
+                      <span className="text-[13px] font-semibold text-slate-900">Details</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          AIRCRAFT <span className="text-destructive">*</span>
+                        </label>
+                        <Select
+                          disabled={optionsLoading || isCheckingAvailability}
+                          value={form.aircraftId || "none"}
+                          onValueChange={(value) => updateForm("aircraftId", value === "none" ? null : value)}
+                        >
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                            <SelectValue
+                              placeholder={
+                                optionsLoading
+                                  ? "Loading..."
+                                  : isCheckingAvailability
+                                    ? "Checking availability..."
+                                    : "Select aircraft"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
+                            <SelectItem value="none" className="rounded-lg py-2 text-xs">
+                              Select aircraft
+                            </SelectItem>
+                            {suggestedAircraft.length > 0 ? (
+                              <>
+                                <SelectGroup>
+                                  <SelectLabel className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Training type · {enrollmentAircraftTypeName}
+                                  </SelectLabel>
+                                  {suggestedAircraft.map((aircraft) => (
+                                    <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
+                                      {aircraft.registration} ({aircraft.type})
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                                {otherAircraft.length > 0 && (
+                                  <>
+                                    <SelectSeparator />
+                                    <SelectGroup>
+                                      <SelectLabel className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                        Other aircraft
+                                      </SelectLabel>
+                                      {otherAircraft.map((aircraft) => (
+                                        <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
+                                          {aircraft.registration} ({aircraft.type})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              availableAircraft.map((aircraft) => (
+                                <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
+                                  {aircraft.registration} ({aircraft.type})
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {errors.aircraftId ? <p className="mt-1 text-[11px] text-destructive">{errors.aircraftId}</p> : null}
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          DESCRIPTION <span className="text-destructive">*</span>
+                        </label>
+                        <Input
+                          placeholder="e.g. Annual inspection, oil change..."
+                          value={form.purpose}
+                          onChange={(event) => updateForm("purpose", event.target.value)}
+                          className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                        />
+                        {errors.purpose ? <p className="mt-1 text-[11px] text-destructive">{errors.purpose}</p> : null}
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {bookingMode !== "maintenance" ? (
                 <section>
-                  <div className="mb-3 flex items-center gap-2">
-                    <Plane className="h-4 w-4 text-slate-400" />
+                  <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Plane className="h-4 w-4 text-slate-500" />
                     <span className="text-[13px] font-semibold text-slate-900">Booking Details</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     {bookingMode === "regular" ? (
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           MEMBER {isStaff ? <span className="text-destructive">*</span> : null}
                         </label>
                         {isStaff ? (
                           <>
-                            <MemberSelect
-                              members={members}
-                              value={selectedMember}
-                              onSelect={(member) => updateForm("memberId", member?.id ?? null)}
-                              disabled={optionsLoading || submitting}
-                              buttonClassName="rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
-                              contentClassName="rounded-xl border-slate-200 shadow-xl"
-                              inputClassName="rounded-lg border-slate-200 bg-white text-xs font-medium placeholder:text-slate-300 focus:border-blue-500"
-                              listClassName="rounded-xl border-slate-200"
-                            />
+                            <div className="flex items-center gap-1.5">
+                              <div className="min-w-0 flex-1">
+                                <MemberSelect
+                                  members={members}
+                                  value={selectedMember}
+                                  onSelect={(member) => updateForm("memberId", member?.id ?? null)}
+                                  disabled={optionsLoading || submitting}
+                                  buttonClassName="rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                                  contentClassName="rounded-xl border-slate-200 shadow-xl"
+                                  inputClassName="rounded-lg border-slate-200 bg-white text-xs font-medium placeholder:text-slate-300 focus:border-blue-500"
+                                  listClassName="rounded-xl border-slate-200"
+                                />
+                              </div>
+                              {form.memberId ? (
+                                <MemberTrainingPeek memberId={form.memberId} timeZone={timeZone} variant="icon" />
+                              ) : null}
+                            </div>
                             {errors.memberId ? (
                               <p className="mt-1 text-[11px] text-destructive">{errors.memberId}</p>
                             ) : null}
                           </>
                         ) : (
-                          <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm font-medium text-slate-600">
-                            <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                            <span className="truncate">
-                              {optionsLoading ? "Loading..." : options?.members?.[0] ? formatName(options.members[0]) : "your account"}
-                            </span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex h-10 flex-1 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm font-medium text-slate-600">
+                              <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <span className="truncate">
+                                {optionsLoading ? "Loading..." : options?.members?.[0] ? formatName(options.members[0]) : "your account"}
+                              </span>
+                            </div>
+                            {form.memberId ? (
+                              <MemberTrainingPeek memberId={form.memberId} timeZone={timeZone} variant="icon" />
+                            ) : null}
                           </div>
                         )}
                       </div>
                     ) : null}
 
                     <div>
-                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         AIRCRAFT {(form.bookingType === "flight" || form.bookingType === "maintenance") ? <span className="text-destructive">*</span> : null}
                       </label>
                       <Select
@@ -1341,7 +1521,7 @@ export function NewBookingModal({
                         value={form.aircraftId || "none"}
                         onValueChange={(value) => updateForm("aircraftId", value === "none" ? null : value)}
                       >
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue
                             placeholder={
                               optionsLoading
@@ -1358,11 +1538,41 @@ export function NewBookingModal({
                           <SelectItem value="none" className="rounded-lg py-2 text-xs">
                             {(form.bookingType === "flight" || form.bookingType === "maintenance") ? "Select aircraft" : "No aircraft"}
                           </SelectItem>
-                          {availableAircraft.map((aircraft) => (
-                            <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                              {aircraft.registration} ({aircraft.type})
-                            </SelectItem>
-                          ))}
+                          {suggestedAircraft.length > 0 ? (
+                            <>
+                              <SelectGroup>
+                                <SelectLabel className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                  Training type · {enrollmentAircraftTypeName}
+                                </SelectLabel>
+                                {suggestedAircraft.map((aircraft) => (
+                                  <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
+                                    {aircraft.registration} ({aircraft.type})
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                              {otherAircraft.length > 0 && (
+                                <>
+                                  <SelectSeparator />
+                                  <SelectGroup>
+                                    <SelectLabel className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                      Other aircraft
+                                    </SelectLabel>
+                                    {otherAircraft.map((aircraft) => (
+                                      <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
+                                        {aircraft.registration} ({aircraft.type})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            availableAircraft.map((aircraft) => (
+                              <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
+                                {aircraft.registration} ({aircraft.type})
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       {errors.aircraftId ? <p className="mt-1 text-[11px] text-destructive">{errors.aircraftId}</p> : null}
@@ -1370,13 +1580,13 @@ export function NewBookingModal({
 
                     {!shouldHideInstructor ? (
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">INSTRUCTOR</label>
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">INSTRUCTOR</label>
                         <Select
                           disabled={optionsLoading || isCheckingAvailability}
                           value={form.instructorId || "none"}
                           onValueChange={(value) => updateForm("instructorId", value === "none" ? null : value)}
                         >
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                             <SelectValue
                               placeholder={
                                 optionsLoading
@@ -1391,24 +1601,55 @@ export function NewBookingModal({
                             <SelectItem value="none" className="rounded-lg py-2 text-xs">
                               No instructor
                             </SelectItem>
-                            {availableInstructors.map((instructor) => (
-                              <SelectItem key={instructor.id} value={instructor.id} className="rounded-lg py-2 text-xs">
-                                {formatName({
-                                  first_name: instructor.user?.first_name ?? instructor.first_name,
-                                  last_name: instructor.user?.last_name ?? instructor.last_name,
-                                  email: instructor.user?.email ?? null,
-                                })}
-                              </SelectItem>
-                            ))}
+                            {primaryInstructor ? (
+                              <>
+                                <SelectGroup>
+                                  <SelectLabel className="px-2 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Primary instructor
+                                  </SelectLabel>
+                                  <SelectItem key={primaryInstructor.id} value={primaryInstructor.id} className="rounded-lg py-2 text-xs">
+                                    {formatName({
+                                      first_name: primaryInstructor.user?.first_name ?? primaryInstructor.first_name,
+                                      last_name: primaryInstructor.user?.last_name ?? primaryInstructor.last_name,
+                                      email: primaryInstructor.user?.email ?? null,
+                                    })}
+                                  </SelectItem>
+                                </SelectGroup>
+                                {otherInstructors.length > 0 && (
+                                  <>
+                                    <SelectSeparator />
+                                    {otherInstructors.map((instructor) => (
+                                      <SelectItem key={instructor.id} value={instructor.id} className="rounded-lg py-2 text-xs">
+                                        {formatName({
+                                          first_name: instructor.user?.first_name ?? instructor.first_name,
+                                          last_name: instructor.user?.last_name ?? instructor.last_name,
+                                          email: instructor.user?.email ?? null,
+                                        })}
+                                      </SelectItem>
+                                    ))}
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              availableInstructors.map((instructor) => (
+                                <SelectItem key={instructor.id} value={instructor.id} className="rounded-lg py-2 text-xs">
+                                  {formatName({
+                                    first_name: instructor.user?.first_name ?? instructor.first_name,
+                                    last_name: instructor.user?.last_name ?? instructor.last_name,
+                                    email: instructor.user?.email ?? null,
+                                  })}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         {errors.instructorId ? <p className="mt-1 text-[11px] text-destructive">{errors.instructorId}</p> : null}
                       </div>
                     ) : null}
 
-                    {!isMemberOrStudent && form.bookingType === "flight" ? (
+                    {!isMemberOrStudent && form.bookingType === "flight" && bookingMode !== "trial" ? (
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           FLIGHT TYPE <span className="text-destructive">*</span>
                         </label>
                         <Select
@@ -1416,7 +1657,7 @@ export function NewBookingModal({
                           value={form.flightTypeId || "none"}
                           onValueChange={(value) => updateForm("flightTypeId", value === "none" ? null : value)}
                         >
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                             <SelectValue
                               placeholder={
                                 optionsLoading
@@ -1439,24 +1680,65 @@ export function NewBookingModal({
                         {errors.flightTypeId ? <p className="mt-1 text-[11px] text-destructive">{errors.flightTypeId}</p> : null}
                       </div>
                     ) : null}
+
+                    {bookingMode === "regular" ? (
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          BOOKING TYPE
+                        </label>
+                        <Select value={form.bookingType} onValueChange={handleBookingTypeChange}>
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
+                            {BOOKING_TYPE_OPTIONS.map((item) => (
+                              <SelectItem key={item.value} value={item.value} className="rounded-lg py-2 text-xs">
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
+
+                    {bookingMode === "regular" && isStaff ? (
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          LESSON
+                        </label>
+                        <LessonSearchDropdown
+                          lessons={options?.lessons ?? []}
+                          syllabi={options?.syllabi ?? []}
+                          value={form.lessonId}
+                          onSelect={(lessonId) => updateForm("lessonId", lessonId)}
+                          disabled={optionsLoading}
+                          placeholder={optionsLoading ? "Loading..." : "Select lesson"}
+                          triggerClassName="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 </section>
+                ) : null}
 
+                {bookingMode !== "maintenance" ? (
                 <section>
                   <div>
-                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                       DESCRIPTION <span className="text-destructive">*</span>
                     </label>
                     <Input
                       placeholder="e.g. Dual circuits..."
                       value={form.purpose}
                       onChange={(event) => updateForm("purpose", event.target.value)}
-                      className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                      className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                     />
                     {errors.purpose ? <p className="mt-1 text-[11px] text-destructive">{errors.purpose}</p> : null}
                   </div>
                 </section>
+                ) : null}
 
+                {bookingMode !== "maintenance" ? (
                 <section>
                   <div className="rounded-xl border border-slate-200 bg-white">
                     <Collapsible
@@ -1474,7 +1756,7 @@ export function NewBookingModal({
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-slate-900">More options</div>
                             <div className="mt-0.5 text-[11px] font-medium text-slate-500">
-                              Add notes or operational remarks, or make this recurring.
+                              Notes, remarks, and recurring options.
                             </div>
                           </div>
                           <ChevronDown
@@ -1488,46 +1770,44 @@ export function NewBookingModal({
 
                       <CollapsibleContent className="space-y-4 border-t border-slate-100 bg-slate-50/40 p-4">
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        {bookingMode === "regular" ? (
-                          <div>
-                            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                              BOOKING TYPE
+                        {bookingMode === "trial" && !isMemberOrStudent && form.bookingType === "flight" ? (
+                          <div className="w-full sm:col-span-1">
+                            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                              FLIGHT TYPE <span className="text-destructive">*</span>
                             </label>
-                            <Select value={form.bookingType} onValueChange={handleBookingTypeChange}>
-                              <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                                <SelectValue placeholder="Select type" />
+                            <Select
+                              disabled={optionsLoading}
+                              value={form.flightTypeId || "none"}
+                              onValueChange={(value) => updateForm("flightTypeId", value === "none" ? null : value)}
+                            >
+                              <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                                <SelectValue
+                                  placeholder={
+                                    optionsLoading
+                                      ? "Loading..."
+                                      : "Select flight type"
+                                  }
+                                />
                               </SelectTrigger>
                               <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                                {BOOKING_TYPE_OPTIONS.map((item) => (
-                                  <SelectItem key={item.value} value={item.value} className="rounded-lg py-2 text-xs">
-                                    {item.label}
+                                <SelectItem value="none" className="rounded-lg py-2 text-xs">
+                                  None
+                                </SelectItem>
+                                {filteredFlightTypes.map((flightType) => (
+                                  <SelectItem key={flightType.id} value={flightType.id} className="rounded-lg py-2 text-xs">
+                                    {flightType.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
+                            {errors.flightTypeId ? <p className="mt-1 text-[11px] text-destructive">{errors.flightTypeId}</p> : null}
                           </div>
                         ) : null}
 
-                        {bookingMode === "regular" && isStaff ? (
-                          <div>
-                            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                              LESSON
-                            </label>
-                            <LessonSearchDropdown
-                              lessons={options?.lessons ?? []}
-                              syllabi={options?.syllabi ?? []}
-                              value={form.lessonId}
-                              onSelect={(lessonId) => updateForm("lessonId", lessonId)}
-                              disabled={optionsLoading}
-                              placeholder={optionsLoading ? "Loading..." : "Select lesson"}
-                              triggerClassName="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
-                            />
-                          </div>
-                        ) : null}
                       </div>
 
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           NOTES / REMARKS
                         </label>
                         <Textarea
@@ -1701,13 +1981,11 @@ export function NewBookingModal({
                         </div>
                       ) : null}
 
-                      {bookingMode === "regular" ? (
-                        <MemberTrainingPeek memberId={memberId} timeZone={timeZone} />
-                      ) : null}
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
                 </section>
+                ) : null}
               </div>
             </form>
           )}
@@ -1732,7 +2010,7 @@ export function NewBookingModal({
                   }}
                   className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
                 >
-                  {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : "Save Booking"}
+                  {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : bookingMode === "maintenance" ? "Save Maintenance" : "Save Booking"}
                 </Button>
                 {isStaff ? (
                   <Button

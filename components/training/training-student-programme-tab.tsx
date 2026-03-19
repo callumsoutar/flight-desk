@@ -91,10 +91,11 @@ type EnrollmentCardProps = {
   instructors: InstructorWithRelations[]
   aircraftTypes: AircraftTypesRow[]
   readOnly: boolean
+  isLoadingOptions: boolean
   onUpdated: () => Promise<void>
 }
 
-function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOnly, onUpdated }: EnrollmentCardProps) {
+function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOnly, isLoadingOptions, onUpdated }: EnrollmentCardProps) {
   const { timeZone } = useTimezone()
   const [primaryInstructorId, setPrimaryInstructorId] = React.useState<string>(enrollment.primary_instructor_id || SELECT_NONE)
   const [aircraftTypeId, setAircraftTypeId] = React.useState<string>(enrollment.aircraft_type || SELECT_NONE)
@@ -140,154 +141,161 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
   }
 
   const label = enrollmentStatusLabel(enrollment)
+  const selectsDisabled = readOnly || isLoadingOptions || isUpdating
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-4 sm:p-5 shadow-sm">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/40 text-muted-foreground mt-0.5">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-sm font-semibold text-foreground truncate">
-                  {enrollment.syllabus?.name || "Syllabus"}
-                </h4>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
-                    enrollmentStatusClasses(label)
-                  )}
-                >
-                  {label}
-                </Badge>
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground tabular-nums">
-                Enrolled {formatDate(enrollment.enrolled_at, timeZone) || "-"}
-                {enrollment.completion_date ? (
-                  <span className="ml-2">
-                    · Completed {formatDate(enrollment.completion_date, timeZone) || "-"}
-                  </span>
-                ) : null}
-              </div>
-            </div>
+    <div className="rounded-xl border border-border/50 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <BookOpen className="w-4 h-4" />
           </div>
-
-          <div className="flex items-center justify-between sm:justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowNotes(!showNotes)}
-              className="h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 flex items-center gap-1.5 px-2 rounded-lg"
-            >
-              <MessageSquare className="w-3.5 h-3.5 opacity-70" />
-              <span>{showNotes ? "Hide notes" : notes ? "Edit notes" : "Add notes"}</span>
-              {showNotes ? <ChevronUp className="w-3 h-3 opacity-50" /> : <ChevronDown className="w-3 h-3 opacity-50" />}
-            </Button>
-
-            {!readOnly && isDirty ? (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setPrimaryInstructorId(enrollment.primary_instructor_id || SELECT_NONE)
-                    setAircraftTypeId(enrollment.aircraft_type || SELECT_NONE)
-                    setEnrolledAt(toDateKey(enrollment.enrolled_at) || "")
-                    setNotes(enrollment.notes || "")
-                  }}
-                  variant="ghost"
-                  className="h-9 text-xs text-muted-foreground hover:text-foreground px-2"
-                  disabled={isUpdating}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => void handleSave()}
-                  disabled={isUpdating}
-                  className="h-9 rounded-lg bg-slate-900 text-white hover:bg-slate-800 px-3 text-xs font-bold shadow-sm"
-                >
-                  {isUpdating ? "Saving..." : "Save"}
-                </Button>
-              </div>
-            ) : null}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-foreground truncate">
+                {enrollment.syllabus?.name || "Syllabus"}
+              </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
+                  enrollmentStatusClasses(label)
+                )}
+              >
+                {label}
+              </Badge>
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Enrolled {formatDate(enrollment.enrolled_at, timeZone) || "-"}
+              {enrollment.completion_date ? (
+                <span className="ml-2">· Completed {formatDate(enrollment.completion_date, timeZone) || "-"}</span>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Primary Instructor
-            </label>
-            <Select value={primaryInstructorId} onValueChange={setPrimaryInstructorId} disabled={readOnly}>
-              <SelectTrigger className="w-full h-10 rounded-lg border-border bg-background px-3 text-sm">
-                <SelectValue placeholder="Assign instructor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SELECT_NONE} className="text-sm italic text-muted-foreground">
-                  Unassigned
-                </SelectItem>
-                {instructors.map((inst) => (
-                  <SelectItem key={inst.id} value={inst.id} className="text-sm">
-                    {inst.user?.first_name ?? inst.first_name ?? ""} {inst.user?.last_name ?? inst.last_name ?? ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowNotes(!showNotes)}
+            className="h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-slate-100 flex items-center gap-1.5 px-2.5 rounded-lg"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>{showNotes ? "Hide notes" : notes ? "Edit notes" : "Add notes"}</span>
+            {showNotes ? <ChevronUp className="w-3 h-3 opacity-50" /> : <ChevronDown className="w-3 h-3 opacity-50" />}
+          </Button>
 
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Aircraft Type
-            </label>
-            <Select value={aircraftTypeId} onValueChange={setAircraftTypeId} disabled={readOnly}>
-              <SelectTrigger className="w-full h-10 rounded-lg border-border bg-background px-3 text-sm">
-                <SelectValue placeholder="Select aircraft type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={SELECT_NONE} className="text-sm italic text-muted-foreground">
-                  Not specified
-                </SelectItem>
-                {aircraftTypes.map((at) => (
-                  <SelectItem key={at.id} value={at.id} className="text-sm">
-                    {at.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Enrollment Date
-            </label>
-            <DatePicker
-              date={enrolledAt}
-              onChange={(date) => setEnrolledAt(date || "")}
-              placeholder="Select enrollment date"
-              className="h-10 w-full"
-              disabled={readOnly}
-            />
-          </div>
+          {!readOnly && isDirty ? (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setPrimaryInstructorId(enrollment.primary_instructor_id || SELECT_NONE)
+                  setAircraftTypeId(enrollment.aircraft_type || SELECT_NONE)
+                  setEnrolledAt(toDateKey(enrollment.enrolled_at) || "")
+                  setNotes(enrollment.notes || "")
+                }}
+                className="h-8 text-xs text-muted-foreground hover:text-foreground px-2.5"
+                disabled={isUpdating}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={isUpdating}
+                className="h-8 rounded-lg bg-slate-900 text-white hover:bg-slate-800 px-3 text-xs font-semibold shadow-sm"
+              >
+                {isUpdating ? "Saving…" : "Save"}
+              </Button>
+            </>
+          ) : null}
         </div>
-
-        {showNotes ? (
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <label className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              Notes
-            </label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add training context, syllabus goals, or student requirements..."
-              className="min-h-[90px] bg-background border-border text-sm resize-none rounded-lg"
-              disabled={readOnly}
-            />
-          </div>
-        ) : null}
       </div>
+
+      {/* Fields */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Primary Instructor
+          </label>
+          <Select value={primaryInstructorId} onValueChange={setPrimaryInstructorId} disabled={selectsDisabled}>
+            <SelectTrigger className="w-full h-9 rounded-lg border-border/70 bg-slate-50 px-3 text-sm data-[placeholder]:text-muted-foreground">
+              {isLoadingOptions ? (
+                <span className="text-muted-foreground text-sm">Loading…</span>
+              ) : (
+                <SelectValue placeholder="Assign instructor" />
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_NONE} className="text-sm italic text-muted-foreground">
+                Unassigned
+              </SelectItem>
+              {instructors.map((inst) => (
+                <SelectItem key={inst.id} value={inst.id} className="text-sm">
+                  {inst.user?.first_name ?? inst.first_name ?? ""} {inst.user?.last_name ?? inst.last_name ?? ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Aircraft Type
+          </label>
+          <Select value={aircraftTypeId} onValueChange={setAircraftTypeId} disabled={selectsDisabled}>
+            <SelectTrigger className="w-full h-9 rounded-lg border-border/70 bg-slate-50 px-3 text-sm data-[placeholder]:text-muted-foreground">
+              {isLoadingOptions ? (
+                <span className="text-muted-foreground text-sm">Loading…</span>
+              ) : (
+                <SelectValue placeholder="Select aircraft type" />
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_NONE} className="text-sm italic text-muted-foreground">
+                Not specified
+              </SelectItem>
+              {aircraftTypes.map((at) => (
+                <SelectItem key={at.id} value={at.id} className="text-sm">
+                  {at.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Enrollment Date
+          </label>
+          <DatePicker
+            date={enrolledAt}
+            onChange={(date) => setEnrolledAt(date || "")}
+            placeholder="Select enrollment date"
+            className="h-9 w-full bg-slate-50 border-border/70 rounded-lg"
+            disabled={readOnly || isUpdating}
+          />
+        </div>
+      </div>
+
+      {showNotes ? (
+        <div className="mt-4 space-y-1.5">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Notes
+          </label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add training context, syllabus goals, or student requirements…"
+            className="min-h-[80px] bg-slate-50 border-border/70 text-sm resize-none rounded-lg"
+            disabled={readOnly}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -312,6 +320,7 @@ export function TrainingStudentProgrammeTab({
 
   const [instructors, setInstructors] = React.useState<InstructorWithRelations[]>([])
   const [aircraftTypes, setAircraftTypes] = React.useState<AircraftTypesRow[]>([])
+  const [isLoadingOptions, setIsLoadingOptions] = React.useState(true)
 
   const [enrollOpen, setEnrollOpen] = React.useState(false)
   const [enrollSyllabusId, setEnrollSyllabusId] = React.useState("")
@@ -322,13 +331,18 @@ export function TrainingStudentProgrammeTab({
   const [enrollSubmitting, setEnrollSubmitting] = React.useState(false)
 
   React.useEffect(() => {
-    if (!staff) return
+    if (!staff) {
+      setIsLoadingOptions(false)
+      return
+    }
     let cancelled = false
     async function load() {
+      setIsLoadingOptions(true)
       const [inst, ats] = await Promise.all([fetchInstructors(), fetchAircraftTypes()])
       if (cancelled) return
       setInstructors(inst)
       setAircraftTypes(ats)
+      setIsLoadingOptions(false)
     }
     void load()
     return () => {
@@ -390,11 +404,12 @@ export function TrainingStudentProgrammeTab({
   }
 
   return (
-    <div className="px-4 py-5 sm:p-6 space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
+    <div className="px-4 py-5 sm:p-6 space-y-8">
+      {/* Page header */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
           <h3 className="text-sm font-semibold text-slate-900">Syllabus</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Manage syllabus enrollments, primary instructor and aircraft type.
           </p>
         </div>
@@ -402,66 +417,62 @@ export function TrainingStudentProgrammeTab({
           <Button
             size="sm"
             onClick={() => setEnrollOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 text-xs font-bold shadow-sm w-full sm:w-auto"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-xs font-semibold shadow-sm shrink-0"
             disabled={availableSyllabi.length === 0}
             title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
             Enroll
           </Button>
         ) : null}
       </div>
 
-      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
-          <div className="text-sm font-semibold">Active Enrollments</div>
-          <Badge
-            variant="outline"
-            className="rounded-full bg-background/50 text-muted-foreground font-semibold px-3 py-1 text-[10px] uppercase tracking-wider"
-          >
+      {/* Active Enrollments */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Enrollments</h4>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/60 rounded-full px-2.5 py-0.5">
             {activeEnrollments.length} {activeEnrollments.length === 1 ? "enrollment" : "enrollments"}
-          </Badge>
+          </span>
         </div>
-        <div className="p-5 space-y-4">
-          {activeEnrollments.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/10 p-10 text-center">
-              <Target className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm font-semibold text-foreground">No active enrollments</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Enroll the member to start tracking training against a syllabus.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {activeEnrollments.map((e) => (
-                <EnrollmentCard
-                  key={e.id}
-                  userId={userId}
-                  enrollment={e}
-                  instructors={instructors}
-                  aircraftTypes={aircraftTypes}
-                  readOnly={!staff}
-                  onUpdated={onRefresh}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+
+        {activeEnrollments.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-muted/10 py-10 text-center">
+            <Target className="w-9 h-9 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-foreground">No active enrollments</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enroll the member to start tracking training against a syllabus.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {activeEnrollments.map((e) => (
+              <EnrollmentCard
+                key={e.id}
+                userId={userId}
+                enrollment={e}
+                instructors={instructors}
+                aircraftTypes={aircraftTypes}
+                readOnly={!staff}
+                isLoadingOptions={isLoadingOptions}
+                onUpdated={onRefresh}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
-          <div className="text-sm font-semibold">Syllabus History</div>
-          <Badge
-            variant="outline"
-            className="rounded-full bg-background/50 text-muted-foreground font-semibold px-3 py-1 text-[10px] uppercase tracking-wider"
-          >
+      {/* Syllabus History */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Syllabus History</h4>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/60 rounded-full px-2.5 py-0.5">
             {historicalEnrollments.length} {historicalEnrollments.length === 1 ? "record" : "records"}
-          </Badge>
+          </span>
         </div>
 
         {historicalEnrollments.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
             No historical enrollments.
           </div>
         ) : (
@@ -478,37 +489,35 @@ export function TrainingStudentProgrammeTab({
                   : "—"
 
                 return (
-                  <div key={e.id} className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium text-foreground truncate">{e.syllabus?.name || "Syllabus"}</div>
-                        <div className="mt-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none",
-                              enrollmentStatusClasses(label)
-                            )}
-                          >
-                            {label}
-                          </Badge>
-                        </div>
+                  <div key={e.id} className="rounded-xl border border-border/50 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-semibold text-sm text-foreground truncate">{e.syllabus?.name || "Syllabus"}</span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-5 rounded-md px-2 text-[10px] font-bold uppercase tracking-wide shadow-none shrink-0",
+                            enrollmentStatusClasses(label)
+                          )}
+                        >
+                          {label}
+                        </Badge>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground tabular-nums">
+                      <div className="text-right text-xs text-muted-foreground tabular-nums shrink-0">
                         {formatDate(e.enrolled_at, resolvedTimeZone) || "-"}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-3 gap-3 text-xs">
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</div>
-                        <div className="mt-0.5 font-medium tabular-nums">{formatDate(e.completion_date, resolvedTimeZone) || "-"}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed</div>
+                        <div className="mt-0.5 font-medium tabular-nums">{formatDate(e.completion_date, resolvedTimeZone) || "—"}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Instructor</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Instructor</div>
                         <div className="mt-0.5 font-medium truncate">{instName || "—"}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Aircraft</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Aircraft</div>
                         <div className="mt-0.5 font-medium truncate">{at?.name ?? "—"}</div>
                       </div>
                     </div>
@@ -517,26 +526,26 @@ export function TrainingStudentProgrammeTab({
               })}
             </div>
 
-            <div className="hidden sm:block overflow-hidden">
+            <div className="hidden sm:block rounded-xl border border-border/50 bg-white shadow-sm overflow-hidden">
               <Table>
-                <TableHeader className="bg-muted/10">
-                  <TableRow className="hover:bg-muted/10">
-                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <TableHeader>
+                  <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 border-b border-border/50">
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Syllabus
                     </TableHead>
-                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Status
                     </TableHead>
-                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Enrolled
                     </TableHead>
-                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Completed
                     </TableHead>
-                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Instructor
                     </TableHead>
-                    <TableHead className="px-5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Aircraft
                     </TableHead>
                   </TableRow>
@@ -553,11 +562,11 @@ export function TrainingStudentProgrammeTab({
                       : "—"
 
                     return (
-                      <TableRow key={e.id} className="hover:bg-muted/20">
-                        <TableCell className="px-5 py-3">
-                          <div className="font-medium text-foreground">{e.syllabus?.name || "Syllabus"}</div>
+                      <TableRow key={e.id} className="hover:bg-slate-50/60 border-b border-border/40 last:border-0">
+                        <TableCell className="px-5 py-3.5">
+                          <span className="font-medium text-sm text-foreground">{e.syllabus?.name || "Syllabus"}</span>
                         </TableCell>
-                        <TableCell className="px-5 py-3">
+                        <TableCell className="px-5 py-3.5">
                           <Badge
                             variant="outline"
                             className={cn(
@@ -568,16 +577,16 @@ export function TrainingStudentProgrammeTab({
                             {label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
-                          {formatDate(e.enrolled_at, resolvedTimeZone) || "-"}
+                        <TableCell className="px-5 py-3.5 text-sm text-muted-foreground tabular-nums">
+                          {formatDate(e.enrolled_at, resolvedTimeZone) || "—"}
                         </TableCell>
-                        <TableCell className="px-5 py-3 text-sm text-muted-foreground tabular-nums">
-                          {formatDate(e.completion_date, resolvedTimeZone) || "-"}
+                        <TableCell className="px-5 py-3.5 text-sm text-muted-foreground tabular-nums">
+                          {formatDate(e.completion_date, resolvedTimeZone) || "—"}
                         </TableCell>
-                        <TableCell className="px-5 py-3 text-sm text-muted-foreground">
+                        <TableCell className="px-5 py-3.5 text-sm text-muted-foreground">
                           {instName || "—"}
                         </TableCell>
-                        <TableCell className="px-5 py-3 text-sm text-muted-foreground">
+                        <TableCell className="px-5 py-3.5 text-sm text-muted-foreground">
                           {at?.name ?? "—"}
                         </TableCell>
                       </TableRow>

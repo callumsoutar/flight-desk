@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { ReactQueryProvider } from "@/components/providers/react-query-provider"
 import { AuthProvider } from "@/contexts/auth-context"
+import { fetchUserProfile } from "@/lib/auth/user-profile"
 import { TimezoneProvider } from "@/contexts/timezone-context"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -24,6 +25,7 @@ export default async function RootLayout({
     includeRole: true,
     includeTenant: true,
   })
+  const profile = user ? await fetchUserProfile(supabase, user) : null
 
   let tenantTimezone = "Pacific/Auckland"
   if (tenantId) {
@@ -44,7 +46,7 @@ export default async function RootLayout({
         <AuthProvider
           initialUser={user}
           initialRole={role}
-          initialProfile={null}
+          initialProfile={profile}
         >
           <TimezoneProvider timeZone={tenantTimezone}>
             <ReactQueryProvider>

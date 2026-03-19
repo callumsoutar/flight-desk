@@ -33,10 +33,12 @@ export function MemberTrainingPeek({
   memberId,
   timeZone,
   className,
+  variant = "default",
 }: {
   memberId: string | null
   timeZone?: string
   className?: string
+  variant?: "default" | "icon"
 }) {
   const { timeZone: contextTimeZone } = useTimezone()
   const resolvedTimeZone = timeZone || contextTimeZone
@@ -45,6 +47,21 @@ export function MemberTrainingPeek({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const requestRef = React.useRef<AbortController | null>(null)
+
+  const [hoverOpen, setHoverOpen] = React.useState(false)
+  const hoverCloseRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearHoverClose = React.useCallback(() => {
+    if (hoverCloseRef.current) {
+      clearTimeout(hoverCloseRef.current)
+      hoverCloseRef.current = null
+    }
+  }, [])
+  const scheduleHoverClose = React.useCallback(() => {
+    clearHoverClose()
+    hoverCloseRef.current = setTimeout(() => setHoverOpen(false), 200)
+  }, [clearHoverClose])
+
+  React.useEffect(() => clearHoverClose, [clearHoverClose])
 
   const load = React.useCallback((id: string) => {
     requestRef.current?.abort()
@@ -124,6 +141,147 @@ export function MemberTrainingPeek({
     }
   }
 
+  const popoverContentClassName = "w-[360px] rounded-2xl border border-slate-300 bg-white p-0 text-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-900/5"
+
+  const popoverInner = (
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Training</div>
+          <div className="mt-1 truncate text-sm font-semibold text-slate-900">
+            {syllabusName ?? (loading ? "Loading…" : enrollment ? "Syllabus" : "Not Enrolled")}
+          </div>
+        </div>
+        <Link
+          href={trainingHref}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm hover:bg-slate-800"
+        >
+          View
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <GraduationCap className="h-4 w-4 text-slate-500" />
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Next Lesson</div>
+            <div className="truncate text-xs font-semibold text-slate-900">
+              {loading
+                ? "Loading…"
+                : error
+                  ? "Couldn't load next lesson"
+                  : nextLesson?.name
+                    ? nextLesson.name
+                    : enrollment
+                      ? "All required lessons complete"
+                      : "—"}
+            </div>
+            {!loading && !error && nextLessonBooking?.start_time ? (
+              <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
+                Booked: {formatBookingTime(nextLessonBooking.start_time) ?? "Scheduled"}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {!loading &&
+        !error &&
+        suggestedLesson?.id &&
+        nextLesson?.id &&
+        suggestedLesson.id !== nextLesson.id ? (
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <BookOpen className="h-4 w-4 text-slate-500" />
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Suggested Lesson</div>
+              <div className="truncate text-xs font-semibold text-slate-900">{suggestedLesson.name}</div>
+              <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
+                Next lesson is already scheduled
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <UserRound className="h-4 w-4 text-slate-500" />
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Primary Instructor</div>
+            <div className="truncate text-xs font-semibold text-slate-900">
+              {loading ? "Loading…" : error ? "—" : formatPerson(enrollment?.primary_instructor ?? null)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <Plane className="h-4 w-4 text-slate-500" />
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Primary Aircraft Type</div>
+            <div className="truncate text-xs font-semibold text-slate-900">
+              {loading
+                ? "Loading…"
+                : error
+                  ? "—"
+                  : enrollment?.aircraft_type?.name ?? (enrollment ? "Any" : "—")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+          <div className="min-w-0 text-[11px] font-medium text-amber-900">
+            {error}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-full border-amber-200 bg-white px-3 text-xs font-semibold text-amber-900 hover:bg-white"
+            onClick={() => memberId && load(memberId)}
+          >
+            Retry
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+
+  if (variant === "icon") {
+    return (
+      <div
+        className={cn("relative", className)}
+        onMouseEnter={() => { clearHoverClose(); setHoverOpen(true) }}
+        onMouseLeave={scheduleHoverClose}
+      >
+        <Popover open={hoverOpen} onOpenChange={setHoverOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white transition-colors hover:bg-slate-50",
+                "focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-blue-500/25"
+              )}
+              aria-label="Show training info"
+            >
+              <GraduationCap className={cn("h-4 w-4", loading ? "animate-pulse text-slate-300" : "text-slate-500")} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={8}
+            className={popoverContentClassName}
+            onMouseEnter={clearHoverClose}
+            onMouseLeave={scheduleHoverClose}
+          >
+            {popoverInner}
+          </PopoverContent>
+        </Popover>
+      </div>
+    )
+  }
+
   return (
     <div className={cn("w-full", className)}>
       <Popover>
@@ -159,110 +317,9 @@ export function MemberTrainingPeek({
         <PopoverContent
           align="start"
           sideOffset={8}
-          className="w-[360px] rounded-2xl border border-slate-300 bg-white p-0 text-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-900/5"
+          className={popoverContentClassName}
         >
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Training</div>
-                <div className="mt-1 truncate text-sm font-semibold text-slate-900">
-                  {syllabusName ?? (loading ? "Loading…" : enrollment ? "Syllabus" : "Not Enrolled")}
-                </div>
-              </div>
-              <Link
-                href={trainingHref}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm hover:bg-slate-800"
-              >
-                View
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-
-            <div className="mt-3 grid gap-2">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <GraduationCap className="h-4 w-4 text-slate-500" />
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Next Lesson</div>
-                  <div className="truncate text-xs font-semibold text-slate-900">
-                    {loading
-                      ? "Loading…"
-                      : error
-                        ? "Couldn’t load next lesson"
-                        : nextLesson?.name
-                          ? nextLesson.name
-                          : enrollment
-                            ? "All required lessons complete"
-                            : "—"}
-                  </div>
-                  {!loading && !error && nextLessonBooking?.start_time ? (
-                    <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
-                      Booked: {formatBookingTime(nextLessonBooking.start_time) ?? "Scheduled"}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {!loading &&
-              !error &&
-              suggestedLesson?.id &&
-              nextLesson?.id &&
-              suggestedLesson.id !== nextLesson.id ? (
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <BookOpen className="h-4 w-4 text-slate-500" />
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Suggested Lesson</div>
-                    <div className="truncate text-xs font-semibold text-slate-900">{suggestedLesson.name}</div>
-                    <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
-                      Next lesson is already scheduled
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <UserRound className="h-4 w-4 text-slate-500" />
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Primary Instructor</div>
-                  <div className="truncate text-xs font-semibold text-slate-900">
-                    {loading ? "Loading…" : error ? "—" : formatPerson(enrollment?.primary_instructor ?? null)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <Plane className="h-4 w-4 text-slate-500" />
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Primary Aircraft Type</div>
-                  <div className="truncate text-xs font-semibold text-slate-900">
-                    {loading
-                      ? "Loading…"
-                      : error
-                        ? "—"
-                        : enrollment?.aircraft_type?.name ?? (enrollment ? "Any" : "—")}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {error ? (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                <div className="min-w-0 text-[11px] font-medium text-amber-900">
-                  {error}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-full border-amber-200 bg-white px-3 text-xs font-semibold text-amber-900 hover:bg-white"
-                  onClick={() => memberId && load(memberId)}
-                >
-                  Retry
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          {popoverInner}
         </PopoverContent>
       </Popover>
     </div>

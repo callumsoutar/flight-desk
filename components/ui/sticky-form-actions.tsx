@@ -16,6 +16,7 @@ interface StickyFormActionsProps {
   message: string
   undoLabel?: string
   saveLabel?: string
+  alwaysVisible?: boolean
 }
 
 export function StickyFormActions({
@@ -28,6 +29,7 @@ export function StickyFormActions({
   message,
   undoLabel = "Undo changes",
   saveLabel = "Save",
+  alwaysVisible,
 }: StickyFormActionsProps) {
   const isMobile = useIsMobile()
   const [sidebarLeft, setSidebarLeft] = React.useState(0)
@@ -124,7 +126,7 @@ export function StickyFormActions({
     }
   }, [isMobile])
 
-  if (!isDirty) return null
+  if (!isDirty && !alwaysVisible) return null
 
   const finalSaveLabel = isSaving ? "Saving..." : saveLabel
 
@@ -142,19 +144,21 @@ export function StickyFormActions({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">{message}</p>
           <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              onClick={onUndo}
-              disabled={isSaving}
-              className={`h-12 border-gray-300 font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 ${
-                isMobile ? "max-w-[200px] flex-1" : "min-w-[160px] px-8"
-              }`}
-            >
-              <IconRotateClockwise className="mr-2 h-4 w-4" />
-              {undoLabel}
-            </Button>
+            {isDirty ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onUndo}
+                disabled={isSaving}
+                className={`h-12 border-gray-300 font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 ${
+                  isMobile ? "max-w-[200px] flex-1" : "min-w-[160px] px-8"
+                }`}
+              >
+                <IconRotateClockwise className="mr-2 h-4 w-4" />
+                {undoLabel}
+              </Button>
+            ) : null}
             <Button
               type={formId ? "submit" : "button"}
               form={formId}

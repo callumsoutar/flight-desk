@@ -10,19 +10,13 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useAuth } from "@/contexts/auth-context"
+import { getUserDisplayName, getUserFirstName } from "@/lib/auth/display-name"
 
 export function SiteHeader() {
   const { user, profile } = useAuth()
   const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>
-  const fullName =
-    (typeof profile === "object" && profile
-      ? (profile["name"] as string | undefined)
-      : undefined) ??
-    (metadata["full_name"] as string | undefined) ??
-    (metadata["name"] as string | undefined) ??
-    user?.email ??
-    "User"
-  const firstName = fullName.trim().split(/\s+/)[0] || "User"
+  const fullName = getUserDisplayName(user, profile)
+  const firstName = getUserFirstName(user, profile)
   const avatar =
     (metadata["avatar_url"] as string | undefined) ?? "/avatars/shadcn.jpg"
   const initials = React.useMemo(() => {

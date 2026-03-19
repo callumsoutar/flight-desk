@@ -147,18 +147,7 @@ export function MemberMemberships({
               </div>
             </div>
 
-            {status === "unpaid" ? (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm text-red-800">
-                    Payment required. Membership benefits are suspended until payment is received.
-                  </span>
-                </div>
-              </div>
-            ) : null}
-
-            {status !== "unpaid" && isMembershipExpiringSoon(currentMembership, timeZone) ? (
+            {isMembershipExpiringSoon(currentMembership, timeZone) ? (
               <div className="rounded-md border border-orange-200 bg-orange-50 p-3">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-orange-600" />

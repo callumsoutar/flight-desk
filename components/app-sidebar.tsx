@@ -31,6 +31,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/contexts/auth-context"
+import { getUserDisplayName } from "@/lib/auth/display-name"
 
 const data = {
   navMainSections: [
@@ -77,14 +78,7 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, role, profile } = useAuth()
   const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>
-  const name =
-    (typeof profile === "object" && profile
-      ? (profile["name"] as string | undefined)
-      : undefined) ??
-    (metadata["full_name"] as string | undefined) ??
-    (metadata["name"] as string | undefined) ??
-    user?.email ??
-    "User"
+  const name = getUserDisplayName(user, profile)
 
   const email = user?.email ?? ""
   const avatar =
@@ -122,7 +116,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{ name, email, avatar }} />
+        <NavUser user={{ id: user?.id ?? "guest", name, email, avatar }} />
       </SidebarFooter>
     </Sidebar>
   )
