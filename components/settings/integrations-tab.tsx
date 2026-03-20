@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 
 import { XeroConnectionCard } from "@/components/settings/xero-connection-card"
 import { XeroSettingsForm } from "@/components/settings/xero-settings-form"
@@ -19,11 +20,11 @@ export function IntegrationsTab({
     connected_at: string | null
   }
 }) {
-  const [refreshKey, setRefreshKey] = React.useState(0)
+  const router = useRouter()
   const settings = initialXeroSettings
 
   return (
-    <div className="space-y-6" key={refreshKey}>
+    <div className="space-y-6">
       {xeroLoadError ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           Xero settings unavailable: {xeroLoadError}
@@ -34,11 +35,11 @@ export function IntegrationsTab({
         connected={xeroConnectionStatus.connected}
         tenantName={xeroConnectionStatus.xero_tenant_name}
         connectedAt={xeroConnectionStatus.connected_at}
-        onRefresh={() => setRefreshKey((value) => value + 1)}
+        onRefresh={() => router.refresh()}
       />
 
       {xeroConnectionStatus.connected && settings ? (
-        <XeroSettingsForm settings={settings} onSaved={() => setRefreshKey((value) => value + 1)} />
+        <XeroSettingsForm settings={settings} onSaved={() => router.refresh()} />
       ) : null}
     </div>
   )

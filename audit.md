@@ -971,3 +971,40 @@ These were spotted during the initial repository inspection:
 - **`lib/utils/date-helpers.ts` appears currently unused** in runtime code (only doc references found); consider deleting or consolidating to reduce utility surface area.
 - **`lib/types/index.ts` remains a broad barrel**; runtime impact is low for type imports, but gradual migration to direct imports can improve long-term maintainability and TS compile clarity.
 - **Cross-cutting icon-library split** (`lucide-react` + `@tabler/icons-react`) remains an app-wide bundle-size concern despite package import optimization.
+
+---
+
+## Follow-up: Redundant Auth/Role Guard Pass
+
+**Status:** ✅ Complete  
+**Context:** Cross-cutting follow-up after Group 8 (Settings) pattern fix.
+
+### Objective
+
+Find and remove route patterns where pages performed auth/session work and then wrapped with `RoleGuard`, causing a second `getAuthSession()` call in the same request path.
+
+### Findings
+
+#### HIGH — Duplicate Auth Resolution Across Pages
+
+| # | Issue | Files | Fixed? |
+|---|-------|-------|--------|
+| 1 | **Redundant auth/session fetches**: pages resolved user/tenant (and in some cases role) directly, then wrapped the tree in `RoleGuard`, which performs another `getAuthSession()` call. | `app/invoices/page.tsx`, `app/invoices/new/page.tsx`, `app/invoices/[id]/page.tsx`, `app/reports/page.tsx`, `app/rosters/page.tsx`, `app/members/page.tsx`, `app/instructors/page.tsx`, `app/training/page.tsx` | ✅ |
+
+### Changes Made
+
+1. **Removed `RoleGuard` wrappers** from the 8 affected pages above.
+2. **Moved role checks into page-level logic** where needed (using existing redirect behavior to `/dashboard`).
+3. **Added role resolution to session fetches** in pages that previously only loaded user/tenant:
+   - `app/invoices/page.tsx`
+   - `app/reports/page.tsx`
+   - `app/rosters/page.tsx`
+   - `app/members/page.tsx`
+   - `app/instructors/page.tsx`
+4. **Kept existing access behavior** (owner/admin/instructor restrictions unchanged) while removing duplicate session work.
+
+### Impact
+
+- Reduces avoidable per-request auth/session overhead on high-traffic staff routes.
+- Simplifies route control flow by keeping auth + authorization in one place per page.
+- Aligns with Vercel performance guidance to avoid repeated server-side work in request render paths.

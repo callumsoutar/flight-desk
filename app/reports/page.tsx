@@ -5,7 +5,6 @@ import { ReportsPageClient } from "@/components/reports/reports-page-client"
 import { ReportsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteShell, AppRouteDetailContainer } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
-import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchReportData, resolveDateRange } from "@/lib/reports/fetch-report-data"
 import type { DateRangePreset } from "@/lib/reports/fetch-report-data"
@@ -69,9 +68,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     searchParams,
     getAuthSession(supabase, {
       includeTenant: true,
+      includeRole: true,
+      authoritativeRole: true,
     }),
   ])
-  const { user, tenantId } = session
+  const { user, tenantId, role } = session
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -86,16 +87,15 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       </AppRouteShell>
     )
   }
+  if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
 
   return (
-    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
-      <AppRouteShell>
-        <AppRouteDetailContainer>
-          <React.Suspense fallback={<ReportsPageSkeleton />}>
-            <ReportsContent tenantId={tenantId} searchParams={resolvedSearchParams} />
-          </React.Suspense>
-        </AppRouteDetailContainer>
-      </AppRouteShell>
-    </RoleGuard>
+    <AppRouteShell>
+      <AppRouteDetailContainer>
+        <React.Suspense fallback={<ReportsPageSkeleton />}>
+          <ReportsContent tenantId={tenantId} searchParams={resolvedSearchParams} />
+        </React.Suspense>
+      </AppRouteDetailContainer>
+    </AppRouteShell>
   )
 }

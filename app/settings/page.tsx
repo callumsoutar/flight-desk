@@ -5,7 +5,6 @@ import { SettingsPageClient } from "@/components/settings/settings-page-client"
 import { SettingsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
-import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
@@ -14,14 +13,35 @@ import { fetchMembershipsSettings } from "@/lib/settings/fetch-memberships-setti
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
-async function SettingsContent({
-  tenantId,
-  canManageSettings,
-}: {
-  tenantId: string
-  canManageSettings: boolean
-}) {
+async function SettingsContent() {
   const supabase = await createSupabaseServerClient()
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    includeRole: true,
+    includeTenant: true,
+    requireUser: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
+
+  if (!user) redirect("/login")
+  if (!tenantId) {
+    return (
+      <RouteNotFoundState
+        heading="Account not set up"
+        message="Your account hasn't been fully set up yet. Please contact your administrator."
+      />
+    )
+  }
+
+  const canManageSettings = role === "owner" || role === "admin"
+  if (!canManageSettings) {
+    return (
+      <RouteNotFoundState
+        heading="Access denied"
+        message="You do not have permission to access settings. Only owners and admins can configure company settings."
+      />
+    )
+  }
 
   const [
     generalResult,
@@ -100,52 +120,13 @@ async function SettingsContent({
 }
 
 export default async function SettingsPage() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) redirect("/login")
-  if (!tenantId) {
-    return (
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <RouteNotFoundState
-            heading="Account not set up"
-            message="Your account hasn't been fully set up yet. Please contact your administrator."
-          />
-        </AppRouteListContainer>
-      </AppRouteShell>
-    )
-  }
-
-  const canManageSettings = role === "owner" || role === "admin"
-  if (!canManageSettings) {
-    return (
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <RouteNotFoundState
-            heading="Access denied"
-            message="You do not have permission to access settings. Only owners and admins can configure company settings."
-          />
-        </AppRouteListContainer>
-      </AppRouteShell>
-    )
-  }
-
   return (
-    <RoleGuard allowedRoles={["owner", "admin"]}>
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <React.Suspense fallback={<SettingsPageSkeleton />}>
-            <SettingsContent tenantId={tenantId} canManageSettings={canManageSettings} />
-          </React.Suspense>
-        </AppRouteListContainer>
-      </AppRouteShell>
-    </RoleGuard>
+    <AppRouteShell>
+      <AppRouteListContainer>
+        <React.Suspense fallback={<SettingsPageSkeleton />}>
+          <SettingsContent />
+        </React.Suspense>
+      </AppRouteListContainer>
+    </AppRouteShell>
   )
 }

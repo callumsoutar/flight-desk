@@ -5,7 +5,6 @@ import { InvoiceDetailClient } from "@/components/invoices/invoice-detail-client
 import { InvoiceDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
-import { RoleGuard } from "@/components/auth/role-guard"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceDetail } from "@/lib/invoices/fetch-invoice-detail"
@@ -143,15 +142,14 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
     )
   }
 
+  if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
   const canApproveDraft = role === "owner" || role === "admin" || role === "instructor"
 
   return (
-    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
-      <AppRouteShell>
-        <React.Suspense fallback={<InvoiceDetailSkeleton />}>
-          <InvoiceDetailContent tenantId={tenantId} id={id} canApproveDraft={canApproveDraft} />
-        </React.Suspense>
-      </AppRouteShell>
-    </RoleGuard>
+    <AppRouteShell>
+      <React.Suspense fallback={<InvoiceDetailSkeleton />}>
+        <InvoiceDetailContent tenantId={tenantId} id={id} canApproveDraft={canApproveDraft} />
+      </React.Suspense>
+    </AppRouteShell>
   )
 }

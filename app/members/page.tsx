@@ -5,7 +5,6 @@ import { MembersPageClient } from "@/components/members/members-page-client"
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
-import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchMembers } from "@/lib/members/fetch-members"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -34,7 +33,11 @@ async function MembersContent({ tenantId }: { tenantId: string }) {
 
 export default async function MembersPage() {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId, role } = await getAuthSession(supabase, {
+    includeTenant: true,
+    includeRole: true,
+    authoritativeRole: true,
+  })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -49,16 +52,15 @@ export default async function MembersPage() {
       </AppRouteShell>
     )
   }
+  if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
 
   return (
-    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <React.Suspense fallback={<ListPageSkeleton showTabs />}>
-            <MembersContent tenantId={tenantId} />
-          </React.Suspense>
-        </AppRouteListContainer>
-      </AppRouteShell>
-    </RoleGuard>
+    <AppRouteShell>
+      <AppRouteListContainer>
+        <React.Suspense fallback={<ListPageSkeleton showTabs />}>
+          <MembersContent tenantId={tenantId} />
+        </React.Suspense>
+      </AppRouteListContainer>
+    </AppRouteShell>
   )
 }

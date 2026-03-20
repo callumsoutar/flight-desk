@@ -5,7 +5,6 @@ import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-r
 import { RouteLoadingState } from "@/components/loading/route-loading-state"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { RostersPageClient } from "@/components/rosters/rosters-page-client"
-import { RoleGuard } from "@/components/auth/role-guard"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchRosterPageData } from "@/lib/rosters/fetch-roster-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -48,7 +47,11 @@ async function RostersContent({ tenantId }: { tenantId: string }) {
 
 export default async function RostersPage() {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId, role } = await getAuthSession(supabase, {
+    includeTenant: true,
+    includeRole: true,
+    authoritativeRole: true,
+  })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -63,16 +66,15 @@ export default async function RostersPage() {
       </AppRouteShell>
     )
   }
+  if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
 
   return (
-    <RoleGuard allowedRoles={["owner", "admin", "instructor"]}>
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <React.Suspense fallback={<RouteLoadingState message="Loading rosters..." />}>
-            <RostersContent tenantId={tenantId} />
-          </React.Suspense>
-        </AppRouteListContainer>
-      </AppRouteShell>
-    </RoleGuard>
+    <AppRouteShell>
+      <AppRouteListContainer>
+        <React.Suspense fallback={<RouteLoadingState message="Loading rosters..." />}>
+          <RostersContent tenantId={tenantId} />
+        </React.Suspense>
+      </AppRouteListContainer>
+    </AppRouteShell>
   )
 }
