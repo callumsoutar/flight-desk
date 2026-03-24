@@ -1,0 +1,108 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+import type { Database } from "@/lib/types"
+
+import { getResendClient } from "./resend-client"
+import type { EmailTriggerKey } from "./trigger-keys"
+
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "noreply@flightdesk.app"
+
+export type SendEmailOptions = {
+  supabase: SupabaseClient<Database>
+  tenantId: string
+  triggerKey: EmailTriggerKey
+  to: string | string[]
+  subject: string
+  html: string
+  bookingId?: string
+  invoiceId?: string
+  userId?: string
+  triggeredBy?: string
+  fromName?: string | null
+  replyTo?: string | null
+  cc?: string[]
+  attachments?: Array<{
+    filename: string
+    content: string | Buffer
+    content_type?: string
+  }>
+  metadata?: Record<string, unknown>
+}
+
+export type SendEmailResult = {
+  ok: boolean
+  messageId?: string
+  error?: string
+}
+
+export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult> {
+  const {
+    supabase,
+    tenantId,
+    triggerKey,
+    to,
+    subject,
+    html,
+    bookingId,
+    invoiceId,
+    userId,
+    triggeredBy,
+    fromName,
+    replyTo,
+    cc,
+    attachments,
+    metadata,
+  } = opts
+
+  const fromAddress = fromName ? `${fromName} <${FROM_EMAIL}>` : `Flight Desk <${FROM_EMAIL}>`
+  const recipients = Array.isArray(to) ? to : [to]
+
+  let messageId: string | undefined
+  let sendError: string | undefined
+
+  try {
+    const resend = getResendClient()
+    const { data, error } = await resend.emails.send({
+      from: fromAddress,
+      to: recipients,
+      subject,
+      html,
+      ...(replyTo ? { replyTo } : {}),
+      ...(cc && cc.length > 0 ? { cc } : {}),
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
+    })
+
+    if (error) {
+      sendError = error.message
+    } else {
+      messageId = data?.id
+    }
+  } catch (error) {
+    sendError = error instanceof Error ? error.message : "Unknown send error"
+  }
+
+  const logRow: Database["public"]["Tables"]["email_logs"]["Insert"] = {
+    tenant_id: tenantId,
+    email_type: triggerKey,
+    recipient_email: recipients.join(", "),
+    subject,
+    message_id: messageId ?? null,
+    status: sendError ? "failed" : "sent",
+    error_message: sendError ?? null,
+    sent_at: new Date().toISOString(),
+    booking_id: bookingId ?? null,
+    invoice_id: invoiceId ?? null,
+    user_id: userId ?? null,
+    triggered_by: triggeredBy ?? null,
+    metadata: (metadata ?? {}) as Database["public"]["Tables"]["email_logs"]["Insert"]["metadata"],
+  }
+
+  await supabase.from("email_logs").insert(logRow)
+
+  if (sendError) {
+    console.error(`[email] Failed to send ${triggerKey} to ${recipients.join(", ")}: ${sendError}`)
+    return { ok: false, error: sendError }
+  }
+
+  return { ok: true, messageId }
+}

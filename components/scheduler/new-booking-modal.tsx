@@ -1062,6 +1062,7 @@ export function NewBookingModal({
         showCloseButton={false}
         className={cn(
           "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden flex flex-col",
+          "[&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed",
           "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[720px]",
           "top-4 sm:top-1/2 translate-y-0 sm:-translate-y-1/2",
           "h-[calc(100vh-2rem)] supports-[height:100dvh]:h-[calc(100dvh-2rem)] sm:h-auto sm:max-h-[calc(100vh-4rem)] sm:max-h-[calc(100dvh-4rem)]"
@@ -1116,27 +1117,27 @@ export function NewBookingModal({
                       setBookingMode(newMode)
                       setErrors({})
                     }} className="w-full">
-                      <TabsList className="grid h-9 w-full grid-cols-3 rounded-[12px] bg-slate-50 p-1 ring-1 ring-slate-100">
+                      <TabsList className="grid h-10 w-full grid-cols-3 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1 ring-1 ring-slate-200">
                         <TabsTrigger
                           value="regular"
-                          className="gap-2 rounded-[8px] py-1 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200"
+                          className="h-8 min-w-0 gap-1.5 rounded-lg px-1.5 text-[11px] font-semibold text-slate-600 transition-colors sm:gap-2 sm:px-3 sm:text-xs data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200 hover:bg-white hover:text-slate-900"
                         >
                           <User className="h-3.5 w-3.5" />
-                          Regular Booking
+                          <span className="truncate">Regular</span>
                         </TabsTrigger>
                         <TabsTrigger
                           value="trial"
-                          className="gap-2 rounded-[8px] py-1 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200"
+                          className="h-8 min-w-0 gap-1.5 rounded-lg px-1.5 text-[11px] font-semibold text-slate-600 transition-colors sm:gap-2 sm:px-3 sm:text-xs data-[state=active]:bg-white data-[state=active]:text-violet-700 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-violet-200 hover:bg-white hover:text-violet-700"
                         >
                           <Plane className="h-3.5 w-3.5" />
-                          Trial Flight
+                          <span className="truncate">Trial</span>
                         </TabsTrigger>
                         <TabsTrigger
                           value="maintenance"
-                          className="gap-2 rounded-[8px] py-1 text-xs font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200"
+                          className="h-8 min-w-0 gap-1.5 rounded-lg px-1.5 text-[11px] font-semibold text-slate-600 transition-colors sm:gap-2 sm:px-3 sm:text-xs data-[state=active]:bg-white data-[state=active]:text-amber-700 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-200 hover:bg-white hover:text-amber-700"
                         >
                           <Wrench className="h-3.5 w-3.5" />
-                          Maintenance
+                          <span className="truncate">Maint</span>
                         </TabsTrigger>
                       </TabsList>
                     </Tabs>
@@ -1150,7 +1151,7 @@ export function NewBookingModal({
                       <span className="text-[13px] font-semibold text-slate-900">Guest Details</span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           FIRST NAME <span className="text-destructive">*</span>
@@ -1256,8 +1257,8 @@ export function NewBookingModal({
                     ) : null}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-                    <div>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className={cn(form.isRecurring && "col-span-2 sm:col-span-1")}>
                       <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         START DATE <span className="text-destructive">*</span>
                       </label>
@@ -1380,7 +1381,7 @@ export function NewBookingModal({
                       <Wrench className="h-4 w-4 text-slate-500" />
                       <span className="text-[13px] font-semibold text-slate-900">Details</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           AIRCRAFT <span className="text-destructive">*</span>
@@ -1467,7 +1468,7 @@ export function NewBookingModal({
                     <span className="text-[13px] font-semibold text-slate-900">Booking Details</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {bookingMode === "regular" ? (
                       <div>
                         <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -2008,7 +2009,7 @@ export function NewBookingModal({
                   onClick={() => {
                     void submit("unconfirmed")
                   }}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
                 >
                   {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : bookingMode === "maintenance" ? "Save Maintenance" : "Save Booking"}
                 </Button>
@@ -2020,7 +2021,7 @@ export function NewBookingModal({
                     onClick={() => {
                       void submit("confirmed")
                     }}
-                    className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                    className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-shadow hover:bg-slate-900 hover:text-white hover:shadow-xl hover:shadow-slate-900/20"
                   >
                     Save as confirmed
                   </Button>

@@ -20,6 +20,7 @@ import {
   IconUser,
   IconX,
 } from "@tabler/icons-react"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 
 import { useAuth } from "@/contexts/auth-context"
@@ -31,11 +32,18 @@ import { Input } from "@/components/ui/input"
 import { XeroBulkExportButton } from "@/components/invoices/xero-bulk-export-button"
 import { XeroStatusBadge } from "@/components/invoices/xero-status-badge"
 import { cn } from "@/lib/utils"
+import type { UserResult } from "@/components/invoices/member-select"
 import type { InvoiceStatus, InvoiceWithRelations } from "@/lib/types/invoices"
 import { formatDate } from "@/lib/utils/date-format"
 
+const RecordMemberCreditModal = dynamic(
+  () => import("@/components/invoices/record-member-credit-modal"),
+  { ssr: false }
+)
+
 interface InvoicesTableProps {
   invoices: InvoiceWithRelations[]
+  members: UserResult[]
   xeroEnabled?: boolean
   activeTab: string
   onTabChange: (tab: string) => void
@@ -93,6 +101,7 @@ const EXPORTABLE_STATUSES: InvoiceStatus[] = ["authorised", "paid", "overdue"]
 
 export function InvoicesTable({
   invoices,
+  members,
   xeroEnabled = false,
   activeTab,
   onTabChange,
@@ -107,6 +116,7 @@ export function InvoicesTable({
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  const [memberCreditOpen, setMemberCreditOpen] = React.useState(false)
   const navigate = React.useCallback(
     (href: string) => {
       startNavigation(() => {
@@ -380,16 +390,33 @@ export function InvoicesTable({
           </div>
 
           {canCreateInvoice ? (
-            <Button
-              className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
-              onClick={() => navigate("/invoices/new")}
-            >
-              <IconPlus className="mr-2 h-4 w-4" />
-              New Invoice
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full px-5 font-semibold sm:w-auto"
+                onClick={() => setMemberCreditOpen(true)}
+              >
+                <IconCurrencyDollar className="mr-2 h-4 w-4" />
+                Receive Payment
+              </Button>
+              <Button
+                className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
+                onClick={() => navigate("/invoices/new")}
+              >
+                <IconPlus className="mr-2 h-4 w-4" />
+                New Invoice
+              </Button>
+            </>
           ) : null}
         </div>
       </div>
+
+      <RecordMemberCreditModal
+        open={memberCreditOpen}
+        onOpenChange={setMemberCreditOpen}
+        members={members}
+      />
 
       <div className="flex items-center gap-1 border-b border-slate-200">
         {tabs.map((tab) => {

@@ -6,6 +6,7 @@ import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchInvoiceCreateData } from "@/lib/invoices/fetch-invoice-create-data"
 import { fetchInvoices } from "@/lib/invoices/fetch-invoices"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -15,13 +16,15 @@ async function InvoicesContent({ tenantId }: { tenantId: string }) {
 
   let loadError: string | null = null
 
-  const [xeroSettingsResult, invoicesResult] = await Promise.all([
+  const [xeroSettingsResult, invoicesResult, createDataResult] = await Promise.all([
     fetchXeroSettings(supabase, tenantId).catch(() => null),
     fetchInvoices(supabase, tenantId, undefined, true).catch(() => null),
+    fetchInvoiceCreateData(supabase, tenantId).catch(() => null),
   ])
 
   const xeroEnabled = xeroSettingsResult?.enabled ?? false
   const invoices = invoicesResult ?? []
+  const members = createDataResult?.members ?? []
   if (!invoicesResult) {
     loadError = "Failed to load invoices."
   }
@@ -29,7 +32,7 @@ async function InvoicesContent({ tenantId }: { tenantId: string }) {
   return (
     <>
       {loadError ? <div className="text-sm text-muted-foreground">{loadError}</div> : null}
-      <InvoicesPageClient invoices={invoices} xeroEnabled={xeroEnabled} />
+      <InvoicesPageClient invoices={invoices} members={members} xeroEnabled={xeroEnabled} />
     </>
   )
 }

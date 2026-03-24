@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
+import { render } from "@react-email/render"
 import { z } from "zod"
 
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
+import {
+  buildBookingUpdatedChanges,
+  type BookingUpdatedComparable,
+} from "@/lib/email/build-booking-updated-changes"
+import { formatBookingDateRange } from "@/lib/email/format-booking-time"
+import { getTriggerConfig } from "@/lib/email/get-trigger-config"
+import { interpolateSubject } from "@/lib/email/interpolate-subject"
+import { sendBookingConfirmedEmailForBooking } from "@/lib/email/send-booking-confirmed-for-booking"
+import { sendBookingUpdatedEmailForBooking } from "@/lib/email/send-booking-updated-for-booking"
+import { sendEmail } from "@/lib/email/send-email"
+import { BookingCancelledEmail } from "@/lib/email/templates/booking-cancelled"
+import { BookingRescheduledEmail } from "@/lib/email/templates/booking-rescheduled"
+import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -22,6 +36,40 @@ const patchSchema = z.object({
   aircraft_id: z.string().uuid().nullable().optional(),
   instructor_id: z.string().uuid().nullable().optional(),
 })
+
+export const dynamic = "force-dynamic"
+
+function formatInstructorName(instructor: {
+  first_name?: string | null
+  last_name?: string | null
+  user?: { first_name?: string | null; last_name?: string | null } | null
+} | null): string | null {
+  if (!instructor) return null
+  const fromUser = [instructor.user?.first_name, instructor.user?.last_name].filter(Boolean).join(" ").trim()
+  if (fromUser) return fromUser
+  const direct = [instructor.first_name, instructor.last_name].filter(Boolean).join(" ").trim()
+  return direct || null
+}
+
+function toComparableBooking(input: {
+  aircraft?: { registration?: string | null } | null
+  instructor?: {
+    first_name?: string | null
+    last_name?: string | null
+    user?: { first_name?: string | null; last_name?: string | null } | null
+  } | null
+  purpose?: string | null
+  remarks?: string | null
+  lesson?: { name?: string | null } | null
+}): BookingUpdatedComparable {
+  return {
+    aircraftRegistration: input.aircraft?.registration ?? null,
+    instructorName: formatInstructorName(input.instructor ?? null),
+    purpose: input.purpose ?? null,
+    description: input.remarks ?? null,
+    lessonName: input.lesson?.name ?? null,
+  }
+}
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
@@ -109,7 +157,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
   const { data: existing, error: existingError } = await supabase
     .from("bookings")
-    .select("id, user_id, status, start_time, end_time, aircraft_id, instructor_id")
+    .select(
+      "id, user_id, status, start_time, end_time, aircraft_id, instructor_id, purpose, remarks, lesson_id, aircraft:aircraft!bookings_aircraft_id_fkey(id, registration), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user:user_directory!instructors_user_id_fkey(first_name, last_name, email)), lesson:lessons!bookings_lesson_id_fkey(id, name)"
+    )
     .eq("tenant_id", tenantId)
     .eq("id", id)
     .maybeSingle()
@@ -150,9 +200,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     )
   }
 
+  const hasTimeChange = "start_time" in payload.data || "end_time" in payload.data
   const hasScheduleChange =
-    "start_time" in payload.data ||
-    "end_time" in payload.data ||
+    hasTimeChange ||
     "aircraft_id" in payload.data ||
     "instructor_id" in payload.data
   const hasCancellationChange =
@@ -343,6 +393,198 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       { error: "Failed to update booking" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
+  }
+
+  try {
+    const booking = data as Record<string, unknown>
+    const member = (booking.student as { first_name?: string | null; email?: string | null } | null) ?? null
+    const instructor =
+      (booking.instructor as
+        | { first_name?: string | null; last_name?: string | null; user?: { email?: string | null } | null }
+        | null) ?? null
+    const memberEmail = member?.email ?? null
+    const memberFirstName = member?.first_name ?? "there"
+    const instructorEmail = instructor?.user?.email ?? null
+
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("name, logo_url, contact_email, timezone")
+      .eq("id", tenantId)
+      .maybeSingle()
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    const bookingUrl = `${baseUrl}/bookings/${id}`
+    const timezone = tenant?.timezone ?? "Pacific/Auckland"
+    const bookingDate = formatBookingDateRange(
+      String(booking.start_time ?? existing.start_time),
+      String(booking.end_time ?? existing.end_time),
+      timezone
+    )
+    const bookingUpdatedChanges = buildBookingUpdatedChanges(
+      toComparableBooking(existing as Parameters<typeof toComparableBooking>[0]),
+      toComparableBooking(booking as Parameters<typeof toComparableBooking>[0])
+    )
+
+    if (nextStatus === "confirmed") {
+      const bookingForEmail = {
+        ...booking,
+        start_time: booking.start_time ?? existing.start_time,
+        end_time: booking.end_time ?? existing.end_time,
+      }
+      await sendBookingConfirmedEmailForBooking({
+        supabase,
+        tenantId,
+        bookingId: id,
+        bookingUserId: existing.user_id,
+        triggeredBy: user.id,
+        booking: bookingForEmail,
+        tenant,
+      })
+    }
+
+    if (nextStatus === "cancelled") {
+      const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.BOOKING_CANCELLED)
+      if (triggerConfig.is_enabled && memberEmail) {
+        const html = await render(
+          BookingCancelledEmail({
+            tenantName: tenant?.name ?? "Your Aero Club",
+            logoUrl: tenant?.logo_url,
+            memberFirstName,
+            bookingId: id,
+            startTime: String(booking.start_time ?? existing.start_time),
+            endTime: String(booking.end_time ?? existing.end_time),
+            timezone,
+            aircraftRegistration:
+              ((booking.aircraft as { registration?: string | null } | null)?.registration ?? null),
+            cancellationReason: String(booking.cancellation_reason ?? "No reason provided"),
+            contactEmail: tenant?.contact_email,
+          })
+        )
+
+        const subject = triggerConfig.subject_template
+          ? interpolateSubject(triggerConfig.subject_template, {
+              tenantName: tenant?.name ?? undefined,
+              memberFirstName,
+              bookingId: id,
+            })
+          : `Booking Cancelled - ${bookingDate.date}`
+
+        await sendEmail({
+          supabase,
+          tenantId,
+          triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_CANCELLED,
+          to: memberEmail,
+          subject,
+          html,
+          bookingId: id,
+          userId: existing.user_id ?? undefined,
+          triggeredBy: user.id,
+          fromName: triggerConfig.from_name ?? tenant?.name ?? undefined,
+          replyTo: triggerConfig.reply_to ?? tenant?.contact_email ?? undefined,
+          cc: triggerConfig.cc_emails,
+        })
+
+        if (triggerConfig.notify_instructor && instructorEmail) {
+          await sendEmail({
+            supabase,
+            tenantId,
+            triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_CANCELLED,
+            to: instructorEmail,
+            subject,
+            html,
+            bookingId: id,
+            userId: existing.user_id ?? undefined,
+            triggeredBy: user.id,
+            fromName: triggerConfig.from_name ?? tenant?.name ?? undefined,
+            replyTo: triggerConfig.reply_to ?? tenant?.contact_email ?? undefined,
+            cc: triggerConfig.cc_emails,
+          })
+        }
+      }
+    }
+
+    if (bookingUpdatedChanges.length > 0) {
+      await sendBookingUpdatedEmailForBooking({
+        supabase,
+        tenantId,
+        bookingId: id,
+        bookingUserId: existing.user_id,
+        triggeredBy: user.id,
+        booking,
+        tenant,
+        changes: bookingUpdatedChanges,
+      })
+    }
+
+    if (hasTimeChange) {
+      const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.BOOKING_RESCHEDULED)
+      if (triggerConfig.is_enabled && memberEmail) {
+        const changedFields = ["Time"]
+
+        const html = await render(
+          BookingRescheduledEmail({
+            tenantName: tenant?.name ?? "Your Aero Club",
+            logoUrl: tenant?.logo_url,
+            memberFirstName,
+            bookingId: id,
+            previousStartTime: existing.start_time,
+            previousEndTime: existing.end_time,
+            newStartTime: String(booking.start_time ?? existing.start_time),
+            newEndTime: String(booking.end_time ?? existing.end_time),
+            timezone,
+            aircraftRegistration:
+              ((booking.aircraft as { registration?: string | null } | null)?.registration ?? null),
+            instructorName: instructor
+              ? `${instructor.first_name ?? ""} ${instructor.last_name ?? ""}`.trim() || null
+              : null,
+            bookingUrl,
+            changedFields,
+          })
+        )
+
+        const subject = triggerConfig.subject_template
+          ? interpolateSubject(triggerConfig.subject_template, {
+              tenantName: tenant?.name ?? undefined,
+              memberFirstName,
+              bookingId: id,
+            })
+          : `Booking Updated - ${bookingDate.date}`
+
+        await sendEmail({
+          supabase,
+          tenantId,
+          triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_RESCHEDULED,
+          to: memberEmail,
+          subject,
+          html,
+          bookingId: id,
+          userId: existing.user_id ?? undefined,
+          triggeredBy: user.id,
+          fromName: triggerConfig.from_name ?? tenant?.name ?? undefined,
+          replyTo: triggerConfig.reply_to ?? tenant?.contact_email ?? undefined,
+          cc: triggerConfig.cc_emails,
+        })
+
+        if (triggerConfig.notify_instructor && instructorEmail) {
+          await sendEmail({
+            supabase,
+            tenantId,
+            triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_RESCHEDULED,
+            to: instructorEmail,
+            subject,
+            html,
+            bookingId: id,
+            userId: existing.user_id ?? undefined,
+            triggeredBy: user.id,
+            fromName: triggerConfig.from_name ?? tenant?.name ?? undefined,
+            replyTo: triggerConfig.reply_to ?? tenant?.contact_email ?? undefined,
+            cc: triggerConfig.cc_emails,
+          })
+        }
+      }
+    }
+  } catch (emailErr) {
+    console.error("[email] Trigger send failed (non-fatal):", emailErr)
   }
 
   return NextResponse.json(

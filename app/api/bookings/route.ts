@@ -4,6 +4,7 @@ import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
 import { fetchBookings } from "@/lib/bookings/fetch-bookings"
+import { sendBookingConfirmedEmailForBooking } from "@/lib/email/send-booking-confirmed-for-booking"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -112,6 +113,29 @@ export async function POST(request: NextRequest) {
       { error: result.error },
       { status: result.status, headers: { "cache-control": "no-store" } }
     )
+  }
+
+  try {
+    if (payload.status === "confirmed") {
+      const booking = result.booking as Record<string, unknown>
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("name, logo_url, contact_email, timezone")
+        .eq("id", tenantId)
+        .maybeSingle()
+
+      await sendBookingConfirmedEmailForBooking({
+        supabase,
+        tenantId,
+        bookingId: String(booking.id),
+        bookingUserId: (booking.user_id as string | null) ?? null,
+        triggeredBy: user.id,
+        booking,
+        tenant,
+      })
+    }
+  } catch (emailErr) {
+    console.error("[email] Trigger send failed (non-fatal):", emailErr)
   }
 
   return NextResponse.json(

@@ -51,6 +51,10 @@ export type EmailLogsRow = Tables["email_logs"]["Row"]
 export type EmailLogsInsert = Tables["email_logs"]["Insert"]
 export type EmailLogsUpdate = Tables["email_logs"]["Update"]
 
+export type EmailTriggerConfigsRow = Tables["email_trigger_configs"]["Row"]
+export type EmailTriggerConfigsInsert = Tables["email_trigger_configs"]["Insert"]
+export type EmailTriggerConfigsUpdate = Tables["email_trigger_configs"]["Update"]
+
 export type EndorsementsRow = Tables["endorsements"]["Row"]
 export type EndorsementsInsert = Tables["endorsements"]["Insert"]
 export type EndorsementsUpdate = Tables["endorsements"]["Update"]

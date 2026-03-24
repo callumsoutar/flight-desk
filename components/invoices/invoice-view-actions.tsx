@@ -84,6 +84,7 @@ export default function InvoiceViewActions({
   const [isDownloading, setIsDownloading] = React.useState(false)
   const [isPrinting, setIsPrinting] = React.useState(false)
   const [isExporting, setIsExporting] = React.useState(false)
+  const [isEmailing, setIsEmailing] = React.useState(false)
 
   const canEmail = Boolean(billToEmail)
   const hasBalanceDue = typeof invoice.balanceDue === "number" ? invoice.balanceDue > 0 : true
@@ -158,13 +159,27 @@ export default function InvoiceViewActions({
     }
   }
 
-  const emailInvoice = () => {
-    if (!billToEmail) return
-    const subject = encodeURIComponent(`Invoice ${invoice.invoiceNumber || ""}`.trim())
-    const body = encodeURIComponent(
-      `Hi,\n\nPlease find your invoice ${invoice.invoiceNumber || ""}.\n\nBalance due: $${typeof invoice.balanceDue === "number" ? invoice.balanceDue.toFixed(2) : "0.00"}\n\nThanks,\n`
-    )
-    window.location.href = `mailto:${billToEmail}?subject=${subject}&body=${body}`
+  const handleEmailInvoice = async () => {
+    if (!canEmail) return
+    setIsEmailing(true)
+    try {
+      const response = await fetch("/api/email/send-invoice", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ invoice_id: invoiceId }),
+      })
+      const result = (await response.json().catch(() => null)) as { error?: string } | null
+      if (!response.ok) {
+        toast.error(result?.error ?? "Failed to send invoice email")
+        return
+      }
+
+      toast.success(`Invoice sent to ${billToEmail}`)
+    } catch {
+      toast.error("Failed to send invoice email")
+    } finally {
+      setIsEmailing(false)
+    }
   }
 
   return (
@@ -191,8 +206,11 @@ export default function InvoiceViewActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); emailInvoice() }} disabled={!canEmail}>
-              <Mail className="mr-2 h-4 w-4" />
+            <DropdownMenuItem
+              onSelect={(e) => { e.preventDefault(); void handleEmailInvoice() }}
+              disabled={!canEmail || isEmailing}
+            >
+              {isEmailing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
               Email Invoice
             </DropdownMenuItem>
 

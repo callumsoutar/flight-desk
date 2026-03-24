@@ -882,12 +882,15 @@ export type Database = {
           email_type: string
           error_message: string | null
           id: string
+          invoice_id: string | null
           message_id: string | null
+          metadata: Json | null
           recipient_email: string
           sent_at: string | null
           status: string
           subject: string
           tenant_id: string
+          triggered_by: string | null
           updated_at: string | null
           user_id: string | null
         }
@@ -897,12 +900,15 @@ export type Database = {
           email_type: string
           error_message?: string | null
           id?: string
+          invoice_id?: string | null
           message_id?: string | null
+          metadata?: Json | null
           recipient_email: string
           sent_at?: string | null
           status?: string
           subject: string
           tenant_id?: string
+          triggered_by?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -912,12 +918,15 @@ export type Database = {
           email_type?: string
           error_message?: string | null
           id?: string
+          invoice_id?: string | null
           message_id?: string | null
+          metadata?: Json | null
           recipient_email?: string
           sent_at?: string | null
           status?: string
           subject?: string
           tenant_id?: string
+          triggered_by?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -927,6 +936,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
@@ -948,6 +964,70 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_triggered_by_fkey"
+            columns: ["triggered_by"]
+            isOneToOne: false
+            referencedRelation: "user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_triggered_by_fkey"
+            columns: ["triggered_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_trigger_configs: {
+        Row: {
+          cc_emails: string[] | null
+          created_at: string
+          from_name: string | null
+          id: string
+          is_enabled: boolean
+          notify_instructor: boolean
+          reply_to: string | null
+          subject_template: string | null
+          tenant_id: string
+          trigger_key: string
+          updated_at: string
+        }
+        Insert: {
+          cc_emails?: string[] | null
+          created_at?: string
+          from_name?: string | null
+          id?: string
+          is_enabled?: boolean
+          notify_instructor?: boolean
+          reply_to?: string | null
+          subject_template?: string | null
+          tenant_id: string
+          trigger_key: string
+          updated_at?: string
+        }
+        Update: {
+          cc_emails?: string[] | null
+          created_at?: string
+          from_name?: string | null
+          id?: string
+          is_enabled?: boolean
+          notify_instructor?: boolean
+          reply_to?: string | null
+          subject_template?: string | null
+          tenant_id?: string
+          trigger_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_trigger_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4200,6 +4280,17 @@ export type Database = {
           p_paid_at?: string
           p_payment_method: Database["public"]["Enums"]["payment_method"]
           p_payment_reference?: string
+        }
+        Returns: Json
+      }
+      record_member_credit_payment_atomic: {
+        Args: {
+          p_amount: number
+          p_notes?: string
+          p_paid_at?: string
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_payment_reference?: string
+          p_user_id: string
         }
         Returns: Json
       }

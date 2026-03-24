@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { InvoicesTable } from "@/components/invoices/invoices-table"
+import type { UserResult } from "@/components/invoices/member-select"
 import type {
   InvoiceStatus,
   InvoiceWithRelations,
@@ -11,6 +12,7 @@ import type {
 
 type Props = {
   invoices: InvoiceWithRelations[]
+  members: UserResult[]
   xeroEnabled?: boolean
 }
 
@@ -32,7 +34,7 @@ function matchesSearch(invoice: InvoiceWithRelations, search: string | undefined
   )
 }
 
-export function InvoicesPageClient({ invoices, xeroEnabled = false }: Props) {
+export function InvoicesPageClient({ invoices, members, xeroEnabled = false }: Props) {
   const [activeTab, setActiveTab] = React.useState("all")
   const [filters, setFilters] = React.useState<InvoicesFilter>({})
 
@@ -93,6 +95,7 @@ export function InvoicesPageClient({ invoices, xeroEnabled = false }: Props) {
   return (
     <InvoicesTable
       invoices={filteredInvoices}
+      members={members}
       xeroEnabled={xeroEnabled}
       activeTab={activeTab}
       onTabChange={setActiveTab}

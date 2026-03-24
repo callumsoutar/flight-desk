@@ -1,8 +1,14 @@
 import { revalidatePath } from "next/cache"
 import { NextRequest, NextResponse } from "next/server"
+import { render } from "@react-email/render"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
+import { getTriggerConfig } from "@/lib/email/get-trigger-config"
+import { interpolateSubject } from "@/lib/email/interpolate-subject"
+import { sendEmail } from "@/lib/email/send-email"
+import { CheckinApprovedEmail } from "@/lib/email/templates/checkin-approved"
+import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -254,6 +260,119 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             .eq("id", item.id)
         )
     )
+  }
+
+  if (invoiceId) {
+    try {
+      const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.CHECKIN_APPROVED)
+      if (triggerConfig.is_enabled) {
+        const [{ data: tenant }, { data: booking }, { data: invoice }] = await Promise.all([
+          supabase
+            .from("tenants")
+            .select("name, logo_url, contact_email, timezone, currency")
+            .eq("id", tenantId)
+            .maybeSingle(),
+          supabase
+            .from("bookings")
+            .select(
+              "id, user_id, start_time, checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(registration), aircraft:aircraft!bookings_aircraft_id_fkey(registration), student:user_directory!bookings_user_id_fkey(first_name, email), instructor:instructors!bookings_instructor_id_fkey(first_name, last_name, user:user_directory!instructors_user_id_fkey(email))"
+            )
+            .eq("tenant_id", tenantId)
+            .eq("id", bookingId)
+            .maybeSingle(),
+          supabase
+            .from("invoices")
+            .select("id, user_id, invoice_number, total_amount, due_date")
+            .eq("tenant_id", tenantId)
+            .eq("id", invoiceId)
+            .maybeSingle(),
+        ])
+
+        const member = (booking?.student as { first_name?: string | null; email?: string | null } | null) ?? null
+        const memberEmail = member?.email ?? null
+        const memberFirstName = member?.first_name ?? "there"
+        const instructorEmail =
+          (booking?.instructor as { user?: { email?: string | null } | null } | null)?.user?.email ??
+          null
+
+        if (memberEmail) {
+          const timezone = tenant?.timezone ?? "Pacific/Auckland"
+          const flightDate = new Intl.DateTimeFormat("en-NZ", {
+            timeZone: timezone,
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }).format(new Date(String(booking?.start_time ?? new Date().toISOString())))
+          const invoiceUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/invoices/${invoiceId}`
+
+          const html = await render(
+            CheckinApprovedEmail({
+              tenantName: tenant?.name ?? "Your Aero Club",
+              logoUrl: tenant?.logo_url,
+              memberFirstName,
+              bookingId,
+              flightDate,
+              aircraftRegistration:
+                ((booking?.checked_out_aircraft as { registration?: string | null } | null)?.registration ??
+                  (booking?.aircraft as { registration?: string | null } | null)?.registration ??
+                  null),
+              invoiceNumber: invoice?.invoice_number ?? null,
+              invoiceTotal: invoice?.total_amount ?? null,
+              currency: tenant?.currency ?? "NZD",
+              invoiceUrl,
+              dueDate: invoice?.due_date ?? null,
+            })
+          )
+
+          const subject = triggerConfig.subject_template
+            ? interpolateSubject(triggerConfig.subject_template, {
+                tenantName: tenant?.name ?? undefined,
+                memberFirstName,
+                bookingId,
+                invoiceNumber: invoice?.invoice_number ?? undefined,
+                flightDate,
+              })
+            : `Flight Complete - Invoice ${invoice?.invoice_number ?? "Ready"}`
+
+          await sendEmail({
+            supabase,
+            tenantId,
+            triggerKey: EMAIL_TRIGGER_KEYS.CHECKIN_APPROVED,
+            to: memberEmail,
+            subject,
+            html,
+            bookingId,
+            invoiceId,
+            userId: invoice?.user_id ?? booking?.user_id ?? undefined,
+            triggeredBy: user.id,
+            fromName: triggerConfig.from_name ?? tenant?.name ?? undefined,
+            replyTo: triggerConfig.reply_to ?? tenant?.contact_email ?? undefined,
+            cc: triggerConfig.cc_emails,
+          })
+
+          if (triggerConfig.notify_instructor && instructorEmail) {
+            await sendEmail({
+              supabase,
+              tenantId,
+              triggerKey: EMAIL_TRIGGER_KEYS.CHECKIN_APPROVED,
+              to: instructorEmail,
+              subject,
+              html,
+              bookingId,
+              invoiceId,
+              userId: invoice?.user_id ?? booking?.user_id ?? undefined,
+              triggeredBy: user.id,
+              fromName: triggerConfig.from_name ?? tenant?.name ?? undefined,
+              replyTo: triggerConfig.reply_to ?? tenant?.contact_email ?? undefined,
+              cc: triggerConfig.cc_emails,
+            })
+          }
+        }
+      }
+    } catch (emailErr) {
+      console.error("[email] Trigger send failed (non-fatal):", emailErr)
+    }
   }
 
   revalidatePath("/bookings")

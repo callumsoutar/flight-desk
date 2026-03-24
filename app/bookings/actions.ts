@@ -5,6 +5,11 @@ import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
+import {
+  buildBookingUpdatedChanges,
+  type BookingUpdatedComparable,
+} from "@/lib/email/build-booking-updated-changes"
+import { sendBookingUpdatedEmailForBooking } from "@/lib/email/send-booking-updated-for-booking"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -38,6 +43,41 @@ const cancelBookingSchema = z.object({
   cancellation_reason: z.string().trim().min(1).max(500),
   cancelled_notes: z.string().max(2000).nullable().optional(),
 })
+
+const BOOKING_EMAIL_SELECT =
+  "id, tenant_id, user_id, start_time, end_time, aircraft_id, instructor_id, lesson_id, purpose, remarks, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user:user_directory!instructors_user_id_fkey(first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration), lesson:lessons!bookings_lesson_id_fkey(id, name), flight_type:flight_types!bookings_flight_type_id_fkey(id, name)"
+
+function formatInstructorName(instructor: {
+  first_name?: string | null
+  last_name?: string | null
+  user?: { first_name?: string | null; last_name?: string | null } | null
+} | null): string | null {
+  if (!instructor) return null
+  const fromUser = [instructor.user?.first_name, instructor.user?.last_name].filter(Boolean).join(" ").trim()
+  if (fromUser) return fromUser
+  const direct = [instructor.first_name, instructor.last_name].filter(Boolean).join(" ").trim()
+  return direct || null
+}
+
+function toComparableBooking(input: {
+  aircraft?: { registration?: string | null } | null
+  instructor?: {
+    first_name?: string | null
+    last_name?: string | null
+    user?: { first_name?: string | null; last_name?: string | null } | null
+  } | null
+  purpose?: string | null
+  remarks?: string | null
+  lesson?: { name?: string | null } | null
+}): BookingUpdatedComparable {
+  return {
+    aircraftRegistration: input.aircraft?.registration ?? null,
+    instructorName: formatInstructorName(input.instructor ?? null),
+    purpose: input.purpose ?? null,
+    description: input.remarks ?? null,
+    lessonName: input.lesson?.name ?? null,
+  }
+}
 
 async function getTenantContext() {
   const supabase = await createSupabaseServerClient()
@@ -73,13 +113,52 @@ export async function updateBookingAction(bookingId: string, input: unknown) {
   if (!user) return { ok: false, error: "Unauthorized" }
   if (!tenantId) return { ok: false, error: "Missing tenant context" }
 
-  const { error } = await supabase
+  const { data: existing, error: existingError } = await supabase
+    .from("bookings")
+    .select(BOOKING_EMAIL_SELECT)
+    .eq("tenant_id", tenantId)
+    .eq("id", bookingId)
+    .maybeSingle()
+
+  if (existingError || !existing) return { ok: false, error: "Failed to load booking" }
+
+  const { data: updated, error } = await supabase
     .from("bookings")
     .update(parsed.data)
     .eq("tenant_id", tenantId)
     .eq("id", bookingId)
+    .select(BOOKING_EMAIL_SELECT)
+    .maybeSingle()
 
-  if (error) return { ok: false, error: "Failed to update booking" }
+  if (error || !updated) return { ok: false, error: "Failed to update booking" }
+
+  try {
+    const changes = buildBookingUpdatedChanges(
+      toComparableBooking(existing as Parameters<typeof toComparableBooking>[0]),
+      toComparableBooking(updated as Parameters<typeof toComparableBooking>[0])
+    )
+
+    if (changes.length > 0) {
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("name, logo_url, contact_email, timezone")
+        .eq("id", tenantId)
+        .maybeSingle()
+
+      await sendBookingUpdatedEmailForBooking({
+        supabase,
+        tenantId,
+        bookingId,
+        bookingUserId: updated.user_id,
+        triggeredBy: user.id,
+        booking: updated as Record<string, unknown>,
+        tenant,
+        changes,
+      })
+    }
+  } catch (emailErr) {
+    console.error("[email] Trigger send failed (non-fatal):", emailErr)
+  }
 
   revalidatePath(`/bookings/${bookingId}`)
   return { ok: true as const }

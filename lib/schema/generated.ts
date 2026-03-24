@@ -1123,12 +1123,15 @@ export const publicEmailLogsRowSchema = z.object({
   email_type: z.string(),
   error_message: z.string().nullable(),
   id: z.string(),
+  invoice_id: z.string().nullable(),
   message_id: z.string().nullable(),
+  metadata: jsonSchema.nullable(),
   recipient_email: z.string(),
   sent_at: z.string().nullable(),
   status: z.string(),
   subject: z.string(),
   tenant_id: z.string(),
+  triggered_by: z.string().nullable(),
   updated_at: z.string().nullable(),
   user_id: z.string().nullable(),
 });
@@ -1139,12 +1142,15 @@ export const publicEmailLogsInsertSchema = z.object({
   email_type: z.string(),
   error_message: z.string().optional().nullable(),
   id: z.string().optional(),
+  invoice_id: z.string().optional().nullable(),
   message_id: z.string().optional().nullable(),
+  metadata: jsonSchema.optional().nullable(),
   recipient_email: z.string(),
   sent_at: z.string().optional().nullable(),
   status: z.string().optional(),
   subject: z.string(),
   tenant_id: z.string().optional(),
+  triggered_by: z.string().optional().nullable(),
   updated_at: z.string().optional().nullable(),
   user_id: z.string().optional().nullable(),
 });
@@ -1155,12 +1161,15 @@ export const publicEmailLogsUpdateSchema = z.object({
   email_type: z.string().optional(),
   error_message: z.string().optional().nullable(),
   id: z.string().optional(),
+  invoice_id: z.string().optional().nullable(),
   message_id: z.string().optional().nullable(),
+  metadata: jsonSchema.optional().nullable(),
   recipient_email: z.string().optional(),
   sent_at: z.string().optional().nullable(),
   status: z.string().optional(),
   subject: z.string().optional(),
   tenant_id: z.string().optional(),
+  triggered_by: z.string().optional().nullable(),
   updated_at: z.string().optional().nullable(),
   user_id: z.string().optional().nullable(),
 });
@@ -1171,6 +1180,13 @@ export const publicEmailLogsRelationshipsSchema = z.tuple([
     columns: z.tuple([z.literal("booking_id")]),
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("bookings"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("email_logs_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
   z.object({
@@ -1192,6 +1208,72 @@ export const publicEmailLogsRelationshipsSchema = z.tuple([
     columns: z.tuple([z.literal("user_id")]),
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("users"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("email_logs_triggered_by_fkey"),
+    columns: z.tuple([z.literal("triggered_by")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("user_directory"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("email_logs_triggered_by_fkey"),
+    columns: z.tuple([z.literal("triggered_by")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("users"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+]);
+
+export const publicEmailTriggerConfigsRowSchema = z.object({
+  cc_emails: z.array(z.string()).nullable(),
+  created_at: z.string(),
+  from_name: z.string().nullable(),
+  id: z.string(),
+  is_enabled: z.boolean(),
+  notify_instructor: z.boolean(),
+  reply_to: z.string().nullable(),
+  subject_template: z.string().nullable(),
+  tenant_id: z.string(),
+  trigger_key: z.string(),
+  updated_at: z.string(),
+});
+
+export const publicEmailTriggerConfigsInsertSchema = z.object({
+  cc_emails: z.array(z.string()).optional().nullable(),
+  created_at: z.string().optional(),
+  from_name: z.string().optional().nullable(),
+  id: z.string().optional(),
+  is_enabled: z.boolean().optional(),
+  notify_instructor: z.boolean().optional(),
+  reply_to: z.string().optional().nullable(),
+  subject_template: z.string().optional().nullable(),
+  tenant_id: z.string(),
+  trigger_key: z.string(),
+  updated_at: z.string().optional(),
+});
+
+export const publicEmailTriggerConfigsUpdateSchema = z.object({
+  cc_emails: z.array(z.string()).optional().nullable(),
+  created_at: z.string().optional(),
+  from_name: z.string().optional().nullable(),
+  id: z.string().optional(),
+  is_enabled: z.boolean().optional(),
+  notify_instructor: z.boolean().optional(),
+  reply_to: z.string().optional().nullable(),
+  subject_template: z.string().optional().nullable(),
+  tenant_id: z.string().optional(),
+  trigger_key: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+export const publicEmailTriggerConfigsRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("email_trigger_configs_tenant_id_fkey"),
+    columns: z.tuple([z.literal("tenant_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("tenants"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
 ]);
@@ -4373,6 +4455,28 @@ export const publicGetAccountBalanceArgsSchema = z.object({
 
 export const publicGetAccountBalanceReturnsSchema = z.number();
 
+export const publicGetAircraftTechLogArgsSchema = z.object({
+  p_aircraft_id: z.string(),
+  p_limit: z.number().optional(),
+  p_offset: z.number().optional(),
+  p_time_zone: z.string().optional(),
+});
+
+export const publicGetAircraftTechLogReturnsSchema = z.array(
+  z.object({
+    computed_ttis: z.number().nullable(),
+    daily_delta: z.number().nullable(),
+    daily_ttis_delta: z.number().nullable(),
+    entry_count: z.number(),
+    latest_entry_at: z.string().nullable(),
+    latest_reading: z.number().nullable(),
+    reading_source: z.string(),
+    tech_log_date: z.string(),
+    total_rows: z.number(),
+    total_time_method: publicTotalTimeMethodSchema.nullable(),
+  }),
+);
+
 export const publicGetAuthUserDetailsArgsSchema = z.object({
   user_uuid: z.string(),
 });
@@ -4573,6 +4677,17 @@ export const publicRecordInvoicePaymentAtomicArgsSchema = z.object({
 });
 
 export const publicRecordInvoicePaymentAtomicReturnsSchema = jsonSchema;
+
+export const publicRecordMemberCreditPaymentAtomicArgsSchema = z.object({
+  p_amount: z.number(),
+  p_notes: z.string().optional(),
+  p_paid_at: z.string().optional(),
+  p_payment_method: publicPaymentMethodSchema,
+  p_payment_reference: z.string().optional(),
+  p_user_id: z.string(),
+});
+
+export const publicRecordMemberCreditPaymentAtomicReturnsSchema = jsonSchema;
 
 export const publicReverseInvoicePaymentAtomicArgsSchema = z.object({
   p_payment_id: z.string(),
@@ -4830,6 +4945,18 @@ export type PublicEmailLogsInsert = z.infer<typeof publicEmailLogsInsertSchema>;
 export type PublicEmailLogsUpdate = z.infer<typeof publicEmailLogsUpdateSchema>;
 export type PublicEmailLogsRelationships = z.infer<
   typeof publicEmailLogsRelationshipsSchema
+>;
+export type PublicEmailTriggerConfigsRow = z.infer<
+  typeof publicEmailTriggerConfigsRowSchema
+>;
+export type PublicEmailTriggerConfigsInsert = z.infer<
+  typeof publicEmailTriggerConfigsInsertSchema
+>;
+export type PublicEmailTriggerConfigsUpdate = z.infer<
+  typeof publicEmailTriggerConfigsUpdateSchema
+>;
+export type PublicEmailTriggerConfigsRelationships = z.infer<
+  typeof publicEmailTriggerConfigsRelationshipsSchema
 >;
 export type PublicEndorsementsRow = z.infer<typeof publicEndorsementsRowSchema>;
 export type PublicEndorsementsInsert = z.infer<
@@ -5384,6 +5511,12 @@ export type PublicGetAccountBalanceArgs = z.infer<
 export type PublicGetAccountBalanceReturns = z.infer<
   typeof publicGetAccountBalanceReturnsSchema
 >;
+export type PublicGetAircraftTechLogArgs = z.infer<
+  typeof publicGetAircraftTechLogArgsSchema
+>;
+export type PublicGetAircraftTechLogReturns = z.infer<
+  typeof publicGetAircraftTechLogReturnsSchema
+>;
 export type PublicGetAuthUserDetailsArgs = z.infer<
   typeof publicGetAuthUserDetailsArgsSchema
 >;
@@ -5487,6 +5620,12 @@ export type PublicRecordInvoicePaymentAtomicArgs = z.infer<
 >;
 export type PublicRecordInvoicePaymentAtomicReturns = z.infer<
   typeof publicRecordInvoicePaymentAtomicReturnsSchema
+>;
+export type PublicRecordMemberCreditPaymentAtomicArgs = z.infer<
+  typeof publicRecordMemberCreditPaymentAtomicArgsSchema
+>;
+export type PublicRecordMemberCreditPaymentAtomicReturns = z.infer<
+  typeof publicRecordMemberCreditPaymentAtomicReturnsSchema
 >;
 export type PublicReverseInvoicePaymentAtomicArgs = z.infer<
   typeof publicReverseInvoicePaymentAtomicArgsSchema

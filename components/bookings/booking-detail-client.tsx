@@ -14,6 +14,7 @@ import {
   IconClock,
   IconDotsVertical,
   IconFileDescription,
+  IconMail,
   IconPencil,
   IconPlane,
   IconPlaneDeparture,
@@ -427,6 +428,7 @@ export function BookingDetailClient({
   const savedFormRef = React.useRef(savedForm)
   const [isPending, startTransition] = React.useTransition()
   const [cancelOpen, setCancelOpen] = React.useState(false)
+  const [sendingConfirmation, setSendingConfirmation] = React.useState(false)
   const [contactOpen, setContactOpen] = React.useState(false)
   const [contactMemberId, setContactMemberId] = React.useState<string | null>(null)
   const [auditOpen, setAuditOpen] = React.useState(true)
@@ -501,6 +503,23 @@ export function BookingDetailClient({
     })
   }
 
+  const handleSendConfirmationEmail = React.useCallback(async () => {
+    setSendingConfirmation(true)
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/send-confirmation-email`, {
+        method: "POST",
+      })
+      const json = (await response.json().catch(() => ({}))) as { error?: string }
+      if (!response.ok) {
+        toast.error(json.error || "Failed to send confirmation email")
+        return
+      }
+      toast.success("Confirmation email sent")
+    } finally {
+      setSendingConfirmation(false)
+    }
+  }, [bookingId])
+
   const handleCancel = (payload: CancelBookingPayload) => {
     startTransition(async () => {
       const response = await fetch(`/api/bookings/${bookingId}`, {
@@ -525,6 +544,9 @@ export function BookingDetailClient({
       router.refresh()
     })
   }
+
+  const canSendConfirmationEmail =
+    Boolean(booking.student?.email?.trim()) && booking.status !== "cancelled"
 
   const studentName = booking.student ? formatUser(booking.student) : "—"
   const studentMemberId = booking.user_id
@@ -627,6 +649,13 @@ export function BookingDetailClient({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!canSendConfirmationEmail || sendingConfirmation}
+                  onClick={() => void handleSendConfirmationEmail()}
+                >
+                  <IconMail className="mr-2 h-4 w-4" />
+                  Send confirmation email
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-red-600 focus:text-red-600"
                   disabled={isReadOnly || !!booking.cancelled_at}
@@ -792,6 +821,15 @@ export function BookingDetailClient({
                 <DrawerDescription>Manage this booking.</DrawerDescription>
               </DrawerHeader>
               <div className="space-y-2 px-4 pb-4">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  disabled={!canSendConfirmationEmail || sendingConfirmation}
+                  onClick={() => void handleSendConfirmationEmail()}
+                >
+                  <IconMail className="mr-2 h-4 w-4" />
+                  Send confirmation email
+                </Button>
                 <Button
                   variant="destructive"
                   className="w-full justify-start"

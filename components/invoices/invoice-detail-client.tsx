@@ -84,7 +84,7 @@ export function InvoiceDetailClient({
   return (
     <div className="flex flex-1 flex-col bg-muted/20">
       <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
-        <div className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 sm:py-4 lg:-mx-10 lg:px-10">
+        <div className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 sm:py-3.5 lg:-mx-10 lg:px-10">
           <InvoiceActionsToolbar
             mode={isReadOnly ? "view" : "edit"}
             invoiceId={invoice.id}

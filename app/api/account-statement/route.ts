@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const [invoicesResult, paymentsResult] = await Promise.all([
+  const [invoicesResult, paymentsResult, creditsResult] = await Promise.all([
     supabase
       .from("invoices")
       .select(
@@ -128,9 +128,17 @@ export async function GET(request: NextRequest) {
       .select("id, paid_at, created_at, amount, payment_method, payment_reference, notes")
       .eq("tenant_id", tenantId)
       .eq("user_id", targetUserId),
+    supabase
+      .from("transactions")
+      .select("id, amount, description, reference_number, completed_at, created_at")
+      .eq("tenant_id", tenantId)
+      .eq("user_id", targetUserId)
+      .eq("status", "completed")
+      .eq("type", "credit")
+      .contains("metadata", { transaction_type: "member_credit_topup" }),
   ])
 
-  if (invoicesResult.error || paymentsResult.error) {
+  if (invoicesResult.error || paymentsResult.error || creditsResult.error) {
     return NextResponse.json(
       { error: "Failed to load account statement" },
       { status: 500, headers: { "cache-control": "no-store" } }
@@ -181,6 +189,22 @@ export async function GET(request: NextRequest) {
       balance: 0,
       sort_ts: parseDateValue(eventDate),
       created_ts: parseDateValue(payment.created_at),
+    })
+  }
+
+  for (const credit of creditsResult.data ?? []) {
+    const eventDate = credit.completed_at ?? credit.created_at ?? new Date(0).toISOString()
+
+    entries.push({
+      entry_id: credit.id,
+      entry_type: "credit_note",
+      date: eventDate,
+      reference: credit.reference_number?.trim() || `CR-${credit.id.slice(0, 8).toUpperCase()}`,
+      description: credit.description?.trim() || "Member credit top-up",
+      amount: -Math.abs(credit.amount),
+      balance: 0,
+      sort_ts: parseDateValue(eventDate),
+      created_ts: parseDateValue(credit.created_at),
     })
   }
 
