@@ -154,7 +154,7 @@ Status: completed.
 
 4. Dependency audit still reports unresolved advisories as of 2026-03-26.
 
-Live `npm audit --audit-level=high` results on 2026-03-26:
+Live `npm audit --audit-level=high` results on 2026-03-26 before follow-up dependency remediation:
 
 - `next@16.1.6`
   - multiple moderate advisories
@@ -184,7 +184,7 @@ These are the items still worth doing after this pass.
 Recommended next actions:
 
 - Upgrade `next` from `16.1.6` to the patched release line identified by audit.
-- Review whether `localtunnel` is still required; if not, remove it to eliminate the `axios` advisory chain.
+- Remove `localtunnel` if it is no longer required to eliminate the `axios` advisory chain.
 - Run `npm audit fix` in a branch, then manually validate.
 - Only use `npm audit fix --force` after reviewing the resulting version jumps.
 

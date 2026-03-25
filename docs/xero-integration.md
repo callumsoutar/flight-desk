@@ -1486,25 +1486,25 @@ Before implementation, register the app in the Xero Developer Portal:
 
 If the Xero Developer Portal rejects `http://localhost` and requires HTTPS, use a tunnel to expose your local app over HTTPS.
 
-**Option A: LocalTunnel (recommended — no signup)**
+**Option A: Expose localhost with your preferred tunnel**
 
-1. **Install and start the tunnel**
+1. **Start a tunnel to port 3000**
 
    ```bash
-   npm run tunnel
+   npx ngrok http 3000
    ```
 
-   Or with npx (no install): `npx localtunnel --port 3000`
+   Use any tunnel provider you prefer. The only requirement is an `https://...` public URL that forwards to your local app.
 
 2. **Copy your tunnel URL**
 
    Output will look like:
 
    ```
-   your url is: https://abc-def-123.localtunnel.me
+   Forwarding https://abc-def-123.ngrok-free.app -> http://localhost:3000
    ```
 
-   Copy the `https://...localtunnel.me` URL (no trailing slash).
+   Copy the `https://...` public URL (no trailing slash).
 
 3. **Add redirect URI in Xero**  
    In your Xero app settings, add:
@@ -1513,7 +1513,7 @@ If the Xero Developer Portal rejects `http://localhost` and requires HTTPS, use 
    https://YOUR-TUNNEL-URL/api/xero/callback
    ```
 
-   Example: `https://abc-def-123.localtunnel.me/api/xero/callback`
+   Example: `https://abc-def-123.ngrok-free.app/api/xero/callback`
 
 4. **Update `.env.local`**
 
