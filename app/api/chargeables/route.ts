@@ -49,7 +49,7 @@ async function resolveTypeIdByCode(
   return systemMatch?.id ?? null
 }
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(1200).optional().nullable(),
   chargeable_type_id: z.string().uuid(),
@@ -59,7 +59,7 @@ const createSchema = z.object({
   is_active: z.boolean().optional(),
 })
 
-const updateSchema = z.object({
+const updateSchema = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(1200).optional().nullable(),

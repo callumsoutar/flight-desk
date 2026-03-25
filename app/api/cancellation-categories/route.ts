@@ -19,12 +19,12 @@ function normalizeOptionalString(value: string | null | undefined) {
   return trimmed.length ? trimmed : null
 }
 
-const payloadSchema = z.object({
+const payloadSchema = z.strictObject({
   name: z.string().trim().min(1).max(80),
   description: z.string().trim().max(500).nullable().optional(),
 })
 
-const patchSchema = z.object({
+const patchSchema = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(80).optional(),
   description: z.string().trim().max(500).nullable().optional(),

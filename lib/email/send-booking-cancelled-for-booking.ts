@@ -5,7 +5,7 @@ import { formatBookingDateRange } from "@/lib/email/format-booking-time"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
 import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
-import { BookingConfirmedEmail } from "@/lib/email/templates/booking-confirmed"
+import { BookingCancelledEmail } from "@/lib/email/templates/booking-cancelled"
 import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
 import type { Database } from "@/lib/types"
 
@@ -18,15 +18,15 @@ type TenantRow = {
 
 type BookingRecord = Record<string, unknown>
 
-export type BookingConfirmedSendResult =
+export type BookingCancelledSendResult =
   | { sent: true }
   | { sent: false; reason: "trigger_disabled" | "no_member_email" }
 
 /**
- * Sends the booking-confirmed member (and optionally instructor) emails using the same
- * trigger config and template as when a booking is confirmed via PATCH.
+ * Sends the booking-cancelled member (and optionally instructor) emails using the same
+ * trigger config and template as when a booking is cancelled via PATCH.
  */
-export async function sendBookingConfirmedEmailForBooking(args: {
+export async function sendBookingCancelledEmailForBooking(args: {
   supabase: SupabaseClient<Database>
   tenantId: string
   bookingId: string
@@ -34,10 +34,10 @@ export async function sendBookingConfirmedEmailForBooking(args: {
   triggeredBy: string
   booking: BookingRecord
   tenant: TenantRow | null
-}): Promise<BookingConfirmedSendResult> {
+}): Promise<BookingCancelledSendResult> {
   const { supabase, tenantId, bookingId, bookingUserId, triggeredBy, booking, tenant } = args
 
-  const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.BOOKING_CONFIRMED)
+  const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.BOOKING_CANCELLED)
   const member =
     (booking.student as { first_name?: string | null; email?: string | null } | null) ?? null
   const memberEmail = member?.email?.trim() || null
@@ -61,11 +61,10 @@ export async function sendBookingConfirmedEmailForBooking(args: {
     String(booking.end_time),
     timezone
   )
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  const bookingUrl = `${baseUrl}/bookings/${bookingId}`
+  const unsubscribeUrl = undefined // Could be added if available
 
   const html = await render(
-    BookingConfirmedEmail({
+    BookingCancelledEmail({
       tenantName: tenant?.name ?? "Your Aero Club",
       logoUrl: tenant?.logo_url,
       memberFirstName,
@@ -75,13 +74,10 @@ export async function sendBookingConfirmedEmailForBooking(args: {
       timezone,
       aircraftRegistration:
         ((booking.aircraft as { registration?: string | null } | null)?.registration ?? null),
-      instructorName: instructor
-        ? `${instructor.first_name ?? ""} ${instructor.last_name ?? ""}`.trim() || null
-        : null,
-      purpose: String(booking.purpose ?? ""),
-      bookingUrl,
-      lessonName: (booking.lesson as { name?: string | null } | null)?.name ?? null,
-      description: String(booking.remarks ?? ""),
+      cancellationReason: String(booking.cancellation_reason ?? "No reason provided"),
+      cancelledNotes: (booking.cancelled_notes as string | null) ?? null,
+      contactEmail: tenant?.contact_email,
+      unsubscribeUrl,
     })
   )
 
@@ -91,12 +87,12 @@ export async function sendBookingConfirmedEmailForBooking(args: {
         memberFirstName,
         bookingId,
       })
-    : `Booking Confirmed - ${bookingDate.date}`
+    : `Booking Cancelled - ${bookingDate.date}`
 
   await sendEmail({
     supabase,
     tenantId,
-    triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_CONFIRMED,
+    triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_CANCELLED,
     to: memberEmail,
     subject,
     html,
@@ -112,7 +108,7 @@ export async function sendBookingConfirmedEmailForBooking(args: {
     await sendEmail({
       supabase,
       tenantId,
-      triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_CONFIRMED,
+      triggerKey: EMAIL_TRIGGER_KEYS.BOOKING_CANCELLED,
       to: instructorEmail,
       subject,
       html,

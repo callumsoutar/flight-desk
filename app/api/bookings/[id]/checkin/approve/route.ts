@@ -9,13 +9,15 @@ import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
 import { CheckinApprovedEmail } from "@/lib/email/templates/checkin-approved"
 import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
+import { invalidPayloadResponse } from "@/lib/security/http"
+import { logError } from "@/lib/security/logger"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const itemSchema = z.object({
+const itemSchema = z.strictObject({
   chargeable_id: z.string().uuid().nullable().optional(),
   description: z.string().min(1).max(400),
   quantity: z.number().positive(),
@@ -24,7 +26,7 @@ const itemSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
 })
 
-const payloadSchema = z.object({
+const payloadSchema = z.strictObject({
   checked_out_aircraft_id: z.string().uuid(),
   checked_out_instructor_id: z.string().uuid().nullable().optional(),
   flight_type_id: z.string().uuid(),
@@ -67,10 +69,7 @@ const NO_STORE = { "cache-control": "no-store" } as const
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload", details: parsed.error.issues },
-      { status: 400, headers: NO_STORE }
-    )
+    return invalidPayloadResponse()
   }
 
   const supabase = await createSupabaseServerClient()
@@ -144,7 +143,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   )
 
   if (rpcError) {
-    console.error("[checkin/approve] RPC error:", rpcError.message)
+    logError("[checkin/approve] RPC error", { error: rpcError.message, tenantId, bookingId })
     return NextResponse.json(
       { error: "Check-in approval failed" },
       { status: 500, headers: NO_STORE }
@@ -371,7 +370,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         }
       }
     } catch (emailErr) {
-      console.error("[email] Trigger send failed (non-fatal):", emailErr)
+      logError("[email] Trigger send failed (non-fatal)", { error: emailErr, tenantId, bookingId })
     }
   }
 

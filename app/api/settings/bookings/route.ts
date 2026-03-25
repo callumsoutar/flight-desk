@@ -18,14 +18,14 @@ function clampNonNegativeHours(value: number, fallback: number, maxHours = 24) {
   return Math.round(clamped * 4) / 4
 }
 
-const bookingsPatchSchema = z.object({
+const bookingsPatchSchema = z.strictObject({
   default_booking_duration_hours: z.number().min(0).max(24).optional(),
   minimum_booking_duration_minutes: z.number().int().min(0).max(1440).optional(),
   default_booking_briefing_charge_enabled: z.boolean().optional(),
   default_booking_briefing_chargeable_id: z.string().uuid().nullable().optional(),
 })
 
-const patchSchema = z.object({
+const patchSchema = z.strictObject({
   bookings: bookingsPatchSchema,
 })
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { logError } from "@/lib/security/logger"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/lib/types"
 import { getXeroEnv } from "@/lib/xero/env"
@@ -52,7 +53,7 @@ async function refreshIfNeeded(admin: AdminClient, connection: XeroConnectionRow
 
     return data
   } catch (error) {
-    console.error("[xero] Token refresh persistence failed", {
+    logError("[xero] Token refresh persistence failed", {
       tenantId: connection.tenant_id,
       error: error instanceof Error ? error.message : "Unknown refresh error",
     })
@@ -75,7 +76,7 @@ export async function getXeroClient(tenantId: string) {
     .maybeSingle()
 
   if (error) {
-    console.error("[xero] Failed loading xero connection", { tenantId, error: error.message })
+    logError("[xero] Failed loading xero connection", { tenantId, error: error.message })
     throw error
   }
   if (!connection) {

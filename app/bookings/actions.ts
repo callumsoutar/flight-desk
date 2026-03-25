@@ -10,10 +10,11 @@ import {
   type BookingUpdatedComparable,
 } from "@/lib/email/build-booking-updated-changes"
 import { sendBookingUpdatedEmailForBooking } from "@/lib/email/send-booking-updated-for-booking"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
-const bookingSchema = z.object({
+const bookingSchema = z.strictObject({
   start_time: z.string(),
   end_time: z.string(),
   aircraft_id: z.string().uuid().nullable(),
@@ -38,7 +39,7 @@ const checkoutSchema = bookingSchema.extend({
   warnings_acknowledged: z.boolean(),
 })
 
-const cancelBookingSchema = z.object({
+const cancelBookingSchema = z.strictObject({
   cancellation_category_id: z.string().uuid(),
   cancellation_reason: z.string().trim().min(1).max(500),
   cancelled_notes: z.string().max(2000).nullable().optional(),
@@ -157,7 +158,7 @@ export async function updateBookingAction(bookingId: string, input: unknown) {
       })
     }
   } catch (emailErr) {
-    console.error("[email] Trigger send failed (non-fatal):", emailErr)
+    logError("[email] Trigger send failed (non-fatal)", { error: emailErr, tenantId, bookingId })
   }
 
   revalidatePath(`/bookings/${bookingId}`)

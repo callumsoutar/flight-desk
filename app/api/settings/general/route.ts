@@ -20,7 +20,7 @@ function normalizeTimeHHmm(value: string) {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 }
 
-const tenantPatchSchema = z.object({
+const tenantPatchSchema = z.strictObject({
   name: z.string().trim().min(1).max(140).optional(),
   registration_number: z.string().trim().max(60).nullable().optional(),
   description: z.string().trim().max(1200).nullable().optional(),
@@ -34,14 +34,14 @@ const tenantPatchSchema = z.object({
   currency: z.string().trim().max(10).nullable().optional(),
 })
 
-const businessHoursSchema = z.object({
+const businessHoursSchema = z.strictObject({
   openTime: z.string().trim().min(1),
   closeTime: z.string().trim().min(1),
   is24Hours: z.boolean(),
   isClosed: z.boolean(),
 })
 
-const patchSchema = z.object({
+const patchSchema = z.strictObject({
   tenant: tenantPatchSchema.optional(),
   businessHours: businessHoursSchema.optional(),
 })

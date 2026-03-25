@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const createUpdateSchema = z.object({
+const createUpdateSchema = z.strictObject({
   equipment_id: z.string().uuid("Invalid equipment id"),
   next_due_at: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),

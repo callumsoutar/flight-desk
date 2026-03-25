@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { logWarn } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import type { XeroAccount } from "@/lib/xero/types"
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       { headers: { "cache-control": "no-store" } }
     )
   } catch (error) {
-    console.warn("[xero] Live fetch failed, falling back to cache", {
+    logWarn("[xero] Live fetch failed, falling back to cache", {
       tenantId,
       error: error instanceof Error ? error.message : "Unknown error",
     })

@@ -18,7 +18,7 @@ const totalTimeMethodSchema = z.enum([
   "tacho less 10%",
 ])
 
-const aircraftUpdateSchema = z.object({
+const aircraftUpdateSchema = z.strictObject({
   manufacturer: z.string().nullable().optional(),
   type: z.string().min(1).optional(),
   model: z.string().nullable().optional(),

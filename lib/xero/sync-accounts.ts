@@ -1,3 +1,4 @@
+import { logError } from "@/lib/security/logger"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 
 /**
@@ -90,7 +91,7 @@ export async function syncXeroAccounts(tenantId: string, initiatedBy: string) {
 
     return { refreshed: toRefresh.length, archived: idsToArchive.length }
   } catch (error) {
-    console.error("[xero] Account sync failed", {
+    logError("[xero] Account sync failed", {
       tenantId,
       error: error instanceof Error ? error.message : "Unknown account sync error",
     })

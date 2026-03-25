@@ -13,7 +13,7 @@ function normalizeNullableString(value: unknown): string | null {
   return trimmed.length ? trimmed : null
 }
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(2000).optional().nullable(),
   syllabus_id: z.string().uuid().optional().nullable(),
@@ -21,7 +21,7 @@ const createSchema = z.object({
   is_active: z.boolean().optional(),
 })
 
-const updateSchema = z.object({
+const updateSchema = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(2000).optional().nullable(),

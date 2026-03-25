@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+
+import { logError } from "@/lib/security/logger"
 import type { Database } from "@/lib/types"
 
 type XeroAccountPayload = {
@@ -31,7 +33,7 @@ export async function upsertXeroAccount(
     )
 
   if (error) {
-    console.error("[xero] Failed to upsert account", {
+    logError("[xero] Failed to upsert account", {
       tenantId,
       accountId: account.AccountID,
       error: error.message,

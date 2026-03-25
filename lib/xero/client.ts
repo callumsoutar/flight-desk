@@ -8,6 +8,8 @@ import type {
   XeroTaxRatesResponse,
 } from "@/lib/xero/types"
 import { z } from "zod"
+
+import { logError } from "@/lib/security/logger"
 import { XeroApiError } from "@/lib/xero/types"
 
 function toBase64(value: string) {
@@ -92,7 +94,7 @@ export async function exchangeCodeForTokens(
 
   const body = await parseResponseBody(response)
   if (!response.ok) {
-    console.error("[xero] Token exchange failed", { status: response.status, body })
+    logError("[xero] Token exchange failed", { status: response.status, body })
     throw new XeroApiError("Failed to exchange authorization code", response.status, body)
   }
 
@@ -121,7 +123,7 @@ export async function refreshXeroTokens(
 
   const body = await parseResponseBody(response)
   if (!response.ok) {
-    console.error("[xero] Token refresh failed", { status: response.status, body })
+    logError("[xero] Token refresh failed", { status: response.status, body })
     throw new XeroApiError("Failed to refresh Xero token", response.status, body)
   }
 
@@ -145,7 +147,7 @@ export async function revokeXeroToken(refreshToken: string, clientId: string, cl
 
   if (!response.ok) {
     const body = await parseResponseBody(response)
-    console.error("[xero] Token revoke failed", { status: response.status, body })
+    logError("[xero] Token revoke failed", { status: response.status, body })
     throw new XeroApiError("Failed to revoke Xero token", response.status, body)
   }
 }
@@ -170,7 +172,7 @@ export async function fetchXeroConnections(accessToken: string) {
 
   const body = await parseResponseBody(response)
   if (!response.ok) {
-    console.error("[xero] Fetch connections failed", { status: response.status, body })
+    logError("[xero] Fetch connections failed", { status: response.status, body })
     throw new XeroApiError("Failed to fetch Xero connections", response.status, body)
   }
 
@@ -186,7 +188,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
-        console.error("[xero] Fetch accounts failed", { status: response.status, body })
+        logError("[xero] Fetch accounts failed", { status: response.status, body })
         throw new XeroApiError("Failed to fetch Xero accounts", response.status, body)
       }
       return body as XeroAccountsResponse
@@ -199,7 +201,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
-        console.error("[xero] Fetch tax rates failed", { status: response.status, body })
+        logError("[xero] Fetch tax rates failed", { status: response.status, body })
         throw new XeroApiError("Failed to fetch Xero tax rates", response.status, body)
       }
       return body as XeroTaxRatesResponse
@@ -214,7 +216,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
-        console.error("[xero] Contact search failed", { status: response.status, email, body })
+        logError("[xero] Contact search failed", { status: response.status, email, body })
         throw new XeroApiError("Failed to query Xero contacts", response.status, body)
       }
       return body as XeroContactsResponse
@@ -228,7 +230,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
-        console.error("[xero] Create contact failed", { status: response.status, body })
+        logError("[xero] Create contact failed", { status: response.status, body })
         throw new XeroApiError("Failed to create Xero contact", response.status, body)
       }
       return body as XeroContactsResponse
@@ -242,7 +244,7 @@ export function createXeroApiClient(accessToken: string, xeroTenantId: string) {
       })
       const body = await parseResponseBody(response)
       if (!response.ok) {
-        console.error("[xero] Create draft invoice failed", {
+        logError("[xero] Create draft invoice failed", {
           status: response.status,
           idempotencyKey,
           body,

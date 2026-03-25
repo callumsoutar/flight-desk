@@ -5,6 +5,7 @@ import type { XeroInvoiceLineItem } from "@/lib/xero/types"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
+import { logError, logWarn } from "@/lib/security/logger"
 import type { Json } from "@/lib/types"
 
 const EXPORTABLE_INVOICE_STATUSES = ["authorised", "paid", "overdue"] as const
@@ -206,7 +207,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
     } catch (error) {
       if (!isLikelyStaleContactError(error)) throw error
 
-      console.warn("[xero] Stale contact mapping detected, re-syncing contact", {
+      logWarn("[xero] Stale contact mapping detected, re-syncing contact", {
         tenantId,
         invoiceId,
         userId: invoice.user_id,
@@ -250,7 +251,7 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
     const message = error instanceof Error ? error.message : "Unknown export error"
     const responsePayload = error instanceof XeroApiError ? ((error.body ?? null) as Json) : null
 
-    console.error("[xero] Export invoice failed", {
+    logError("[xero] Export invoice failed", {
       tenantId,
       invoiceId,
       error: message,

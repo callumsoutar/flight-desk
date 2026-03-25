@@ -28,7 +28,7 @@ async function getLandingFeeTypeId(supabase: Awaited<ReturnType<typeof createSup
   return data?.id ?? null
 }
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(1200).optional().nullable(),
   is_taxable: z.boolean().optional(),
@@ -36,7 +36,7 @@ const createSchema = z.object({
   rate: z.number().finite().min(0),
 })
 
-const updateSchema = z.object({
+const updateSchema = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(1200).optional().nullable(),

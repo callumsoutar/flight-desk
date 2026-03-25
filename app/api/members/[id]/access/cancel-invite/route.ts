@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -87,8 +88,13 @@ export async function POST(
     const { error: deleteError } = await admin.auth.admin.deleteUser(authUserId)
 
     if (deleteError) {
+      logError("[members/access] Failed to cancel invitation", {
+        error: deleteError.message,
+        memberId,
+        authUserId,
+      })
       return NextResponse.json(
-        { error: deleteError.message ?? "Failed to cancel invitation" },
+        { error: "Failed to cancel invitation" },
         { status: 500, headers: { "cache-control": "no-store" } }
       )
     }

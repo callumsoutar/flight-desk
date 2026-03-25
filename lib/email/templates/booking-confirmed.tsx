@@ -30,6 +30,8 @@ export type BookingConfirmedEmailProps = {
   bookingUrl: string
   aircraftDisplay?: string | null
   flightType?: string | null
+  lessonName?: string | null
+  description?: string | null
   briefingAt?: string | null
   aerodrome?: string | null
   policyNote?: string | null
@@ -38,45 +40,9 @@ export type BookingConfirmedEmailProps = {
   unsubscribeUrl?: string | null
 }
 
-function formatDurationHours(startIso: string, endIso: string) {
-  const start = new Date(startIso).getTime()
-  const end = new Date(endIso).getTime()
-  const hours = (end - start) / 3_600_000
-  if (!Number.isFinite(hours) || hours <= 0) return "-"
-  if (Math.abs(hours - Math.round(hours)) < 0.01) return `${Math.round(hours)} hrs`
-  return `${hours.toFixed(1)} hrs`
-}
-
-function infoRow(icon: string, label: string, value: string) {
-  return (
-    <Section style={styles.infoRow}>
-      <Row>
-        <Column style={styles.infoIconCol}>
-          <Text style={styles.infoIcon}>{icon}</Text>
-        </Column>
-        <Column style={styles.infoTextCol}>
-          <Row>
-            <Column style={styles.infoLabelCol}>
-              <Text style={styles.infoLabel}>{label}</Text>
-            </Column>
-            <Column style={styles.infoValueCol}>
-              <Text style={styles.infoValue}>{value}</Text>
-            </Column>
-          </Row>
-        </Column>
-      </Row>
-    </Section>
-  )
-}
-
 export function BookingConfirmedEmail(props: BookingConfirmedEmailProps) {
   const when = formatBookingDateRange(props.startTime, props.endTime, props.timezone)
-  const duration = formatDurationHours(props.startTime, props.endTime)
   const aircraftLine = props.aircraftDisplay ?? props.aircraftRegistration ?? null
-  const firstName = props.memberFirstName.trim() || "there"
-  const footerPolicy =
-    props.policyNote ??
-    "Cancel or reschedule up to 24 hours before your slot. Late cancellations may incur a fee."
 
   return (
     <Html lang="en">
@@ -84,72 +50,136 @@ export function BookingConfirmedEmail(props: BookingConfirmedEmailProps) {
       <Preview>{`Booking confirmed - ${when.full}`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.wrap}>
+          {/* Header Section - Enhanced with rounded corners and more height */}
           <Section style={styles.header}>
-            <Row>
+            <Row style={styles.headerRow}>
               <Column style={styles.headerColLeft}>
                 <Text style={styles.headerTitle}>{props.tenantName}</Text>
               </Column>
               <Column style={styles.headerColRight}>
-                <Text style={styles.headerTag}>Booking Confirmation</Text>
+                <Text style={styles.headerTag}>Booking Confirmed</Text>
                 <Text style={styles.headerDate}>{when.date}</Text>
               </Column>
             </Row>
           </Section>
 
+          {/* Main Content Card */}
           <Section style={styles.card}>
-            <Section style={styles.hero}>
-              <Text style={styles.statusText}>Booking confirmed</Text>
-              <Heading style={styles.heroHeading}>{`Your flight is booked, ${firstName}.`}</Heading>
-              <Text style={styles.heroSub}>
-                {`All the details for your upcoming session at ${props.tenantName} are below.`}
-              </Text>
+            <Section style={styles.contentPadding}>
+              <Heading style={styles.mainHeading}>Your flight is confirmed</Heading>
+              
+              {/* Booking Details Card */}
+              <Section style={styles.detailsCard}>
+                <Section style={styles.detailsSection}>
+                  <Text style={styles.detailsLabel}>Date & Time</Text>
+                  <Text style={styles.detailsValueLarge}>{when.date}</Text>
+                  <Text style={styles.detailsValueSmall}>{`${when.startTime} - ${when.endTime}`}</Text>
+                </Section>
 
-              <Section style={styles.timeStrip}>
-                <Row style={styles.timeStripRow}>
-                  <Column style={styles.timeColLeft}>
-                    <Text style={styles.timeLbl}>Depart</Text>
-                    <Text style={styles.timeVal}>{when.startTime}</Text>
+                <Section style={styles.divider} />
+
+                {aircraftLine && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Aircraft</Text>
+                      <Text style={styles.detailsValueLarge}>{aircraftLine}</Text>
+                      {props.aircraftRegistration && (
+                        <Text style={styles.detailsValueSmall}>Registration: {props.aircraftRegistration}</Text>
+                      )}
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                {props.flightType && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Flight Type</Text>
+                      <Text style={styles.detailsValueMedium}>{props.flightType}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                {props.lessonName && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Lesson</Text>
+                      <Text style={styles.detailsValueMedium}>{props.lessonName}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                {props.description && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Description</Text>
+                      <Text style={styles.detailsValueSmall}>{props.description}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                <Section style={styles.detailsSection}>
+                  <Text style={styles.detailsLabel}>Purpose</Text>
+                  <Text style={styles.detailsValueMedium}>{props.purpose}</Text>
+                </Section>
+              </Section>
+
+              {/* CTA Button */}
+              <Section style={styles.ctaWrapper}>
+                <Button href={props.bookingUrl} style={styles.ctaBtn}>
+                  View booking details
+                </Button>
+              </Section>
+
+              {/* Info Box */}
+              <Section style={styles.infoBox}>
+                <Row>
+                  <Column style={styles.infoBoxIconCol}>
+                    <div style={styles.infoBoxIcon}>
+                      <Text style={styles.infoBoxIconText}>i</Text>
+                    </div>
                   </Column>
-                  <Column style={styles.timeColMid}>
-                    <Text style={styles.durationPill}>{duration}</Text>
-                  </Column>
-                  <Column style={styles.timeColRight}>
-                    <Text style={styles.timeLbl}>Return</Text>
-                    <Text style={styles.timeVal}>{when.endTime}</Text>
+                  <Column style={styles.infoBoxTextCol}>
+                    <Text style={styles.infoBoxTitle}>Before your flight</Text>
+                    <Text style={styles.infoBoxContent}>
+                      Arrive 30 minutes early • Bring valid photo ID • Complete pre-flight weather check • Review airfield NOTAMs
+                    </Text>
                   </Column>
                 </Row>
               </Section>
-            </Section>
 
-            <Section style={styles.section}>
-              <Text style={styles.sectionLabel}>Booking details</Text>
-              {infoRow("📅", "Date", when.date)}
-              {aircraftLine ? infoRow("✈️", "Aircraft", aircraftLine) : null}
-              {props.instructorName ? infoRow("👤", "Instructor", props.instructorName) : null}
-              {props.flightType ? infoRow("🛩️", "Flight type", props.flightType) : null}
-              {infoRow("📋", "Purpose", props.purpose)}
-              {props.briefingAt ? infoRow("⏰", "Briefing", props.briefingAt) : null}
-              {props.aerodrome ? infoRow("📍", "Aerodrome", props.aerodrome) : null}
-            </Section>
-
-            <Section style={styles.ctaSection}>
-              <Button href={props.bookingUrl} style={styles.ctaBtn}>
-                View booking in FlightDesk
-              </Button>
-              <Text style={styles.ctaNote}>{footerPolicy}</Text>
+              {/* Help Link */}
+              <Section style={styles.helpSection}>
+                <Text style={styles.helpText}>Need to make changes?</Text>
+                <Link href={props.bookingUrl} style={styles.helpLink}>
+                  Manage your booking →
+                </Link>
+              </Section>
             </Section>
           </Section>
 
+          {/* Footer Section */}
           <Section style={styles.footer}>
-            <Text style={styles.footerText}>{`${props.tenantName} - Powered by FlightDesk Pro`}</Text>
-            <Text style={styles.footerText}>
-              Sent by FlightDesk Pro on behalf of {props.tenantName}.
-            </Text>
             <Section style={styles.footerLinks}>
-              {props.bookingsUrl ? <Link href={props.bookingsUrl}>My bookings</Link> : null}
-              {props.trainingLogUrl ? <Link href={props.trainingLogUrl}>Training log</Link> : null}
-              {props.unsubscribeUrl ? <Link href={props.unsubscribeUrl}>Unsubscribe</Link> : null}
+              <Link href="#" style={styles.footerLink}>Help Center</Link>
+              <Link href="#" style={styles.footerLink}>Terms</Link>
+              <Link href="#" style={styles.footerLink}>Community</Link>
             </Section>
+            
+            <Text style={styles.footerCopyright}>
+              This is a confirmation email from {props.tenantName}
+            </Text>
+            <Text style={styles.footerAddress}>
+              Powered by FlightDesk Pro
+            </Text>
+            {props.unsubscribeUrl && (
+              <Link href={props.unsubscribeUrl} style={styles.unsubscribeLink}>
+                Unsubscribe
+              </Link>
+            )}
           </Section>
         </Container>
       </Body>
@@ -159,28 +189,35 @@ export function BookingConfirmedEmail(props: BookingConfirmedEmailProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   body: {
-    backgroundColor: "#edf0f3",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    color: "#111827",
-    padding: "40px 16px 60px",
+    backgroundColor: "#eeeeee",
+    fontFamily: "'Uber Move', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    margin: 0,
+    padding: 0,
   },
   wrap: {
-    maxWidth: "540px",
+    maxWidth: "600px",
     margin: "0 auto",
+    backgroundColor: "#ffffff",
+    borderRadius: "16px",
+    overflow: "hidden",
   },
   header: {
     backgroundColor: "#17223b",
-    borderRadius: "12px 12px 0 0",
-    padding: "22px 24px 20px",
+    padding: "40px 32px",
+    borderTopLeftRadius: "16px",
+    borderTopRightRadius: "16px",
+  },
+  headerRow: {
+    verticalAlign: "middle",
   },
   headerColLeft: {
     width: "56%",
-    verticalAlign: "top",
+    verticalAlign: "middle",
     paddingRight: "12px",
   },
   headerColRight: {
     width: "44%",
-    verticalAlign: "top",
+    verticalAlign: "middle",
     textAlign: "right",
   },
   headerTitle: {
@@ -207,172 +244,168 @@ const styles: Record<string, React.CSSProperties> = {
   },
   card: {
     backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderTop: "none",
-    borderRadius: "0 0 12px 12px",
-    overflow: "hidden",
   },
-  hero: {
-    padding: "28px 24px 24px",
-    borderBottom: "1px solid #f3f4f6",
+  contentPadding: {
+    padding: "48px 40px 40px 40px",
   },
-  statusText: {
-    color: "#6b7280",
-    fontSize: "12px",
-    margin: 0,
-  },
-  heroHeading: {
-    color: "#111827",
-    fontSize: "22px",
-    margin: "10px 0 6px",
-    lineHeight: 1.3,
-  },
-  heroSub: {
-    color: "#6b7280",
-    fontSize: "13.5px",
-    lineHeight: 1.5,
-    margin: 0,
-  },
-  timeStrip: {
-    marginTop: "18px",
-    border: "1px solid #e5e7eb",
-    borderRadius: "10px",
-    backgroundColor: "#f9fafb",
-    padding: "16px 14px",
-  },
-  timeStripRow: {
-    verticalAlign: "middle",
-  },
-  timeColLeft: {
-    width: "32%",
-    verticalAlign: "middle",
-    paddingRight: "8px",
-  },
-  timeColMid: {
-    width: "36%",
-    verticalAlign: "middle",
-    textAlign: "center",
-    padding: "0 6px",
-  },
-  timeColRight: {
-    width: "32%",
-    verticalAlign: "middle",
-    textAlign: "right",
-    paddingLeft: "8px",
-  },
-  durationPill: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "999px",
-    padding: "8px 14px",
-    margin: "0",
-    color: "#4b5563",
-    fontSize: "12px",
-    fontWeight: 600,
-    lineHeight: 1.2,
-    textAlign: "center",
-    display: "inline-block",
-  },
-  timeVal: {
+  mainHeading: {
+    margin: "0 0 24px 0",
+    color: "#000000",
     fontSize: "24px",
-    color: "#111827",
     fontWeight: 700,
-    lineHeight: 1.15,
-    margin: "6px 0 0",
-    letterSpacing: "-0.02em",
+    letterSpacing: "-0.3px",
   },
-  timeLbl: {
-    fontSize: "10px",
-    color: "#9ca3af",
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    margin: 0,
-    fontWeight: 600,
+  detailsCard: {
+    backgroundColor: "#f6f6f6",
+    borderRadius: "12px",
+    marginBottom: "32px",
+    padding: "28px",
   },
-  section: {
-    padding: "20px 24px",
-    borderBottom: "1px solid #f3f4f6",
+  detailsSection: {
+    marginBottom: "0",
   },
-  sectionLabel: {
+  detailsLabel: {
+    color: "#6b6b6b",
     fontSize: "11px",
-    color: "#9ca3af",
-    textTransform: "uppercase",
     fontWeight: 600,
-    letterSpacing: "0.08em",
-    margin: "0 0 12px",
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    margin: "0 0 10px 0",
   },
-  infoRow: {
-    borderBottom: "1px solid #f3f4f6",
-    padding: "10px 0",
+  detailsValueLarge: {
+    color: "#000000",
+    fontSize: "20px",
+    fontWeight: 600,
+    margin: "0 0 4px 0",
+    letterSpacing: "-0.3px",
   },
-  infoIconCol: {
-    width: "36px",
-    verticalAlign: "middle",
-    paddingRight: "4px",
-  },
-  infoIcon: {
-    fontSize: "16px",
-    lineHeight: "20px",
-    margin: 0,
-  },
-  infoTextCol: {
-    width: "auto",
-    verticalAlign: "middle",
-  },
-  infoLabelCol: {
-    width: "42%",
-    verticalAlign: "middle",
-  },
-  infoValueCol: {
-    width: "58%",
-    verticalAlign: "middle",
-    textAlign: "right",
-  },
-  infoLabel: {
-    color: "#9ca3af",
-    fontSize: "13px",
-    margin: 0,
-    lineHeight: 1.4,
-  },
-  infoValue: {
-    color: "#111827",
-    fontSize: "13px",
+  detailsValueMedium: {
+    color: "#000000",
+    fontSize: "17px",
     fontWeight: 500,
     margin: 0,
-    lineHeight: 1.4,
   },
-  ctaSection: {
-    padding: "22px 24px 24px",
+  detailsValueSmall: {
+    color: "#545454",
+    fontSize: "15px",
+    fontWeight: 400,
+    margin: 0,
+  },
+  detailsValueMono: {
+    color: "#000000",
+    fontSize: "17px",
+    fontWeight: 600,
+    fontFamily: "'Courier New', monospace",
+    letterSpacing: "0.5px",
+    margin: 0,
+  },
+  divider: {
+    height: "1px",
+    backgroundColor: "#e0e0e0",
+    margin: "24px 0",
+  },
+  ctaWrapper: {
+    marginBottom: "32px",
   },
   ctaBtn: {
     display: "block",
-    backgroundColor: "#3b82f6",
+    padding: "18px 32px",
+    backgroundColor: "#000000",
     color: "#ffffff",
-    textAlign: "center",
-    fontSize: "13.5px",
-    fontWeight: 600,
-    padding: "12px 20px",
+    textDecoration: "none",
     borderRadius: "8px",
+    fontSize: "17px",
+    fontWeight: 600,
+    textAlign: "center" as const,
+    letterSpacing: "-0.2px",
+  },
+  infoBox: {
+    backgroundColor: "#f6f6f6",
+    borderRadius: "12px",
+    padding: "24px",
+    marginBottom: "32px",
+  },
+  infoBoxIconCol: {
+    width: "48px",
+    verticalAlign: "top",
+  },
+  infoBoxIcon: {
+    width: "32px",
+    height: "32px",
+    backgroundColor: "#000000",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoBoxIconText: {
+    color: "#ffffff",
+    fontSize: "16px",
+    fontWeight: "bold",
+    margin: 0,
+    textAlign: "center" as const,
+    width: "100%",
+  },
+  infoBoxTextCol: {
+    verticalAlign: "top",
+  },
+  infoBoxTitle: {
+    color: "#000000",
+    fontSize: "16px",
+    fontWeight: 600,
+    margin: "0 0 8px 0",
+  },
+  infoBoxContent: {
+    color: "#545454",
+    fontSize: "15px",
+    lineHeight: "24px",
+    margin: 0,
+  },
+  helpSection: {
+    textAlign: "center" as const,
+    padding: "20px 0",
+  },
+  helpText: {
+    color: "#545454",
+    fontSize: "15px",
+    margin: "0 0 8px 0",
+  },
+  helpLink: {
+    color: "#000000",
+    fontSize: "16px",
+    fontWeight: 600,
     textDecoration: "none",
   },
-  ctaNote: {
-    fontSize: "12px",
-    color: "#9ca3af",
-    textAlign: "center",
-    margin: "10px 0 0",
-    lineHeight: 1.5,
-  },
   footer: {
-    marginTop: "18px",
-    textAlign: "center",
-  },
-  footerText: {
-    color: "#9ca3af",
-    fontSize: "11.5px",
-    lineHeight: 1.6,
-    margin: "0 0 4px",
+    padding: "40px",
+    backgroundColor: "#000000",
+    textAlign: "center" as const,
   },
   footerLinks: {
-    marginTop: "6px",
+    marginBottom: "24px",
+  },
+  footerLink: {
+    color: "#ffffff",
+    fontSize: "14px",
+    textDecoration: "none",
+    margin: "0 10px",
+    opacity: 0.8,
+  },
+  footerCopyright: {
+    color: "#999999",
+    fontSize: "12px",
+    lineHeight: "20px",
+    margin: "0 0 4px 0",
+  },
+  footerAddress: {
+    color: "#999999",
+    fontSize: "12px",
+    lineHeight: "20px",
+    margin: "0 0 8px 0",
+  },
+  unsubscribeLink: {
+    color: "#999999",
+    fontSize: "12px",
+    textDecoration: "none",
   },
 }

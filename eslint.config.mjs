@@ -11,6 +11,13 @@ const eslintConfig = defineConfig([
       "react-hooks/incompatible-library": "off",
     },
   },
+  {
+    files: ["app/**/*.{ts,tsx}", "lib/**/*.ts"],
+    ignores: ["lib/schema/generated.ts", "lib/security/logger.ts"],
+    rules: {
+      "no-console": "error",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

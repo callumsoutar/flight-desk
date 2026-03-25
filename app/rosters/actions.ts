@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { normalizeTimeToSql, parseTimeToMinutes } from "@/lib/roster/availability"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { RosterRule } from "@/lib/types/roster"
 
@@ -14,7 +15,7 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const timeSchema = z.string().regex(/^\d{2}:\d{2}(?::\d{2})?$/)
 const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const
 
-const rosterPayloadSchema = z.object({
+const rosterPayloadSchema = z.strictObject({
   instructor_id: z.string().uuid(),
   day_of_week: z.number().int().min(0).max(6),
   start_time: timeSchema,
@@ -30,11 +31,11 @@ const updateRosterRuleSchema = rosterPayloadSchema.extend({
   rule_id: z.string().uuid(),
 })
 
-const voidRosterRuleSchema = z.object({
+const voidRosterRuleSchema = z.strictObject({
   rule_id: z.string().uuid(),
 })
 
-const checkRosterRuleConflictsSchema = z.object({
+const checkRosterRuleConflictsSchema = z.strictObject({
   instructor_id: z.string().uuid(),
   days_of_week: z.array(z.number().int().min(0).max(6)).min(1),
   start_time: timeSchema,
@@ -440,7 +441,7 @@ export async function checkRosterRuleConflictsAction(input: unknown) {
 
     return { ok: true as const }
   } catch (error) {
-    console.error("[rosters] conflict check failed", {
+    logError("[rosters] conflict check failed", {
       tenantId,
       userId: user.id,
       payload,
@@ -496,7 +497,7 @@ export async function createRosterRuleAction(input: unknown) {
       }
     }
   } catch (error) {
-    console.error("[rosters] create conflict check failed", {
+    logError("[rosters] create conflict check failed", {
       tenantId,
       userId: user.id,
       payload,
@@ -574,7 +575,7 @@ export async function createRosterRuleAction(input: unknown) {
   }
 
   if (error || !data) {
-    console.error("[rosters] create failed", {
+    logError("[rosters] create failed", {
       tenantId,
       userId: user.id,
       payload,
@@ -641,7 +642,7 @@ export async function updateRosterRuleAction(input: unknown) {
       }
     }
   } catch (error) {
-    console.error("[rosters] update conflict check failed", {
+    logError("[rosters] update conflict check failed", {
       tenantId,
       userId: user.id,
       payload,
@@ -689,7 +690,7 @@ export async function updateRosterRuleAction(input: unknown) {
       }
     }
 
-    console.error("[rosters] update failed", {
+    logError("[rosters] update failed", {
       tenantId,
       userId: user.id,
       payload,
@@ -729,7 +730,7 @@ export async function voidRosterRuleAction(input: unknown) {
     .eq("id", parsed.data.rule_id)
 
   if (error) {
-    console.error("[rosters] archive failed", {
+    logError("[rosters] archive failed", {
       tenantId,
       userId: user.id,
       ruleId: parsed.data.rule_id,

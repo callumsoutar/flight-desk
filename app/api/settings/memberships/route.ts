@@ -14,7 +14,7 @@ import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
-const membershipYearSchema = z.object({
+const membershipYearSchema = z.strictObject({
   start_month: z.number().int().min(1).max(12),
   start_day: z.number().int().min(1).max(31),
   end_month: z.number().int().min(1).max(12).optional(),
@@ -22,8 +22,8 @@ const membershipYearSchema = z.object({
   description: z.string().trim().max(500).optional(),
 })
 
-const patchSchema = z.object({
-  memberships: z.object({
+const patchSchema = z.strictObject({
+  memberships: z.strictObject({
     membership_year: membershipYearSchema,
   }),
 })

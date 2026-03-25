@@ -649,7 +649,7 @@ export function NewBookingModal({
     const all = options?.instructors ?? []
     let filtered = all
 
-    if (instructorRosterWindows && instructorRosterWindows.size > 0) {
+    if (instructorRosterWindows) {
       filtered = filtered.filter((i) => {
         const windows = instructorRosterWindows.get(i.id)
         return windows && windows.length > 0

@@ -38,44 +38,13 @@ export type BookingUpdatedEmailProps = {
   unsubscribeUrl?: string | null
 }
 
-function formatDurationHours(startIso: string, endIso: string) {
-  const start = new Date(startIso).getTime()
-  const end = new Date(endIso).getTime()
-  const hours = (end - start) / 3_600_000
-  if (!Number.isFinite(hours) || hours <= 0) return "-"
-  if (Math.abs(hours - Math.round(hours)) < 0.01) return `${Math.round(hours)} hrs`
-  return `${hours.toFixed(1)} hrs`
-}
-
-function infoRow(icon: string, label: string, value: string) {
-  return (
-    <Section style={styles.infoRow}>
-      <Row>
-        <Column style={styles.infoIconCol}>
-          <Text style={styles.infoIcon}>{icon}</Text>
-        </Column>
-        <Column style={styles.infoTextCol}>
-          <Row>
-            <Column style={styles.infoLabelCol}>
-              <Text style={styles.infoLabel}>{label}</Text>
-            </Column>
-            <Column style={styles.infoValueCol}>
-              <Text style={styles.infoValue}>{value}</Text>
-            </Column>
-          </Row>
-        </Column>
-      </Row>
-    </Section>
-  )
-}
-
 function changeRow(change: BookingUpdatedChange) {
   return (
     <Section style={styles.changeCard}>
       <Text style={styles.changeLabel}>{change.label}</Text>
       <Text style={styles.changeValues}>
         <span style={styles.changeBefore}>{change.before}</span>
-        <span style={styles.changeArrow}>{"  ->  "}</span>
+        <span style={styles.changeArrow}>{"  →  "}</span>
         <span style={styles.changeAfter}>{change.after}</span>
       </Text>
     </Section>
@@ -84,13 +53,7 @@ function changeRow(change: BookingUpdatedChange) {
 
 export function BookingUpdatedEmail(props: BookingUpdatedEmailProps) {
   const when = formatBookingDateRange(props.startTime, props.endTime, props.timezone)
-  const duration = formatDurationHours(props.startTime, props.endTime)
-  const firstName = props.memberFirstName.trim() || "there"
-  const keyPurpose = props.purpose?.trim() || "Not set"
-  const keyLesson = props.lessonName?.trim() || "Unassigned"
-  const keyAircraft = props.aircraftDisplay?.trim() || "Unassigned"
-  const keyInstructor = props.instructorName?.trim() || "Unassigned"
-  const keyFlightType = props.flightType?.trim() || "Not set"
+  const aircraftLine = props.aircraftDisplay ?? null
 
   return (
     <Html lang="en">
@@ -98,8 +61,9 @@ export function BookingUpdatedEmail(props: BookingUpdatedEmailProps) {
       <Preview>{`Booking updated - ${when.full}`}</Preview>
       <Body style={styles.body}>
         <Container style={styles.wrap}>
+          {/* Header Section */}
           <Section style={styles.header}>
-            <Row>
+            <Row style={styles.headerRow}>
               <Column style={styles.headerColLeft}>
                 <Text style={styles.headerTitle}>{props.tenantName}</Text>
               </Column>
@@ -110,68 +74,127 @@ export function BookingUpdatedEmail(props: BookingUpdatedEmailProps) {
             </Row>
           </Section>
 
+          {/* Main Content Card */}
           <Section style={styles.card}>
-            <Section style={styles.hero}>
-              <Text style={styles.statusText}>Booking updated</Text>
-              <Heading style={styles.heroHeading}>{`Your booking details changed, ${firstName}.`}</Heading>
+            <Section style={styles.contentPadding}>
+              <Heading style={styles.mainHeading}>Your booking details changed</Heading>
               <Text style={styles.heroSub}>
                 {`We updated this booking at ${props.tenantName}. Review the changes and current details below.`}
               </Text>
 
-              <Section style={styles.timeStrip}>
-                <Row style={styles.timeStripRow}>
-                  <Column style={styles.timeColLeft}>
-                    <Text style={styles.timeLbl}>Depart</Text>
-                    <Text style={styles.timeVal}>{when.startTime}</Text>
-                  </Column>
-                  <Column style={styles.timeColMid}>
-                    <Text style={styles.durationPill}>{duration}</Text>
-                  </Column>
-                  <Column style={styles.timeColRight}>
-                    <Text style={styles.timeLbl}>Return</Text>
-                    <Text style={styles.timeVal}>{when.endTime}</Text>
-                  </Column>
-                </Row>
+              {/* Changes Section */}
+              <Section style={styles.changesSection}>
+                <Text style={styles.sectionLabel}>Changes made</Text>
+                {props.changes.map((change) => (
+                  <React.Fragment key={`${change.label}-${change.before}-${change.after}`}>
+                    {changeRow(change)}
+                  </React.Fragment>
+                ))}
               </Section>
-            </Section>
+              
+              {/* Booking Details Card */}
+              <Section style={styles.detailsCard}>
+                <Text style={styles.sectionLabel}>Current booking details</Text>
+                <Section style={styles.detailsSection}>
+                  <Text style={styles.detailsLabel}>Date & Time</Text>
+                  <Text style={styles.detailsValueLarge}>{when.date}</Text>
+                  <Text style={styles.detailsValueSmall}>{`${when.startTime} - ${when.endTime}`}</Text>
+                </Section>
 
-            <Section style={styles.section}>
-              <Text style={styles.sectionLabel}>Changes made</Text>
-              {props.changes.map((change) => (
-                <React.Fragment key={`${change.label}-${change.before}-${change.after}`}>
-                  {changeRow(change)}
-                </React.Fragment>
-              ))}
-            </Section>
+                <Section style={styles.divider} />
 
-            <Section style={styles.section}>
-              <Text style={styles.sectionLabel}>Current booking details</Text>
-              {infoRow("📅", "Date", when.date)}
-              {infoRow("✈️", "Aircraft", keyAircraft)}
-              {infoRow("👤", "Instructor", keyInstructor)}
-              {infoRow("🛩️", "Flight type", keyFlightType)}
-              {infoRow("📘", "Lesson", keyLesson)}
-              {infoRow("📋", "Purpose", keyPurpose)}
-            </Section>
+                {aircraftLine && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Aircraft</Text>
+                      <Text style={styles.detailsValueLarge}>{aircraftLine}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
 
-            <Section style={styles.ctaSection}>
-              <Button href={props.bookingUrl} style={styles.ctaBtn}>
-                View booking in FlightDesk
-              </Button>
-              <Text style={styles.ctaNote}>Reference: {props.bookingId}</Text>
+                {props.instructorName && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Instructor</Text>
+                      <Text style={styles.detailsValueMedium}>{props.instructorName}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                {props.flightType && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Flight Type</Text>
+                      <Text style={styles.detailsValueMedium}>{props.flightType}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                {props.lessonName && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Lesson</Text>
+                      <Text style={styles.detailsValueMedium}>{props.lessonName}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                {props.description && (
+                  <>
+                    <Section style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Description</Text>
+                      <Text style={styles.detailsValueSmall}>{props.description}</Text>
+                    </Section>
+                    <Section style={styles.divider} />
+                  </>
+                )}
+
+                <Section style={styles.detailsSection}>
+                  <Text style={styles.detailsLabel}>Purpose</Text>
+                  <Text style={styles.detailsValueMedium}>{props.purpose || "Not set"}</Text>
+                </Section>
+              </Section>
+
+              {/* CTA Button */}
+              <Section style={styles.ctaWrapper}>
+                <Button href={props.bookingUrl} style={styles.ctaBtn}>
+                  View booking details
+                </Button>
+              </Section>
+
+              {/* Help Link */}
+              <Section style={styles.helpSection}>
+                <Text style={styles.helpText}>Need to make changes?</Text>
+                <Link href={props.bookingUrl} style={styles.helpLink}>
+                  Manage your booking →
+                </Link>
+              </Section>
             </Section>
           </Section>
 
+          {/* Footer Section */}
           <Section style={styles.footer}>
-            <Text style={styles.footerText}>{`${props.tenantName} - Powered by FlightDesk Pro`}</Text>
-            <Text style={styles.footerText}>
-              Sent by FlightDesk Pro on behalf of {props.tenantName}.
-            </Text>
             <Section style={styles.footerLinks}>
-              {props.bookingsUrl ? <Link href={props.bookingsUrl}>My bookings</Link> : null}
-              {props.trainingLogUrl ? <Link href={props.trainingLogUrl}>Training log</Link> : null}
-              {props.unsubscribeUrl ? <Link href={props.unsubscribeUrl}>Unsubscribe</Link> : null}
+              <Link href="#" style={styles.footerLink}>Help Center</Link>
+              <Link href="#" style={styles.footerLink}>Terms</Link>
+              <Link href="#" style={styles.footerLink}>Community</Link>
             </Section>
+            
+            <Text style={styles.footerCopyright}>
+              This is a confirmation email from {props.tenantName}
+            </Text>
+            <Text style={styles.footerAddress}>
+              Powered by FlightDesk Pro
+            </Text>
+            {props.unsubscribeUrl && (
+              <Link href={props.unsubscribeUrl} style={styles.unsubscribeLink}>
+                Unsubscribe
+              </Link>
+            )}
           </Section>
         </Container>
       </Body>
@@ -181,28 +204,35 @@ export function BookingUpdatedEmail(props: BookingUpdatedEmailProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   body: {
-    backgroundColor: "#edf0f3",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    color: "#111827",
-    padding: "40px 16px 60px",
+    backgroundColor: "#eeeeee",
+    fontFamily: "'Uber Move', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    margin: 0,
+    padding: 0,
   },
   wrap: {
-    maxWidth: "540px",
+    maxWidth: "600px",
     margin: "0 auto",
+    backgroundColor: "#ffffff",
+    borderRadius: "16px",
+    overflow: "hidden",
   },
   header: {
     backgroundColor: "#17223b",
-    borderRadius: "12px 12px 0 0",
-    padding: "22px 24px 20px",
+    padding: "40px 32px",
+    borderTopLeftRadius: "16px",
+    borderTopRightRadius: "16px",
+  },
+  headerRow: {
+    verticalAlign: "middle",
   },
   headerColLeft: {
     width: "56%",
-    verticalAlign: "top",
+    verticalAlign: "middle",
     paddingRight: "12px",
   },
   headerColRight: {
     width: "44%",
-    verticalAlign: "top",
+    verticalAlign: "middle",
     textAlign: "right",
   },
   headerTitle: {
@@ -229,91 +259,25 @@ const styles: Record<string, React.CSSProperties> = {
   },
   card: {
     backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderTop: "none",
-    borderRadius: "0 0 12px 12px",
-    overflow: "hidden",
   },
-  hero: {
-    padding: "28px 24px 24px",
-    borderBottom: "1px solid #f3f4f6",
+  contentPadding: {
+    padding: "48px 40px 40px 40px",
   },
-  statusText: {
-    color: "#6b7280",
-    fontSize: "12px",
-    margin: 0,
-  },
-  heroHeading: {
-    color: "#111827",
-    fontSize: "22px",
-    margin: "10px 0 6px",
-    lineHeight: 1.3,
+  mainHeading: {
+    margin: "0 0 16px 0",
+    color: "#000000",
+    fontSize: "24px",
+    fontWeight: 700,
+    letterSpacing: "-0.3px",
   },
   heroSub: {
     color: "#6b7280",
-    fontSize: "13.5px",
+    fontSize: "14px",
     lineHeight: 1.5,
-    margin: 0,
+    margin: "0 0 32px 0",
   },
-  timeStrip: {
-    marginTop: "18px",
-    border: "1px solid #e5e7eb",
-    borderRadius: "10px",
-    backgroundColor: "#f9fafb",
-    padding: "16px 14px",
-  },
-  timeStripRow: {
-    verticalAlign: "middle",
-  },
-  timeColLeft: {
-    width: "32%",
-    verticalAlign: "middle",
-    paddingRight: "8px",
-  },
-  timeColMid: {
-    width: "36%",
-    verticalAlign: "middle",
-    textAlign: "center",
-    padding: "0 6px",
-  },
-  timeColRight: {
-    width: "32%",
-    verticalAlign: "middle",
-    textAlign: "right",
-    paddingLeft: "8px",
-  },
-  durationPill: {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
-    borderRadius: "999px",
-    padding: "8px 14px",
-    margin: "0",
-    color: "#4b5563",
-    fontSize: "12px",
-    fontWeight: 600,
-    lineHeight: 1.2,
-    textAlign: "center",
-    display: "inline-block",
-  },
-  timeVal: {
-    fontSize: "24px",
-    color: "#111827",
-    fontWeight: 700,
-    lineHeight: 1.15,
-    margin: "6px 0 0",
-    letterSpacing: "-0.02em",
-  },
-  timeLbl: {
-    fontSize: "10px",
-    color: "#9ca3af",
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    margin: 0,
-    fontWeight: 600,
-  },
-  section: {
-    padding: "20px 24px",
-    borderBottom: "1px solid #f3f4f6",
+  changesSection: {
+    marginBottom: "32px",
   },
   sectionLabel: {
     fontSize: "11px",
@@ -323,56 +287,16 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.08em",
     margin: "0 0 12px",
   },
-  infoRow: {
-    borderBottom: "1px solid #f3f4f6",
-    padding: "10px 0",
-  },
-  infoIconCol: {
-    width: "36px",
-    verticalAlign: "middle",
-    paddingRight: "4px",
-  },
-  infoIcon: {
-    fontSize: "16px",
-    lineHeight: "20px",
-    margin: 0,
-  },
-  infoTextCol: {
-    width: "auto",
-    verticalAlign: "middle",
-  },
-  infoLabelCol: {
-    width: "42%",
-    verticalAlign: "middle",
-  },
-  infoValueCol: {
-    width: "58%",
-    verticalAlign: "middle",
-    textAlign: "right",
-  },
-  infoLabel: {
-    color: "#9ca3af",
-    fontSize: "13px",
-    margin: 0,
-    lineHeight: 1.4,
-  },
-  infoValue: {
-    color: "#111827",
-    fontSize: "13px",
-    fontWeight: 500,
-    margin: 0,
-    lineHeight: 1.4,
-  },
   changeCard: {
-    border: "1px solid #fecaca",
-    backgroundColor: "#fff1f2",
+    border: "1px solid #e5e7eb",
+    backgroundColor: "#f9fafb",
     borderRadius: "10px",
-    padding: "10px 12px",
-    marginBottom: "10px",
+    padding: "12px 16px",
+    marginBottom: "12px",
   },
   changeLabel: {
-    color: "#9f1239",
-    fontSize: "12px",
+    color: "#4b5563",
+    fontSize: "11px",
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.05em",
@@ -390,43 +314,113 @@ const styles: Record<string, React.CSSProperties> = {
   changeArrow: {
     color: "#6b7280",
     fontWeight: 600,
+    margin: "0 8px",
   },
   changeAfter: {
     color: "#15803d",
     fontWeight: 700,
   },
-  ctaSection: {
-    padding: "22px 24px 24px",
+  detailsCard: {
+    backgroundColor: "#f6f6f6",
+    borderRadius: "12px",
+    marginBottom: "32px",
+    padding: "28px",
+  },
+  detailsSection: {
+    marginBottom: "0",
+  },
+  detailsLabel: {
+    color: "#6b6b6b",
+    fontSize: "11px",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    margin: "0 0 10px 0",
+  },
+  detailsValueLarge: {
+    color: "#000000",
+    fontSize: "20px",
+    fontWeight: 600,
+    margin: "0 0 4px 0",
+    letterSpacing: "-0.3px",
+  },
+  detailsValueMedium: {
+    color: "#000000",
+    fontSize: "17px",
+    fontWeight: 500,
+    margin: 0,
+  },
+  detailsValueSmall: {
+    color: "#545454",
+    fontSize: "15px",
+    fontWeight: 400,
+    margin: 0,
+  },
+  divider: {
+    height: "1px",
+    backgroundColor: "#e0e0e0",
+    margin: "24px 0",
+  },
+  ctaWrapper: {
+    marginBottom: "32px",
   },
   ctaBtn: {
     display: "block",
-    backgroundColor: "#3b82f6",
+    padding: "18px 32px",
+    backgroundColor: "#000000",
     color: "#ffffff",
-    textAlign: "center",
-    fontSize: "13.5px",
-    fontWeight: 600,
-    padding: "12px 20px",
+    textDecoration: "none",
     borderRadius: "8px",
+    fontSize: "17px",
+    fontWeight: 600,
+    textAlign: "center" as const,
+    letterSpacing: "-0.2px",
+  },
+  helpSection: {
+    textAlign: "center" as const,
+    padding: "20px 0",
+  },
+  helpText: {
+    color: "#545454",
+    fontSize: "15px",
+    margin: "0 0 8px 0",
+  },
+  helpLink: {
+    color: "#000000",
+    fontSize: "16px",
+    fontWeight: 600,
     textDecoration: "none",
   },
-  ctaNote: {
-    fontSize: "12px",
-    color: "#9ca3af",
-    textAlign: "center",
-    margin: "10px 0 0",
-    lineHeight: 1.5,
-  },
   footer: {
-    marginTop: "18px",
-    textAlign: "center",
-  },
-  footerText: {
-    color: "#9ca3af",
-    fontSize: "11.5px",
-    lineHeight: 1.6,
-    margin: "0 0 4px",
+    padding: "40px",
+    backgroundColor: "#000000",
+    textAlign: "center" as const,
   },
   footerLinks: {
-    marginTop: "6px",
+    marginBottom: "24px",
+  },
+  footerLink: {
+    color: "#ffffff",
+    fontSize: "14px",
+    textDecoration: "none",
+    margin: "0 10px",
+    opacity: 0.8,
+  },
+  footerCopyright: {
+    color: "#999999",
+    fontSize: "12px",
+    lineHeight: "20px",
+    margin: "0 0 4px 0",
+  },
+  footerAddress: {
+    color: "#999999",
+    fontSize: "12px",
+    lineHeight: "20px",
+    margin: "0 0 8px 0",
+  },
+  unsubscribeLink: {
+    color: "#999999",
+    fontSize: "12px",
+    textDecoration: "none",
   },
 }

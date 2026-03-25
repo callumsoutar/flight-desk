@@ -5,12 +5,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 
-const querySchema = z.object({
+const querySchema = z.strictObject({
   search: z.string().optional(),
   aircraft_type_id: z.string().optional(),
 })
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   registration: z.string().trim().min(1).max(20),
   type: z.string().trim().min(1).max(100),
   model: z.string().trim().max(100).nullable().optional(),

@@ -22,13 +22,13 @@ async function getLandingFeeTypeId(supabase: Awaited<ReturnType<typeof createSup
   return data?.id ?? null
 }
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   chargeable_id: z.string().uuid(),
   aircraft_type_id: z.string().uuid(),
   rate: z.number().finite().min(0),
 })
 
-const updateSchema = z.object({
+const updateSchema = z.strictObject({
   chargeable_id: z.string().uuid(),
   aircraft_type_id: z.string().uuid(),
   rate: z.number().finite().min(0),

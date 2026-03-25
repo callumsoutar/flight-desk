@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { logError } from "@/lib/security/logger"
 import type { Database } from "@/lib/types"
 
 import { getResendClient } from "./resend-client"
@@ -100,8 +101,12 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
   await supabase.from("email_logs").insert(logRow)
 
   if (sendError) {
-    console.error(`[email] Failed to send ${triggerKey} to ${recipients.join(", ")}: ${sendError}`)
-    return { ok: false, error: sendError }
+    logError(`[email] Failed to send ${triggerKey}`, {
+      error: sendError,
+      triggerKey,
+      tenantId,
+    })
+    return { ok: false, error: "Failed to send email" }
   }
 
   return { ok: true, messageId }

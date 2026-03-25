@@ -15,7 +15,7 @@ import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
-const invoicingPatchSchema = z.object({
+const invoicingPatchSchema = z.strictObject({
   invoice_prefix: z.string().trim().min(1).max(24).optional(),
   invoice_number_mode: z.enum(["internal", "xero"]).optional(),
   default_invoice_due_days: z.number().int().min(0).max(3650).optional(),
@@ -25,7 +25,7 @@ const invoicingPatchSchema = z.object({
   airways_fee_gl_code: z.string().trim().max(20).nullable().optional(),
 })
 
-const patchSchema = z.object({
+const patchSchema = z.strictObject({
   invoicing: invoicingPatchSchema,
 })
 

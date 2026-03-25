@@ -7,9 +7,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const reorderSchema = z.object({
+const reorderSchema = z.strictObject({
   items: z.array(
-    z.object({
+    z.strictObject({
       id: z.string().uuid(),
       order: z.number().int().min(1),
     })

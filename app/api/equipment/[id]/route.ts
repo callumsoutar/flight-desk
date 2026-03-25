@@ -25,7 +25,7 @@ const equipmentTypeSchema = z.enum([
 
 const equipmentStatusSchema = z.enum(["active", "maintenance", "lost", "retired"])
 
-const equipmentUpdateSchema = z.object({
+const equipmentUpdateSchema = z.strictObject({
   name: z.string().trim().min(1, "Name is required").max(255).optional(),
   label: z.string().trim().max(255).nullable().optional(),
   serial_number: z.string().trim().max(255).nullable().optional(),

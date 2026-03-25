@@ -10,8 +10,8 @@ import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
-const patchSchema = z.object({
-  xero: z.object({
+const patchSchema = z.strictObject({
+  xero: z.strictObject({
     default_revenue_account_code: z.string().trim().max(20).nullable().optional(),
     default_tax_type: z.string().trim().max(40).nullable().optional(),
     auto_export_on_approve: z.boolean().optional(),

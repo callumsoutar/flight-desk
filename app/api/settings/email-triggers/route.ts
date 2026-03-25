@@ -12,7 +12,7 @@ const NO_STORE = { "cache-control": "no-store" } as const
 
 const triggerValues = Object.values(EMAIL_TRIGGER_KEYS)
 
-const payloadSchema = z.object({
+const payloadSchema = z.strictObject({
   trigger_key: z.enum(triggerValues as [string, ...string[]]),
   is_enabled: z.boolean(),
   from_name: z.string().trim().max(200).nullable().optional(),

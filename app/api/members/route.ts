@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const createMemberSchema = z.object({
+const createMemberSchema = z.strictObject({
   first_name: z.string().trim().max(100, "First name too long").nullable().optional(),
   last_name: z.string().trim().max(100, "Last name too long").nullable().optional(),
   email: z.string().trim().toLowerCase().email("A valid email is required"),

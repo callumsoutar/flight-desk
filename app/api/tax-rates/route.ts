@@ -8,12 +8,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const patchSchema = z.object({
+const patchSchema = z.strictObject({
   id: z.string().uuid(),
   is_default: z.literal(true),
 })
 
-const postSchema = z.object({
+const postSchema = z.strictObject({
   tax_name: z.string().min(1).max(64),
   rate_percent: z.coerce.number().min(0).max(100),
   effective_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

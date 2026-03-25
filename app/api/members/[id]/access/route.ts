@@ -158,7 +158,7 @@ export async function GET(
   }
 }
 
-const updateRoleSchema = z.object({
+const updateRoleSchema = z.strictObject({
   role_id: z.string().uuid(),
 })
 

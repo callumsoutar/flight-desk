@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 const instructionTypeSchema = z.enum(["dual", "solo", "trial"])
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(1200).optional().nullable(),
   instruction_type: instructionTypeSchema,
@@ -19,7 +19,7 @@ const createSchema = z.object({
   is_active: z.boolean().optional(),
 })
 
-const updateSchema = z.object({
+const updateSchema = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(1200).optional().nullable(),

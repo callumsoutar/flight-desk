@@ -9,16 +9,29 @@ import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
 import { AccountStatementEmail } from "@/lib/email/templates/account-statement"
 import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
+import { logError } from "@/lib/security/logger"
+import { enforceRateLimit } from "@/lib/security/rate-limit"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
 const NO_STORE = { "cache-control": "no-store" } as const
 
-const payloadSchema = z.object({
+const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/
+const dateOnlySchema = z.string().regex(dateOnlyPattern, "Expected YYYY-MM-DD")
+
+const payloadSchema = z.strictObject({
   user_id: z.string().uuid(),
-  from_date: z.string().optional(),
-  to_date: z.string().optional(),
+  from_date: dateOnlySchema.optional(),
+  to_date: dateOnlySchema.optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.from_date && value.to_date && value.from_date > value.to_date) {
+    ctx.addIssue({
+      code: "custom",
+      message: "from_date cannot be after to_date",
+      path: ["from_date"],
+    })
+  }
 })
 
 function toUtcStartOfDay(dateValue: string) {
@@ -44,6 +57,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
   }
   if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
+
+  const rateLimitResult = enforceRateLimit({
+    key: `email:send-statement:${tenantId}:${user.id}`,
+    limit: 20,
+    windowMs: 60_000,
+  })
+  if (!rateLimitResult.ok) {
+    return NextResponse.json(
+      { error: "Too many email requests. Please try again shortly." },
+      {
+        status: 429,
+        headers: {
+          ...NO_STORE,
+          "retry-after": String(rateLimitResult.retryAfterSeconds),
+        },
+      }
+    )
+  }
 
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
@@ -243,14 +274,14 @@ export async function POST(request: Request) {
 
     if (!result.ok) {
       return NextResponse.json(
-        { error: result.error ?? "Failed to send statement email" },
+        { error: "Failed to send statement email" },
         { status: 500, headers: NO_STORE }
       )
     }
 
     return NextResponse.json({ ok: true, messageId: result.messageId }, { headers: NO_STORE })
   } catch (error) {
-    console.error("[email] Failed to render or send statement email:", error)
+    logError("[email] Failed to render or send statement email", { error, tenantId })
     return NextResponse.json({ error: "Failed to send statement email" }, { status: 500, headers: NO_STORE })
   }
 }

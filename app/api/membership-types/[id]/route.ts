@@ -14,7 +14,7 @@ function normalizeNullableString(value: unknown): string | null {
   return trimmed.length ? trimmed : null
 }
 
-const patchSchema = z.object({
+const patchSchema = z.strictObject({
   name: z.string().trim().min(1).max(140).optional(),
   code: z.string().trim().min(1).max(60).optional(),
   description: z.string().trim().max(2000).optional().nullable(),

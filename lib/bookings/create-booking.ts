@@ -5,12 +5,13 @@ import { z } from "zod"
 
 import type { AuthUser } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
+import { logError } from "@/lib/security/logger"
 import type { Database } from "@/lib/types"
 import type { BookingStatus } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
 import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
 
-export const createBookingPayloadSchema = z.object({
+export const createBookingPayloadSchema = z.strictObject({
   start_time: z.string(),
   end_time: z.string(),
   aircraft_id: z.string().uuid().nullable(),
@@ -252,8 +253,7 @@ export async function createBookingInTenant({
 
     return { ok: true, booking: data }
   } catch (error) {
-    console.error(error)
+    logError("[bookings] Failed to create booking", { error, tenantId, userId: user.id })
     return { ok: false, status: 500, error: "Failed to create booking" }
   }
 }
-

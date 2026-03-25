@@ -3,11 +3,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { getAuthSession } from "@/lib/auth/session"
+import { invalidPayloadResponse } from "@/lib/security/http"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const payloadSchema = z.object({
+const payloadSchema = z.strictObject({
   hobbs_end: z.number().nullable().optional(),
   tach_end: z.number().nullable().optional(),
   airswitch_end: z.number().nullable().optional(),
@@ -32,10 +34,7 @@ const NO_STORE = { "cache-control": "no-store" } as const
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload", details: parsed.error.issues },
-      { status: 400, headers: NO_STORE }
-    )
+    return invalidPayloadResponse()
   }
 
   const supabase = await createSupabaseServerClient()
@@ -73,8 +72,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   )
 
   if (rpcError) {
+    logError("[checkin/correct] RPC error", { error: rpcError.message, bookingId })
     return NextResponse.json(
-      { error: rpcError.message ?? "Correction failed" },
+      { error: "Correction failed" },
       { status: 500, headers: NO_STORE }
     )
   }

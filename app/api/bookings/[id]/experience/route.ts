@@ -3,11 +3,12 @@ import { z } from "zod"
 
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { invalidPayloadResponse } from "@/lib/security/http"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const entrySchema = z.object({
+const entrySchema = z.strictObject({
   experience_type_id: z.string().uuid(),
   value: z.number().positive(),
   unit: z.enum(["hours", "count", "landings"]),
@@ -15,7 +16,7 @@ const entrySchema = z.object({
   conditions: z.string().nullable().optional(),
 })
 
-const putSchema = z.object({
+const putSchema = z.strictObject({
   entries: z.array(entrySchema),
 })
 
@@ -118,10 +119,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
   const parsed = putSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload", details: parsed.error.issues },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return invalidPayloadResponse()
   }
 
   const { id } = await context.params

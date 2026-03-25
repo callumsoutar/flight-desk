@@ -9,7 +9,7 @@ import { upsertXeroAccount } from "@/lib/xero/upsert-account"
 
 export const dynamic = "force-dynamic"
 
-const bodySchema = z.object({
+const bodySchema = z.strictObject({
   xero_account_id: z.string().min(1),
   code: z.string().nullable(),
   name: z.string().min(1),

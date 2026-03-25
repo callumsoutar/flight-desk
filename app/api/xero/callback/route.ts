@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
 import { getAuthSession } from "@/lib/auth/session"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { exchangeCodeForTokens, fetchXeroConnections } from "@/lib/xero/client"
@@ -144,7 +145,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL(integrationRedirect("connected"), request.url))
   } catch (error) {
-    console.error("[xero] OAuth callback failed", {
+    logError("[xero] OAuth callback failed", {
       error: error instanceof Error ? error.message : "callback_failed",
     })
     return NextResponse.redirect(

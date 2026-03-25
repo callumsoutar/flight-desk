@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { syncXeroAccounts } from "@/lib/xero/sync-accounts"
 
@@ -25,9 +26,7 @@ export async function POST() {
     const result = await syncXeroAccounts(tenantId, user.id)
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } })
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Sync failed" },
-      { status: 500 }
-    )
+    logError("[xero] Account sync endpoint failed", { error, tenantId, userId: user.id })
+    return NextResponse.json({ error: "Sync failed" }, { status: 500 })
   }
 }

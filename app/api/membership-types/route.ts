@@ -18,7 +18,7 @@ function normalizeBenefits(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
 }
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   name: z.string().trim().min(1).max(140),
   code: z.string().trim().min(1).max(60),
   description: z.string().trim().max(2000).optional().nullable(),

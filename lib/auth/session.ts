@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 
 import { claimsRoleToUserRole, isUserRole } from "@/lib/auth/roles"
+import { logWarn } from "@/lib/security/logger"
 import { getUserTenantId } from "@/lib/auth/tenant"
 import type { Database } from "@/lib/types"
 import type { UserRole } from "@/lib/types/roles"
@@ -96,7 +97,7 @@ async function resolveTenantFromDatabase(
 
 function logClaimsFallback(kind: "role" | "tenant", userId: string) {
   if (!LOG_CLAIMS_FALLBACKS) return
-  console.warn(`[auth] Falling back to DB for ${kind} claim (user: ${userId})`)
+  logWarn(`[auth] Falling back to DB for ${kind} claim`, { kind, userId })
 }
 
 function claimsToUser(claims: JwtClaims, userId: string): AuthUser {

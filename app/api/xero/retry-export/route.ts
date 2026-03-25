@@ -9,7 +9,7 @@ import { exportInvoiceToXero } from "@/lib/xero/export-invoice"
 
 export const dynamic = "force-dynamic"
 
-const schema = z.object({
+const schema = z.strictObject({
   invoiceId: z.string().uuid(),
 })
 

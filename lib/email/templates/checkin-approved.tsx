@@ -1,7 +1,7 @@
 import { Button, Heading, Section, Text } from "@react-email/components"
 import * as React from "react"
 
-import { TemplateShell } from "./template-shell"
+import { TemplateShell } from "@/lib/email/templates/template-shell"
 
 export type CheckinApprovedEmailProps = {
   tenantName: string
@@ -10,43 +10,127 @@ export type CheckinApprovedEmailProps = {
   bookingId: string
   flightDate: string
   aircraftRegistration?: string | null
-  flightTime?: number | null
   invoiceNumber?: string | null
   invoiceTotal?: number | null
-  currency: string
+  currency?: string | null
   invoiceUrl: string
   dueDate?: string | null
 }
 
-function formatMoney(value: number | null | undefined, currency: string) {
-  if (typeof value !== "number") return "N/A"
-  return new Intl.NumberFormat("en-NZ", { style: "currency", currency }).format(value)
+function formatMoney(amount: number | null | undefined, currency: string) {
+  if (typeof amount !== "number" || !Number.isFinite(amount)) return null
+
+  return new Intl.NumberFormat("en-NZ", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(amount)
 }
 
-export function CheckinApprovedEmail(props: CheckinApprovedEmailProps) {
+export function CheckinApprovedEmail({
+  tenantName,
+  logoUrl,
+  memberFirstName,
+  bookingId,
+  flightDate,
+  aircraftRegistration,
+  invoiceNumber,
+  invoiceTotal,
+  currency,
+  invoiceUrl,
+  dueDate,
+}: CheckinApprovedEmailProps) {
+  const safeFirstName = memberFirstName.trim() || "there"
+  const total = formatMoney(invoiceTotal, currency ?? "NZD")
+
   return (
-    <TemplateShell preview="Flight complete - invoice ready" tenantName={props.tenantName} logoUrl={props.logoUrl}>
-      <Heading style={{ color: "#18181b", margin: "0 0 8px" }}>Flight complete - invoice ready</Heading>
-      <Text style={{ color: "#18181b" }}>Hi {props.memberFirstName}, your check-in is approved and invoice is ready.</Text>
-      <Section>
-        <Text style={{ color: "#71717a", margin: 0 }}>Flight date: {props.flightDate}</Text>
-        <Text style={{ color: "#71717a", margin: 0 }}>Booking ID: {props.bookingId}</Text>
-        {props.aircraftRegistration ? (
-          <Text style={{ color: "#71717a", margin: 0 }}>Aircraft: {props.aircraftRegistration}</Text>
+    <TemplateShell
+      preview={`Flight complete${invoiceNumber ? ` - invoice ${invoiceNumber}` : ""}`}
+      tenantName={tenantName}
+      logoUrl={logoUrl}
+    >
+      <Heading style={styles.heading}>Flight complete</Heading>
+      <Text style={styles.body}>
+        Hi {safeFirstName}, your booking on {flightDate} has been checked off and your invoice is ready.
+      </Text>
+      <Section style={styles.panel}>
+        <Text style={styles.label}>Booking</Text>
+        <Text style={styles.value}>{bookingId}</Text>
+        {aircraftRegistration ? (
+          <>
+            <Text style={styles.label}>Aircraft</Text>
+            <Text style={styles.value}>{aircraftRegistration}</Text>
+          </>
         ) : null}
-        {typeof props.flightTime === "number" ? (
-          <Text style={{ color: "#71717a", margin: 0 }}>Flight time: {props.flightTime.toFixed(1)} hours</Text>
+        {invoiceNumber ? (
+          <>
+            <Text style={styles.label}>Invoice</Text>
+            <Text style={styles.value}>{invoiceNumber}</Text>
+          </>
         ) : null}
-        {props.invoiceNumber ? (
-          <Text style={{ color: "#71717a", margin: 0 }}>Invoice: {props.invoiceNumber}</Text>
+        {total ? (
+          <>
+            <Text style={styles.label}>Total</Text>
+            <Text style={styles.value}>{total}</Text>
+          </>
         ) : null}
-        <Text style={{ color: "#18181b", margin: 0 }}>
-          Total: {formatMoney(props.invoiceTotal, props.currency)}
-        </Text>
+        {dueDate ? (
+          <>
+            <Text style={styles.label}>Due date</Text>
+            <Text style={styles.value}>{dueDate}</Text>
+          </>
+        ) : null}
       </Section>
-      <Button href={props.invoiceUrl} style={{ backgroundColor: "#2563eb", color: "#ffffff", padding: "10px 14px", borderRadius: "6px" }}>
-        View Invoice
-      </Button>
+      <Section style={styles.buttonWrap}>
+        <Button href={invoiceUrl} style={styles.button}>
+          View invoice
+        </Button>
+      </Section>
     </TemplateShell>
   )
+}
+
+const styles = {
+  heading: {
+    fontSize: "24px",
+    lineHeight: "32px",
+    margin: "0 0 12px",
+  },
+  body: {
+    fontSize: "15px",
+    lineHeight: "24px",
+    color: "#27272a",
+    margin: "0 0 20px",
+  },
+  panel: {
+    backgroundColor: "#f4f4f5",
+    borderRadius: "8px",
+    padding: "16px",
+    marginBottom: "20px",
+  },
+  label: {
+    fontSize: "12px",
+    color: "#71717a",
+    margin: "0 0 4px",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+  },
+  value: {
+    fontSize: "15px",
+    color: "#18181b",
+    margin: "0 0 12px",
+  },
+  buttonWrap: {
+    marginTop: "8px",
+  },
+  button: {
+    backgroundColor: "#18181b",
+    borderRadius: "6px",
+    color: "#ffffff",
+    display: "inline-block",
+    fontSize: "14px",
+    fontWeight: "600",
+    padding: "12px 18px",
+    textDecoration: "none",
+  },
 }

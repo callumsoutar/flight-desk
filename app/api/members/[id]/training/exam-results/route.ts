@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
-const createExamResultSchema = z.object({
+const createExamResultSchema = z.strictObject({
   exam_id: z.string().min(1),
   result: z.enum(["PASS", "FAIL"]),
   score: z.number().min(0).max(100).nullable().optional(),

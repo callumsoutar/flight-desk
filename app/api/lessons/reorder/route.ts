@@ -7,9 +7,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const payloadSchema = z.object({
+const payloadSchema = z.strictObject({
   syllabus_id: z.string().uuid(),
-  lesson_orders: z.array(z.object({ id: z.string().uuid(), order: z.number().int().min(1).max(10000) })).min(1),
+  lesson_orders: z.array(z.strictObject({ id: z.string().uuid(), order: z.number().int().min(1).max(10000) })).min(1),
 })
 
 export async function PATCH(request: NextRequest) {

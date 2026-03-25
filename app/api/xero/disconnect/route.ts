@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { logWarn } from "@/lib/security/logger"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { revokeXeroToken } from "@/lib/xero/client"
@@ -35,7 +36,7 @@ export async function POST() {
       const { clientId, clientSecret } = getXeroEnv()
       await revokeXeroToken(connection.refresh_token, clientId, clientSecret)
     } catch (error) {
-      console.warn("[xero] revoke failed during disconnect", error)
+      logWarn("[xero] revoke failed during disconnect", { error, tenantId })
     }
   }
 

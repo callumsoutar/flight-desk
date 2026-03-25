@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { logError, logWarn } from "@/lib/security/logger"
 import type { Database } from "@/lib/types"
 import type { createXeroApiClient } from "@/lib/xero/client"
 import { XeroApiError } from "@/lib/xero/types"
@@ -67,7 +68,7 @@ export async function syncXeroContact(
     }
   } catch (error) {
     if (error instanceof XeroApiError && error.status === 404) {
-      console.warn("[xero] Contact lookup returned 404, creating contact", { tenantId, userId })
+      logWarn("[xero] Contact lookup returned 404, creating contact", { tenantId, userId })
       const created = await xeroClient.createContact({
         Name: `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || user.email,
         FirstName: user.first_name ?? undefined,
@@ -81,7 +82,7 @@ export async function syncXeroContact(
       contactId = recreated?.ContactID ?? null
       contactName = recreated?.Name ?? null
     } else {
-      console.error("[xero] Contact sync failed", {
+      logError("[xero] Contact sync failed", {
         tenantId,
         userId,
         error: error instanceof Error ? error.message : "Unknown contact sync error",

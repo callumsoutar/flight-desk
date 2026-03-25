@@ -6,6 +6,7 @@ import { z } from "zod"
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic"
 
 const STUDENT_ROLE_ID = "9ac4dbd5-648d-4f9a-8c13-4307aae0da40"
 
-const trialBookingSchema = z.object({
+const trialBookingSchema = z.strictObject({
   guest_first_name: z.string().trim().min(1, "First name is required"),
   guest_last_name: z.string().trim().min(1, "Last name is required"),
   guest_email: z.string().trim().email("Valid email is required"),
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (lookupError) {
-    console.error("[trial-booking] user lookup error:", lookupError.message)
+    logError("[trial-booking] user lookup error", { error: lookupError.message, tenantId })
   }
 
   let guestUserId: string
@@ -239,7 +240,7 @@ export async function POST(request: NextRequest) {
       .eq("id", guestUserId)
 
     if (updateError) {
-      console.error("[trial-booking] user update error:", updateError.message)
+      logError("[trial-booking] user update error", { error: updateError.message, tenantId, userId: guestUserId })
     }
   } else {
     const newId = randomUUID()
@@ -256,9 +257,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (userError || !newUser) {
-      console.error("[trial-booking] user insert error:", userError?.message, userError?.details, userError?.code)
+      logError("[trial-booking] user insert error", {
+        error: userError?.message ?? "user_insert_failed",
+        details: userError?.details,
+        code: userError?.code,
+        tenantId,
+      })
       return NextResponse.json(
-        { error: userError?.message || "Failed to create guest user record" },
+        { error: "Failed to create guest user record" },
         { status: 500, headers: { "cache-control": "no-store" } }
       )
     }
@@ -274,7 +280,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (tenantLookupError) {
-    console.error("[trial-booking] tenant_user lookup error:", tenantLookupError.message)
+    logError("[trial-booking] tenant_user lookup error", { error: tenantLookupError.message, tenantId, userId: guestUserId })
   }
 
   if (!existingTenantUser) {
@@ -288,9 +294,15 @@ export async function POST(request: NextRequest) {
       })
 
     if (tenantUserError) {
-      console.error("[trial-booking] tenant_user insert error:", tenantUserError.message, tenantUserError.details, tenantUserError.code)
+      logError("[trial-booking] tenant_user insert error", {
+        error: tenantUserError.message,
+        details: tenantUserError.details,
+        code: tenantUserError.code,
+        tenantId,
+        userId: guestUserId,
+      })
       return NextResponse.json(
-        { error: tenantUserError.message || "Failed to link guest to organisation" },
+        { error: "Failed to link guest to organisation" },
         { status: 500, headers: { "cache-control": "no-store" } }
       )
     }
@@ -318,9 +330,15 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    console.error("[trial-booking] booking insert error:", error?.message, error?.details, error?.code)
+    logError("[trial-booking] booking insert error", {
+      error: error?.message ?? "booking_insert_failed",
+      details: error?.details,
+      code: error?.code,
+      tenantId,
+      userId: guestUserId,
+    })
     return NextResponse.json(
-      { error: error?.message || "Failed to create trial flight booking" },
+      { error: "Failed to create trial flight booking" },
       { status: 500, headers: { "cache-control": "no-store" } }
     )
   }

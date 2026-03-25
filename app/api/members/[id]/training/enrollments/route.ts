@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
-const createEnrollmentSchema = z.object({
+const createEnrollmentSchema = z.strictObject({
   syllabus_id: z.string().min(1),
   enrolled_at: dateKeySchema.optional(),
   notes: z.string().trim().max(2000).nullable().optional(),

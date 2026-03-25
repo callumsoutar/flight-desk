@@ -13,7 +13,7 @@ const createRecurringBookingsSchema = createBookingPayloadSchema
   .extend({
     occurrences: z
       .array(
-        z.object({
+        z.strictObject({
           start_time: z.string(),
           end_time: z.string(),
         })

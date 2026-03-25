@@ -21,7 +21,7 @@ function toDateOnlyString(value: string | null | undefined): string | null {
   return value.slice(0, 10)
 }
 
-const updateVisitSchema = z.object({
+const updateVisitSchema = z.strictObject({
   id: z.string().uuid(),
   visit_date: z.string().optional(),
   visit_type: z.string().min(1).optional(),
@@ -36,7 +36,7 @@ const updateVisitSchema = z.object({
   next_due_date: z.string().nullable().optional(),
 })
 
-const createVisitSchema = z.object({
+const createVisitSchema = z.strictObject({
   aircraft_id: z.string().uuid(),
   component_id: z.string().uuid().nullable().optional(),
   visit_date: z.string(),

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { logWarn } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import { XeroAuthError } from "@/lib/xero/types"
@@ -66,7 +67,7 @@ export async function GET() {
         { status: 400 }
       )
     }
-    console.warn("[xero] Fetch tax rates failed", {
+    logWarn("[xero] Fetch tax rates failed", {
       tenantId,
       error: error instanceof Error ? error.message : "Unknown error",
     })

@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const createSchema = z.object({
+const createSchema = z.strictObject({
   aircraft_id: z.string().uuid(),
   name: z.string().trim().min(1),
   description: z.string().nullable().optional(),
@@ -35,7 +35,7 @@ const createSchema = z.object({
   notes: z.string().nullable().optional(),
 })
 
-const updateSchema = z.object({
+const updateSchema = z.strictObject({
   id: z.string().uuid(),
   name: z.string().trim().min(1).optional(),
   description: z.string().nullable().optional(),

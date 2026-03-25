@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
+import { invalidPayloadResponse } from "@/lib/security/http"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getZonedYyyyMmDdAndHHmm, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic"
 
 const lessonOutcomeSchema = z.union([z.literal("pass"), z.literal("not yet competent")])
 
-const putSchema = z.object({
+const putSchema = z.strictObject({
   status: lessonOutcomeSchema.nullable().optional(),
   instructor_comments: z.string().nullable().optional(),
   focus_next_lesson: z.string().nullable().optional(),
@@ -142,10 +143,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
   const parsed = putSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload", details: parsed.error.issues },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return invalidPayloadResponse()
   }
 
   const { id } = await context.params

@@ -5,6 +5,7 @@ import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
 import { fetchBookings } from "@/lib/bookings/fetch-bookings"
 import { sendBookingConfirmedEmailForBooking } from "@/lib/email/send-booking-confirmed-for-booking"
+import { logError } from "@/lib/security/logger"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (emailErr) {
-    console.error("[email] Trigger send failed (non-fatal):", emailErr)
+    logError("[email] Trigger send failed (non-fatal)", { error: emailErr, tenantId })
   }
 
   return NextResponse.json(
