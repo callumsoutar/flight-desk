@@ -116,7 +116,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
   }
 
   const handleEditRate = (rate: AircraftChargeRate) => {
-    const taxInclusiveRate = calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour))
+    const taxInclusiveRate = calculateTaxInclusive(rate.rate_per_hour)
 
     let chargeMethod: "hobbs" | "tacho" | "airswitch" | "" = ""
     if (rate.charge_hobbs) chargeMethod = "hobbs"
@@ -295,7 +295,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
                           </div>
                         ) : (
                           <span className="text-sm font-semibold tabular-nums text-slate-900">
-                            ${calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour)).toFixed(2)}
+                            ${calculateTaxInclusive(rate.rate_per_hour).toFixed(2)}
                           </span>
                         )}
                       </TableCell>

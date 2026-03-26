@@ -2,13 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import type { EquipmentIssuance, EquipmentRow, EquipmentUpdate } from "@/lib/types"
+import type { EquipmentIssuanceRow, EquipmentRow, EquipmentUpdatesRow } from "@/lib/types"
 
 type EquipmentDetailQueryData = {
   equipment: EquipmentRow
-  issuances: EquipmentIssuance[]
+  issuances: EquipmentIssuanceRow[]
   issuanceUserMap: Record<string, string>
-  updates: EquipmentUpdate[]
+  updates: EquipmentUpdatesRow[]
   updatesUserMap: Record<string, string>
 }
 
@@ -18,13 +18,13 @@ type EquipmentResponse = {
 }
 
 type EquipmentIssuanceResponse = {
-  issuances?: EquipmentIssuance[]
+  issuances?: EquipmentIssuanceRow[]
   userMap?: Record<string, string>
   error?: string
 }
 
 type EquipmentUpdatesResponse = {
-  updates?: EquipmentUpdate[]
+  updates?: EquipmentUpdatesRow[]
   userMap?: Record<string, string>
   error?: string
 }

@@ -63,6 +63,11 @@ const VISIT_TYPE_OPTIONS: VisitType[] = [
   "Modification",
 ]
 
+function toVisitType(value: string | null | undefined): VisitType | "" {
+  if (!value) return ""
+  return VISIT_TYPE_OPTIONS.includes(value as VisitType) ? (value as VisitType) : ""
+}
+
 const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = ({
   open,
   onOpenChange,
@@ -105,7 +110,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
       .then(async (visit) => {
         const visitDateParsed = visit.visit_date ? new Date(visit.visit_date) : null
         setVisitDate(visitDateParsed && isValidDate(visitDateParsed) ? visitDateParsed : null)
-        setVisitType(visit.visit_type || "")
+        setVisitType(toVisitType(visit.visit_type))
         setDescription(visit.description || "")
         setTotalCost(
           visit.total_cost !== null && visit.total_cost !== undefined ? String(visit.total_cost) : ""

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server"
 import { getTenantScopedRouteContext, getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchEquipment } from "@/lib/equipment/fetch-equipment"
 import { EQUIPMENT_STATUS_OPTIONS, EQUIPMENT_TYPE_OPTIONS } from "@/lib/types/equipment"
+import type { EquipmentStatus, EquipmentType } from "@/lib/types/equipment"
 import { equipmentCreateSchema } from "@/lib/validation/equipment"
 
 export const dynamic = "force-dynamic"
@@ -16,6 +17,14 @@ function optionalTrimmedValue(value?: string): string | null {
 const equipmentStatuses = new Set(EQUIPMENT_STATUS_OPTIONS.map((option) => option.value))
 const equipmentTypes = new Set(EQUIPMENT_TYPE_OPTIONS.map((option) => option.value))
 
+function isEquipmentStatus(value: string): value is EquipmentStatus {
+  return equipmentStatuses.has(value as EquipmentStatus)
+}
+
+function isEquipmentType(value: string): value is EquipmentType {
+  return equipmentTypes.has(value as EquipmentType)
+}
+
 export async function GET(request: NextRequest) {
   const session = await getTenantScopedRouteContext({ access: "authenticated" })
   if (session.response) return session.response
@@ -28,8 +37,8 @@ export async function GET(request: NextRequest) {
   const issued = params.get("issued")
 
   const filters = {
-    status: status && equipmentStatuses.has(status) ? status : undefined,
-    type: type && equipmentTypes.has(type) ? type : undefined,
+    status: status && isEquipmentStatus(status) ? status : undefined,
+    type: type && isEquipmentType(type) ? type : undefined,
     search: search?.trim() || undefined,
     issued: issued === "true" ? true : issued === "false" ? false : undefined,
   }

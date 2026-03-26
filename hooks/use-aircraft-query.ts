@@ -43,11 +43,12 @@ export async function createAircraft(input: {
     aircraft?: { id?: string }
   }
 
-  if (!response.ok || !payload.aircraft?.id) {
+  const createdAircraftId = payload.aircraft?.id
+  if (!response.ok || !createdAircraftId) {
     throw new Error(getAircraftErrorMessage(payload, "Failed to create aircraft"))
   }
 
-  return payload.aircraft
+  return { id: createdAircraftId }
 }
 
 export async function fetchAircraftDetail(aircraftId: string): Promise<AircraftWithType> {

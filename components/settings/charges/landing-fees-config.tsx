@@ -230,7 +230,7 @@ export function LandingFeesConfig() {
         existingRatesByAircraft.set(rate.aircraft_type_id, rate)
       }
 
-      const operations: Array<Promise<Response>> = []
+      const operations: Array<Promise<void>> = []
 
       for (const aircraftType of aircraftTypes) {
         const valueInclusive = formData.aircraft_rates_inclusive[aircraftType.id] ?? ""

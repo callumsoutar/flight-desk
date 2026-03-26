@@ -51,11 +51,12 @@ export async function createMember(input: {
     member?: { id?: string }
   }
 
-  if (!response.ok || !payload.member?.id) {
+  const createdMemberId = payload.member?.id
+  if (!response.ok || !createdMemberId) {
     throw new Error(getMembersError(payload, "Failed to create member"))
   }
 
-  return payload.member
+  return { id: createdMemberId }
 }
 
 export function useMembersQuery(initialData: MemberWithRelations[]) {
