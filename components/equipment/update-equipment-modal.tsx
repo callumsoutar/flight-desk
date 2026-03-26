@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { createEquipmentUpdate } from "@/hooks/use-equipment-detail-query"
 import type { Equipment } from "@/lib/types/equipment"
 
 const updateSchema = z.object({
@@ -53,27 +54,16 @@ export function UpdateEquipmentModal({ open, onOpenChange, equipment, onSuccess 
 
     setIsSubmitting(true)
     try {
-      const response = await fetch("/api/equipment-updates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          equipment_id: equipment.id,
-          next_due_at: parsed.data.next_due_at?.trim() ? parsed.data.next_due_at : null,
-          notes: parsed.data.notes?.trim() ? parsed.data.notes : null,
-        }),
+      await createEquipmentUpdate({
+        equipment_id: equipment.id,
+        next_due_at: parsed.data.next_due_at?.trim() ? parsed.data.next_due_at : null,
+        notes: parsed.data.notes?.trim() ? parsed.data.notes : null,
       })
-
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) {
-        toast.error(payload?.error || "Failed to log update")
-        return
-      }
-
       toast.success("Equipment update logged")
       onOpenChange(false)
       onSuccess?.()
-    } catch {
-      toast.error("Network error while logging update")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Network error while logging update")
     } finally {
       setIsSubmitting(false)
     }

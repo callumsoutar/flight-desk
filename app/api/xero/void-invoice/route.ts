@@ -1,11 +1,8 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { invalidPayloadResponse } from "@/lib/security/http"
 import { logError } from "@/lib/security/logger"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -15,18 +12,9 @@ const schema = z.strictObject({
 })
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = schema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return invalidPayloadResponse()
@@ -42,7 +30,7 @@ export async function POST(request: Request) {
       tenantId,
       invoiceId: parsed.data.invoiceId,
     })
-    return NextResponse.json({ error: "Failed to void invoice" }, { status: 500 })
+    return noStoreJson({ error: "Failed to void invoice" }, { status: 500 })
   }
 
   const result = data as { success: boolean; error?: string; message?: string; xero_invoice_id?: string }
@@ -53,8 +41,8 @@ export async function POST(request: Request) {
       tenantId,
       invoiceId: parsed.data.invoiceId,
     })
-    return NextResponse.json({ error: "Unable to void invoice" }, { status: 400 })
+    return noStoreJson({ error: "Unable to void invoice" }, { status: 400 })
   }
 
-  return NextResponse.json(result, { headers: { "cache-control": "no-store" } })
+  return noStoreJson(result)
 }

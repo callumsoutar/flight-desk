@@ -3,6 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 
+import { updateXeroSettings } from "@/hooks/use-xero-settings-query"
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import { XeroTaxTypeSelect } from "@/components/settings/xero-tax-type-select"
 import { Button } from "@/components/ui/button"
@@ -70,20 +71,16 @@ export function XeroSettingsForm({
 
       <Button
         onClick={async () => {
-          setSaving(true)
-          const response = await fetch("/api/settings/xero", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ xero: form }),
-          })
-          setSaving(false)
-          if (!response.ok) {
-            const body = (await response.json().catch(() => null)) as { error?: string } | null
-            toast.error(body?.error ?? "Failed to save Xero settings")
-            return
+          try {
+            setSaving(true)
+            await updateXeroSettings({ xero: form })
+            toast.success("Xero settings saved")
+            onSaved?.()
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to save Xero settings")
+          } finally {
+            setSaving(false)
           }
-          toast.success("Xero settings saved")
-          onSaved?.()
         }}
         disabled={disabled || saving || !isDirty}
       >

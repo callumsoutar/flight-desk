@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import {
   CalendarIcon,
   CheckCircle2,
@@ -76,7 +75,7 @@ export type RecordPaymentModalProps = {
   totalAmount?: number | null
   totalPaid?: number | null
   balanceDue?: number | null
-  onSuccess?: () => void
+  onSuccess?: () => void | Promise<void>
 }
 
 export default function RecordPaymentModal({
@@ -89,8 +88,6 @@ export default function RecordPaymentModal({
   balanceDue,
   onSuccess,
 }: RecordPaymentModalProps) {
-  const router = useRouter()
-
   const computedRemaining = React.useMemo(() => {
     const ta = typeof totalAmount === "number" ? totalAmount : 0
     const tp = typeof totalPaid === "number" ? totalPaid : 0
@@ -184,8 +181,7 @@ export default function RecordPaymentModal({
     setTimeout(() => {
       reset()
       onOpenChange(false)
-      router.refresh()
-      onSuccess?.()
+      void onSuccess?.()
     }, 1600)
   }
 

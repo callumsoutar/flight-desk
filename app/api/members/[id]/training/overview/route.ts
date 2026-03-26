@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { TrainingStudentOverviewResponse } from "@/lib/types/training-student-overview"
 
 export const dynamic = "force-dynamic"
@@ -26,28 +25,13 @@ export async function GET(
 ) {
   const { id: targetUserId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const canViewOtherMembers = isStaffRole(role)
   if (targetUserId !== user.id && !canViewOtherMembers) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
   if (targetUserId !== user.id && role === "instructor") {
@@ -56,19 +40,13 @@ export async function GET(
     })
 
     if (error || !canManage) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Forbidden" }, { status: 403 })
     }
   }
 
   const syllabusId = cleanSyllabusId(request.nextUrl.searchParams.get("syllabus_id"))
   if (!syllabusId) {
-    return NextResponse.json(
-      { error: "Missing syllabus_id" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Missing syllabus_id" }, { status: 400 })
   }
 
   try {
@@ -210,11 +188,8 @@ export async function GET(
       last_activity: lastActivity,
     }
 
-    return NextResponse.json(payload, { headers: { "cache-control": "no-store" } })
+    return noStoreJson(payload)
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load training overview" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load training overview" }, { status: 500 })
   }
 }

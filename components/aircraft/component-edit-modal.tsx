@@ -33,6 +33,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { updateAircraftComponent } from "@/hooks/use-aircraft-components-query"
 
 type ComponentType = Database["public"]["Enums"]["component_type_enum"]
 type IntervalType = Database["public"]["Enums"]["interval_type_enum"]
@@ -43,6 +44,7 @@ interface ComponentEditModalProps {
   onOpenChange: (open: boolean) => void
   component: AircraftComponentsRow | null
   onSave: (updated: Partial<AircraftComponentsRow>) => Promise<void>
+  onChanged?: () => void
 }
 
 const PRIORITY_OPTIONS = ["LOW", "MEDIUM", "HIGH"]
@@ -80,6 +82,7 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
   onOpenChange,
   component,
   onSave,
+  onChanged,
 }) => {
   const { timeZone } = useTimezone()
   const [name, setName] = useState("")
@@ -167,23 +170,12 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
     if (!component) return
     setLoadingExtend(true)
     try {
-      const res = await fetch("/api/aircraft-components", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: component.id, extension_limit_hours: 10 }),
-      })
-      if (!res.ok) {
-        const errorData = await res.json()
-        toast.error(errorData.error || "Failed to extend component")
-        setLoadingExtend(false)
-        return
-      }
+      await updateAircraftComponent({ id: component.id, extension_limit_hours: 10 })
       toast.success("Component extension applied!", {
         description: "Extension limit set to 10%",
       })
-      setTimeout(() => {
-        if (typeof window !== "undefined") window.location.reload()
-      }, 1200)
+      onOpenChange(false)
+      onChanged?.()
     } catch (err: unknown) {
       if (err instanceof Error) {
         toast.error(err.message || "Failed to extend component")
@@ -199,21 +191,10 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
     if (!component) return
     setRevertLoading(true)
     try {
-      const res = await fetch("/api/aircraft-components", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: component.id, extension_limit_hours: null }),
-      })
-      if (!res.ok) {
-        const errorData = await res.json()
-        toast.error(errorData.error || "Failed to revert extension")
-        setRevertLoading(false)
-        return
-      }
+      await updateAircraftComponent({ id: component.id, extension_limit_hours: null })
       toast.success("Extension reverted. Component is now back to original due logic.")
-      setTimeout(() => {
-        if (typeof window !== "undefined") window.location.reload()
-      }, 1200)
+      onOpenChange(false)
+      onChanged?.()
     } catch (e: unknown) {
       if (e instanceof Error) {
         toast.error(e.message || "Failed to revert extension")

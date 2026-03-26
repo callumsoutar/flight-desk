@@ -2,6 +2,7 @@ import { render } from "@react-email/render"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { formatBookingDateRange } from "@/lib/email/format-booking-time"
+import { getRequiredPublicAppUrl } from "@/lib/env/public-app-url"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
 import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
@@ -61,7 +62,7 @@ export async function sendBookingConfirmedEmailForBooking(args: {
     String(booking.end_time),
     timezone
   )
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  const baseUrl = getRequiredPublicAppUrl()
   const bookingUrl = `${baseUrl}/bookings/${bookingId}`
 
   const html = await render(

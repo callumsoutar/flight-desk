@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -67,12 +65,9 @@ const updateSchema = z.strictObject({
 })
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const componentId = request.nextUrl.searchParams.get("id")
   if (componentId) {
@@ -85,14 +80,14 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (error || !data) {
-      return NextResponse.json({ error: "Component not found" }, { status: 404 })
+      return noStoreJson({ error: "Component not found" }, { status: 404 })
     }
-    return NextResponse.json(data, { headers: { "cache-control": "no-store" } })
+    return noStoreJson(data)
   }
 
   const aircraftId = request.nextUrl.searchParams.get("aircraft_id")
   if (!aircraftId) {
-    return NextResponse.json({ error: "aircraft_id is required" }, { status: 400 })
+    return noStoreJson({ error: "aircraft_id is required" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -104,24 +99,21 @@ export async function GET(request: NextRequest) {
     .order("name", { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: "Failed to load components" }, { status: 500 })
+    return noStoreJson({ error: "Failed to load components" }, { status: 500 })
   }
 
-  return NextResponse.json(data ?? [], { headers: { "cache-control": "no-store" } })
+  return noStoreJson(data ?? [])
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -134,7 +126,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (aircraftError || !aircraft) {
-    return NextResponse.json({ error: "Aircraft not found" }, { status: 404 })
+    return noStoreJson({ error: "Aircraft not found" }, { status: 404 })
   }
 
   const { data, error } = await supabase
@@ -160,24 +152,21 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to create maintenance item" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create maintenance item" }, { status: 500 })
   }
 
-  return NextResponse.json(data, { status: 201 })
+  return noStoreJson(data, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -186,7 +175,7 @@ export async function PATCH(request: NextRequest) {
   )
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -198,8 +187,8 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to update maintenance item" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update maintenance item" }, { status: 500 })
   }
 
-  return NextResponse.json(data)
+  return noStoreJson(data)
 }

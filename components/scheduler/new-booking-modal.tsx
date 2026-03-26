@@ -2,17 +2,12 @@
 
 import * as React from "react"
 import {
-  AlertCircle,
   CalendarIcon,
-  Check,
   ChevronDown,
   Clock,
   HelpCircle,
-  Mail,
-  Phone,
   Plane,
   Plus,
-  Ticket,
   User,
   Wrench,
 } from "lucide-react"
@@ -30,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Select,
@@ -42,15 +36,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { LessonSearchDropdown } from "@/components/bookings/lesson-search-dropdown"
 import { MemberTrainingPeek } from "@/components/bookings/member-training-peek"
-import type { MemberTrainingPeekResponse } from "@/lib/types/member-training-peek"
+import { NewBookingModeTabs } from "@/components/scheduler/new-booking-mode-tabs"
+import { RecurringBookingSection } from "@/components/scheduler/recurring-booking-section"
+import { TrialGuestDetailsSection } from "@/components/scheduler/trial-guest-details-section"
+import { useBookingAvailability, type BookingOccurrence } from "@/hooks/use-booking-availability"
+import {
+  createBookingMutation,
+  createRecurringBookingsMutation,
+  createTrialBookingMutation,
+} from "@/hooks/use-booking-query"
+import { useBookingOptionsQuery } from "@/hooks/use-booking-options-query"
+import { useMemberTrainingPeekQuery } from "@/hooks/use-member-training-peek-query"
 import MemberSelect, { type UserResult } from "@/components/invoices/member-select"
 
 type SchedulerBookingDraft = {
@@ -64,59 +66,6 @@ type SchedulerBookingDraft = {
 type InstructorRosterWindow = { startMin: number; endMin: number }
 
 type BookingType = "flight" | "groundwork" | "maintenance" | "other"
-
-type BookingOptionsResponse = {
-  options: {
-    aircraft: Array<{
-      id: string
-      registration: string
-      type: string
-      aircraft_type_id: string | null
-      model: string | null
-      manufacturer: string | null
-    }>
-    members: Array<{
-      id: string
-      first_name: string | null
-      last_name: string | null
-      email: string
-    }>
-    instructors: Array<{
-      id: string
-      first_name: string | null
-      last_name: string | null
-      user_id: string | null
-      is_actively_instructing?: boolean
-      user: {
-        id: string
-        first_name: string | null
-        last_name: string | null
-        email: string
-      } | null
-    }>
-    flightTypes: Array<{
-      id: string
-      name: string
-      instruction_type: string | null
-    }>
-    syllabi: Array<{
-      id: string
-      name: string
-    }>
-    lessons: Array<{
-      id: string
-      name: string
-      description: string | null
-      order: number | null
-      syllabus_id: string | null
-    }>
-  }
-}
-
-type AvailabilityResponse = {
-  unavailableAircraftIds: string[]
-  unavailableInstructorIds: string[]
-}
 
 type FormState = {
   date: Date
@@ -139,12 +88,6 @@ type FormState = {
   trialEmail: string
   trialPhone: string
   voucherNumber: string
-}
-
-type Occurrence = {
-  date: Date
-  startIso: string
-  endIso: string
 }
 
 type ErrorState = Partial<
@@ -203,15 +146,6 @@ function fromYyyyMmDd(value: string) {
     return new Date()
   }
   return new Date(y, m - 1, d, 12, 0, 0, 0)
-}
-
-function formatEeeDdMmm(value: Date, timeZone: string) {
-  return new Intl.DateTimeFormat("en-NZ", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    timeZone,
-  }).format(value)
 }
 
 function parseTimeToMinutes(value: string) {
@@ -322,19 +256,11 @@ export function NewBookingModal({
   const [moreOptionsOpen, setMoreOptionsOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
 
-  const [options, setOptions] = React.useState<BookingOptionsResponse["options"] | null>(null)
-  const [optionsLoading, setOptionsLoading] = React.useState(false)
-  const [optionsError, setOptionsError] = React.useState<string | null>(null)
-
-  const [unavailableAircraftIds, setUnavailableAircraftIds] = React.useState<string[]>([])
-  const [unavailableInstructorIds, setUnavailableInstructorIds] = React.useState<string[]>([])
-  const [overlapsFetching, setOverlapsFetching] = React.useState(false)
-  const [overlapsError, setOverlapsError] = React.useState<string | null>(null)
-
-  const [occurrenceConflicts, setOccurrenceConflicts] = React.useState<Record<string, { aircraft: boolean; instructor: boolean }>>({})
-  const [checkingOccurrences, setCheckingOccurrences] = React.useState(false)
-
-  const [memberEnrollment, setMemberEnrollment] = React.useState<MemberTrainingPeekResponse["enrollment"] | null>(null)
+  const {
+    data: options,
+    isLoading: optionsLoading,
+    error: optionsErrorState,
+  } = useBookingOptionsQuery(open)
 
   React.useEffect(() => {
     if (!open || !draft) return
@@ -342,68 +268,13 @@ export function NewBookingModal({
     setBookingMode("regular")
     setErrors({})
     setMoreOptionsOpen(false)
-    setOccurrenceConflicts({})
-    setUnavailableAircraftIds([])
-    setUnavailableInstructorIds([])
-    setOverlapsError(null)
   }, [open, draft, isStaff, currentUserId])
-
-  React.useEffect(() => {
-    if (!open) return
-    const controller = new AbortController()
-    setOptionsLoading(true)
-    setOptionsError(null)
-
-    void fetch("/api/bookings/options", {
-      method: "GET",
-      cache: "no-store",
-      headers: { "cache-control": "no-store" },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || "Failed to load booking options")
-        }
-        const payload = (await response.json()) as BookingOptionsResponse
-        setOptions(payload.options)
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return
-        setOptions(null)
-        setOptionsError(error instanceof Error ? error.message : "Failed to load booking options")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setOptionsLoading(false)
-        }
-      })
-
-    return () => controller.abort()
-  }, [open])
 
   const memberId = form?.memberId ?? null
   const members = React.useMemo(() => options?.members ?? [], [options?.members])
-
-  React.useEffect(() => {
-    if (!open || !memberId) {
-      setMemberEnrollment(null)
-      return
-    }
-    const controller = new AbortController()
-    void fetch(`/api/members/${memberId}/training/peek`, {
-      cache: "no-store",
-      headers: { "cache-control": "no-store" },
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) return
-        const data = (await res.json()) as MemberTrainingPeekResponse
-        if (!controller.signal.aborted) setMemberEnrollment(data.enrollment ?? null)
-      })
-      .catch(() => {})
-    return () => controller.abort()
-  }, [open, memberId])
+  const { data: memberTrainingPeek } = useMemberTrainingPeekQuery(memberId, open)
+  const memberEnrollment = memberTrainingPeek?.enrollment ?? null
+  const optionsError = optionsErrorState instanceof Error ? optionsErrorState.message : null
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
     if (!memberId) return null
@@ -589,46 +460,57 @@ export function NewBookingModal({
   const computedRangeStartIso = computedRange?.startIso ?? null
   const computedRangeEndIso = computedRange?.endIso ?? null
 
-  React.useEffect(() => {
-    if (!open || !computedRangeStartIso || !computedRangeEndIso) return
-    const controller = new AbortController()
-    const params = new URLSearchParams({
-      start_time: computedRangeStartIso,
-      end_time: computedRangeEndIso,
-    })
+  const occurrences = React.useMemo<BookingOccurrence[]>(() => {
+    if (!form?.isRecurring || !form.repeatUntil || form.recurringDays.length === 0 || !isValidTimeRange) {
+      return []
+    }
 
-    setOverlapsFetching(true)
-    setOverlapsError(null)
+    const list: BookingOccurrence[] = []
+    let current = new Date(form.date.getFullYear(), form.date.getMonth(), form.date.getDate(), 12, 0, 0, 0)
+    const end = new Date(form.repeatUntil.getFullYear(), form.repeatUntil.getMonth(), form.repeatUntil.getDate(), 12, 0, 0, 0)
 
-    void fetch(`/api/bookings/availability?${params.toString()}`, {
-      method: "GET",
-      cache: "no-store",
-      headers: { "cache-control": "no-store" },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || "Failed to check availability")
-        }
-        const payload = (await response.json()) as AvailabilityResponse
-        setUnavailableAircraftIds(payload.unavailableAircraftIds ?? [])
-        setUnavailableInstructorIds(payload.unavailableInstructorIds ?? [])
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return
-        setUnavailableAircraftIds([])
-        setUnavailableInstructorIds([])
-        setOverlapsError(error instanceof Error ? error.message : "Failed to check availability")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setOverlapsFetching(false)
-        }
-      })
+    while (current <= end) {
+      if (form.recurringDays.includes(current.getDay())) {
+        list.push({
+          date: new Date(current),
+          startIso: combineSchoolDateAndTimeToIso({ date: current, timeHHmm: form.startTime, timeZone }),
+          endIso: combineSchoolDateAndTimeToIso({ date: current, timeHHmm: form.endTime, timeZone }),
+        })
+      }
+      current = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1, 12, 0, 0, 0)
+    }
 
-    return () => controller.abort()
-  }, [open, computedRangeStartIso, computedRangeEndIso])
+    return list
+  }, [
+    form?.date,
+    form?.endTime,
+    form?.isRecurring,
+    form?.recurringDays,
+    form?.repeatUntil,
+    form?.startTime,
+    isValidTimeRange,
+    timeZone,
+  ])
+  const {
+    unavailableAircraftIds,
+    unavailableInstructorIds,
+    overlapsFetching,
+    overlapsError,
+    occurrenceConflicts,
+    checkingOccurrences,
+    hasConflicts,
+  } = useBookingAvailability({
+    open,
+    isValidTimeRange,
+    startIso: computedRangeStartIso,
+    endIso: computedRangeEndIso,
+    recurringEnabled: Boolean(form?.isRecurring),
+    occurrences,
+    aircraftId: form?.aircraftId ?? null,
+    instructorId: form?.instructorId ?? null,
+  })
+
+  const isCheckingAvailability = open && isValidTimeRange && overlapsFetching
 
   const unavailableAircraftSet = React.useMemo(
     () => new Set(unavailableAircraftIds),
@@ -700,89 +582,6 @@ export function NewBookingModal({
       toast.message("Selected instructor is no longer available for this time range.")
     }
   }, [form?.aircraftId, form?.instructorId, open, isValidTimeRange, unavailableAircraftSet, unavailableInstructorSet])
-
-  const occurrences = React.useMemo<Occurrence[]>(() => {
-    if (!form?.isRecurring || !form.repeatUntil || form.recurringDays.length === 0 || !isValidTimeRange) {
-      return []
-    }
-
-    const list: Occurrence[] = []
-    let current = new Date(form.date.getFullYear(), form.date.getMonth(), form.date.getDate(), 12, 0, 0, 0)
-    const end = new Date(form.repeatUntil.getFullYear(), form.repeatUntil.getMonth(), form.repeatUntil.getDate(), 12, 0, 0, 0)
-
-    while (current <= end) {
-      if (form.recurringDays.includes(current.getDay())) {
-        list.push({
-          date: new Date(current),
-          startIso: combineSchoolDateAndTimeToIso({ date: current, timeHHmm: form.startTime, timeZone }),
-          endIso: combineSchoolDateAndTimeToIso({ date: current, timeHHmm: form.endTime, timeZone }),
-        })
-      }
-      current = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1, 12, 0, 0, 0)
-    }
-
-    return list
-  }, [
-    form?.date,
-    form?.endTime,
-    form?.isRecurring,
-    form?.recurringDays,
-    form?.repeatUntil,
-    form?.startTime,
-    isValidTimeRange,
-    timeZone,
-  ])
-
-  React.useEffect(() => {
-    if (!open || !form?.isRecurring || occurrences.length === 0) {
-      setOccurrenceConflicts({})
-      return
-    }
-
-    const timer = setTimeout(() => {
-      const check = async () => {
-        setCheckingOccurrences(true)
-        const conflicts: Record<string, { aircraft: boolean; instructor: boolean }> = {}
-
-        try {
-          await Promise.all(
-            occurrences.map(async (occ) => {
-              const params = new URLSearchParams({
-                start_time: occ.startIso,
-                end_time: occ.endIso,
-              })
-              const response = await fetch(`/api/bookings/availability?${params.toString()}`, {
-                method: "GET",
-                cache: "no-store",
-                headers: { "cache-control": "no-store" },
-              })
-              if (!response.ok) return
-              const payload = (await response.json()) as AvailabilityResponse
-
-              const aircraftConflict = form.aircraftId ? payload.unavailableAircraftIds.includes(form.aircraftId) : false
-              const instructorConflict = form.instructorId ? payload.unavailableInstructorIds.includes(form.instructorId) : false
-              if (aircraftConflict || instructorConflict) {
-                conflicts[occ.startIso] = { aircraft: aircraftConflict, instructor: instructorConflict }
-              }
-            })
-          )
-
-          setOccurrenceConflicts(conflicts)
-        } finally {
-          setCheckingOccurrences(false)
-        }
-      }
-
-      void check()
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [open, form?.isRecurring, form?.aircraftId, form?.instructorId, occurrences])
-
-  const hasConflicts = Object.keys(occurrenceConflicts).length > 0
-
-  const isCheckingAvailability =
-    open && isValidTimeRange && overlapsFetching
 
   const updateForm = React.useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev))
@@ -925,30 +724,21 @@ export function NewBookingModal({
             timeZone,
           })
 
-          const response = await fetch("/api/bookings/trial", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "cache-control": "no-store" },
-            body: JSON.stringify({
-              guest_first_name: form.trialFirstName.trim(),
-              guest_last_name: form.trialLastName.trim(),
-              guest_email: form.trialEmail.trim(),
-              guest_phone: form.trialPhone.trim() || undefined,
-              voucher_number: form.voucherNumber.trim() || undefined,
-              start_time: startIso,
-              end_time: endIso,
-              aircraft_id: form.aircraftId,
-              instructor_id: shouldHideInstructor ? null : form.instructorId,
-              flight_type_id: form.flightTypeId,
-              purpose: form.purpose.trim(),
-              remarks: form.remarks.trim() || null,
-              status,
-            }),
+          await createTrialBookingMutation({
+            guest_first_name: form.trialFirstName.trim(),
+            guest_last_name: form.trialLastName.trim(),
+            guest_email: form.trialEmail.trim(),
+            guest_phone: form.trialPhone.trim() || undefined,
+            voucher_number: form.voucherNumber.trim() || undefined,
+            start_time: startIso,
+            end_time: endIso,
+            aircraft_id: form.aircraftId,
+            instructor_id: shouldHideInstructor ? null : form.instructorId,
+            flight_type_id: form.flightTypeId,
+            purpose: form.purpose.trim(),
+            remarks: form.remarks.trim() || null,
+            status,
           })
-
-          if (!response.ok) {
-            const payload = (await response.json().catch(() => ({}))) as { error?: string }
-            throw new Error(payload.error || "Failed to create trial flight booking")
-          }
 
           toast.success("Trial flight booking created")
           onOpenChange(false)
@@ -973,27 +763,15 @@ export function NewBookingModal({
             toast.message("Some recurring occurrences have conflicts and will be skipped.")
           }
 
-          const response = await fetch("/api/bookings/recurring", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "cache-control": "no-store" },
-            body: JSON.stringify({
-              ...commonPayload,
-              occurrences: occurrences.map((occ) => ({ start_time: occ.startIso, end_time: occ.endIso })),
-            }),
+          const payload = await createRecurringBookingsMutation({
+            ...commonPayload,
+            occurrences: occurrences.map((occ) => ({ start_time: occ.startIso, end_time: occ.endIso })),
           })
-
-          const payload = (await response.json().catch(() => ({}))) as {
-            error?: string
-            requestedCount?: number
-            createdCount?: number
-            failedCount?: number
-            failed?: Array<{ start_time: string; end_time: string; status: number; error: string }>
-          }
 
           const createdCount = payload.createdCount ?? 0
           const failedCount = payload.failedCount ?? 0
 
-          if (!response.ok || createdCount === 0) {
+          if (createdCount === 0) {
             const firstFailure = payload.failed?.[0]?.error
             throw new Error(payload.error || firstFailure || "Failed to create recurring bookings")
           }
@@ -1020,16 +798,7 @@ export function NewBookingModal({
           timeZone,
         })
 
-        const response = await fetch("/api/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "cache-control": "no-store" },
-          body: JSON.stringify({ ...commonPayload, start_time: startIso, end_time: endIso }),
-        })
-
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || "Failed to create booking")
-        }
+        await createBookingMutation({ ...commonPayload, start_time: startIso, end_time: endIso })
 
         toast.success("Booking created")
         onOpenChange(false)
@@ -1105,132 +874,30 @@ export function NewBookingModal({
             >
               <div className="space-y-6">
                 {!isMemberOrStudent ? (
-                  <section>
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="text-[13px] font-semibold text-slate-900">Booking Mode</span>
-                    </div>
-                    <Tabs value={bookingMode} onValueChange={(value) => {
-                      const newMode = value as "regular" | "trial" | "maintenance"
+                  <NewBookingModeTabs
+                    bookingMode={bookingMode}
+                    onBookingModeChange={(newMode) => {
                       if (newMode === "regular" && bookingMode === "maintenance") {
                         setForm((prev) => prev ? { ...prev, bookingType: "flight" } : prev)
                       }
                       setBookingMode(newMode)
                       setErrors({})
-                    }} className="w-full">
-                      <TabsList className="grid h-10 w-full grid-cols-3 gap-1 overflow-hidden rounded-xl bg-slate-50 p-1 ring-1 ring-slate-200">
-                        <TabsTrigger
-                          value="regular"
-                          className="h-8 min-w-0 gap-1.5 rounded-lg px-1.5 text-[11px] font-semibold text-slate-600 transition-colors sm:gap-2 sm:px-3 sm:text-xs data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-slate-200 hover:bg-white hover:text-slate-900"
-                        >
-                          <User className="h-3.5 w-3.5" />
-                          <span className="truncate">Regular</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="trial"
-                          className="h-8 min-w-0 gap-1.5 rounded-lg px-1.5 text-[11px] font-semibold text-slate-600 transition-colors sm:gap-2 sm:px-3 sm:text-xs data-[state=active]:bg-white data-[state=active]:text-violet-700 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-violet-200 hover:bg-white hover:text-violet-700"
-                        >
-                          <Plane className="h-3.5 w-3.5" />
-                          <span className="truncate">Trial</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="maintenance"
-                          className="h-8 min-w-0 gap-1.5 rounded-lg px-1.5 text-[11px] font-semibold text-slate-600 transition-colors sm:gap-2 sm:px-3 sm:text-xs data-[state=active]:bg-white data-[state=active]:text-amber-700 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-amber-200 hover:bg-white hover:text-amber-700"
-                        >
-                          <Wrench className="h-3.5 w-3.5" />
-                          <span className="truncate">Maint</span>
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </section>
+                    }}
+                  />
                 ) : null}
 
                 {bookingMode === "trial" ? (
-                  <section>
-                    <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
-                      <User className="h-4 w-4 text-slate-500" />
-                      <span className="text-[13px] font-semibold text-slate-900">Guest Details</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          FIRST NAME <span className="text-destructive">*</span>
-                        </label>
-                        <div className="relative">
-                          <User className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <Input
-                            placeholder="First name"
-                            value={form.trialFirstName}
-                            onChange={(e) => updateForm("trialFirstName", e.target.value)}
-                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
-                          />
-                        </div>
-                        {errors.trialFirstName ? <p className="mt-1 text-[10px] text-destructive">{errors.trialFirstName}</p> : null}
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          LAST NAME <span className="text-destructive">*</span>
-                        </label>
-                        <div className="relative">
-                          <User className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <Input
-                            placeholder="Last name"
-                            value={form.trialLastName}
-                            onChange={(e) => updateForm("trialLastName", e.target.value)}
-                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
-                          />
-                        </div>
-                        {errors.trialLastName ? <p className="mt-1 text-[10px] text-destructive">{errors.trialLastName}</p> : null}
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          EMAIL <span className="text-destructive">*</span>
-                        </label>
-                        <div className="relative">
-                          <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <Input
-                            type="email"
-                            placeholder="guest@example.com"
-                            value={form.trialEmail}
-                            onChange={(e) => updateForm("trialEmail", e.target.value)}
-                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
-                          />
-                        </div>
-                        {errors.trialEmail ? <p className="mt-1 text-[10px] text-destructive">{errors.trialEmail}</p> : null}
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          PHONE
-                        </label>
-                        <div className="relative">
-                          <Phone className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <Input
-                            type="tel"
-                            placeholder="Phone number (optional)"
-                            value={form.trialPhone}
-                            onChange={(e) => updateForm("trialPhone", e.target.value)}
-                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
-                          />
-                        </div>
-                        {errors.trialPhone ? <p className="mt-1 text-[10px] text-destructive">{errors.trialPhone}</p> : null}
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          VOUCHER NUMBER
-                        </label>
-                        <div className="relative">
-                          <Ticket className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                          <Input
-                            placeholder="e.g. TF-2026-001"
-                            value={form.voucherNumber}
-                            onChange={(e) => updateForm("voucherNumber", e.target.value)}
-                            className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
-                          />
-                        </div>
-                        {errors.voucherNumber ? <p className="mt-1 text-[10px] text-destructive">{errors.voucherNumber}</p> : null}
-                      </div>
-                    </div>
-                  </section>
+                  <TrialGuestDetailsSection
+                    values={{
+                      trialFirstName: form.trialFirstName,
+                      trialLastName: form.trialLastName,
+                      trialEmail: form.trialEmail,
+                      trialPhone: form.trialPhone,
+                      voucherNumber: form.voucherNumber,
+                    }}
+                    errors={errors}
+                    onChange={updateForm}
+                  />
                 ) : null}
 
                 {optionsError ? (
@@ -1821,165 +1488,30 @@ export function NewBookingModal({
                       </div>
 
                       {bookingMode === "regular" ? (
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <Label htmlFor="recurring" className="text-sm font-semibold text-slate-900">Recurring booking</Label>
-                              <p className="mt-0.5 text-[11px] font-medium text-slate-500">
-                                Repeat this booking automatically
-                              </p>
-                            </div>
-                            <Switch
-                              id="recurring"
-                              checked={form.isRecurring}
-                              onCheckedChange={(checked) => {
-                                updateForm("isRecurring", checked)
-                                if (!checked) {
-                                  updateForm("recurringDays", [])
-                                  updateForm("repeatUntil", null)
-                                } else {
-                                  updateForm("recurringDays", [form.date.getDay()])
-                                  updateForm("endDate", form.date)
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {form.isRecurring ? (
-                            <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
-                              <div className="space-y-2">
-                                <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Repeat on</Label>
-                                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => {
-                                    const isSelected = form.recurringDays.includes(index)
-                                    return (
-                                      <Button
-                                        key={day}
-                                        type="button"
-                                        variant={isSelected ? "default" : "outline"}
-                                        className={cn(
-                                          "h-9 w-full rounded-xl p-0 text-[10px] font-bold transition-all",
-                                          isSelected
-                                            ? "border-slate-900 bg-slate-900 text-white shadow-sm hover:bg-slate-800"
-                                            : "border-slate-200 text-slate-600 shadow-none hover:border-slate-300 hover:bg-slate-50"
-                                        )}
-                                        onClick={() => {
-                                          if (isSelected) {
-                                            updateForm("recurringDays", form.recurringDays.filter((value) => value !== index))
-                                          } else {
-                                            updateForm("recurringDays", [...form.recurringDays, index])
-                                          }
-                                        }}
-                                      >
-                                        <span className="sm:hidden">{day.charAt(0)}</span>
-                                        <span className="hidden sm:inline">{day}</span>
-                                      </Button>
-                                    )
-                                  })}
-                                </div>
-                                {errors.recurringDays ? <p className="text-[10px] font-medium text-destructive">{errors.recurringDays}</p> : null}
-                              </div>
-
-                              <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50/60 p-3 ring-1 ring-slate-100">
-                                <div className="space-y-0.5">
-                                  <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Until date</Label>
-                                  <p className="text-[10px] font-medium text-slate-500">Last occurrence</p>
-                                </div>
-                                <div className="w-[140px]">
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        className={cn(
-                                          "h-9 w-full justify-start rounded-lg border-slate-200 bg-white px-2.5 text-xs font-bold shadow-none transition-colors hover:bg-slate-50 focus:ring-0",
-                                          !form.repeatUntil && "text-slate-400"
-                                        )}
-                                      >
-                                        <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                        <span className="truncate">{form.repeatUntil ? formatDate(form.repeatUntil, timeZone) : "End date"}</span>
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto rounded-2xl border-slate-200 p-0 shadow-2xl" align="end">
-                                      <Calendar
-                                        mode="single"
-                                        selected={form.repeatUntil ?? undefined}
-                                        onSelect={(value) => {
-                                          if (!value) {
-                                            updateForm("repeatUntil", null)
-                                            return
-                                          }
-                                          const day = new Date(value.getFullYear(), value.getMonth(), value.getDate(), 12, 0, 0, 0)
-                                          const startDay = new Date(
-                                            form.date.getFullYear(),
-                                            form.date.getMonth(),
-                                            form.date.getDate(),
-                                            12,
-                                            0,
-                                            0,
-                                            0
-                                          )
-                                          updateForm("repeatUntil", day > startDay ? value : null)
-                                        }}
-                                        initialFocus
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-                              </div>
-                              {errors.repeatUntil ? <p className="text-[10px] font-medium text-destructive">{errors.repeatUntil}</p> : null}
-
-                              {form.isRecurring && occurrences.length > 0 ? (
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-semibold text-slate-700">
-                                      Occurrences ({occurrences.length})
-                                    </span>
-                                    {checkingOccurrences ? (
-                                      <span className="animate-pulse text-[10px] text-slate-500">Checking availability...</span>
-                                    ) : null}
-                                  </div>
-
-                                  {hasConflicts ? (
-                                    <div className="space-y-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4">
-                                      <div className="flex items-center gap-2 text-destructive">
-                                        <AlertCircle className="h-4 w-4" />
-                                        <span className="text-xs font-bold">Conflicting Occurrences</span>
-                                      </div>
-                                      <p className="text-[10px] leading-relaxed text-destructive/80">
-                                        Bookings will be skipped for the occurrences below. All other occurrences will still be created.
-                                      </p>
-                                      <div className="max-h-[160px] space-y-1 overflow-y-auto pr-2">
-                                        {occurrences.map((occ) => {
-                                          const conflict = occurrenceConflicts[occ.startIso]
-                                          if (!conflict) return null
-                                          return (
-                                            <div key={occ.startIso} className="flex items-center justify-between rounded-lg bg-white/50 px-3 py-2 text-[10px] ring-1 ring-destructive/10">
-                                              <span className="font-semibold text-slate-700">{formatEeeDdMmm(occ.date, timeZone)}</span>
-                                              <div className="flex gap-2">
-                                                {conflict.aircraft ? (
-                                                  <span className="rounded bg-destructive/10 px-1.5 py-0.5 font-bold uppercase tracking-wider text-destructive">Aircraft Conflict</span>
-                                                ) : null}
-                                                {conflict.instructor ? (
-                                                  <span className="rounded bg-destructive/10 px-1.5 py-0.5 font-bold uppercase tracking-wider text-destructive">Instructor Conflict</span>
-                                                ) : null}
-                                              </div>
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    </div>
-                                  ) : occurrences.length > 1 ? (
-                                    <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-emerald-700">
-                                      <Check className="h-3.5 w-3.5" />
-                                      <span className="text-[10px] font-medium">All {occurrences.length} occurrences are available</span>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
+                        <RecurringBookingSection
+                          isRecurring={form.isRecurring}
+                          date={form.date}
+                          repeatUntil={form.repeatUntil}
+                          recurringDays={form.recurringDays}
+                          timeZone={timeZone}
+                          checkingOccurrences={checkingOccurrences}
+                          occurrences={occurrences}
+                          occurrenceConflicts={occurrenceConflicts}
+                          recurringDaysError={errors.recurringDays}
+                          repeatUntilError={errors.repeatUntil}
+                          onRecurringToggle={(checked) => {
+                            updateForm("isRecurring", checked)
+                            if (!checked) {
+                              updateForm("recurringDays", [])
+                              updateForm("repeatUntil", null)
+                            } else {
+                              updateForm("recurringDays", [form.date.getDay()])
+                              updateForm("endDate", form.date)
+                            }
+                          }}
+                          onRecurringDaysChange={(days) => updateForm("recurringDays", days)}
+                          onRepeatUntilChange={(value) => updateForm("repeatUntil", value)}
+                        />
                       ) : null}
 
                       </CollapsibleContent>

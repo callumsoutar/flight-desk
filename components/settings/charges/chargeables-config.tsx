@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconCashBanknote,
   IconChevronLeft,
@@ -13,6 +14,16 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import {
+  chargeablesAdminBaseQueryKey,
+  createChargeable,
+  deactivateChargeable,
+  updateChargeable,
+  useChargeablesAdminQuery,
+  type ChargeableAdmin as Chargeable,
+} from "@/hooks/use-chargeables-admin-query"
+import { useChargeableTypesQuery } from "@/hooks/use-chargeable-types-query"
+import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -35,24 +46,10 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import type { ChargeablesRow, ChargeableTypesRow } from "@/lib/types/tables"
+import type { ChargeableTypesRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
 
 type ChargeableTypeLite = Pick<ChargeableTypesRow, "id" | "code" | "name" | "gl_code">
-
-type Chargeable = Pick<
-  ChargeablesRow,
-  | "id"
-  | "name"
-  | "description"
-  | "rate"
-  | "is_taxable"
-  | "is_active"
-  | "chargeable_type_id"
-  | "updated_at"
-> & {
-  chargeable_type: ChargeableTypeLite | null
-}
 
 type ChargeableFormData = {
   name: string
@@ -61,13 +58,6 @@ type ChargeableFormData = {
   rate_inclusive: string
   is_taxable: boolean
   is_active: boolean
-}
-
-type ChargeablesResponse = {
-  chargeables: Chargeable[]
-  total: number
-  page: number
-  pageSize: number
 }
 
 function getErrorMessage(error: unknown) {
@@ -106,7 +96,6 @@ function normalizeDescription(value: string) {
   return value.trim()
 }
 
-
 function createBlankFormData(): ChargeableFormData {
   return {
     name: "",
@@ -115,71 +104,6 @@ function createBlankFormData(): ChargeableFormData {
     rate_inclusive: "",
     is_taxable: true,
     is_active: true,
-  }
-}
-
-async function fetchChargeables(params: {
-  page: number
-  pageSize: number
-  searchTerm: string
-  filterTypeId: string
-}): Promise<ChargeablesResponse> {
-  const query = new URLSearchParams({
-    include_inactive: "true",
-    exclude_type_code: "landing_fees",
-    page: String(params.page),
-    page_size: String(params.pageSize),
-  })
-  if (params.searchTerm.trim()) query.set("search", params.searchTerm.trim())
-  if (params.filterTypeId !== "all") query.set("type_id", params.filterTypeId)
-
-  const response = await fetch(`/api/chargeables?${query.toString()}`, {
-    cache: "no-store",
-  })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to load chargeables"
-    throw new Error(message)
-  }
-
-  const data = (await response.json().catch(() => null)) as {
-    chargeables?: unknown
-    total?: unknown
-    page?: unknown
-    page_size?: unknown
-  } | null
-  return {
-    chargeables: Array.isArray(data?.chargeables) ? (data?.chargeables as Chargeable[]) : [],
-    total: typeof data?.total === "number" && Number.isFinite(data.total) ? data.total : 0,
-    page: typeof data?.page === "number" && Number.isFinite(data.page) ? data.page : params.page,
-    pageSize:
-      typeof data?.page_size === "number" && Number.isFinite(data.page_size) ? data.page_size : params.pageSize,
-  }
-}
-
-async function fetchChargeableTypes(): Promise<ChargeableTypeLite[]> {
-  const response = await fetch("/api/chargeable_types?is_active=true&exclude_code=landing_fees", {
-    cache: "no-store",
-  })
-  if (!response.ok) return []
-  const data = (await response.json().catch(() => null)) as { chargeable_types?: unknown } | null
-  return Array.isArray(data?.chargeable_types) ? (data?.chargeable_types as ChargeableTypeLite[]) : []
-}
-
-async function fetchDefaultTaxRate(): Promise<number> {
-  try {
-    const response = await fetch("/api/tax-rates?is_default=true", { cache: "no-store" })
-    if (!response.ok) return 0.15
-    const data = (await response.json().catch(() => null)) as { tax_rates?: unknown } | null
-    const first = Array.isArray(data?.tax_rates)
-      ? (data?.tax_rates[0] as { rate?: unknown } | undefined)
-      : undefined
-    return typeof first?.rate === "number" && Number.isFinite(first.rate) ? first.rate : 0.15
-  } catch {
-    return 0.15
   }
 }
 
@@ -199,14 +123,9 @@ function createEditFormData(chargeable: Chargeable, taxRate: number): Chargeable
 
 export function ChargeablesConfig() {
   const PAGE_SIZE = 25
-  const [chargeables, setChargeables] = React.useState<Chargeable[]>([])
-  const [totalChargeables, setTotalChargeables] = React.useState(0)
-  const [chargeableTypes, setChargeableTypes] = React.useState<ChargeableTypeLite[]>([])
-  const [taxRate, setTaxRate] = React.useState(0.15)
-
-  const [loading, setLoading] = React.useState(true)
+  const queryClient = useQueryClient()
   const [saving, setSaving] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [mutationError, setMutationError] = React.useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = React.useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = React.useState("")
@@ -218,6 +137,22 @@ export function ChargeablesConfig() {
   const [editingId, setEditingId] = React.useState<string | null>(null)
 
   const [form, setForm] = React.useState<ChargeableFormData>(() => createBlankFormData())
+  const { data: chargeableTypes = [], error: chargeableTypesError } = useChargeableTypesQuery("landing_fees")
+  const { data: taxRate = 0.15 } = useDefaultTaxRateQuery()
+  const {
+    data: chargeablesResponse,
+    isLoading,
+    error: chargeablesQueryError,
+  } = useChargeablesAdminQuery({
+    includeInactive: true,
+    excludeTypeCode: "landing_fees",
+    page,
+    pageSize: PAGE_SIZE,
+    searchTerm: debouncedSearchTerm,
+    filterTypeId,
+  })
+  const chargeables = React.useMemo(() => chargeablesResponse?.chargeables ?? [], [chargeablesResponse])
+  const totalChargeables = chargeablesResponse?.total ?? 0
 
   const editingChargeable = React.useMemo(
     () => (editingId ? chargeables.find((item) => item.id === editingId) ?? null : null),
@@ -235,36 +170,12 @@ export function ChargeablesConfig() {
     setPage(1)
   }, [debouncedSearchTerm, filterTypeId])
 
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [itemsResponse, types, nextTaxRate] = await Promise.all([
-        fetchChargeables({
-          page,
-          pageSize: PAGE_SIZE,
-          searchTerm: debouncedSearchTerm,
-          filterTypeId,
-        }),
-        fetchChargeableTypes(),
-        fetchDefaultTaxRate(),
-      ])
-      setChargeables(itemsResponse.chargeables)
-      setTotalChargeables(itemsResponse.total)
-      setChargeableTypes(types)
-      setTaxRate(nextTaxRate)
-      return { items: itemsResponse.chargeables, total: itemsResponse.total, types, taxRate: nextTaxRate }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load chargeables")
-      return null
-    } finally {
-      setLoading(false)
-    }
-  }, [debouncedSearchTerm, filterTypeId, page, PAGE_SIZE])
-
   React.useEffect(() => {
-    void load()
-  }, [load])
+    if (!chargeableTypesError) return
+    toast.error(getErrorMessage(chargeableTypesError))
+  }, [chargeableTypesError])
+
+  const error = mutationError ?? (chargeablesQueryError ? getErrorMessage(chargeablesQueryError) : null)
 
   const applyTaxableToggle = React.useCallback(
     (current: ChargeableFormData, nextIsTaxable: boolean) => {
@@ -297,31 +208,21 @@ export function ChargeablesConfig() {
       if (!confirmed) return
 
       setSaving(true)
-      setError(null)
+      setMutationError(null)
       try {
-        const response = await fetch(`/api/chargeables?id=${encodeURIComponent(item.id)}`, {
-          method: "DELETE",
-        })
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-          const message =
-            data && typeof data === "object" && typeof data.error === "string"
-              ? data.error
-              : "Failed to deactivate chargeable"
-          throw new Error(message)
-        }
-        await load()
+        await deactivateChargeable(item.id)
+        await queryClient.invalidateQueries({ queryKey: chargeablesAdminBaseQueryKey })
         setEditOpen(false)
         setEditingId(null)
         toast.success("Chargeable deactivated")
       } catch (err) {
         toast.error(getErrorMessage(err))
-        setError(getErrorMessage(err))
+        setMutationError(getErrorMessage(err))
       } finally {
         setSaving(false)
       }
     },
-    [load]
+    [queryClient]
   )
 
   const handleCreate = async () => {
@@ -329,45 +230,32 @@ export function ChargeablesConfig() {
 
     const rateInclusive = parseOptionalNumber(form.rate_inclusive)
     if (rateInclusive == null || rateInclusive < 0) {
-      setError("Rate is required.")
+      setMutationError("Rate is required.")
       return
     }
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
       const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(rateInclusive, itemTaxRate))
-
-      const response = await fetch("/api/chargeables", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: normalizeName(form.name),
-          description: normalizeDescription(form.description),
-          chargeable_type_id: form.chargeable_type_id,
-          is_taxable: form.is_taxable,
-          is_active: form.is_active,
-          rate: rateExclusive,
-          xero_tax_type: null,
-        }),
+      await createChargeable({
+        name: normalizeName(form.name),
+        description: normalizeDescription(form.description),
+        chargeable_type_id: form.chargeable_type_id,
+        is_taxable: form.is_taxable,
+        is_active: form.is_active,
+        rate: rateExclusive,
+        xero_tax_type: null,
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to create chargeable"
-        throw new Error(message)
-      }
 
-      await load()
+      await queryClient.invalidateQueries({ queryKey: chargeablesAdminBaseQueryKey })
       setAddOpen(false)
       setForm(createBlankFormData())
       toast.success("Chargeable created")
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -379,47 +267,34 @@ export function ChargeablesConfig() {
 
     const rateInclusive = parseOptionalNumber(form.rate_inclusive)
     if (rateInclusive == null || rateInclusive < 0) {
-      setError("Rate is required.")
+      setMutationError("Rate is required.")
       return
     }
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
       const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(rateInclusive, itemTaxRate))
-
-      const response = await fetch("/api/chargeables", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: editingChargeable.id,
-          name: normalizeName(form.name),
-          description: normalizeDescription(form.description),
-          chargeable_type_id: form.chargeable_type_id,
-          is_taxable: form.is_taxable,
-          is_active: form.is_active,
-          rate: rateExclusive,
-          xero_tax_type: null,
-        }),
+      await updateChargeable({
+        id: editingChargeable.id,
+        name: normalizeName(form.name),
+        description: normalizeDescription(form.description),
+        chargeable_type_id: form.chargeable_type_id,
+        is_taxable: form.is_taxable,
+        is_active: form.is_active,
+        rate: rateExclusive,
+        xero_tax_type: null,
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to update chargeable"
-        throw new Error(message)
-      }
 
-      await load()
+      await queryClient.invalidateQueries({ queryKey: chargeablesAdminBaseQueryKey })
       setEditOpen(false)
       setEditingId(null)
       setForm(createBlankFormData())
       toast.success("Chargeable updated")
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -460,7 +335,7 @@ export function ChargeablesConfig() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 rounded-xl border-slate-200 bg-white pl-9 shadow-none focus-visible:ring-0"
-              disabled={loading}
+              disabled={isLoading}
             />
           </div>
 
@@ -488,14 +363,14 @@ export function ChargeablesConfig() {
             setAddOpen(open)
             if (open) {
               setForm(createBlankFormData())
-              setError(null)
+              setMutationError(null)
             }
           }}
         >
           <Button
             size="sm"
             onClick={() => setAddOpen(true)}
-            disabled={loading || saving}
+            disabled={isLoading || saving}
             className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm shadow-indigo-100 transition-all active:scale-[0.98] whitespace-nowrap font-semibold border-none"
           >
             <IconPlus className="mr-1 h-4 w-4" />
@@ -577,7 +452,7 @@ export function ChargeablesConfig() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
                   Loading chargeables…
@@ -648,7 +523,7 @@ export function ChargeablesConfig() {
                         onClick={() => {
                           setEditingId(item.id)
                           setForm(createEditFormData(item, taxRate))
-                          setError(null)
+                          setMutationError(null)
                           setEditOpen(true)
                         }}
                       >
@@ -674,7 +549,7 @@ export function ChargeablesConfig() {
             size="sm"
             className="h-8 px-2.5"
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            disabled={loading || page <= 1}
+            disabled={isLoading || page <= 1}
           >
             <IconChevronLeft className="mr-1 h-4 w-4" />
             Previous
@@ -688,7 +563,7 @@ export function ChargeablesConfig() {
             size="sm"
             className="h-8 px-2.5"
             onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={loading || page >= totalPages}
+            disabled={isLoading || page >= totalPages}
           >
             Next
             <IconChevronRight className="ml-1 h-4 w-4" />
@@ -703,7 +578,7 @@ export function ChargeablesConfig() {
           if (!open) {
             setEditingId(null)
             setForm(createBlankFormData())
-            setError(null)
+            setMutationError(null)
           }
         }}
       >
@@ -767,7 +642,7 @@ export function ChargeablesConfig() {
                       setEditOpen(false)
                       setEditingId(null)
                       setForm(createBlankFormData())
-                      setError(null)
+                      setMutationError(null)
                     }}
                     className="h-10 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
                   >

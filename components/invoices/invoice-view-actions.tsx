@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Calendar,
   ChevronDown,
@@ -18,6 +19,12 @@ import { toast } from "sonner"
 
 import { useTimezone } from "@/contexts/timezone-context"
 import { Button } from "@/components/ui/button"
+import {
+  exportInvoicesToXeroMutation,
+  invoiceDetailQueryKey,
+  sendInvoiceEmailMutation,
+} from "@/hooks/use-invoice-detail-query"
+import { invoicesQueryKey } from "@/hooks/use-invoices-query"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +84,7 @@ export default function InvoiceViewActions({
   xeroStatus = null,
   onPaymentSuccess,
 }: InvoiceViewActionsProps) {
+  const queryClient = useQueryClient()
   const router = useRouter()
   const { timeZone } = useTimezone()
   const [paymentOpen, setPaymentOpen] = React.useState(false)
@@ -141,19 +149,14 @@ export default function InvoiceViewActions({
   const handleExportToXero = async () => {
     setIsExporting(true)
     try {
-      const response = await fetch("/api/xero/export-invoices", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invoiceIds: [invoiceId] }),
-      })
-      if (!response.ok) {
-        toast.error("Failed to export to Xero")
-        return
-      }
+      await exportInvoicesToXeroMutation([invoiceId])
       toast.success("Invoice exported to Xero")
-      router.refresh()
-    } catch {
-      toast.error("Failed to export to Xero")
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: invoiceDetailQueryKey(invoiceId) }),
+        queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) }),
+      ])
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to export to Xero")
     } finally {
       setIsExporting(false)
     }
@@ -163,20 +166,10 @@ export default function InvoiceViewActions({
     if (!canEmail) return
     setIsEmailing(true)
     try {
-      const response = await fetch("/api/email/send-invoice", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invoice_id: invoiceId }),
-      })
-      const result = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) {
-        toast.error(result?.error ?? "Failed to send invoice email")
-        return
-      }
-
+      await sendInvoiceEmailMutation(invoiceId)
       toast.success(`Invoice sent to ${billToEmail}`)
-    } catch {
-      toast.error("Failed to send invoice email")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send invoice email")
     } finally {
       setIsEmailing(false)
     }
@@ -289,7 +282,13 @@ export default function InvoiceViewActions({
         totalAmount={invoice.totalAmount ?? null}
         totalPaid={invoice.totalPaid ?? null}
         balanceDue={invoice.balanceDue ?? null}
-        onSuccess={onPaymentSuccess}
+        onSuccess={async () => {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: invoiceDetailQueryKey(invoiceId) }),
+            queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) }),
+          ])
+          await onPaymentSuccess?.()
+        }}
       />
 
       <VoidAndReissueModal
@@ -297,7 +296,12 @@ export default function InvoiceViewActions({
         onOpenChange={setVoidOpen}
         invoiceId={invoiceId}
         invoiceNumber={invoice.invoiceNumber}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => {
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: invoiceDetailQueryKey(invoiceId) }),
+            queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) }),
+          ])
+        }}
       />
     </>
   )

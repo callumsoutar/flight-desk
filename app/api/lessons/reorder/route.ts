@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -14,29 +13,21 @@ const payloadSchema = z.strictObject({
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const ctx = await getTenantAdminRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const raw = await request.json().catch(() => null)
   const parsed = payloadSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { syllabus_id: syllabusId, lesson_orders: lessonOrders } = parsed.data
 
   const idSet = new Set(lessonOrders.map((item) => item.id))
   if (idSet.size !== lessonOrders.length) {
-    return NextResponse.json({ error: "Duplicate lesson ids" }, { status: 400 })
+    return noStoreJson({ error: "Duplicate lesson ids" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -47,11 +38,11 @@ export async function PATCH(request: NextRequest) {
     .in("id", Array.from(idSet))
 
   if (existingError) {
-    return NextResponse.json({ error: "Failed to reorder lessons" }, { status: 500 })
+    return noStoreJson({ error: "Failed to reorder lessons" }, { status: 500 })
   }
 
   if ((existing ?? []).length !== idSet.size) {
-    return NextResponse.json({ error: "One or more lessons were not found" }, { status: 404 })
+    return noStoreJson({ error: "One or more lessons were not found" }, { status: 404 })
   }
 
   const updates = lessonOrders.map((item) =>
@@ -65,9 +56,8 @@ export async function PATCH(request: NextRequest) {
 
   const results = await Promise.all(updates)
   if (results.some((result) => result.error)) {
-    return NextResponse.json({ error: "Failed to reorder lessons" }, { status: 500 })
+    return noStoreJson({ error: "Failed to reorder lessons" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
-

@@ -4,6 +4,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { exportInvoicesToXeroMutation } from "@/hooks/use-invoice-detail-query"
 
 type ExportResult = {
   invoiceId: string
@@ -45,24 +46,12 @@ export function XeroBulkExportButton({
 
           for (let i = 0; i < uniqueIds.length; i += MAX_BATCH) {
             const batch = uniqueIds.slice(i, i + MAX_BATCH)
-            const response = await fetch("/api/xero/export-invoices", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ invoiceIds: batch }),
-            })
-
-            const body = await response.json().catch(() => null)
-            if (!response.ok) {
-              toast.error(
-                body && typeof body === "object" && typeof body.error === "string"
-                  ? body.error
-                  : "Failed to export invoices"
-              )
+            try {
+              const batchResults = await exportInvoicesToXeroMutation(batch)
+              results.push(...batchResults)
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Failed to export invoices")
               return
-            }
-
-            if (body && typeof body === "object" && Array.isArray(body.results)) {
-              results.push(...(body.results as ExportResult[]))
             }
           }
 

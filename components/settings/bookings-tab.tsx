@@ -1,97 +1,25 @@
 "use client"
 
 import * as React from "react"
-import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconClock, IconListDetails, IconLoader2, IconSettings } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import ChargeableSearchDropdown from "@/components/invoices/chargeable-search-dropdown"
+import { CancellationCategoriesTab } from "@/components/settings/bookings/cancellation-categories-tab"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
+import { useChargeablesQuery } from "@/hooks/use-chargeables-query"
+import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
+import { updateBookingsSettings } from "@/hooks/use-bookings-settings-query"
 import type { BookingsSettings } from "@/lib/settings/bookings-settings"
-import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
-
-const CancellationCategoriesTab = dynamic(
-  () =>
-    import("@/components/settings/bookings/cancellation-categories-tab").then(
-      (mod) => mod.CancellationCategoriesTab
-    ),
-  { ssr: false }
-)
-
-type BookingsSettingsResponse = { settings: BookingsSettings }
-type ChargeablesResponse = { chargeables: InvoiceCreateChargeable[] }
-
-async function fetchDefaultTaxRate(signal?: AbortSignal): Promise<number> {
-  try {
-    const response = await fetch("/api/tax-rates?is_default=true", { cache: "no-store", signal })
-    if (!response.ok) return 0.15
-    const data = (await response.json().catch(() => null)) as { tax_rates?: Array<{ rate?: unknown }> } | null
-    const defaultRate = data?.tax_rates?.[0]?.rate
-    return typeof defaultRate === "number" ? defaultRate : 0.15
-  } catch {
-    return 0.15
-  }
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
   return "Something went wrong."
-}
-
-async function fetchBookingsSettings(signal?: AbortSignal): Promise<BookingsSettingsResponse> {
-  const response = await fetch("/api/settings/bookings", { cache: "no-store", signal })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to load booking settings"
-    throw new Error(message)
-  }
-
-  return (await response.json()) as BookingsSettingsResponse
-}
-
-async function patchBookingsSettings(payload: unknown): Promise<BookingsSettingsResponse> {
-  const response = await fetch("/api/settings/bookings", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to update booking settings"
-    throw new Error(message)
-  }
-
-  return (await response.json()) as BookingsSettingsResponse
-}
-
-async function fetchChargeables(signal?: AbortSignal): Promise<ChargeablesResponse> {
-  const response = await fetch("/api/chargeables?include_inactive=true", {
-    cache: "no-store",
-    signal,
-  })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to load chargeables"
-    throw new Error(message)
-  }
-
-  return (await response.json()) as ChargeablesResponse
 }
 
 function roundToQuarterHour(value: number) {
@@ -112,6 +40,9 @@ const bookingTabs = [
   { id: "cancellations", label: "Cancellation categories", icon: IconListDetails },
 ] as const
 
+// Contract:
+// - the defaults form is server-bootstrapped from `app/settings/page.tsx`
+// - nested collection editors can stay client-owned and query-backed
 export function BookingsTab({
   initialSettings = null,
   initialLoadError = null,
@@ -119,10 +50,8 @@ export function BookingsTab({
   initialSettings?: BookingsSettings | null
   initialLoadError?: string | null
 }) {
-  const router = useRouter()
   const [activeTab, setActiveTab] =
     React.useState<(typeof bookingTabs)[number]["id"]>("defaults")
-  const [loading, setLoading] = React.useState(!initialSettings && !initialLoadError)
   const [loadError, setLoadError] = React.useState<string | null>(initialLoadError)
   const [isSaving, setIsSaving] = React.useState(false)
   const [baseSettings, setBaseSettings] = React.useState<BookingsSettings | null>(initialSettings)
@@ -132,56 +61,26 @@ export function BookingsTab({
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
   const [showScrollLeft, setShowScrollLeft] = React.useState(false)
   const [showScrollRight, setShowScrollRight] = React.useState(false)
-  const [chargeables, setChargeables] = React.useState<InvoiceCreateChargeable[]>([])
-  const [chargeablesLoading, setChargeablesLoading] = React.useState(true)
   const [chargeablesLoadError, setChargeablesLoadError] = React.useState<string | null>(null)
-  const [taxRate, setTaxRate] = React.useState(0.15)
+  const {
+    data: chargeables = [],
+    isLoading: chargeablesLoading,
+    error: chargeablesQueryError,
+  } = useChargeablesQuery({ includeInactive: true })
+  const { data: taxRate = 0.15 } = useDefaultTaxRateQuery()
 
   React.useEffect(() => {
-    const controller = new AbortController()
-    setChargeablesLoading(true)
-    setChargeablesLoadError(null)
-
-    void Promise.all([
-      fetchChargeables(controller.signal),
-      fetchDefaultTaxRate(controller.signal),
-    ])
-      .then(([chargeablesResult, nextTaxRate]) => {
-        setChargeables(chargeablesResult.chargeables ?? [])
-        setTaxRate(nextTaxRate)
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return
-        setChargeablesLoadError(getErrorMessage(error))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setChargeablesLoading(false)
-      })
-
-    return () => controller.abort()
-  }, [])
+    if (!chargeablesQueryError) {
+      setChargeablesLoadError(null)
+      return
+    }
+    setChargeablesLoadError(getErrorMessage(chargeablesQueryError))
+  }, [chargeablesQueryError])
 
   React.useEffect(() => {
-    if (initialSettings || initialLoadError) return
-
-    const controller = new AbortController()
-    setLoading(true)
-    setLoadError(null)
-
-    void fetchBookingsSettings(controller.signal)
-      .then((result) => {
-        setBaseSettings(result.settings)
-        setForm(createFormState(result.settings))
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return
-        setLoadError(getErrorMessage(error))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
-
-    return () => controller.abort()
+    setBaseSettings(initialSettings)
+    setForm(createFormState(initialSettings))
+    setLoadError(initialLoadError)
   }, [initialLoadError, initialSettings])
 
   const baseForm = React.useMemo(() => createFormState(baseSettings), [baseSettings])
@@ -203,7 +102,7 @@ export function BookingsTab({
 
     setIsSaving(true)
     try {
-      const result = await patchBookingsSettings({
+      const result = await updateBookingsSettings({
         bookings: {
           default_booking_duration_hours: roundToQuarterHour(form.default_booking_duration_hours),
           minimum_booking_duration_minutes: form.minimum_booking_duration_minutes,
@@ -214,7 +113,6 @@ export function BookingsTab({
       setBaseSettings(result.settings)
       setForm(createFormState(result.settings))
       toast.success("Booking settings saved")
-      router.refresh()
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
@@ -252,20 +150,20 @@ export function BookingsTab({
     }
   }, [])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-slate-600">
-        <IconLoader2 className="h-5 w-5 animate-spin text-slate-400" />
-        <span className="text-sm font-medium">Loading booking settings…</span>
-      </div>
-    )
-  }
-
   if (loadError) {
     return (
       <div className="space-y-1 py-2">
         <h3 className="text-lg font-semibold text-slate-900">Bookings</h3>
         <p className="text-sm text-muted-foreground">{loadError}</p>
+      </div>
+    )
+  }
+
+  if (!baseSettings) {
+    return (
+      <div className="space-y-1 py-2">
+        <h3 className="text-lg font-semibold text-slate-900">Bookings</h3>
+        <p className="text-sm text-muted-foreground">Booking settings are not available yet for this tenant.</p>
       </div>
     )
   }

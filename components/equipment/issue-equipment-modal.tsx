@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { issueEquipment } from "@/hooks/use-equipment-detail-query"
 import type { EquipmentWithIssuance } from "@/lib/types/equipment"
 import { cn } from "@/lib/utils"
 
@@ -73,22 +74,12 @@ export function IssueEquipmentModal({
 
     setIsSubmitting(true)
     try {
-      const response = await fetch("/api/equipment-issuance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          equipment_id: equipment.id,
-          user_id: parsed.data.user_id,
-          expected_return: parsed.data.expected_return || null,
-          notes: parsed.data.notes || null,
-        }),
+      await issueEquipment({
+        equipment_id: equipment.id,
+        user_id: parsed.data.user_id,
+        expected_return: parsed.data.expected_return || null,
+        notes: parsed.data.notes || null,
       })
-
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) {
-        throw new Error(payload?.error || "Failed to issue equipment")
-      }
-
       toast.success("Equipment issued successfully")
       onOpenChange(false)
       onSuccess?.()

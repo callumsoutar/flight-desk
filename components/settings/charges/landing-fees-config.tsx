@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconInfoCircle,
   IconLoader2,
@@ -11,6 +12,19 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
+import {
+  createLandingFee,
+  createLandingFeeRate,
+  deactivateLandingFee,
+  deleteLandingFeeRate,
+  landingFeesQueryKey,
+  updateLandingFee,
+  updateLandingFeeRate,
+  useLandingFeesQuery,
+  type LandingFee,
+  type LandingFeeRate,
+} from "@/hooks/use-landing-fees-query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -27,17 +41,9 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import type { AircraftTypesRow, ChargeablesRow, LandingFeeRatesRow } from "@/lib/types/tables"
+import { useAircraftTypesQuery } from "@/hooks/use-aircraft-types-query"
+import type { AircraftTypesRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
-
-type LandingFeeRate = Pick<LandingFeeRatesRow, "id" | "chargeable_id" | "aircraft_type_id" | "rate">
-
-type LandingFee = Pick<
-  ChargeablesRow,
-  "id" | "name" | "description" | "rate" | "is_taxable" | "is_active" | "updated_at"
-> & {
-  landing_fee_rates: LandingFeeRate[]
-}
 
 type LandingFeeFormData = {
   name: string
@@ -101,42 +107,6 @@ function createBlankFormData(): LandingFeeFormData {
   }
 }
 
-async function fetchLandingFees(): Promise<LandingFee[]> {
-  const response = await fetch("/api/landing-fees?include_inactive=true", { cache: "no-store" })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to load landing fees"
-    throw new Error(message)
-  }
-
-  const data = (await response.json().catch(() => null)) as { landing_fees?: unknown } | null
-  return Array.isArray(data?.landing_fees) ? (data?.landing_fees as LandingFee[]) : []
-}
-
-async function fetchAircraftTypes(): Promise<AircraftTypesRow[]> {
-  const response = await fetch("/api/aircraft-types", { cache: "no-store" })
-  if (!response.ok) return []
-  const data = (await response.json().catch(() => null)) as { aircraft_types?: unknown } | null
-  return Array.isArray(data?.aircraft_types) ? (data?.aircraft_types as AircraftTypesRow[]) : []
-}
-
-async function fetchDefaultTaxRate(): Promise<number> {
-  try {
-    const response = await fetch("/api/tax-rates?is_default=true", { cache: "no-store" })
-    if (!response.ok) return 0.15
-    const data = (await response.json().catch(() => null)) as { tax_rates?: unknown } | null
-    const first = Array.isArray(data?.tax_rates)
-      ? (data?.tax_rates[0] as { rate?: unknown } | undefined)
-      : undefined
-    return typeof first?.rate === "number" && Number.isFinite(first.rate) ? first.rate : 0.15
-  } catch {
-    return 0.15
-  }
-}
-
 function formatRateInclusive(valueExclusive: number | null, taxRate: number, isTaxable: boolean | null) {
   const base = Number.isFinite(valueExclusive) ? Number(valueExclusive) : 0
   const rate = exclusiveToInclusive(base, isTaxable ? taxRate : 0)
@@ -167,19 +137,25 @@ function createEditFormData(
 }
 
 export function LandingFeesConfig() {
-  const [landingFees, setLandingFees] = React.useState<LandingFee[]>([])
-  const [aircraftTypes, setAircraftTypes] = React.useState<AircraftTypesRow[]>([])
-  const [taxRate, setTaxRate] = React.useState(0.15)
-
-  const [loading, setLoading] = React.useState(true)
+  const queryClient = useQueryClient()
   const [saving, setSaving] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
 
   const [addOpen, setAddOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [form, setForm] = React.useState<LandingFeeFormData>(() => createBlankFormData())
+  const {
+    data: landingFees = [],
+    isLoading: landingFeesLoading,
+    error: landingFeesQueryError,
+  } = useLandingFeesQuery({ includeInactive: true })
+  const {
+    data: aircraftTypes = [],
+    error: aircraftTypesError,
+  } = useAircraftTypesQuery()
+  const { data: taxRate = 0.15 } = useDefaultTaxRateQuery()
 
   const editingFee = React.useMemo(
     () => (editingId ? landingFees.find((fee) => fee.id === editingId) ?? null : null),
@@ -195,30 +171,12 @@ export function LandingFeesConfig() {
     })
   }, [landingFees, searchTerm])
 
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [fees, types, nextTaxRate] = await Promise.all([
-        fetchLandingFees(),
-        fetchAircraftTypes(),
-        fetchDefaultTaxRate(),
-      ])
-      setLandingFees(fees)
-      setAircraftTypes(types)
-      setTaxRate(nextTaxRate)
-      return { fees, types, taxRate: nextTaxRate }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load landing fees")
-      return null
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   React.useEffect(() => {
-    void load()
-  }, [load])
+    if (!aircraftTypesError) return
+    toast.error(getErrorMessage(aircraftTypesError))
+  }, [aircraftTypesError])
+
+  const error = mutationError ?? (landingFeesQueryError ? getErrorMessage(landingFeesQueryError) : null)
 
   const applyTaxableToggle = React.useCallback(
     (current: LandingFeeFormData, nextIsTaxable: boolean) => {
@@ -281,12 +239,7 @@ export function LandingFeesConfig() {
 
         if (parsed == null) {
           if (existing) {
-            operations.push(
-              fetch(
-                `/api/landing-fee-rates?chargeable_id=${encodeURIComponent(chargeableId)}&aircraft_type_id=${encodeURIComponent(aircraftType.id)}`,
-                { method: "DELETE" }
-              )
-            )
+            operations.push(deleteLandingFeeRate(chargeableId, aircraftType.id))
           }
           continue
         }
@@ -294,41 +247,23 @@ export function LandingFeesConfig() {
         const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(parsed, itemTaxRate))
         if (existing) {
           operations.push(
-            fetch("/api/landing-fee-rates", {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                chargeable_id: chargeableId,
-                aircraft_type_id: aircraftType.id,
-                rate: rateExclusive,
-              }),
+            updateLandingFeeRate({
+              chargeable_id: chargeableId,
+              aircraft_type_id: aircraftType.id,
+              rate: rateExclusive,
             })
           )
         } else {
           operations.push(
-            fetch("/api/landing-fee-rates", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                chargeable_id: chargeableId,
-                aircraft_type_id: aircraftType.id,
-                rate: rateExclusive,
-              }),
+            createLandingFeeRate({
+              chargeable_id: chargeableId,
+              aircraft_type_id: aircraftType.id,
+              rate: rateExclusive,
             })
           )
         }
       }
-
-      const results = await Promise.all(operations)
-      const failed = results.find((res) => !res.ok)
-      if (failed) {
-        const data = await failed.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to save landing fee rates"
-        throw new Error(message)
-      }
+      await Promise.all(operations)
     },
     [aircraftTypes, taxRate]
   )
@@ -345,44 +280,23 @@ export function LandingFeesConfig() {
     if (!normalizeName(form.name).length) return
     const defaultInclusive = parseOptionalNumber(form.default_rate_inclusive)
     if (defaultInclusive == null || defaultInclusive < 0) {
-      setError("Default landing fee rate is required.")
+      setMutationError("Default landing fee rate is required.")
       return
     }
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
 
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
       const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(defaultInclusive, itemTaxRate))
-
-      const response = await fetch("/api/landing-fees", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: normalizeName(form.name),
-          description: normalizeDescription(form.description),
-          is_taxable: form.is_taxable,
-          is_active: form.is_active,
-          rate: rateExclusive,
-        }),
+      const created = await createLandingFee({
+        name: normalizeName(form.name),
+        description: normalizeDescription(form.description),
+        is_taxable: form.is_taxable,
+        is_active: form.is_active,
+        rate: rateExclusive,
       })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to create landing fee"
-        throw new Error(message)
-      }
-
-      const data = (await response.json().catch(() => null)) as { landing_fee?: unknown } | null
-      const created =
-        data && typeof data.landing_fee === "object" && data.landing_fee
-          ? (data.landing_fee as LandingFee)
-          : null
-      if (!created?.id) throw new Error("Landing fee was created but could not be loaded.")
 
       await saveLandingFeeRates({
         chargeableId: created.id,
@@ -390,13 +304,15 @@ export function LandingFeesConfig() {
         formData: form,
       })
 
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: landingFeesQueryKey({ includeInactive: true }),
+      })
       setAddOpen(false)
       setForm(createBlankFormData())
       toast.success("Landing fee created")
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -408,37 +324,23 @@ export function LandingFeesConfig() {
 
     const defaultInclusive = parseOptionalNumber(form.default_rate_inclusive)
     if (defaultInclusive == null || defaultInclusive < 0) {
-      setError("Default landing fee rate is required.")
+    setMutationError("Default landing fee rate is required.")
       return
     }
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
       const itemTaxRate = form.is_taxable ? taxRate : 0
       const rateExclusive = roundToStoragePrecision(inclusiveToExclusive(defaultInclusive, itemTaxRate))
-
-      const response = await fetch("/api/landing-fees", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: editingFee.id,
-          name: normalizeName(form.name),
-          description: normalizeDescription(form.description),
-          is_taxable: form.is_taxable,
-          is_active: form.is_active,
-          rate: rateExclusive,
-        }),
+      await updateLandingFee({
+        id: editingFee.id,
+        name: normalizeName(form.name),
+        description: normalizeDescription(form.description),
+        is_taxable: form.is_taxable,
+        is_active: form.is_active,
+        rate: rateExclusive,
       })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to update landing fee"
-        throw new Error(message)
-      }
 
       await saveLandingFeeRates({
         chargeableId: editingFee.id,
@@ -446,14 +348,16 @@ export function LandingFeesConfig() {
         formData: form,
       })
 
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: landingFeesQueryKey({ includeInactive: true }),
+      })
       setEditOpen(false)
       setEditingId(null)
       setForm(createBlankFormData())
       toast.success("Landing fee updated")
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -467,27 +371,19 @@ export function LandingFeesConfig() {
     if (!confirmed) return
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch(`/api/landing-fees?id=${encodeURIComponent(fee.id)}`, {
-        method: "DELETE",
-      })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to deactivate landing fee"
-        throw new Error(message)
-      }
+      await deactivateLandingFee(fee.id)
 
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: landingFeesQueryKey({ includeInactive: true }),
+      })
       setEditOpen(false)
       setEditingId(null)
       toast.success("Landing fee deactivated")
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -517,24 +413,24 @@ export function LandingFeesConfig() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-10 rounded-xl border-slate-200 bg-white pl-9 shadow-none focus-visible:ring-0"
-            disabled={loading}
+            disabled={landingFeesLoading}
           />
         </div>
 
         <Dialog
           open={addOpen}
           onOpenChange={(open) => {
-            setAddOpen(open)
-            if (open) {
-              setForm(createBlankFormData())
-              setError(null)
+              setAddOpen(open)
+              if (open) {
+                setForm(createBlankFormData())
+                setMutationError(null)
             }
           }}
         >
           <Button
             size="sm"
             onClick={() => setAddOpen(true)}
-            disabled={loading || saving}
+            disabled={landingFeesLoading || saving}
             className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm shadow-indigo-100 transition-all active:scale-[0.98] whitespace-nowrap font-semibold border-none"
           >
             <IconPlus className="mr-1 h-4 w-4" />
@@ -614,7 +510,7 @@ export function LandingFeesConfig() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {landingFeesLoading ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-10">
                   Loading landing fees…
@@ -662,7 +558,7 @@ export function LandingFeesConfig() {
                         onClick={() => {
                           setEditingId(fee.id)
                           setForm(createEditFormData(fee, aircraftTypes, taxRate))
-                          setError(null)
+                          setMutationError(null)
                           setEditOpen(true)
                         }}
                         className="h-9 w-9 rounded-xl border-slate-200 text-slate-700 shadow-none hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
@@ -681,13 +577,13 @@ export function LandingFeesConfig() {
       <Dialog
         open={editOpen}
         onOpenChange={(open) => {
-          setEditOpen(open)
-          if (!open) {
-            setEditingId(null)
-            setForm(createBlankFormData())
-            setError(null)
-          }
-        }}
+            setEditOpen(open)
+            if (!open) {
+              setEditingId(null)
+              setForm(createBlankFormData())
+              setMutationError(null)
+            }
+          }}
       >
         <DialogContent
           className={cn(
@@ -749,7 +645,7 @@ export function LandingFeesConfig() {
                       setEditOpen(false)
                       setEditingId(null)
                       setForm(createBlankFormData())
-                      setError(null)
+                      setMutationError(null)
                     }}
                     className="h-10 rounded-xl border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-none hover:bg-slate-50"
                   >

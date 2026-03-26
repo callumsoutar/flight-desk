@@ -31,12 +31,6 @@ async function InvoiceDetailContent({
   const loadErrors: string[] = []
   let settings = DEFAULT_INVOICING_SETTINGS
   let xeroEnabled = false
-  let xeroStatus: {
-    export_status: "pending" | "exported" | "failed" | "voided"
-    xero_invoice_id: string | null
-    exported_at: string | null
-    error_message: string | null
-  } | null = null
 
   const [detailResult, settingsResult, xeroSettingsResult] = await Promise.all([
     fetchInvoiceDetail(supabase, tenantId, id).catch(() => null),
@@ -71,24 +65,6 @@ async function InvoiceDetailContent({
     notFound()
   }
 
-  if (xeroEnabled) {
-    const { data: xeroRow } = await supabase
-      .from("xero_invoices")
-      .select("export_status, xero_invoice_id, exported_at, error_message")
-      .eq("tenant_id", tenantId)
-      .eq("invoice_id", detail.invoice.id)
-      .maybeSingle()
-
-    if (xeroRow) {
-      xeroStatus = {
-        export_status: xeroRow.export_status,
-        xero_invoice_id: xeroRow.xero_invoice_id,
-        exported_at: xeroRow.exported_at,
-        error_message: xeroRow.error_message,
-      }
-    }
-  }
-
   return (
     <InvoiceDetailClient
       invoice={detail.invoice}
@@ -97,7 +73,7 @@ async function InvoiceDetailContent({
       loadErrors={loadErrors}
       canApproveDraft={canApproveDraft}
       xeroEnabled={xeroEnabled}
-      xeroStatus={xeroStatus}
+      xeroStatus={null}
     />
   )
 }

@@ -9,10 +9,18 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import {
+  cancelMemberInvite,
+  inviteMemberAccess,
+  memberAccessQueryKey,
+  resendMemberInvite,
+  updateMemberRoleAccess,
+  useMemberAccessQuery,
+} from "@/hooks/use-member-access-query"
 import {
   Select,
   SelectContent,
@@ -24,87 +32,6 @@ export type MemberAccountAccessTabProps = {
   memberId: string
 }
 
-export type MemberAccessResponse = {
-  portal_status: "active" | "pending_invite" | "not_invited"
-  invite_status: "none" | "pending" | "accepted"
-  account_created: boolean
-  roles: { id: string; name: string }[]
-  current_role: { id: string; name: string } | null
-  email: string | null
-  invited_at: string | null
-}
-
-async function fetchMemberAccess(memberId: string): Promise<MemberAccessResponse> {
-  const response = await fetch(`/api/members/${memberId}/access`, {
-    method: "GET",
-    cache: "no-store",
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Failed to load access status")
-  }
-
-  return payload as MemberAccessResponse
-}
-
-async function inviteMember(memberId: string): Promise<{ sent: boolean }> {
-  const response = await fetch(`/api/members/${memberId}/access/invite`, {
-    method: "POST",
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Failed to send invitation")
-  }
-
-  return payload
-}
-
-async function resendInvite(memberId: string): Promise<{ sent: boolean }> {
-  const response = await fetch(`/api/members/${memberId}/access/resend-invite`, {
-    method: "POST",
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Failed to resend invitation")
-  }
-
-  return payload
-}
-
-async function cancelInvite(memberId: string): Promise<{ cancelled: boolean }> {
-  const response = await fetch(`/api/members/${memberId}/access/cancel-invite`, {
-    method: "POST",
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Failed to cancel invitation")
-  }
-
-  return payload
-}
-
-async function updateMemberRole(
-  memberId: string,
-  roleId: string
-): Promise<{ updated: boolean }> {
-  const response = await fetch(`/api/members/${memberId}/access`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role_id: roleId }),
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "Failed to update role")
-  }
-
-  return payload
-}
-
 export function MemberAccountAccessTab({ memberId }: MemberAccountAccessTabProps) {
   const queryClient = useQueryClient()
 
@@ -113,16 +40,12 @@ export function MemberAccountAccessTab({ memberId }: MemberAccountAccessTabProps
     isLoading,
     error,
     refetch,
-  } = useQuery({
-    queryKey: ["member-access", memberId],
-    queryFn: () => fetchMemberAccess(memberId),
-    enabled: Boolean(memberId),
-  })
+  } = useMemberAccessQuery(memberId)
 
   const inviteMutation = useMutation({
-    mutationFn: () => inviteMember(memberId),
+    mutationFn: () => inviteMemberAccess(memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["member-access", memberId] })
+      queryClient.invalidateQueries({ queryKey: memberAccessQueryKey(memberId) })
       toast.success("Invitation sent successfully")
     },
     onError: (err) => {
@@ -131,9 +54,9 @@ export function MemberAccountAccessTab({ memberId }: MemberAccountAccessTabProps
   })
 
   const resendMutation = useMutation({
-    mutationFn: () => resendInvite(memberId),
+    mutationFn: () => resendMemberInvite(memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["member-access", memberId] })
+      queryClient.invalidateQueries({ queryKey: memberAccessQueryKey(memberId) })
       toast.success("Invitation resent")
     },
     onError: (err) => {
@@ -142,9 +65,9 @@ export function MemberAccountAccessTab({ memberId }: MemberAccountAccessTabProps
   })
 
   const cancelMutation = useMutation({
-    mutationFn: () => cancelInvite(memberId),
+    mutationFn: () => cancelMemberInvite(memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["member-access", memberId] })
+      queryClient.invalidateQueries({ queryKey: memberAccessQueryKey(memberId) })
       toast.success("Invitation cancelled")
     },
     onError: (err) => {
@@ -153,9 +76,9 @@ export function MemberAccountAccessTab({ memberId }: MemberAccountAccessTabProps
   })
 
   const roleMutation = useMutation({
-    mutationFn: (roleId: string) => updateMemberRole(memberId, roleId),
+    mutationFn: (roleId: string) => updateMemberRoleAccess(memberId, roleId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["member-access", memberId] })
+      queryClient.invalidateQueries({ queryKey: memberAccessQueryKey(memberId) })
       toast.success("Role updated")
     },
     onError: (err) => {

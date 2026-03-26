@@ -1,10 +1,7 @@
-import { NextResponse } from "next/server"
+import { noStoreJson, getTenantAdminRouteContext } from "@/lib/api/tenant-route"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { TENANT_LOGO_BUCKET, isProbablyUrl } from "@/lib/settings/logo-storage"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +16,7 @@ function fileExtensionFromMime(mime: string) {
 }
 
 async function createSignedLogoUrl(path: string) {
-  const supabaseAdmin = createSupabaseAdminClient()
+  const supabaseAdmin = createPrivilegedSupabaseClient("tenant logo signed URL generation")
   const { data, error } = await supabaseAdmin.storage
     .from(TENANT_LOGO_BUCKET)
     .createSignedUrl(path, 60 * 60 * 24 * 30)
@@ -28,67 +25,31 @@ async function createSignedLogoUrl(path: string) {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   const formData = await request.formData().catch(() => null)
   const file = formData?.get("file")
   if (!(file instanceof File)) {
-    return NextResponse.json(
-      { error: "Missing file" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Missing file" }, { status: 400 })
   }
 
   if (!file.type.startsWith("image/")) {
-    return NextResponse.json(
-      { error: "Only image uploads are supported" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Only image uploads are supported" }, { status: 400 })
   }
 
   const MAX_SIZE = 5 * 1024 * 1024
   if (file.size > MAX_SIZE) {
-    return NextResponse.json(
-      { error: "File is too large (max 5MB)" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "File is too large (max 5MB)" }, { status: 400 })
   }
 
   const ext = fileExtensionFromMime(file.type)
   if (!ext) {
-    return NextResponse.json(
-      { error: "Unsupported image type" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Unsupported image type" }, { status: 400 })
   }
 
-  const supabaseAdmin = createSupabaseAdminClient()
+  const supabaseAdmin = createPrivilegedSupabaseClient("tenant logo upload and tenant logo persistence")
   const objectPath = `tenants/${tenantId}/logo.${ext}`
 
   const { data: currentTenant, error: currentTenantError } = await supabaseAdmin
@@ -98,10 +59,7 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (currentTenantError) {
-    return NextResponse.json(
-      { error: "Failed to load tenant" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load tenant" }, { status: 500 })
   }
 
   const previousPath =
@@ -118,10 +76,7 @@ export async function POST(request: Request) {
     })
 
   if (uploadError) {
-    return NextResponse.json(
-      { error: "Failed to upload logo" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to upload logo" }, { status: 500 })
   }
 
   if (previousPath && previousPath !== objectPath) {
@@ -134,56 +89,23 @@ export async function POST(request: Request) {
     .eq("id", tenantId)
 
   if (updateError) {
-    return NextResponse.json(
-      { error: "Failed to save logo" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to save logo" }, { status: 500 })
   }
 
   const signedUrl = await createSignedLogoUrl(objectPath)
   if (!signedUrl) {
-    return NextResponse.json(
-      { error: "Failed to generate logo URL" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to generate logo URL" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { url: signedUrl },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ url: signedUrl })
 }
 
 export async function DELETE() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  const supabaseAdmin = createSupabaseAdminClient()
+  const supabaseAdmin = createPrivilegedSupabaseClient("tenant logo removal and tenant logo persistence")
   const { data: tenant, error: tenantError } = await supabaseAdmin
     .from("tenants")
     .select("logo_url")
@@ -191,10 +113,7 @@ export async function DELETE() {
     .maybeSingle()
 
   if (tenantError) {
-    return NextResponse.json(
-      { error: "Failed to load tenant" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load tenant" }, { status: 500 })
   }
 
   const stored = typeof tenant?.logo_url === "string" ? tenant.logo_url : null
@@ -210,15 +129,8 @@ export async function DELETE() {
     .eq("id", tenantId)
 
   if (updateError) {
-    return NextResponse.json(
-      { error: "Failed to remove logo" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to remove logo" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { ok: true },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ ok: true })
 }
-

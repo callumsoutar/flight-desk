@@ -3,22 +3,8 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { resolveBusinessHours, type GeneralSettings } from "@/lib/settings/general-settings"
-import { TENANT_LOGO_BUCKET, isProbablyUrl } from "@/lib/settings/logo-storage"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { resolveTenantLogoSignedUrl } from "@/lib/settings/logo-storage-admin"
 import type { Database } from "@/lib/types"
-
-async function resolveTenantLogoUrl(value: string | null) {
-  if (!value) return null
-  if (isProbablyUrl(value)) return value
-
-  const supabaseAdmin = createSupabaseAdminClient()
-  const { data, error } = await supabaseAdmin.storage
-    .from(TENANT_LOGO_BUCKET)
-    .createSignedUrl(value, 60 * 60 * 24 * 30) // 30 days
-
-  if (error) return null
-  return data?.signedUrl ?? null
-}
 
 export async function fetchGeneralSettings(
   supabase: SupabaseClient<Database>,
@@ -63,7 +49,7 @@ export async function fetchGeneralSettings(
     }
   }
 
-  const logoUrl = await resolveTenantLogoUrl(tenant.logo_url ?? null)
+  const logoUrl = await resolveTenantLogoSignedUrl(tenant.logo_url ?? null)
 
   return {
     tenant: {

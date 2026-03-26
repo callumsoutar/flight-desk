@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import type { EquipmentWithIssuance } from "@/lib/types/equipment"
+import { returnEquipment as returnEquipmentMutation } from "@/hooks/use-equipment-detail-query"
 import { cn } from "@/lib/utils"
 import { formatDate } from "@/lib/utils/date-format"
 
@@ -63,20 +64,10 @@ export function ReturnEquipmentModal({
 
     setIsSubmitting(true)
     try {
-      const response = await fetch("/api/equipment-issuance", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          issuance_id: equipment.current_issuance.id,
-          notes: parsed.data.notes?.trim() || null,
-        }),
+      await returnEquipmentMutation({
+        issuance_id: equipment.current_issuance.id,
+        notes: parsed.data.notes?.trim() || null,
       })
-
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) {
-        throw new Error(payload?.error || "Failed to return equipment")
-      }
-
       toast.success("Equipment returned successfully")
       onOpenChange(false)
       onSuccess?.()

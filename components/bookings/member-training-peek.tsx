@@ -7,7 +7,7 @@ import { ArrowUpRight, BookOpen, ChevronRight, GraduationCap, Plane, UserRound }
 import { cn } from "@/lib/utils"
 import { formatDateTime } from "@/lib/utils/date-format"
 import { useTimezone } from "@/contexts/timezone-context"
-import type { MemberTrainingPeekResponse } from "@/lib/types/member-training-peek"
+import { useMemberTrainingPeekQuery } from "@/hooks/use-member-training-peek-query"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
@@ -15,18 +15,6 @@ function formatPerson(value: { first_name: string | null; last_name: string | nu
   if (!value) return "Unassigned"
   const name = [value.first_name, value.last_name].filter(Boolean).join(" ").trim()
   return name || value.email || "Unassigned"
-}
-
-async function fetchTrainingPeek(memberId: string, signal?: AbortSignal): Promise<MemberTrainingPeekResponse> {
-  const res = await fetch(`/api/members/${memberId}/training/peek`, {
-    method: "GET",
-    cache: "no-store",
-    headers: { "cache-control": "no-store" },
-    signal,
-  })
-  const payload = (await res.json().catch(() => null)) as { error?: string } | null
-  if (!res.ok) throw new Error(payload?.error || "Failed to load training info")
-  return payload as unknown as MemberTrainingPeekResponse
 }
 
 export function MemberTrainingPeek({
@@ -43,10 +31,12 @@ export function MemberTrainingPeek({
   const { timeZone: contextTimeZone } = useTimezone()
   const resolvedTimeZone = timeZone || contextTimeZone
 
-  const [data, setData] = React.useState<MemberTrainingPeekResponse | null>(null)
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const requestRef = React.useRef<AbortController | null>(null)
+  const {
+    data,
+    error,
+    isLoading: loading,
+    refetch,
+  } = useMemberTrainingPeekQuery(memberId)
 
   const [hoverOpen, setHoverOpen] = React.useState(false)
   const hoverCloseRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -62,42 +52,6 @@ export function MemberTrainingPeek({
   }, [clearHoverClose])
 
   React.useEffect(() => clearHoverClose, [clearHoverClose])
-
-  const load = React.useCallback((id: string) => {
-    requestRef.current?.abort()
-    const controller = new AbortController()
-    requestRef.current = controller
-    setLoading(true)
-    setError(null)
-    void fetchTrainingPeek(id, controller.signal)
-      .then((payload) => setData(payload))
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        setData(null)
-        setError(err instanceof Error ? err.message : "Failed to load training info")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
-  }, [])
-
-  React.useEffect(() => {
-    if (!memberId) {
-      requestRef.current?.abort()
-      requestRef.current = null
-      setData(null)
-      setError(null)
-      setLoading(false)
-      return
-    }
-
-    load(memberId)
-
-    return () => {
-      requestRef.current?.abort()
-      requestRef.current = null
-    }
-  }, [load, memberId])
 
   if (!memberId) return null
 
@@ -232,14 +186,14 @@ export function MemberTrainingPeek({
       {error ? (
         <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
           <div className="min-w-0 text-[11px] font-medium text-amber-900">
-            {error}
+            {error instanceof Error ? error.message : "Failed to load training info"}
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-8 rounded-full border-amber-200 bg-white px-3 text-xs font-semibold text-amber-900 hover:bg-white"
-            onClick={() => memberId && load(memberId)}
+            onClick={() => void refetch()}
           >
             Retry
           </Button>

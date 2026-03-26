@@ -1,11 +1,8 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isAdminRole } from "@/lib/auth/roles"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { isJsonObject, normalizeNullableString } from "@/lib/settings/utils"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -19,31 +16,25 @@ const patchSchema = z.strictObject({
 })
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   try {
     const settings = await fetchXeroSettings(supabase, tenantId)
-    return NextResponse.json({ settings }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ settings })
   } catch {
-    return NextResponse.json({ error: "Failed to load Xero settings" }, { status: 500 })
+    return noStoreJson({ error: "Failed to load Xero settings" }, { status: 500 })
   }
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  if (!parsed.success) return noStoreJson({ error: "Invalid payload" }, { status: 400 })
 
   const { data: row, error: readError } = await supabase
     .from("tenant_settings")
@@ -51,7 +42,7 @@ export async function PATCH(request: Request) {
     .eq("tenant_id", tenantId)
     .maybeSingle()
 
-  if (readError) return NextResponse.json({ error: "Failed to load existing settings" }, { status: 500 })
+  if (readError) return noStoreJson({ error: "Failed to load existing settings" }, { status: 500 })
 
   const existing = isJsonObject(row?.settings) ? row.settings : {}
   const existingXero = isJsonObject(existing.xero) ? existing.xero : {}
@@ -69,10 +60,10 @@ export async function PATCH(request: Request) {
       .eq("code", normalizedDefaultRevenueAccountCode)
       .maybeSingle()
     if (accountError) {
-      return NextResponse.json({ error: "Failed to validate default revenue account" }, { status: 500 })
+      return noStoreJson({ error: "Failed to validate default revenue account" }, { status: 500 })
     }
     if (!account) {
-      return NextResponse.json(
+      return noStoreJson(
         { error: "Default revenue account must match an active synced Xero account code" },
         { status: 422 }
       )
@@ -103,16 +94,16 @@ export async function PATCH(request: Request) {
       .from("tenant_settings")
       .update({ settings: nextSettings, updated_by: user.id })
       .eq("tenant_id", tenantId)
-    if (updateError) return NextResponse.json({ error: "Failed to update settings" }, { status: 500 })
+    if (updateError) return noStoreJson({ error: "Failed to update settings" }, { status: 500 })
   } else {
     const { error: insertError } = await supabase.from("tenant_settings").insert({
       tenant_id: tenantId,
       settings: nextSettings,
       updated_by: user.id,
     })
-    if (insertError) return NextResponse.json({ error: "Failed to save settings" }, { status: 500 })
+    if (insertError) return noStoreJson({ error: "Failed to save settings" }, { status: 500 })
   }
 
   const settings = await fetchXeroSettings(supabase, tenantId)
-  return NextResponse.json({ settings }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ settings })
 }

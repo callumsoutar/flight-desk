@@ -20,6 +20,11 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  createTrainingExamResult,
+  fetchMemberTrainingTheory,
+  fetchTrainingExamsForSyllabus,
+} from "@/hooks/use-member-training-query"
 import { cn } from "@/lib/utils"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import { useTimezone } from "@/contexts/timezone-context"
@@ -77,10 +82,7 @@ async function fetchExamsForSyllabus(syllabusId: string) {
   const cached = examsCache.get(syllabusId)
   if (cached && Date.now() - cached.fetchedAt < EXAMS_CACHE_TTL_MS) return cached.exams
 
-  const res = await fetch(`/api/exams?syllabus_id=${encodeURIComponent(syllabusId)}`, { cache: "no-store" })
-  if (!res.ok) return []
-  const data = (await res.json().catch(() => ({}))) as { exams?: ExamLite[] }
-  const list = data.exams ?? []
+  const list = (await fetchTrainingExamsForSyllabus(syllabusId)) as ExamLite[]
   examsCache.set(syllabusId, { exams: list, fetchedAt: Date.now() })
   return list
 }
@@ -123,18 +125,7 @@ export function TrainingStudentTheoryTab({
       else setLoading(true)
       setError(null)
       try {
-        const url = new URL(`/api/members/${userId}/training/theory`, window.location.origin)
-        url.searchParams.set("syllabus_id", syllabusId)
-
-        const response = await fetch(url.toString(), {
-          method: "GET",
-          cache: "no-store",
-          headers: { "cache-control": "no-store" },
-          signal,
-        })
-
-        if (!response.ok) throw new Error("Failed to load theory results")
-        const json = (await response.json()) as TrainingTheoryResponse
+        const json: TrainingTheoryResponse = await fetchMemberTrainingTheory(userId, syllabusId, signal)
         if (signal?.aborted) return
         const nextRows = Array.isArray(json.rows) ? json.rows : []
         theoryCache.set(cacheKey, { rows: nextRows, fetchedAt: Date.now() })
@@ -220,19 +211,13 @@ export function TrainingStudentTheoryTab({
 
     setLogSubmitting(true)
     try {
-      const res = await fetch(`/api/members/${userId}/training/exam-results`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exam_id: logExamId,
-          result: logExamResult,
-          score: logExamScore,
-          exam_date: logExamDate,
-          notes: logExamNotes ? logExamNotes : null,
-        }),
+      await createTrainingExamResult(userId, {
+        exam_id: logExamId,
+        result: logExamResult,
+        score: logExamScore,
+        exam_date: logExamDate,
+        notes: logExamNotes ? logExamNotes : null,
       })
-      const payload = (await res.json().catch(() => null)) as { error?: string } | null
-      if (!res.ok) throw new Error(payload?.error || "Failed to log exam result")
       toast.success("Exam result logged successfully")
       setLogOpen(false)
       theoryCache.delete(`${userId}:${syllabusId}`)

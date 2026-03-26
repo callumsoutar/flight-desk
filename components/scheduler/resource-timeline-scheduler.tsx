@@ -3,26 +3,24 @@
 import * as React from "react"
 import {
   AlertTriangle,
-  CalendarDays,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Eye,
   Loader2,
-  Plane,
-  User,
-  UserCircle,
-  X,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useSchedulerBookingActions } from "@/hooks/use-scheduler-booking-actions"
+import { schedulerPageQueryKey, useSchedulerPageQuery } from "@/hooks/use-scheduler-page-query"
+import { ResourceTimelineGrid } from "@/components/scheduler/resource-timeline-grid"
+import { PendingBookingMoveDialog } from "@/components/scheduler/pending-booking-move-dialog"
+import { ResourceTimelineSection } from "@/components/scheduler/resource-timeline-section"
+import { ResourceTimelineSidebar } from "@/components/scheduler/resource-timeline-sidebar"
+import { ResourceTimelineToolbar } from "@/components/scheduler/resource-timeline-toolbar"
+import { ResourceTimelineRow } from "@/components/scheduler/resource-timeline-row"
 import { cn } from "@/lib/utils"
 import { getBookingOpenPath } from "@/lib/bookings/navigation"
-import { getBookingLayout } from "@/lib/scheduler/timeline"
 import {
   addDaysYyyyMmDd,
   dayOfWeekFromYyyyMmDd,
@@ -46,27 +44,7 @@ const NewBookingModal = dynamic(
   () => import("@/components/scheduler/new-booking-modal").then((mod) => mod.NewBookingModal),
   { ssr: false }
 )
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 import type { BookingWarningItem, BookingWarningSeverity } from "@/lib/types/booking-warnings"
 import type { BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
@@ -95,6 +73,10 @@ type Resource =
   | { kind: "instructor"; data: InstructorResource }
   | { kind: "aircraft"; data: AircraftResource }
 
+type SchedulerDragResource =
+  | { kind: "instructor"; data: { id: string } }
+  | { kind: "aircraft"; data: { id: string } }
+
 type SchedulerBooking = {
   id: string
   startsAt: Date
@@ -117,7 +99,7 @@ type SchedulerBooking = {
 
 type SchedulerBookingPointerDownPayload = {
   booking: SchedulerBooking
-  sourceResource: Resource
+  sourceResource: SchedulerDragResource
   pointerId: number
   clientX: number
   clientY: number
@@ -128,7 +110,7 @@ type SchedulerBookingPointerDownPayload = {
 
 type SchedulerBookingDragCandidate = {
   booking: SchedulerBooking
-  sourceResource: Resource
+  sourceResource: SchedulerDragResource
   pointerId: number
   startClientX: number
   startClientY: number
@@ -165,8 +147,6 @@ type TimelineConfig = { startMin: number; endMin: number; intervalMinutes: numbe
 const INTERVAL_MINUTES = 30
 const ROW_HEIGHT = 34
 const GROUP_HEIGHT = 28
-const LEFT_COL_WIDTH = "w-[160px] sm:w-[240px] lg:w-[280px]"
-
 const timeFormatterCache = new Map<string, Intl.DateTimeFormat>()
 const time12FormatterCache = new Map<string, Intl.DateTimeFormat>()
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -593,7 +573,7 @@ function bookingMatchesResource(booking: SchedulerBooking, resource: Resource) {
   return booking.aircraftId === resource.data.id
 }
 
-function getResourceId(resource: Resource) {
+function getResourceId(resource: SchedulerDragResource) {
   return resource.data.id
 }
 
@@ -656,14 +636,20 @@ function bookingToSchedulerBooking(
   }
 }
 
-export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData }) {
+export function ResourceTimelineScheduler({ data: initialData }: { data: SchedulerPageData }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { role, user } = useAuth()
 
   const isStaff = role === "owner" || role === "admin" || role === "instructor"
   const isMobile = useIsMobile()
 
-  const [selectedDateKey, setSelectedDateKey] = React.useState<string>(data.dateYyyyMmDd)
+  const [selectedDateKey, setSelectedDateKey] = React.useState<string>(initialData.dateYyyyMmDd)
+  const { data: schedulerData } = useSchedulerPageQuery({
+    dateYyyyMmDd: selectedDateKey,
+    initialData,
+  })
+  const data = schedulerData ?? initialData
   const [newBookingModalOpen, setNewBookingModalOpen] = React.useState(false)
   const [newBookingDraft, setNewBookingDraft] = React.useState<SchedulerBookingDraft | null>(null)
   const [cancelModalOpen, setCancelModalOpen] = React.useState(false)
@@ -672,8 +658,6 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
   const [contactMemberId, setContactMemberId] = React.useState<string | null>(null)
   const [dragPreview, setDragPreview] = React.useState<SchedulerBookingDragPreview | null>(null)
   const [pendingMove, setPendingMove] = React.useState<PendingSchedulerBookingMove | null>(null)
-  const [isApplyingMove, setIsApplyingMove] = React.useState(false)
-  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false)
   const [isNavigating, startNavigation] = React.useTransition()
   const openModalTimerRef = React.useRef<number | null>(null)
   const dragCandidateRef = React.useRef<SchedulerBookingDragCandidate | null>(null)
@@ -699,14 +683,35 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     dragPreviewRef.current = dragPreview
   }, [dragPreview])
 
+  const handleSchedulerChanged = React.useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: schedulerPageQueryKey(selectedDateKey),
+    })
+  }, [queryClient, selectedDateKey])
+
+  const {
+    isApplyingMove,
+    isUpdatingStatus,
+    handleStatusUpdate,
+    handleApplyPendingMove,
+  } = useSchedulerBookingActions({
+    pendingMove,
+    onPendingMoveChange: setPendingMove,
+    onCancelBookingClosed: () => {
+      setCancelModalOpen(false)
+      setSelectedBookingForCancel(null)
+    },
+    onChanged: handleSchedulerChanged,
+  })
+
   const openContactDetails = React.useCallback((memberId: string) => {
     setContactMemberId(memberId)
     setContactModalOpen(true)
   }, [])
 
   React.useEffect(() => {
-    setSelectedDateKey(data.dateYyyyMmDd)
-  }, [data.dateYyyyMmDd])
+    setSelectedDateKey(initialData.dateYyyyMmDd)
+  }, [initialData.dateYyyyMmDd])
 
   const timelineConfig = React.useMemo(
     () => buildTimelineConfig(data.businessHours),
@@ -1037,110 +1042,6 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     }
   }, [buildDragPreview, formatResourceLabel])
 
-  const handleStatusUpdate = React.useCallback(
-    async (variables: {
-      bookingId: string
-      status: BookingStatus
-      cancellationCategoryId?: string
-      cancellationReason?: string | null
-      cancelledNotes?: string | null
-    }) => {
-      setIsUpdatingStatus(true)
-      try {
-        const res = await fetch(`/api/bookings/${variables.bookingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: variables.status,
-            cancellation_category_id:
-              variables.status === "cancelled" ? (variables.cancellationCategoryId ?? null) : undefined,
-            cancellation_reason:
-              variables.status === "cancelled" ? (variables.cancellationReason ?? null) : undefined,
-            cancelled_notes: variables.status === "cancelled" ? (variables.cancelledNotes ?? null) : undefined,
-          }),
-        })
-
-        if (!res.ok) {
-          const payload = (await res.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || "Failed to update booking")
-        }
-
-        await res.json()
-        setCancelModalOpen(false)
-        setSelectedBookingForCancel(null)
-        toast.success(
-          variables.status === "confirmed"
-            ? "Booking confirmed"
-            : variables.status === "cancelled"
-              ? "Booking cancelled"
-              : "Booking updated"
-        )
-        router.refresh()
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to update booking")
-      } finally {
-        setIsUpdatingStatus(false)
-      }
-    },
-    [router]
-  )
-
-  const handleApplyPendingMove = React.useCallback(async () => {
-    if (!pendingMove) return
-
-    const resourceChanged = pendingMove.fromResourceId !== pendingMove.toResourceId
-    const timeChanged =
-      pendingMove.startBefore.getTime() !== pendingMove.startAfter.getTime() ||
-      pendingMove.endBefore.getTime() !== pendingMove.endAfter.getTime()
-    if (!resourceChanged && !timeChanged) {
-      setPendingMove(null)
-      return
-    }
-
-    const body: {
-      instructor_id?: string | null
-      aircraft_id?: string | null
-      start_time?: string
-      end_time?: string
-    } = {}
-
-    if (resourceChanged) {
-      if (pendingMove.dragKind === "instructor") {
-        body.instructor_id = pendingMove.toResourceId
-      } else {
-        body.aircraft_id = pendingMove.toResourceId
-      }
-    }
-
-    if (timeChanged) {
-      body.start_time = pendingMove.startAfter.toISOString()
-      body.end_time = pendingMove.endAfter.toISOString()
-    }
-
-    setIsApplyingMove(true)
-    try {
-      const response = await fetch(`/api/bookings/${pendingMove.booking.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string }
-        throw new Error(payload.error || "Failed to move booking")
-      }
-
-      await response.json()
-      setPendingMove(null)
-      toast.success("Booking moved")
-      router.refresh()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to move booking")
-    } finally {
-      setIsApplyingMove(false)
-    }
-  }, [pendingMove, router])
-
   const selectedDate = React.useMemo(
     () => dateKeyToCalendarDate(selectedDateKey),
     [selectedDateKey]
@@ -1291,10 +1192,6 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
     ]
   )
 
-  const handleCreatedBooking = React.useCallback(() => {
-    router.refresh()
-  }, [router])
-
   const dragInProgress = dragPreview !== null
   const pendingMoveHasResourceChange = Boolean(
     pendingMove && pendingMove.fromResourceId !== pendingMove.toResourceId
@@ -1305,53 +1202,177 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         pendingMove.endBefore.getTime() !== pendingMove.endAfter.getTime())
   )
   const isLoading = !selectedDateKey || isNavigating
+  const timelineHeaderCells = React.useMemo(
+    () =>
+      slots.map((slot) => {
+        const minutes = getMinutesInTimeZone(slot, data.timeZone) % 60
+        const showLabel = minutes === 0
+        return (
+          <div
+            key={slot.toISOString()}
+            className={cn(
+              "last:border-r-0 flex items-center justify-center border-r border-border/60 px-0.5 text-[8px] text-muted-foreground sm:px-1 sm:text-[9px]"
+            )}
+          >
+            <div
+              className={cn(
+                "select-none whitespace-nowrap font-medium tabular-nums",
+                showLabel ? "" : "opacity-40"
+              )}
+            >
+              {formatTimeLabel(slot, data.timeZone)}
+            </div>
+          </div>
+        )
+      }),
+    [data.timeZone, slots]
+  )
+  const instructorTimelineRows = React.useMemo(
+    () =>
+      (
+        <ResourceTimelineSection
+          items={instructorResources}
+          renderRow={(inst) => {
+            const resource: Resource = { kind: "instructor", data: inst }
+            const rowBookings = bookings.filter((booking) => bookingMatchesResource(booking, resource))
+            const windows = instructorAvailabilityById.get(inst.id) ?? []
+
+            return (
+              <ResourceTimelineRow
+                key={inst.id}
+                rowResource={resource}
+                height={ROW_HEIGHT}
+                slotCount={slotCount}
+                slots={slots}
+                timelineStart={timelineStart}
+                timelineEnd={timelineEnd}
+                timeZone={data.timeZone}
+                bookings={rowBookings}
+                dragPreview={dragPreview}
+                dragInProgress={dragInProgress}
+                resourceTitle={getResourceTitle(resource)}
+                isSlotAvailable={(slot) =>
+                  isMinutesWithinAnyWindow(getMinutesInTimeZone(slot, data.timeZone), windows)
+                }
+                onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
+                onBookingPointerDown={handleBookingPointerDown}
+                canDragBookings={isStaff && !isMobile}
+                onBookingClick={handleBookingClick}
+                onViewContactDetails={openContactDetails}
+                onStatusUpdate={(variables) => {
+                  void handleStatusUpdate(variables)
+                }}
+                onCancelBooking={handleCancelBookingClick}
+                formatTimeRangeLabel={formatTimeRangeLabel}
+                formatTimeRangeLabel12h={formatTimeRangeLabel12h}
+                statusBadgeVariant={statusBadgeVariant}
+                statusPillClasses={statusPillClasses}
+                statusIndicatorClasses={statusIndicatorClasses}
+                formatTimeLabel12h={formatTimeLabel12h}
+                getMinutesInTimeZone={getMinutesInTimeZone}
+              />
+            )
+          }}
+        />
+      ),
+    [
+      bookings,
+      data.timeZone,
+      dragInProgress,
+      dragPreview,
+      handleBookingClick,
+      handleBookingPointerDown,
+      handleCancelBookingClick,
+      handleEmptySlotClick,
+      handleStatusUpdate,
+      instructorAvailabilityById,
+      instructorResources,
+      isMobile,
+      isStaff,
+      openContactDetails,
+      slotCount,
+      slots,
+      timelineEnd,
+      timelineStart,
+    ]
+  )
+  const aircraftTimelineRows = React.useMemo(
+    () =>
+      (
+        <ResourceTimelineSection
+          items={aircraftResources}
+          renderRow={(ac) => {
+            const resource: Resource = { kind: "aircraft", data: ac }
+            const rowBookings = bookings.filter((booking) => bookingMatchesResource(booking, resource))
+
+            return (
+              <ResourceTimelineRow
+                key={ac.id}
+                rowResource={resource}
+                height={ROW_HEIGHT}
+                slotCount={slotCount}
+                slots={slots}
+                timelineStart={timelineStart}
+                timelineEnd={timelineEnd}
+                timeZone={data.timeZone}
+                bookings={rowBookings}
+                dragPreview={dragPreview}
+                dragInProgress={dragInProgress}
+                resourceTitle={getResourceTitle(resource)}
+                onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
+                onBookingPointerDown={handleBookingPointerDown}
+                canDragBookings={isStaff && !isMobile}
+                onBookingClick={handleBookingClick}
+                onViewContactDetails={openContactDetails}
+                onStatusUpdate={(variables) => {
+                  void handleStatusUpdate(variables)
+                }}
+                onCancelBooking={handleCancelBookingClick}
+                formatTimeRangeLabel={formatTimeRangeLabel}
+                formatTimeRangeLabel12h={formatTimeRangeLabel12h}
+                statusBadgeVariant={statusBadgeVariant}
+                statusPillClasses={statusPillClasses}
+                statusIndicatorClasses={statusIndicatorClasses}
+                formatTimeLabel12h={formatTimeLabel12h}
+                getMinutesInTimeZone={getMinutesInTimeZone}
+              />
+            )
+          }}
+        />
+      ),
+    [
+      aircraftResources,
+      bookings,
+      data.timeZone,
+      dragInProgress,
+      dragPreview,
+      handleBookingClick,
+      handleBookingPointerDown,
+      handleCancelBookingClick,
+      handleEmptySlotClick,
+      handleStatusUpdate,
+      isMobile,
+      isStaff,
+      openContactDetails,
+      slotCount,
+      slots,
+      timelineEnd,
+      timelineStart,
+    ]
+  )
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigateDate(-1)} aria-label="Previous day">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-10 flex-1 justify-start gap-2 px-3 font-semibold sm:flex-initial"
-                aria-label="Select date"
-              >
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">
-                  {selectedDateKey ? formatDateKeyLabel(selectedDateKey) : "Loading..."}
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={selectedDate ?? undefined} onSelect={handleDateSelect} initialFocus />
-            </PopoverContent>
-          </Popover>
-
-          <Button variant="outline" size="icon" onClick={() => navigateDate(1)} aria-label="Next day">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-
-          <Button variant="ghost" onClick={goToToday} className="hidden sm:inline-flex">
-            Today
-          </Button>
-        </div>
-
-        <div className="hidden items-center gap-2 sm:flex">
-          <Button
-            className="h-10 bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800"
-            onClick={handleNewBooking}
-            disabled={!selectedDateKey}
-          >
-            <CalendarDays className="mr-2 h-4 w-4" />
-            New booking
-          </Button>
-        </div>
-      </div>
+      <ResourceTimelineToolbar
+        selectedDateLabel={selectedDateKey ? formatDateKeyLabel(selectedDateKey) : "Loading..."}
+        selectedDate={selectedDate ?? undefined}
+        onSelectDate={handleDateSelect}
+        onPreviousDay={() => navigateDate(-1)}
+        onNextDay={() => navigateDate(1)}
+        onToday={goToToday}
+        onNewBooking={handleNewBooking}
+        disableNewBooking={!selectedDateKey}
+      />
 
       <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
         {isLoading ? (
@@ -1361,330 +1382,60 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
           </div>
         ) : (
           <div className="flex">
-            <div className={cn("shrink-0 border-r border-border/60 bg-muted/10", LEFT_COL_WIDTH)}>
-              <div className="sticky top-0 z-30 flex h-10 items-center border-b bg-card/95 px-2 backdrop-blur sm:h-12 sm:px-4">
-                <div className="text-xs font-semibold text-foreground/90 sm:text-sm">Resources</div>
-              </div>
-
-              <div
-                className="flex items-center border-b border-border/60 bg-muted/20 px-2 text-[11px] font-semibold text-muted-foreground sm:px-4"
-                style={{ height: GROUP_HEIGHT }}
-              >
-                Instructors
-              </div>
-              {instructorResources.map((inst) => (
-                <div
-                  key={inst.id}
-                  className="flex cursor-pointer items-center border-b border-border/60 px-2 transition-colors hover:bg-muted/30 sm:px-4"
-                  style={{ height: ROW_HEIGHT }}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() =>
-                    openCreateBookingModal({
-                      resource: { kind: "instructor", data: inst },
-                    })
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return
-                    event.preventDefault()
-                    openCreateBookingModal({
-                      resource: { kind: "instructor", data: inst },
-                    })
-                  }}
-                >
-                  <div className="min-w-0 truncate text-[13px] font-semibold leading-tight sm:text-sm">
-                    {inst.endorsements.length > 0 ? (
-                      <>
-                        {inst.name}{" "}
-                        <span className="font-medium text-muted-foreground/90">
-                          ({inst.endorsements.join(", ")})
-                        </span>
-                      </>
-                    ) : (
-                      inst.name
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              <div
-                className="flex items-center border-b border-border/60 bg-muted/20 px-2 text-[11px] font-semibold text-muted-foreground sm:px-4"
-                style={{ height: GROUP_HEIGHT }}
-              >
-                Aircraft
-              </div>
-              {aircraftResources.map((ac) => (
-                <div
-                  key={ac.id}
-                  className="flex cursor-pointer items-center border-b border-border/60 px-2 transition-colors hover:bg-muted/30 sm:px-4"
-                  style={{ height: ROW_HEIGHT }}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() =>
-                    openCreateBookingModal({
-                      resource: { kind: "aircraft", data: ac },
-                    })
-                  }
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return
-                    event.preventDefault()
-                    openCreateBookingModal({
-                      resource: { kind: "aircraft", data: ac },
-                    })
-                  }}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="min-w-0 truncate text-[13px] font-semibold leading-tight sm:text-sm">
-                      {ac.registration}{" "}
-                      <span className="font-medium text-muted-foreground/90">({ac.type})</span>
-                    </div>
-                    {ac.warningSummary && ac.warningSummary.total_count > 0 ? (
-                      <AircraftWarningTooltip summary={ac.warningSummary} />
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="min-w-0 flex-1 overflow-x-auto">
-              <div style={timelineMinWidth ? { minWidth: timelineMinWidth } : undefined}>
-                <div className="sticky top-0 z-30 h-10 border-b border-border/60 bg-card/95 backdrop-blur sm:h-12">
-                  <div
-                    className="grid h-full"
-                    style={{
-                      gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))`,
-                    }}
-                  >
-                    {slots.map((slot) => {
-                      const minutes = getMinutesInTimeZone(slot, data.timeZone) % 60
-                      const showLabel = minutes === 0
-                      return (
-                        <div
-                          key={slot.toISOString()}
-                          className={cn(
-                            "last:border-r-0 flex items-center justify-center border-r border-border/60 px-0.5 text-[8px] text-muted-foreground sm:px-1 sm:text-[9px]"
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "select-none whitespace-nowrap font-medium tabular-nums",
-                              showLabel ? "" : "opacity-40"
-                            )}
-                          >
-                            {formatTimeLabel(slot, data.timeZone)}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="divide-y">
-                  <div className="bg-muted/20" style={{ height: GROUP_HEIGHT }} aria-hidden="true">
-                    <div
-                      className="grid h-full"
-                      style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
-                    >
-                      {slots.map((slot) => (
-                        <div key={slot.toISOString()} className="last:border-r-0 border-r" />
-                      ))}
-                    </div>
-                  </div>
-
-                  {instructorResources.map((inst) => {
-                    const resource: Resource = { kind: "instructor", data: inst }
-                    const rowBookings = bookings.filter((booking) => bookingMatchesResource(booking, resource))
-                    const windows = instructorAvailabilityById.get(inst.id) ?? []
-
-                    return (
-                      <TimelineRow
-                        key={inst.id}
-                        rowResource={resource}
-                        height={ROW_HEIGHT}
-                        slotCount={slotCount}
-                        slots={slots}
-                        timelineStart={timelineStart}
-                        timelineEnd={timelineEnd}
-                        timeZone={data.timeZone}
-                        bookings={rowBookings}
-                        dragPreview={dragPreview}
-                        dragInProgress={dragInProgress}
-                        resourceTitle={getResourceTitle(resource)}
-                        isSlotAvailable={(slot) => isMinutesWithinAnyWindow(getMinutesInTimeZone(slot, data.timeZone), windows)}
-                        onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
-                        onBookingPointerDown={handleBookingPointerDown}
-                        canDragBookings={isStaff && !isMobile}
-                        onBookingClick={handleBookingClick}
-                        onViewContactDetails={openContactDetails}
-                        onStatusUpdate={(variables) => {
-                          void handleStatusUpdate(variables)
-                        }}
-                        onCancelBooking={handleCancelBookingClick}
-                      />
-                    )
-                  })}
-
-                  <div className="bg-muted/20" style={{ height: GROUP_HEIGHT }} aria-hidden="true">
-                    <div
-                      className="grid h-full"
-                      style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
-                    >
-                      {slots.map((slot) => (
-                        <div key={slot.toISOString()} className="last:border-r-0 border-r" />
-                      ))}
-                    </div>
-                  </div>
-
-                  {aircraftResources.map((ac) => {
-                    const resource: Resource = { kind: "aircraft", data: ac }
-                    const rowBookings = bookings.filter((booking) => bookingMatchesResource(booking, resource))
-
-                    return (
-                      <TimelineRow
-                        key={ac.id}
-                        rowResource={resource}
-                        height={ROW_HEIGHT}
-                        slotCount={slotCount}
-                        slots={slots}
-                        timelineStart={timelineStart}
-                        timelineEnd={timelineEnd}
-                        timeZone={data.timeZone}
-                        bookings={rowBookings}
-                        dragPreview={dragPreview}
-                        dragInProgress={dragInProgress}
-                        resourceTitle={getResourceTitle(resource)}
-                        onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
-                        onBookingPointerDown={handleBookingPointerDown}
-                        canDragBookings={isStaff && !isMobile}
-                        onBookingClick={handleBookingClick}
-                        onViewContactDetails={openContactDetails}
-                        onStatusUpdate={(variables) => {
-                          void handleStatusUpdate(variables)
-                        }}
-                        onCancelBooking={handleCancelBookingClick}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
+            <ResourceTimelineSidebar
+              rowHeight={ROW_HEIGHT}
+              groupHeight={GROUP_HEIGHT}
+              instructorResources={instructorResources}
+              aircraftResources={aircraftResources}
+              onSelectInstructor={(instructorId) => {
+                const inst = instructorResourceById.get(instructorId)
+                if (!inst) return
+                openCreateBookingModal({
+                  resource: { kind: "instructor", data: inst },
+                })
+              }}
+              onSelectAircraft={(aircraftId) => {
+                const ac = aircraftResourceById.get(aircraftId)
+                if (!ac) return
+                openCreateBookingModal({
+                  resource: { kind: "aircraft", data: ac },
+                })
+              }}
+              renderAircraftWarning={(summary) => <AircraftWarningTooltip summary={summary} />}
+            />
+            <ResourceTimelineGrid
+              timelineMinWidth={timelineMinWidth}
+              headerCells={timelineHeaderCells}
+              instructorRows={instructorTimelineRows}
+              aircraftRows={aircraftTimelineRows}
+              groupHeight={GROUP_HEIGHT}
+              slotCount={slotCount}
+              slots={slots}
+            />
           </div>
         )}
       </div>
 
-      <Dialog
+      <PendingBookingMoveDialog
         open={Boolean(pendingMove)}
+        pendingMove={pendingMove}
+        hasResourceChange={pendingMoveHasResourceChange}
+        hasTimeChange={pendingMoveHasTimeChange}
+        isApplyingMove={isApplyingMove}
+        timeZone={data.timeZone}
         onOpenChange={(open) => {
           if (!open && !isApplyingMove) {
             setPendingMove(null)
           }
         }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Confirm booking move</DialogTitle>
-            <DialogDescription>
-              Review the pending scheduler changes before applying them.
-            </DialogDescription>
-          </DialogHeader>
-
-          {pendingMove ? (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Booking</span>
-                  <span className="min-w-0 truncate font-medium">{pendingMove.booking.primaryLabel}</span>
-                </div>
-
-                {pendingMoveHasResourceChange ? (
-                  <div className="space-y-1.5">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground capitalize">
-                      {pendingMove.dragKind}
-                    </div>
-                    <div className="rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="min-w-[42px] text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">
-                            Old
-                          </span>
-                          <span className="min-w-0 truncate font-medium text-rose-600 line-through decoration-rose-500/80 dark:text-rose-300">
-                            {pendingMove.fromResourceLabel}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="min-w-[42px] text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                            New
-                          </span>
-                          <span className="min-w-0 truncate font-semibold text-emerald-700 dark:text-emerald-300">
-                            {pendingMove.toResourceLabel}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {pendingMoveHasTimeChange ? (
-                  <div className="space-y-1.5">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Time
-                    </div>
-                    <div className="rounded-md border border-border/70 bg-background/70 px-2.5 py-2">
-                      <div className="space-y-1.5">
-                        <div className="flex items-start gap-2">
-                          <span className="min-w-[42px] pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">
-                            Old
-                          </span>
-                          <span className="font-medium text-rose-600 line-through decoration-rose-500/80 dark:text-rose-300">
-                            {formatFriendlyDateTimeRangeLabel(
-                              pendingMove.startBefore,
-                              pendingMove.endBefore,
-                              data.timeZone
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="min-w-[42px] pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                            New
-                          </span>
-                          <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-                            {formatFriendlyDateTimeRangeLabel(
-                              pendingMove.startAfter,
-                              pendingMove.endAfter,
-                              data.timeZone
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={isApplyingMove}
-              onClick={() => {
-                setPendingMove(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-slate-900 font-semibold text-white hover:bg-slate-800"
-              disabled={isApplyingMove || !pendingMove}
-              onClick={() => {
-                void handleApplyPendingMove()
-              }}
-            >
-              {isApplyingMove ? "Applying..." : "Approve changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onCancel={() => {
+          setPendingMove(null)
+        }}
+        onApprove={() => {
+          void handleApplyPendingMove()
+        }}
+        formatDateTimeRange={formatFriendlyDateTimeRangeLabel}
+      />
 
       <NewBookingModal
         open={newBookingModalOpen}
@@ -1696,7 +1447,7 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         timeZone={data.timeZone}
         isStaff={isStaff}
         currentUserId={user?.id ?? null}
-        onCreated={handleCreatedBooking}
+        onCreated={handleSchedulerChanged}
         instructorRosterWindows={instructorAvailabilityById}
       />
 
@@ -1728,418 +1479,6 @@ export function ResourceTimelineScheduler({ data }: { data: SchedulerPageData })
         }}
         memberId={contactMemberId}
       />
-    </div>
-  )
-}
-
-function TimelineRow({
-  rowResource,
-  height,
-  slotCount,
-  slots,
-  timelineStart,
-  timelineEnd,
-  bookings,
-  dragPreview,
-  dragInProgress,
-  resourceTitle,
-  isSlotAvailable,
-  onEmptyClick,
-  onBookingPointerDown,
-  canDragBookings,
-  onBookingClick,
-  onViewContactDetails,
-  onStatusUpdate,
-  onCancelBooking,
-  timeZone,
-}: {
-  rowResource: Resource
-  height: number
-  slotCount: number
-  slots: Date[]
-  timelineStart: Date
-  timelineEnd: Date
-  bookings: SchedulerBooking[]
-  dragPreview: SchedulerBookingDragPreview | null
-  dragInProgress: boolean
-  resourceTitle?: string
-  isSlotAvailable?: (slot: Date) => boolean
-  onEmptyClick: (clientX: number, container: HTMLDivElement) => void
-  onBookingPointerDown: (payload: SchedulerBookingPointerDownPayload) => void
-  canDragBookings: boolean
-  onBookingClick: (booking: SchedulerBooking) => void
-  onViewContactDetails?: (memberId: string) => void
-  onStatusUpdate: (variables: {
-    bookingId: string
-    status: BookingStatus
-    cancellationCategoryId?: string
-    cancellationReason?: string | null
-    cancelledNotes?: string | null
-  }) => void
-  onCancelBooking: (booking: SchedulerBooking) => void
-  timeZone: string
-}) {
-  const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const router = useRouter()
-  const [hoveredSlotIdx, setHoveredSlotIdx] = React.useState<number | null>(null)
-  const hoveredSlot = hoveredSlotIdx === null ? null : (slots[hoveredSlotIdx] ?? null)
-  const hoveredAvailable = hoveredSlot && isSlotAvailable ? isSlotAvailable(hoveredSlot) : true
-  const hoveredTimeLabel = hoveredSlot ? formatTimeLabel12h(hoveredSlot, timeZone) : null
-  const activeDragPreview =
-    dragPreview && dragPreview.dragKind === rowResource.kind ? dragPreview : null
-  const renderedBookings = React.useMemo(() => {
-    const base = bookings
-      .filter((booking) => !(activeDragPreview && booking.id === activeDragPreview.booking.id))
-      .map((booking) => ({
-        booking,
-        startAt: booking.startsAt,
-        endAt: booking.endsAt,
-        isPreview: false,
-        previewValid: true,
-      }))
-
-    if (activeDragPreview && rowResource.data.id === activeDragPreview.targetResourceId) {
-      base.push({
-        booking: activeDragPreview.booking,
-        startAt: activeDragPreview.startAt,
-        endAt: activeDragPreview.endAt,
-        isPreview: true,
-        previewValid: activeDragPreview.valid,
-      })
-    }
-
-    base.sort((a, b) => a.startAt.getTime() - b.startAt.getTime())
-    return base
-  }, [activeDragPreview, bookings, rowResource.data.id])
-
-  return (
-    <div
-      className="relative"
-      style={{ height }}
-      data-scheduler-row="true"
-      data-resource-kind={rowResource.kind}
-      data-resource-id={rowResource.data.id}
-    >
-      <div
-        ref={containerRef}
-        className={cn(
-          "absolute inset-0 cursor-default",
-          activeDragPreview && rowResource.data.id === activeDragPreview.targetResourceId
-            ? activeDragPreview.valid
-              ? "bg-emerald-500/5"
-              : "bg-destructive/5"
-            : ""
-        )}
-        onMouseMove={(event) => {
-          if (!containerRef.current) return
-          const rect = containerRef.current.getBoundingClientRect()
-          if (!rect.width) return
-          const x = Math.max(0, Math.min(event.clientX - rect.left, rect.width))
-          const rawIdx = Math.floor((x / rect.width) * slotCount)
-          const idx = Math.max(0, Math.min(rawIdx, slotCount - 1))
-          setHoveredSlotIdx((prev) => (prev === idx ? prev : idx))
-        }}
-        onMouseLeave={() => setHoveredSlotIdx(null)}
-        onClick={(event) => {
-          if (dragInProgress) return
-          if (!containerRef.current) return
-          if (isSlotAvailable) {
-            const rect = containerRef.current.getBoundingClientRect()
-            if (!rect.width) return
-            const x = Math.max(0, Math.min(event.clientX - rect.left, rect.width))
-            const rawIdx = Math.floor((x / rect.width) * slotCount)
-            const idx = Math.max(0, Math.min(rawIdx, slotCount - 1))
-            const slot = slots[idx]
-            if (slot && !isSlotAvailable(slot)) return
-          }
-          onEmptyClick(event.clientX, containerRef.current)
-        }}
-        aria-label={resourceTitle ? `Timeline row for ${resourceTitle}` : "Timeline row"}
-      >
-        <div className="grid h-full" style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}>
-          {slots.map((slot, idx) => {
-            const isHour = getMinutesInTimeZone(slot, timeZone) % 60 === 0
-            const available = isSlotAvailable ? isSlotAvailable(slot) : true
-            return (
-              <div
-                key={slot.toISOString()}
-                className={cn(
-                  "last:border-r-0 border-r transition-colors",
-                  available ? "cursor-pointer hover:bg-sky-500/10" : "cursor-not-allowed bg-muted/90",
-                  available && idx % 2 === 1 ? "bg-muted/[0.03]" : "",
-                  available && isHour ? "bg-muted/[0.05]" : "",
-                  !available && idx % 2 === 1 ? "bg-muted/95" : "",
-                  !available && isHour ? "bg-muted" : ""
-                )}
-              />
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute inset-0 hidden sm:block">
-        {!dragInProgress && hoveredSlot && hoveredTimeLabel ? (
-          <div
-            className="absolute z-10"
-            style={{
-              left: `${((hoveredSlotIdx ?? 0) + 0.5) * (100 / Math.max(1, slotCount))}%`,
-              top: -6,
-              transform: "translate(-50%, -100%)",
-            }}
-          >
-            <div
-              className={cn(
-                "relative rounded-md px-2 py-1 text-[11px] font-medium tabular-nums shadow-lg ring-1 backdrop-blur",
-                "after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-[6px] after:border-transparent",
-                hoveredAvailable
-                  ? "bg-slate-900/90 text-white ring-white/10 after:border-t-slate-900/90"
-                  : "bg-muted-foreground/90 text-white ring-white/10 after:border-t-muted-foreground/90"
-              )}
-            >
-              {hoveredAvailable ? "Create booking from " : "Unavailable at "}
-              <span className="font-semibold">{hoveredTimeLabel}</span>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="pointer-events-none absolute inset-0">
-        {renderedBookings.map((item) => {
-          const booking = item.booking
-          const layout = getBookingLayout({
-            bookingStart: item.startAt,
-            bookingEnd: item.endAt,
-            timelineStart,
-            timelineEnd,
-          })
-          if (!layout) return null
-
-          const canDragThisBooking = canDragBookings && booking.status !== "complete"
-          const label = booking.primaryLabel
-          const range = formatTimeRangeLabel(item.startAt, item.endAt, timeZone)
-          const previewTimeLabel = item.isPreview
-            ? formatTimeRangeLabel12h(item.startAt, item.endAt, timeZone)
-            : null
-
-          return (
-            <div
-              key={booking.id}
-              className="pointer-events-auto absolute inset-y-0"
-              style={{
-                left: `${layout.leftPct}%`,
-                width: `max(${layout.widthPct}%, 2%)`,
-              }}
-            >
-              <div className="relative h-full">
-                {item.isPreview && previewTimeLabel ? (
-                  <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[105%]">
-                    <div
-                      className={cn(
-                        "rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-md ring-1 backdrop-blur",
-                        item.previewValid
-                          ? "bg-slate-900/90 text-white ring-white/20"
-                          : "bg-destructive/90 text-white ring-white/20"
-                      )}
-                    >
-                      {item.previewValid ? "New time " : "Unavailable "}
-                      {previewTimeLabel}
-                    </div>
-                  </div>
-                ) : null}
-
-                <ContextMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <ContextMenuTrigger asChild>
-                        <button
-                          type="button"
-                          onPointerDown={(event) => {
-                            if (!canDragThisBooking || event.button !== 0) return
-                            if (!containerRef.current) return
-
-                            const rect = containerRef.current.getBoundingClientRect()
-                            if (!rect.width || slotCount <= 0) return
-
-                            const slotWidth = rect.width / slotCount
-                            const bookingStartPx = (layout.leftPct / 100) * rect.width
-                            const rawOffsetSlots = Math.floor(
-                              (event.clientX - rect.left - bookingStartPx) / Math.max(1, slotWidth)
-                            )
-                            const durationMs = item.endAt.getTime() - item.startAt.getTime()
-                            const durationSlots = Math.max(1, Math.ceil(durationMs / (INTERVAL_MINUTES * 60_000)))
-                            const pointerOffsetSlots = clamp(
-                              rawOffsetSlots,
-                              0,
-                              Math.max(0, durationSlots - 1)
-                            )
-
-                            onBookingPointerDown({
-                              booking,
-                              sourceResource: rowResource,
-                              pointerId: event.pointerId,
-                              clientX: event.clientX,
-                              clientY: event.clientY,
-                              button: event.button,
-                              pointerOffsetSlots,
-                              durationSlots,
-                            })
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            onBookingClick(booking)
-                          }}
-                          className={cn(
-                            "group h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all hover:brightness-[1.02] hover:shadow-md focus:ring-2 focus:ring-blue-500/40 focus:outline-none",
-                            booking.bookingType === "maintenance"
-                              ? "bg-slate-300 text-slate-700"
-                              : statusPillClasses(booking.status),
-                            canDragThisBooking ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-                            item.isPreview
-                              ? item.previewValid
-                                ? "cursor-grabbing ring-2 ring-emerald-300/80 shadow-lg"
-                                : "cursor-not-allowed opacity-70 ring-2 ring-destructive/70"
-                              : ""
-                          )}
-                        >
-                          <div className="flex h-full flex-col justify-center">
-                            <div className="truncate text-xs font-semibold leading-tight">{label}</div>
-                            {item.isPreview && previewTimeLabel ? (
-                              <div className="mt-0.5 truncate text-[10px] font-medium leading-tight opacity-90">
-                                {previewTimeLabel}
-                              </div>
-                            ) : null}
-                          </div>
-                        </button>
-                      </ContextMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent variant="card" side="top" sideOffset={8} className="max-w-[360px]">
-                      <div className="relative">
-                        <div
-                          className={cn(
-                            "absolute left-0 top-0 h-full w-1.5",
-                            booking.bookingType === "maintenance" ? "bg-slate-400" : statusIndicatorClasses(booking.status)
-                          )}
-                          aria-hidden="true"
-                        />
-                        <div className="space-y-2 p-3 pl-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold leading-tight">{booking.primaryLabel}</div>
-                              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Clock className="h-3.5 w-3.5" />
-                                <span className="font-medium text-foreground/90">{range}</span>
-                              </div>
-                            </div>
-                            <Badge variant={statusBadgeVariant(booking.status)} className="capitalize">
-                              {booking.status}
-                            </Badge>
-                          </div>
-
-                          <Separator className="bg-border/60" />
-
-                          <div className="grid gap-1.5 text-xs">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <User className="h-3.5 w-3.5" />
-                                <span>Instructor</span>
-                              </div>
-                              <span className="min-w-0 truncate font-medium text-foreground">
-                                {booking.instructorLabel ?? "-"}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Plane className="h-3.5 w-3.5" />
-                                <span>Aircraft</span>
-                              </div>
-                              <span className="min-w-0 truncate font-medium text-foreground">
-                                {booking.aircraftLabel ?? "-"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {booking.canOpen ? (
-                            <>
-                              <Separator className="bg-border/60" />
-                              <div className="space-y-2">
-                                <div className="space-y-1">
-                                  <div className="text-[11px] font-semibold text-muted-foreground">Description</div>
-                                  <div className="text-xs leading-snug text-foreground/90 break-words line-clamp-4">
-                                    {booking.purpose}
-                                  </div>
-                                </div>
-                                {booking.remarks ? (
-                                  <div className="space-y-1">
-                                    <div className="text-[11px] font-semibold text-muted-foreground">Remarks</div>
-                                    <div className="text-xs leading-snug text-foreground/80 break-words line-clamp-3">
-                                      {booking.remarks}
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </>
-                          ) : null}
-
-                          <div className="pt-0.5 text-[11px] text-muted-foreground">
-                            {booking.canOpen
-                              ? canDragBookings
-                                ? "Click to open, or drag to move"
-                                : "Click to open booking"
-                              : "Busy slot"}
-                          </div>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <ContextMenuContent>
-                    <ContextMenuItem onClick={() => router.push(`/aircraft/${booking.aircraftId}`)}>
-                      <Eye className="h-4 w-4" />
-                      View Aircraft
-                    </ContextMenuItem>
-                    {booking.userId && booking.canViewContact ? (
-                      <ContextMenuItem
-                        onClick={() => {
-                          const memberId = booking.userId
-                          if (!memberId) return
-                          if (onViewContactDetails) {
-                            onViewContactDetails(memberId)
-                            return
-                          }
-                          router.push(`/members/${memberId}`)
-                        }}
-                      >
-                        <UserCircle className="h-4 w-4" />
-                        View Contact Details
-                      </ContextMenuItem>
-                    ) : null}
-                    {booking.canCancel || booking.canConfirm ? (
-                      <>
-                        <ContextMenuSeparator />
-                        {booking.canCancel ? (
-                          <ContextMenuItem onClick={() => onCancelBooking(booking)} variant="destructive">
-                            <X className="h-4 w-4" />
-                            Cancel Booking
-                          </ContextMenuItem>
-                        ) : null}
-                        {booking.canConfirm ? (
-                          <ContextMenuItem
-                            onClick={() => onStatusUpdate({ bookingId: booking.id, status: "confirmed" })}
-                            className="text-green-600 focus:text-green-600 [&_svg]:text-green-600"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Confirm Booking
-                          </ContextMenuItem>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </ContextMenuContent>
-                </ContextMenu>
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }

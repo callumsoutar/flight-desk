@@ -37,4 +37,4 @@ Commit history is short, plain-language, and lower-case (e.g. “bug fixes”, �
 
 ## Security & Configuration Tips
 - Do not commit secrets: `.env*` is gitignored. Use `.env.local` for local dev.
-- Required Supabase vars (see `lib/supabase/env.ts`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), and `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`).
+- Required Supabase vars (see `lib/supabase/env-public.ts` and `lib/supabase/env-admin.ts`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`), and `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`).

@@ -1,9 +1,5 @@
-import { NextResponse } from "next/server"
-
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { logWarn } from "@/lib/security/logger"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import { XeroAuthError } from "@/lib/xero/types"
 import type { XeroTaxRate } from "@/lib/xero/types"
@@ -25,18 +21,9 @@ function mapXeroTaxRate(rate: XeroTaxRate): TaxRateOption {
 }
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   try {
     const { client } = await getXeroClient(tenantId)
@@ -56,24 +43,15 @@ export async function GET() {
       taxRates.unshift({ tax_type: "NONE", name: "No tax", display_rate: "0%" })
     }
 
-    return NextResponse.json(
-      { tax_rates: taxRates },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ tax_rates: taxRates })
   } catch (error) {
     if (error instanceof XeroAuthError) {
-      return NextResponse.json(
-        { error: "Xero is not connected. Connect Xero in Settings → Integrations." },
-        { status: 400 }
-      )
+      return noStoreJson({ error: "Xero is not connected. Connect Xero in Settings -> Integrations." }, { status: 400 })
     }
     logWarn("[xero] Fetch tax rates failed", {
       tenantId,
       error: error instanceof Error ? error.message : "Unknown error",
     })
-    return NextResponse.json(
-      { error: "Failed to load Xero tax rates" },
-      { status: 500 }
-    )
+    return noStoreJson({ error: "Failed to load Xero tax rates" }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconCreditCard,
   IconLoader2,
@@ -10,6 +11,15 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { useChargeablesQuery } from "@/hooks/use-chargeables-query"
+import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
+import {
+  createMembershipType,
+  deactivateMembershipType,
+  membershipTypesQueryKey,
+  updateMembershipType,
+  useMembershipTypesQuery,
+} from "@/hooks/use-membership-types-query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -26,6 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
 import type { MembershipTypeWithChargeable } from "@/lib/types/memberships"
 import { cn } from "@/lib/utils"
 
@@ -37,13 +48,6 @@ type MembershipTypeFormData = {
   benefits_text: string
   is_active: boolean
   chargeable_id: string
-}
-
-type MembershipChargeable = {
-  id: string
-  name: string
-  rate: number
-  is_taxable: boolean
 }
 
 function normalizeBenefits(value: unknown): string[] {
@@ -106,109 +110,38 @@ function createEditFormData(type: MembershipTypeWithChargeable): MembershipTypeF
   }
 }
 
-async function fetchMembershipTypes(): Promise<MembershipTypeWithChargeable[]> {
-  const response = await fetch("/api/membership-types?include_inactive=true", { cache: "no-store" })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to fetch membership types"
-    throw new Error(message)
-  }
-
-  const data = (await response.json().catch(() => null)) as { membership_types?: unknown } | null
-  return Array.isArray(data?.membership_types) ? (data.membership_types as MembershipTypeWithChargeable[]) : []
-}
-
-async function fetchMembershipChargeables(): Promise<MembershipChargeable[]> {
-  const response = await fetch("/api/chargeables?include_inactive=true&type=membership_fee", {
-    cache: "no-store",
-  })
-  if (!response.ok) return []
-
-  const data = (await response.json().catch(() => null)) as { chargeables?: unknown[] } | null
-  const rows = Array.isArray(data?.chargeables) ? data.chargeables : []
-
-  return rows
-    .map((row) => {
-      if (!row || typeof row !== "object") return null
-      const typed = row as Partial<{
-        id: string
-        name: string
-        rate: number
-        is_taxable: boolean
-      }>
-      if (typeof typed.id !== "string" || typeof typed.name !== "string" || typeof typed.rate !== "number") {
-        return null
-      }
-
-      return {
-        id: typed.id,
-        name: typed.name,
-        rate: typed.rate,
-        is_taxable: Boolean(typed.is_taxable),
-      }
-    })
-    .filter((item): item is MembershipChargeable => Boolean(item))
-}
-
-async function fetchDefaultTaxRate(): Promise<number> {
-  try {
-    const response = await fetch("/api/tax-rates?is_default=true", { cache: "no-store" })
-    if (!response.ok) return 0.15
-    const data = (await response.json().catch(() => null)) as { tax_rates?: Array<{ rate?: unknown }> } | null
-    const defaultRate = data?.tax_rates?.[0]?.rate
-    return typeof defaultRate === "number" ? defaultRate : 0.15
-  } catch {
-    return 0.15
-  }
-}
-
 export function MembershipTypesConfig() {
-  const [membershipTypes, setMembershipTypes] = React.useState<MembershipTypeWithChargeable[]>([])
-  const [membershipChargeables, setMembershipChargeables] = React.useState<MembershipChargeable[]>([])
-  const [taxRate, setTaxRate] = React.useState(0.15)
-
-  const [loading, setLoading] = React.useState(true)
+  const queryClient = useQueryClient()
   const [saving, setSaving] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [mutationError, setMutationError] = React.useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = React.useState("")
   const [addOpen, setAddOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [form, setForm] = React.useState<MembershipTypeFormData>(() => createBlankFormData())
+  const {
+    data: membershipTypes = [],
+    isLoading: membershipTypesLoading,
+    error: membershipTypesQueryError,
+  } = useMembershipTypesQuery({ includeInactive: true })
+  const { data: taxRate = 0.15 } = useDefaultTaxRateQuery()
+  const {
+    data: membershipChargeables = [],
+    error: membershipChargeablesError,
+  } = useChargeablesQuery({ includeInactive: true, type: "membership_fee" })
 
   const editingMembershipType = React.useMemo(
     () => (editingId ? membershipTypes.find((item) => item.id === editingId) ?? null : null),
     [editingId, membershipTypes]
   )
 
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [types, chargeables, nextTaxRate] = await Promise.all([
-        fetchMembershipTypes(),
-        fetchMembershipChargeables(),
-        fetchDefaultTaxRate(),
-      ])
-      setMembershipTypes(types)
-      setMembershipChargeables(chargeables)
-      setTaxRate(nextTaxRate)
-      return { types, chargeables, taxRate: nextTaxRate }
-    } catch (err) {
-      setError(getErrorMessage(err))
-      return null
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   React.useEffect(() => {
-    void load()
-  }, [load])
+    if (!membershipChargeablesError) return
+    toast.error(getErrorMessage(membershipChargeablesError))
+  }, [membershipChargeablesError])
+
+  const error = mutationError ?? (membershipTypesQueryError ? getErrorMessage(membershipTypesQueryError) : null)
 
   const canSave = React.useMemo(() => {
     if (saving) return false
@@ -258,37 +191,27 @@ export function MembershipTypesConfig() {
     if (!canSave) return
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch("/api/membership-types", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: normalizeName(form.name),
-          code: normalizeCode(form.code),
-          description: normalizeDescription(form.description),
-          duration_months: Number.parseInt(form.duration_months, 10),
-          benefits: parseBenefitsText(form.benefits_text),
-          is_active: form.is_active,
-          chargeable_id: form.chargeable_id === "none" ? null : form.chargeable_id,
-        }),
+      await createMembershipType({
+        name: normalizeName(form.name),
+        code: normalizeCode(form.code),
+        description: normalizeDescription(form.description),
+        duration_months: Number.parseInt(form.duration_months, 10),
+        benefits: parseBenefitsText(form.benefits_text),
+        is_active: form.is_active,
+        chargeable_id: form.chargeable_id === "none" ? null : form.chargeable_id,
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to create membership type"
-        throw new Error(message)
-      }
 
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: membershipTypesQueryKey({ includeInactive: true }),
+      })
       setAddOpen(false)
       resetForm()
       toast.success("Membership type created")
     } catch (err) {
       const message = getErrorMessage(err)
-      setError(message)
+      setMutationError(message)
       toast.error(message)
     } finally {
       setSaving(false)
@@ -299,38 +222,28 @@ export function MembershipTypesConfig() {
     if (!editingMembershipType || !canSave) return
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch(`/api/membership-types/${encodeURIComponent(editingMembershipType.id)}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: normalizeName(form.name),
-          code: normalizeCode(form.code),
-          description: normalizeDescription(form.description),
-          duration_months: Number.parseInt(form.duration_months, 10),
-          benefits: parseBenefitsText(form.benefits_text),
-          is_active: form.is_active,
-          chargeable_id: form.chargeable_id === "none" ? null : form.chargeable_id,
-        }),
+      await updateMembershipType(editingMembershipType.id, {
+        name: normalizeName(form.name),
+        code: normalizeCode(form.code),
+        description: normalizeDescription(form.description),
+        duration_months: Number.parseInt(form.duration_months, 10),
+        benefits: parseBenefitsText(form.benefits_text),
+        is_active: form.is_active,
+        chargeable_id: form.chargeable_id === "none" ? null : form.chargeable_id,
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to update membership type"
-        throw new Error(message)
-      }
 
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: membershipTypesQueryKey({ includeInactive: true }),
+      })
       setEditOpen(false)
       setEditingId(null)
       resetForm()
       toast.success("Membership type updated")
     } catch (err) {
       const message = getErrorMessage(err)
-      setError(message)
+      setMutationError(message)
       toast.error(message)
     } finally {
       setSaving(false)
@@ -344,34 +257,26 @@ export function MembershipTypesConfig() {
       if (!confirmed) return
 
       setSaving(true)
-      setError(null)
+      setMutationError(null)
       try {
-        const response = await fetch(`/api/membership-types/${encodeURIComponent(type.id)}`, {
-          method: "DELETE",
-        })
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-          const message =
-            data && typeof data === "object" && typeof data.error === "string"
-              ? data.error
-              : "Failed to deactivate membership type"
-          throw new Error(message)
-        }
+        await deactivateMembershipType(type.id)
 
-        await load()
+        await queryClient.invalidateQueries({
+          queryKey: membershipTypesQueryKey({ includeInactive: true }),
+        })
         setEditOpen(false)
         setEditingId(null)
         resetForm()
         toast.success("Membership type deactivated")
       } catch (err) {
         const message = getErrorMessage(err)
-        setError(message)
+        setMutationError(message)
         toast.error(message)
       } finally {
         setSaving(false)
       }
     },
-    [load, resetForm]
+    [queryClient, resetForm]
   )
 
   return (
@@ -391,7 +296,7 @@ export function MembershipTypesConfig() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 rounded-xl border-slate-200 bg-white pl-9 shadow-none focus-visible:ring-0"
-              disabled={loading}
+              disabled={membershipTypesLoading}
             />
           </div>
         </div>
@@ -399,17 +304,17 @@ export function MembershipTypesConfig() {
         <Dialog
           open={addOpen}
           onOpenChange={(open) => {
-            setAddOpen(open)
-            if (open) {
-              resetForm()
-              setError(null)
+              setAddOpen(open)
+              if (open) {
+                resetForm()
+                setMutationError(null)
             }
           }}
         >
           <Button
             size="sm"
             onClick={() => setAddOpen(true)}
-            disabled={loading || saving}
+            disabled={membershipTypesLoading || saving}
             className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm shadow-indigo-100 transition-all active:scale-[0.98] whitespace-nowrap font-semibold border-none"
           >
             <IconPlus className="mr-1 h-4 w-4" />
@@ -488,7 +393,7 @@ export function MembershipTypesConfig() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {membershipTypesLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                   Loading membership types…
@@ -561,7 +466,7 @@ export function MembershipTypesConfig() {
                         onClick={() => {
                           setEditingId(type.id)
                           setForm(createEditFormData(type))
-                          setError(null)
+                          setMutationError(null)
                           setEditOpen(true)
                         }}
                       >
@@ -579,13 +484,13 @@ export function MembershipTypesConfig() {
       <Dialog
         open={editOpen}
         onOpenChange={(open) => {
-          setEditOpen(open)
-          if (!open) {
-            setEditingId(null)
-            resetForm()
-            setError(null)
-          }
-        }}
+            setEditOpen(open)
+            if (!open) {
+              setEditingId(null)
+              resetForm()
+              setMutationError(null)
+            }
+          }}
       >
         <DialogContent
           className={cn(
@@ -644,7 +549,7 @@ export function MembershipTypesConfig() {
                       setEditOpen(false)
                       setEditingId(null)
                       resetForm()
-                      setError(null)
+                      setMutationError(null)
                     }}
                     className="h-10 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
                   >
@@ -671,7 +576,7 @@ export function MembershipTypesConfig() {
 type MembershipTypeFormFieldsProps = {
   form: MembershipTypeFormData
   setForm: React.Dispatch<React.SetStateAction<MembershipTypeFormData>>
-  membershipChargeables: MembershipChargeable[]
+  membershipChargeables: InvoiceCreateChargeable[]
   taxRate: number
 }
 
@@ -766,11 +671,11 @@ function MembershipTypeFormFields({
           </SelectTrigger>
           <SelectContent className="rounded-xl">
             <SelectItem value="none">No linked chargeable</SelectItem>
-            {membershipChargeables.map((chargeable) => (
-              <SelectItem key={chargeable.id} value={chargeable.id}>
-                {chargeable.name} ({formatCurrency(calculateTaxInclusiveRate(chargeable.rate, chargeable.is_taxable))})
-              </SelectItem>
-            ))}
+                {membershipChargeables.map((chargeable) => (
+                  <SelectItem key={chargeable.id} value={chargeable.id}>
+                    {chargeable.name} ({formatCurrency(calculateTaxInclusiveRate(chargeable.rate ?? 0, chargeable.is_taxable ?? undefined))})
+                  </SelectItem>
+                ))}
           </SelectContent>
         </Select>
       </div>

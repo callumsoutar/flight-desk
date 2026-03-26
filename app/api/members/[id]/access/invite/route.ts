@@ -1,9 +1,7 @@
-import { NextResponse } from "next/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getRequiredPublicAppUrl } from "@/lib/env/public-app-url"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 
 export const dynamic = "force-dynamic"
 
@@ -13,28 +11,9 @@ export async function POST(
 ) {
   const { id: memberId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user || !tenantId) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Only admins can invite members to the portal" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   try {
     const [memberUserResult, tenantUserResult] = await Promise.all([
@@ -52,25 +31,20 @@ export async function POST(
     ])
 
     if (memberUserResult.error || !memberUserResult.data?.email) {
-      return NextResponse.json(
-        { error: "Member not found or has no email" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found or has no email" }, { status: 404 })
     }
 
     if (!tenantUserResult.data) {
-      return NextResponse.json(
-        { error: "Member not found in tenant" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found in tenant" }, { status: 404 })
     }
 
     const memberUser = memberUserResult.data
+    const appUrl = getRequiredPublicAppUrl()
 
-    const admin = createSupabaseAdminClient()
+    const admin = createPrivilegedSupabaseClient("issue Supabase auth invitation for existing tenant member")
     const { data: inviteData, error: inviteError } =
       await admin.auth.admin.inviteUserByEmail(memberUser.email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/auth/invite/accept`,
+        redirectTo: `${appUrl}/auth/invite/accept`,
         data: {
           tenant_id: tenantId,
           user_id: memberId,
@@ -79,23 +53,17 @@ export async function POST(
 
     if (inviteError) {
       const msg = inviteError.message ?? "Failed to send invitation"
-      return NextResponse.json(
-        { error: msg },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: msg }, { status: 400 })
     }
 
-    return NextResponse.json(
+    return noStoreJson(
       {
         sent: true,
         invitation_id: inviteData?.user?.id,
       },
-      { status: 200, headers: { "cache-control": "no-store" } }
+      { status: 200 }
     )
   } catch {
-    return NextResponse.json(
-      { error: "Failed to send invitation" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to send invitation" }, { status: 500 })
   }
 }

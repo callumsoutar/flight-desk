@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, Archive, Edit, GraduationCap, Plus, Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -17,17 +18,28 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  createSyllabus,
+  deactivateSyllabus,
+  syllabiQueryKey,
+  updateSyllabus,
+  useSyllabiQuery,
+} from "@/hooks/use-syllabi-query"
 import { cn } from "@/lib/utils"
 import type { Syllabus, SyllabusFormData } from "@/lib/types/syllabus"
 
 export function SyllabusConfig() {
-  const [syllabi, setSyllabi] = useState<Syllabus[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingSyllabus, setEditingSyllabus] = useState<Syllabus | null>(null)
+  const {
+    data: syllabi = [],
+    isLoading,
+    error: syllabiQueryError,
+  } = useSyllabiQuery({ includeInactive: true })
   const [formData, setFormData] = useState<SyllabusFormData>({
     name: "",
     description: "",
@@ -36,26 +48,7 @@ export function SyllabusConfig() {
   })
   const [hasExams, setHasExams] = useState(false)
 
-  const fetchSyllabi = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch("/api/syllabus?include_inactive=true")
-      if (!response.ok) {
-        throw new Error("Failed to fetch syllabi")
-      }
-      const data = (await response.json().catch(() => null)) as { syllabi?: Syllabus[] } | null
-      setSyllabi(Array.isArray(data?.syllabi) ? data.syllabi : [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void fetchSyllabi()
-  }, [])
+  const error = mutationError ?? (syllabiQueryError instanceof Error ? syllabiQueryError.message : null)
 
   const resetForm = () => {
     setFormData({
@@ -69,25 +62,16 @@ export function SyllabusConfig() {
 
   const handleAdd = async () => {
     try {
-      setError(null)
-      const response = await fetch("/api/syllabus", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      setMutationError(null)
+      await createSyllabus(formData)
+
+      await queryClient.invalidateQueries({
+        queryKey: syllabiQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to create syllabus")
-      }
-
-      await fetchSyllabi()
       setIsAddDialogOpen(false)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -95,26 +79,17 @@ export function SyllabusConfig() {
     if (!editingSyllabus) return
 
     try {
-      setError(null)
-      const response = await fetch("/api/syllabus", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...formData, id: editingSyllabus.id }),
+      setMutationError(null)
+      await updateSyllabus({ ...formData, id: editingSyllabus.id })
+
+      await queryClient.invalidateQueries({
+        queryKey: syllabiQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to update syllabus")
-      }
-
-      await fetchSyllabi()
       setIsEditDialogOpen(false)
       setEditingSyllabus(null)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -124,19 +99,14 @@ export function SyllabusConfig() {
     }
 
     try {
-      setError(null)
-      const response = await fetch(`/api/syllabus?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
+      setMutationError(null)
+      await deactivateSyllabus(id)
+
+      await queryClient.invalidateQueries({
+        queryKey: syllabiQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to delete syllabus")
-      }
-
-      await fetchSyllabi()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -163,7 +133,7 @@ export function SyllabusConfig() {
     })
   }, [searchTerm, syllabi])
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6 w-full min-w-0">
         <div className="flex items-center justify-center py-12">

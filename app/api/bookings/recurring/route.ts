@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -43,50 +42,23 @@ function resolveBatchStatus({
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true, authoritativeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const parsed = createRecurringBookingsSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { occurrences, ...common } = parsed.data
 
   const staff = isStaffRole(role)
   if (!staff && common.user_id && common.user_id !== user.id) {
-    return NextResponse.json(
-      { error: "You can only create bookings for yourself" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "You can only create bookings for yourself" }, { status: 403 })
   }
   if ((common.status ?? "unconfirmed") === "confirmed" && !staff) {
-    return NextResponse.json(
-      { error: "Only staff can create confirmed bookings." },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Only staff can create confirmed bookings." }, { status: 403 })
   }
 
   const created: unknown[] = []
@@ -111,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   const status = resolveBatchStatus({ total: occurrences.length, createdCount: created.length, failures: failed })
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       requestedCount: occurrences.length,
       createdCount: created.length,
@@ -119,7 +91,6 @@ export async function POST(request: NextRequest) {
       created,
       failed,
     },
-    { status, headers: { "cache-control": "no-store" } }
+    { status }
   )
 }
-

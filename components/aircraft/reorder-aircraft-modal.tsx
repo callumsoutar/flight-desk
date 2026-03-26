@@ -7,6 +7,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { IconGripVertical } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { reorderAircraft } from "@/hooks/use-aircraft-query"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 import { Button } from "@/components/ui/button"
 import {
@@ -60,31 +61,11 @@ function SortableRow(props: {
   )
 }
 
-const reorderSchema = {
-  async save(items: { id: string; order: number }[]) {
-    const res = await fetch("/api/aircraft/reorder", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    })
-    if (!res.ok) {
-      let message = "Failed to update aircraft order"
-      try {
-        const data = (await res.json()) as { error?: string }
-        message = data?.error || message
-      } catch {
-        // ignore
-      }
-      throw new Error(message)
-    }
-  },
-}
-
 export function ReorderAircraftModal(props: {
   open: boolean
   onOpenChange: (open: boolean) => void
   aircraft: AircraftWithType[]
-  onSaved?: () => void
+  onSaved?: (orderedIds: string[]) => void
 }) {
   const [ids, setIds] = React.useState<SortableId[]>([])
   const [saving, setSaving] = React.useState(false)
@@ -117,10 +98,10 @@ export function ReorderAircraftModal(props: {
     setSaving(true)
     try {
       const items = ids.map((id, idx) => ({ id, order: idx + 1 }))
-      await reorderSchema.save(items)
+      await reorderAircraft(items)
       toast.success("Aircraft order updated")
       props.onOpenChange(false)
-      props.onSaved?.()
+      props.onSaved?.(ids)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update aircraft order")
     } finally {

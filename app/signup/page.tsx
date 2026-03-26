@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export default async function SignupPage() {
   const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
+  const { user } = await getAuthSession(supabase, { requireUser: true })
 
   if (user) redirect("/dashboard")
 

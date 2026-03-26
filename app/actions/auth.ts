@@ -90,13 +90,17 @@ export async function signUpWithEmail(
   )
 
   if (rpcError) {
+    const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(data.user.id)
+    await supabase.auth.signOut()
+
     logError("[auth] Tenant setup failed after sign-up", {
       email,
       organization,
       userId: data.user.id,
       error: rpcError,
+      deleteUserError,
     })
-    return { error: "Account created, but organization setup could not be completed. Please contact support." }
+    return { error: "We couldn't finish setting up your account. Please try again or contact support." }
   }
 
   revalidatePath("/", "layout")

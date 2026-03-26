@@ -3,8 +3,10 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { EquipmentTable } from "@/components/equipment/equipment-table"
+import { equipmentQueryKey, useEquipmentQuery } from "@/hooks/use-equipment-query"
 import type { EquipmentIssuanceMember, EquipmentWithIssuance } from "@/lib/types/equipment"
 
 const AddEquipmentModal = dynamic(
@@ -30,6 +32,8 @@ type Props = {
 
 export function EquipmentPageClient({ equipment, issueMembers, canIssueEquipment }: Props) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: equipmentRows = [] } = useEquipmentQuery(equipment)
   const [isNavigating, startNavigation] = React.useTransition()
   const [addModalOpen, setAddModalOpen] = React.useState(false)
   const [issueModalOpen, setIssueModalOpen] = React.useState(false)
@@ -72,16 +76,14 @@ export function EquipmentPageClient({ equipment, issueMembers, canIssueEquipment
     setAddModalOpen(true)
   }, [])
 
-  const handleIssueSuccess = React.useCallback(() => {
-    startNavigation(() => {
-      router.refresh()
-    })
-  }, [router])
+  const handleIssueSuccess = React.useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: equipmentQueryKey() })
+  }, [queryClient])
 
   return (
     <div aria-busy={isNavigating}>
       <EquipmentTable
-        equipment={equipment}
+        equipment={equipmentRows}
         onIssue={canIssueEquipment ? handleIssue : undefined}
         onReturn={canIssueEquipment ? handleReturn : undefined}
         onLogUpdate={handleLogUpdate}

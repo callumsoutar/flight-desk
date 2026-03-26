@@ -1,8 +1,8 @@
 import { revalidatePath } from "next/cache"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { invalidPayloadResponse } from "@/lib/security/http"
 import { logError } from "@/lib/security/logger"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
@@ -58,8 +58,6 @@ type RpcResult = {
   total_hours_end?: number
 }
 
-const NO_STORE = { "cache-control": "no-store" } as const
-
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
@@ -67,23 +65,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
-  }
-  if (!role || !["owner", "admin", "instructor"].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const { id: bookingId } = await context.params
   const payload = parsed.data
@@ -138,10 +122,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   if (rpcError) {
     logError("[checkin/approve] RPC error", { error: rpcError.message, tenantId, bookingId })
-    return NextResponse.json(
-      { error: "Check-in approval failed" },
-      { status: 500, headers: NO_STORE }
-    )
+    return noStoreJson({ error: "Check-in approval failed" }, { status: 500 })
   }
 
   const rpcResult = result as RpcResult | null
@@ -154,9 +135,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       : errorKey === "Already approved" || errorKey === "Invoice already exists" ? 409
       : 400
 
-    return NextResponse.json(
+    return noStoreJson(
       { error: errorKey ?? "Check-in approval failed", message: rpcResult?.message },
-      { status, headers: NO_STORE }
+      { status }
     )
   }
 
@@ -261,13 +242,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (invoiceId) revalidatePath(`/invoices/${invoiceId}`)
   revalidatePath("/invoices")
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       invoice: { id: invoiceId },
       applied_aircraft_delta: rpcResult.applied_aircraft_delta,
       total_hours_start: rpcResult.total_hours_start,
       total_hours_end: rpcResult.total_hours_end,
     },
-    { headers: NO_STORE }
+    {}
   )
 }

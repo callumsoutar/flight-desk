@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, Archive, Award, Edit, Plus, Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -17,43 +18,35 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  createEndorsement,
+  deactivateEndorsement,
+  endorsementsQueryKey,
+  updateEndorsement,
+  useEndorsementsQuery,
+} from "@/hooks/use-endorsements-query"
 import { cn } from "@/lib/utils"
 import type { Endorsement, EndorsementFormData } from "@/lib/types/endorsements"
 
 export function EndorsementsConfig() {
-  const [endorsements, setEndorsements] = useState<Endorsement[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingEndorsement, setEditingEndorsement] = useState<Endorsement | null>(null)
+  const {
+    data: endorsements = [],
+    isLoading,
+    error: endorsementsQueryError,
+  } = useEndorsementsQuery({ includeInactive: true })
   const [formData, setFormData] = useState<EndorsementFormData>({
     name: "",
     description: "",
     is_active: true,
   })
 
-  const fetchEndorsements = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch("/api/endorsements?include_inactive=true")
-      if (!response.ok) {
-        throw new Error("Failed to fetch endorsements")
-      }
-      const data = (await response.json().catch(() => null)) as { endorsements?: Endorsement[] } | null
-      setEndorsements(Array.isArray(data?.endorsements) ? data.endorsements : [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void fetchEndorsements()
-  }, [])
+  const error = mutationError ?? (endorsementsQueryError instanceof Error ? endorsementsQueryError.message : null)
 
   const resetForm = () => {
     setFormData({
@@ -65,25 +58,16 @@ export function EndorsementsConfig() {
 
   const handleAdd = async () => {
     try {
-      setError(null)
-      const response = await fetch("/api/endorsements", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      setMutationError(null)
+      await createEndorsement(formData)
+
+      await queryClient.invalidateQueries({
+        queryKey: endorsementsQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to create endorsement")
-      }
-
-      await fetchEndorsements()
       setIsAddDialogOpen(false)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -91,26 +75,17 @@ export function EndorsementsConfig() {
     if (!editingEndorsement) return
 
     try {
-      setError(null)
-      const response = await fetch("/api/endorsements", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...formData, id: editingEndorsement.id }),
+      setMutationError(null)
+      await updateEndorsement({ ...formData, id: editingEndorsement.id })
+
+      await queryClient.invalidateQueries({
+        queryKey: endorsementsQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to update endorsement")
-      }
-
-      await fetchEndorsements()
       setIsEditDialogOpen(false)
       setEditingEndorsement(null)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -124,19 +99,14 @@ export function EndorsementsConfig() {
     }
 
     try {
-      setError(null)
-      const response = await fetch(`/api/endorsements?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
+      setMutationError(null)
+      await deactivateEndorsement(id)
+
+      await queryClient.invalidateQueries({
+        queryKey: endorsementsQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to deactivate endorsement")
-      }
-
-      await fetchEndorsements()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -161,7 +131,7 @@ export function EndorsementsConfig() {
     })
   }, [endorsements, searchTerm])
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6 w-full min-w-0">
         <div className="flex items-center justify-center py-12">

@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -80,25 +78,13 @@ export async function GET(request: NextRequest) {
   const searchTerm = (url.searchParams.get("search") || "").trim()
   const page = parsePositiveInt(url.searchParams.get("page"), 1, 1, 10_000)
   const pageSize = parsePositiveInt(url.searchParams.get("page_size"), 25, 1, 100)
-
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: includeInactive,
+  const session = await getTenantScopedRouteContext({
+    access: includeInactive ? "admin" : "authenticated",
     authoritativeRole: includeInactive,
-    requireUser: true,
+    existingSupabase: supabase,
   })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  if (includeInactive && !isAdminRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   const resolvedTypeId = !typeIdFromQuery && typeCode
     ? await resolveTypeIdByCode(supabase, tenantId, typeCode).catch(() => null)
@@ -106,7 +92,7 @@ export async function GET(request: NextRequest) {
   const typeId = typeIdFromQuery || resolvedTypeId
 
   if (typeCode && !typeIdFromQuery && !resolvedTypeId) {
-    return NextResponse.json({ chargeables: [] }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ chargeables: [] })
   }
 
   const excludeTypeId = excludeTypeCode
@@ -149,7 +135,7 @@ export async function GET(request: NextRequest) {
 
   const { count, error: countError } = await countQuery
   if (countError) {
-    return NextResponse.json({ error: "Failed to count chargeables" }, { status: 500 })
+    return noStoreJson({ error: "Failed to count chargeables" }, { status: 500 })
   }
 
   const total = Math.max(0, count ?? 0)
@@ -158,7 +144,7 @@ export async function GET(request: NextRequest) {
 
   const { data: rows, error } = await query.range(start, end)
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch chargeables" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch chargeables" }, { status: 500 })
   }
 
   const typeIds = Array.from(new Set((rows ?? []).map((row) => row.chargeable_type_id).filter(Boolean)))
@@ -171,7 +157,7 @@ export async function GET(request: NextRequest) {
     : { data: [], error: null }
 
   if (typesError) {
-    return NextResponse.json({ error: "Failed to fetch chargeable types" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch chargeable types" }, { status: 500 })
   }
 
   const typeById = new Map<string, { id: string; code: string; name: string; gl_code: string | null }>()
@@ -184,35 +170,23 @@ export async function GET(request: NextRequest) {
     chargeable_type: typeById.get(row.chargeable_type_id) ?? null,
   }))
 
-  return NextResponse.json(
-    {
-      chargeables,
-      total,
-      page,
-      page_size: pageSize,
-    },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({
+    chargeables,
+    total,
+    page,
+    page_size: pageSize,
+  })
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: true,
-    authoritativeRole: true,
-    requireUser: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -226,10 +200,10 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (typeError || !type) {
-    return NextResponse.json({ error: "Chargeable type not found" }, { status: 404 })
+    return noStoreJson({ error: "Chargeable type not found" }, { status: 404 })
   }
   if (type.code === "landing_fees") {
-    return NextResponse.json({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
+    return noStoreJson({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -248,33 +222,21 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to create chargeable" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create chargeable" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { chargeable: { id: data.id } },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ chargeable: { id: data.id } }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: true,
-    authoritativeRole: true,
-    requireUser: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -298,16 +260,16 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle()
 
     if (typeError || !type) {
-      return NextResponse.json({ error: "Chargeable type not found" }, { status: 404 })
+      return noStoreJson({ error: "Chargeable type not found" }, { status: 404 })
     }
     if (type.code === "landing_fees") {
-      return NextResponse.json({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
+      return noStoreJson({ error: "Landing fees are managed in the Landing fees tab" }, { status: 400 })
     }
     updateData.chargeable_type_id = rest.chargeable_type_id
   }
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -319,30 +281,21 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Chargeable not found" }, { status: 404 })
+    return noStoreJson({ error: "Chargeable not found" }, { status: 404 })
   }
 
   const { error } = await supabase.from("chargeables").update(updateData).eq("tenant_id", tenantId).eq("id", id)
   if (error) {
-    return NextResponse.json({ error: "Failed to update chargeable" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update chargeable" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: true,
-    authoritativeRole: true,
-    requireUser: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const url = new URL(request.url)
   const idFromQuery = url.searchParams.get("id")
@@ -354,7 +307,7 @@ export async function DELETE(request: NextRequest) {
   const id = idFromQuery || idFromBody
 
   if (!id || !z.string().uuid().safeParse(id).success) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+    return noStoreJson({ error: "Invalid id" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -366,11 +319,11 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Chargeable not found" }, { status: 404 })
+    return noStoreJson({ error: "Chargeable not found" }, { status: 404 })
   }
 
   if (!existing.is_active) {
-    return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ ok: true })
   }
 
   const { error } = await supabase
@@ -380,8 +333,8 @@ export async function DELETE(request: NextRequest) {
     .eq("id", id)
 
   if (error) {
-    return NextResponse.json({ error: "Failed to deactivate chargeable" }, { status: 500 })
+    return noStoreJson({ error: "Failed to deactivate chargeable" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }

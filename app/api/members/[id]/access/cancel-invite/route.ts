@@ -1,10 +1,7 @@
-import { NextResponse } from "next/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { logError } from "@/lib/security/logger"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 
 export const dynamic = "force-dynamic"
 
@@ -14,28 +11,9 @@ export async function POST(
 ) {
   const { id: memberId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user || !tenantId) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Only admins can cancel invitations" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   try {
     const [memberUserResult, tenantUserResult] = await Promise.all([
@@ -53,22 +31,16 @@ export async function POST(
     ])
 
     if (memberUserResult.error || !memberUserResult.data?.email) {
-      return NextResponse.json(
-        { error: "Member not found or has no email" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found or has no email" }, { status: 404 })
     }
 
     if (!tenantUserResult.data) {
-      return NextResponse.json(
-        { error: "Member not found in tenant" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found in tenant" }, { status: 404 })
     }
 
     const memberUser = memberUserResult.data
 
-    const admin = createSupabaseAdminClient()
+    const admin = createPrivilegedSupabaseClient("cancel pending Supabase auth invitation for tenant member")
 
     let authUserId: string | null = null
     const byId = await admin.auth.admin.getUserById(memberId)
@@ -86,10 +58,7 @@ export async function POST(
     }
 
     if (!authUserId) {
-      return NextResponse.json(
-        { error: "No pending invitation found for this member" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "No pending invitation found for this member" }, { status: 404 })
     }
 
     const authUser = await admin.auth.admin.getUserById(authUserId)
@@ -98,10 +67,7 @@ export async function POST(
       au && !au.email_confirmed_at && (au as { invited_at?: string }).invited_at
 
     if (!isPending) {
-      return NextResponse.json(
-        { error: "Cannot cancel: member has already activated their account" },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Cannot cancel: member has already activated their account" }, { status: 400 })
     }
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(authUserId)
@@ -112,20 +78,11 @@ export async function POST(
         memberId,
         authUserId,
       })
-      return NextResponse.json(
-        { error: "Failed to cancel invitation" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to cancel invitation" }, { status: 500 })
     }
 
-    return NextResponse.json(
-      { cancelled: true },
-      { status: 200, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ cancelled: true }, { status: 200 })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to cancel invitation" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to cancel invitation" }, { status: 500 })
   }
 }

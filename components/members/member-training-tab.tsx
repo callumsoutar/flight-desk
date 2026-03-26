@@ -13,6 +13,7 @@ import {
 import { TrainingStudentDebriefsTab } from "@/components/training/training-student-debriefs-tab"
 import { TrainingStudentFlyingTab } from "@/components/training/training-student-flying-tab"
 import { TrainingStudentOverviewTab } from "@/components/training/training-student-overview-tab"
+import { useMemberTrainingQuery } from "@/hooks/use-member-training-query"
 import { TrainingStudentProgrammeTab } from "@/components/training/training-student-programme-tab"
 import { TrainingStudentTheoryTab } from "@/components/training/training-student-theory-tab"
 import type { MemberTrainingEnrollment, MemberTrainingResponse } from "@/lib/types/member-training"
@@ -38,13 +39,6 @@ function daysSince(value: string | null | undefined) {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24))
 }
 
-async function fetchMemberTraining(memberId: string): Promise<MemberTrainingResponse> {
-  const res = await fetch(`/api/members/${memberId}/training`, { cache: "no-store" })
-  const payload = (await res.json().catch(() => null)) as { error?: string } | null
-  if (!res.ok) throw new Error(payload?.error || "Failed to load training data")
-  return payload as unknown as MemberTrainingResponse
-}
-
 type InstructorLite = MemberTrainingResponse["training"]["primaryInstructors"][number]
 
 function enrollmentStatusLabel(enrollment: MemberTrainingEnrollment) {
@@ -56,40 +50,19 @@ function enrollmentStatusLabel(enrollment: MemberTrainingEnrollment) {
 }
 
 export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
-  const [training, setTraining] = React.useState<MemberTrainingResponse["training"] | null>(null)
-  const [trainingLoading, setTrainingLoading] = React.useState(true)
-  const [trainingError, setTrainingError] = React.useState<string | null>(null)
+  const {
+    data: trainingData,
+    isLoading: trainingLoading,
+    error: trainingError,
+    refetch,
+  } = useMemberTrainingQuery(memberId)
+  const training = trainingData?.training ?? null
   const [instructorsById, setInstructorsById] = React.useState<Record<string, InstructorLite>>({})
 
   const searchParams = useSearchParams()
   const requestedSyllabusId = React.useMemo(() => cleanSyllabusId(searchParams.get("syllabus_id")), [searchParams])
   const [snapshotSyllabusId, setSnapshotSyllabusId] = React.useState<string>("")
   const [snapshotTab, setSnapshotTab] = React.useState("overview")
-
-  const loadTraining = React.useCallback(async () => {
-    if (!memberId) {
-      setTraining(null)
-      setTrainingLoading(false)
-      setTrainingError(null)
-      return
-    }
-
-    setTrainingLoading(true)
-    setTrainingError(null)
-    try {
-      const data = await fetchMemberTraining(memberId)
-      setTraining(data.training)
-    } catch (err) {
-      setTraining(null)
-      setTrainingError(err instanceof Error ? err.message : "Failed to load training data")
-    } finally {
-      setTrainingLoading(false)
-    }
-  }, [memberId])
-
-  React.useEffect(() => {
-    void loadTraining()
-  }, [loadTraining])
 
   React.useEffect(() => {
     const list = training?.primaryInstructors ?? []
@@ -226,7 +199,11 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
           <p className="text-sm text-muted-foreground">
             Quick handover view plus syllabus management for instructors.
           </p>
-          {trainingError ? <p className="text-sm text-destructive">{trainingError}</p> : null}
+          {trainingError ? (
+            <p className="text-sm text-destructive">
+              {trainingError instanceof Error ? trainingError.message : "Failed to load training data"}
+            </p>
+          ) : null}
         </div>
         {snapshotSyllabusOptions.length > 1 ? (
           <div className="w-full sm:w-auto sm:ml-auto">
@@ -324,7 +301,9 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
               syllabi={syllabi}
               enrollments={enrollments}
               timeZone={timeZone}
-              onRefresh={loadTraining}
+              onRefresh={async () => {
+                await refetch()
+              }}
             />
           </SnapshotTabsContent>
         </SnapshotTabs>

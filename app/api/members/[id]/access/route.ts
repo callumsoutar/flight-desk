@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -27,23 +26,12 @@ export async function GET(
   const { id: memberId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
-    includeRole: true,
+  const session = await getTenantScopedRouteContext({
+    access: "staff",
+    existingSupabase: supabase,
   })
-
-  if (!user || !tenantId) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   try {
     const [memberUserResult, tenantUserResult, allRolesResult] = await Promise.all([
@@ -66,17 +54,11 @@ export async function GET(
     ])
 
     if (memberUserResult.error || !memberUserResult.data) {
-      return NextResponse.json(
-        { error: "Member not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found" }, { status: 404 })
     }
 
     if (tenantUserResult.error || !tenantUserResult.data) {
-      return NextResponse.json(
-        { error: "Member not found in tenant" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found in tenant" }, { status: 404 })
     }
 
     const memberUser = memberUserResult.data
@@ -92,7 +74,7 @@ export async function GET(
     let account_created = false
     let invited_at: string | null = null
 
-    const admin = createSupabaseAdminClient()
+    const admin = createPrivilegedSupabaseClient("read auth-user invitation status for member access visibility")
     const email = memberUser.email ?? null
 
     if (email) {
@@ -145,14 +127,9 @@ export async function GET(
       invited_at,
     }
 
-    return NextResponse.json(response, {
-      headers: { "cache-control": "no-store" },
-    })
+    return noStoreJson(response)
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load access status" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load access status" }, { status: 500 })
   }
 }
 
@@ -166,32 +143,14 @@ export async function PATCH(
 ) {
   const { id: memberId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
-    includeRole: true,
-  })
-
-  if (!user || !tenantId) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Only admins can update member roles" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const body = await request.json().catch(() => null)
   const parsed = updateRoleSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid request body" }, { status: 400 })
   }
 
   try {
@@ -203,10 +162,7 @@ export async function PATCH(
       .maybeSingle()
 
     if (roleError || !roleRow) {
-      return NextResponse.json(
-        { error: "Invalid role" },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Invalid role" }, { status: 400 })
     }
 
     const { error: updateError } = await supabase
@@ -216,20 +172,11 @@ export async function PATCH(
       .eq("user_id", memberId)
 
     if (updateError) {
-      return NextResponse.json(
-        { error: "Failed to update role" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to update role" }, { status: 500 })
     }
 
-    return NextResponse.json(
-      { updated: true, role_id: parsed.data.role_id },
-      { status: 200, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ updated: true, role_id: parsed.data.role_id }, { status: 200 })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to update role" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update role" }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconArchive,
   IconPencil,
@@ -11,6 +12,14 @@ import {
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import {
+  createFlightType,
+  deactivateFlightType,
+  flightTypesQueryKey,
+  updateFlightType,
+  useFlightTypesQuery,
+  type FlightType,
+} from "@/hooks/use-flight-types-query"
 import {
   Dialog,
   DialogContent,
@@ -26,23 +35,9 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
-import type { FlightTypesRow } from "@/lib/types/tables"
 import { cn } from "@/lib/utils"
 
 type InstructionType = "dual" | "solo" | "trial"
-
-type FlightType = Pick<
-  FlightTypesRow,
-  | "id"
-  | "name"
-  | "description"
-  | "instruction_type"
-  | "aircraft_gl_code"
-  | "instructor_gl_code"
-  | "is_active"
-  | "is_default_solo"
-  | "updated_at"
->
 
 type FlightTypeFormData = {
   name: string
@@ -204,29 +199,19 @@ function FlightTypeFormBody({
   )
 }
 
-async function fetchFlightTypes(): Promise<FlightType[]> {
-  const response = await fetch("/api/flight-types?include_inactive=true", { cache: "no-store" })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message = data && typeof data === "object" && typeof data.error === "string"
-      ? data.error
-      : "Failed to load flight types"
-    throw new Error(message)
-  }
-
-  const data = (await response.json().catch(() => null)) as { flight_types?: unknown } | null
-  return Array.isArray(data?.flight_types) ? (data?.flight_types as FlightType[]) : []
-}
-
 export function FlightTypesConfig() {
-  const [flightTypes, setFlightTypes] = React.useState<FlightType[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [editingFlightType, setEditingFlightType] = React.useState<FlightType | null>(null)
+  const {
+    data: flightTypes = [],
+    isLoading,
+    error: flightTypesQueryError,
+  } = useFlightTypesQuery({ includeInactive: true })
   const [formData, setFormData] = React.useState<FlightTypeFormData>({
     name: "",
     description: "",
@@ -236,22 +221,7 @@ export function FlightTypesConfig() {
     is_active: true,
   })
 
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const items = await fetchFlightTypes()
-      setFlightTypes(items)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load flight types")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void load()
-  }, [load])
+  const error = mutationError ?? (flightTypesQueryError ? getErrorMessage(flightTypesQueryError) : null)
 
   const resetForm = React.useCallback(() => {
     setFormData({
@@ -295,35 +265,26 @@ export function FlightTypesConfig() {
   const handleAdd = async () => {
     if (!formData.name.trim()) return
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch("/api/flight-types", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description,
-          instruction_type: formData.instruction_type,
-          aircraft_gl_code: formData.aircraft_gl_code || null,
-          instructor_gl_code:
-            formData.instruction_type === "solo" ? null : formData.instructor_gl_code || null,
-          is_active: formData.is_active,
-        }),
+      await createFlightType({
+        name: formData.name,
+        description: formData.description,
+        instruction_type: formData.instruction_type,
+        aircraft_gl_code: formData.aircraft_gl_code || null,
+        instructor_gl_code:
+          formData.instruction_type === "solo" ? null : formData.instructor_gl_code || null,
+        is_active: formData.is_active,
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message = data && typeof data === "object" && typeof data.error === "string"
-          ? data.error
-          : "Failed to create flight type"
-        throw new Error(message)
-      }
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: flightTypesQueryKey({ includeInactive: true }),
+      })
       toast.success("Flight type created")
       setIsAddDialogOpen(false)
       resetForm()
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -333,37 +294,28 @@ export function FlightTypesConfig() {
     if (!editingFlightType) return
     if (!formData.name.trim()) return
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch("/api/flight-types", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: editingFlightType.id,
-          name: formData.name,
-          description: formData.description,
-          instruction_type: formData.instruction_type,
-          aircraft_gl_code: formData.aircraft_gl_code || null,
-          instructor_gl_code:
-            formData.instruction_type === "solo" ? null : formData.instructor_gl_code || null,
-          is_active: formData.is_active,
-        }),
+      await updateFlightType({
+        id: editingFlightType.id,
+        name: formData.name,
+        description: formData.description,
+        instruction_type: formData.instruction_type,
+        aircraft_gl_code: formData.aircraft_gl_code || null,
+        instructor_gl_code:
+          formData.instruction_type === "solo" ? null : formData.instructor_gl_code || null,
+        is_active: formData.is_active,
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message = data && typeof data === "object" && typeof data.error === "string"
-          ? data.error
-          : "Failed to update flight type"
-        throw new Error(message)
-      }
-      await load()
+      await queryClient.invalidateQueries({
+        queryKey: flightTypesQueryKey({ includeInactive: true }),
+      })
       toast.success("Flight type updated")
       setIsEditDialogOpen(false)
       setEditingFlightType(null)
       resetForm()
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -377,23 +329,16 @@ export function FlightTypesConfig() {
     if (!confirmed) return
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch(`/api/flight-types?id=${encodeURIComponent(flightType.id)}`, {
-        method: "DELETE",
+      await deactivateFlightType(flightType.id)
+      await queryClient.invalidateQueries({
+        queryKey: flightTypesQueryKey({ includeInactive: true }),
       })
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message = data && typeof data === "object" && typeof data.error === "string"
-          ? data.error
-          : "Failed to deactivate flight type"
-        throw new Error(message)
-      }
-      await load()
       toast.success("Flight type deactivated")
     } catch (err) {
       toast.error(getErrorMessage(err))
-      setError(getErrorMessage(err))
+      setMutationError(getErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -483,7 +428,7 @@ export function FlightTypesConfig() {
         </Dialog>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-muted-foreground">
           Loading flight types…
         </div>

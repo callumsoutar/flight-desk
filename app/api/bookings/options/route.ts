@@ -1,8 +1,5 @@
-import { NextResponse } from "next/server"
-
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -12,21 +9,9 @@ function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const membersPromise = isStaffRole(role)
     ? supabase
@@ -89,10 +74,7 @@ export async function GET() {
     lessonsResult.error ||
     membersResult.error
   ) {
-    return NextResponse.json(
-      { error: "Failed to load booking options" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load booking options" }, { status: 500 })
   }
 
   let members: Array<{
@@ -135,7 +117,7 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       options: {
         aircraft: aircraftResult.data ?? [],
@@ -152,7 +134,6 @@ export async function GET() {
         syllabi: syllabiResult.data ?? [],
         lessons: lessonsResult.data ?? [],
       },
-    },
-    { headers: { "cache-control": "no-store" } }
+    }
   )
 }

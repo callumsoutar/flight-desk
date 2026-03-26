@@ -1,32 +1,14 @@
 "use client"
 
 import * as React from "react"
-import dynamic from "next/dynamic"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconBook2, IconCertificate, IconFileText, IconNotebook, IconTrophy } from "@tabler/icons-react"
 
+import { EndorsementsConfig } from "@/components/settings/training/endorsements-config"
+import { ExamsConfig } from "@/components/settings/training/exams-config"
 import { ExperienceTypesConfig } from "@/components/settings/training/experience-types-config"
-
-const SyllabusConfig = dynamic(
-  () => import("@/components/settings/training/syllabus-config").then((mod) => mod.SyllabusConfig),
-  { ssr: false }
-)
-
-const LessonsTab = dynamic(
-  () => import("@/components/settings/training/lessons-tab").then((mod) => mod.LessonsTab),
-  { ssr: false }
-)
-
-const ExamsConfig = dynamic(
-  () => import("@/components/settings/training/exams-config").then((mod) => mod.ExamsConfig),
-  { ssr: false }
-)
-
-const EndorsementsConfig = dynamic(
-  () =>
-    import("@/components/settings/training/endorsements-config").then((mod) => mod.EndorsementsConfig),
-  { ssr: false }
-)
+import { LessonsTab } from "@/components/settings/training/lessons-tab"
+import { SyllabusConfig } from "@/components/settings/training/syllabus-config"
 
 const trainingTabs = [
   { id: "experience-types", label: "Experience Types", icon: IconTrophy },
@@ -36,6 +18,8 @@ const trainingTabs = [
   { id: "certifications", label: "Certifications", icon: IconCertificate },
 ] as const
 
+// Training is an intentionally client-owned editor surface; the server page bootstraps the
+// surrounding settings shell, while the training resources manage their own query state.
 export function TrainingTab() {
   const [activeTab, setActiveTab] = React.useState<(typeof trainingTabs)[number]["id"]>("experience-types")
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})

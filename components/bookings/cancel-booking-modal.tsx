@@ -3,8 +3,10 @@
 import * as React from "react"
 import { AlertTriangle } from "lucide-react"
 
+import { useCancellationCategoriesQuery } from "@/hooks/use-cancellation-categories-query"
 import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWithRelations } from "@/lib/types/bookings"
+import type { CancellationCategory } from "@/lib/types/cancellations"
 import { formatDate, formatTime } from "@/lib/utils/date-format"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,12 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-
-type CancellationCategory = {
-  id: string
-  name: string
-  description: string | null
-}
 
 export type CancelBookingPayload = {
   cancellationCategoryId: string
@@ -68,9 +64,13 @@ export function CancelBookingModal({
   pending: boolean
 }) {
   const { timeZone } = useTimezone()
-  const [categories, setCategories] = React.useState<CancellationCategory[]>([])
-  const [categoriesLoading, setCategoriesLoading] = React.useState(false)
-  const [categoriesError, setCategoriesError] = React.useState<string | null>(null)
+  const {
+    data: categoriesData,
+    isLoading: categoriesLoading,
+    error: categoriesErrorState,
+  } = useCancellationCategoriesQuery(open)
+  const categories = React.useMemo<CancellationCategory[]>(() => categoriesData ?? [], [categoriesData])
+  const categoriesError = categoriesErrorState instanceof Error ? categoriesErrorState.message : null
   const [cancellationCategoryId, setCancellationCategoryId] = React.useState("")
   const [cancelledNotes, setCancelledNotes] = React.useState("")
   const [errors, setErrors] = React.useState<FormErrors>({})
@@ -86,42 +86,6 @@ export function CancelBookingModal({
       resetForm()
     }
   }, [open, resetForm])
-
-  React.useEffect(() => {
-    if (!open) return
-
-    const controller = new AbortController()
-    setCategoriesLoading(true)
-    setCategoriesError(null)
-
-    void fetch("/api/cancellation-categories", {
-      method: "GET",
-      cache: "no-store",
-      headers: { "cache-control": "no-store" },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || "Failed to load cancellation categories")
-        }
-
-        const payload = (await response.json()) as { categories?: CancellationCategory[] }
-        setCategories(payload.categories ?? [])
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return
-        setCategories([])
-        setCategoriesError(error instanceof Error ? error.message : "Failed to load cancellation categories")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setCategoriesLoading(false)
-        }
-      })
-
-    return () => controller.abort()
-  }, [open])
 
   const selectedCategory = React.useMemo(
     () => categories.find((category) => category.id === cancellationCategoryId) ?? null,

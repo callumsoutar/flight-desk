@@ -1,44 +1,25 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getRequiredApiSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const startTime = request.nextUrl.searchParams.get("start_time")
   const endTime = request.nextUrl.searchParams.get("end_time")
   if (!startTime || !endTime) {
-    return NextResponse.json(
-      { error: "start_time and end_time are required" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "start_time and end_time are required" }, { status: 400 })
   }
 
   const startDate = new Date(startTime)
   const endDate = new Date(endTime)
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate >= endDate) {
-    return NextResponse.json(
-      { error: "Invalid time range" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid time range" }, { status: 400 })
   }
 
   try {
@@ -49,14 +30,8 @@ export async function GET(request: NextRequest) {
       endTimeIso: endDate.toISOString(),
     })
 
-    return NextResponse.json(
-      { unavailableAircraftIds, unavailableInstructorIds },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ unavailableAircraftIds, unavailableInstructorIds })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to check availability" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to check availability" }, { status: 500 })
   }
 }

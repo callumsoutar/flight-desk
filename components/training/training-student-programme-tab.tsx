@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils"
 import { formatDate } from "@/lib/utils/date-format"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import { useTimezone } from "@/contexts/timezone-context"
+import { fetchInstructorsQuery } from "@/hooks/use-instructors-query"
+import {
+  createTrainingEnrollment,
+  updateTrainingEnrollment,
+} from "@/hooks/use-member-training-query"
+import { fetchAircraftTypes } from "@/hooks/use-aircraft-types-query"
 import type { AircraftTypesRow } from "@/lib/types"
 import type { InstructorWithRelations } from "@/lib/types/instructors"
 import type { MemberTrainingEnrollment, MemberTrainingSyllabusLite } from "@/lib/types/member-training"
@@ -71,20 +77,6 @@ function enrollmentStatusClasses(label: string) {
   return "bg-gray-100 text-gray-700 border-0"
 }
 
-async function fetchInstructors(): Promise<InstructorWithRelations[]> {
-  const res = await fetch("/api/instructors", { cache: "no-store" })
-  if (!res.ok) return []
-  const data = (await res.json().catch(() => ({}))) as { instructors?: InstructorWithRelations[] }
-  return data.instructors ?? []
-}
-
-async function fetchAircraftTypes(): Promise<AircraftTypesRow[]> {
-  const res = await fetch("/api/aircraft-types", { cache: "no-store" })
-  if (!res.ok) return []
-  const data = (await res.json().catch(() => ({}))) as { aircraft_types?: AircraftTypesRow[] }
-  return data.aircraft_types ?? []
-}
-
 type EnrollmentCardProps = {
   userId: string
   enrollment: MemberTrainingEnrollment
@@ -120,17 +112,12 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
   const handleSave = async () => {
     setIsUpdating(true)
     try {
-      const res = await fetch(`/api/members/${userId}/training/enrollments/${enrollment.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          primary_instructor_id: primaryInstructorId === SELECT_NONE ? null : primaryInstructorId,
-          aircraft_type: aircraftTypeId === SELECT_NONE ? null : aircraftTypeId,
-          enrolled_at: enrolledAt || null,
-          notes: notes || null,
-        }),
+      await updateTrainingEnrollment(userId, enrollment.id, {
+        primary_instructor_id: primaryInstructorId === SELECT_NONE ? null : primaryInstructorId,
+        aircraft_type: aircraftTypeId === SELECT_NONE ? null : aircraftTypeId,
+        enrolled_at: enrolledAt || null,
+        notes: notes || null,
       })
-      if (!res.ok) throw new Error("Failed to update enrollment")
       toast.success("Enrollment updated")
       await onUpdated()
     } catch (err) {
@@ -338,10 +325,10 @@ export function TrainingStudentProgrammeTab({
     let cancelled = false
     async function load() {
       setIsLoadingOptions(true)
-      const [inst, ats] = await Promise.all([fetchInstructors(), fetchAircraftTypes()])
+      const [inst, ats] = await Promise.all([fetchInstructorsQuery(), fetchAircraftTypes()])
       if (cancelled) return
       setInstructors(inst)
-      setAircraftTypes(ats)
+      setAircraftTypes(ats as AircraftTypesRow[])
       setIsLoadingOptions(false)
     }
     void load()
@@ -380,19 +367,13 @@ export function TrainingStudentProgrammeTab({
 
     setEnrollSubmitting(true)
     try {
-      const res = await fetch(`/api/members/${userId}/training/enrollments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          syllabus_id: enrollSyllabusId,
-          enrolled_at: enrollDate || undefined,
-          notes: enrollNotes ? enrollNotes : null,
-          primary_instructor_id: enrollPrimaryInstructorId === SELECT_NONE ? null : enrollPrimaryInstructorId,
-          aircraft_type: enrollAircraftTypeId === SELECT_NONE ? null : enrollAircraftTypeId,
-        }),
+      await createTrainingEnrollment(userId, {
+        syllabus_id: enrollSyllabusId,
+        enrolled_at: enrollDate || undefined,
+        notes: enrollNotes ? enrollNotes : null,
+        primary_instructor_id: enrollPrimaryInstructorId === SELECT_NONE ? null : enrollPrimaryInstructorId,
+        aircraft_type: enrollAircraftTypeId === SELECT_NONE ? null : enrollAircraftTypeId,
       })
-      const payload = (await res.json().catch(() => null)) as { error?: string } | null
-      if (!res.ok) throw new Error(payload?.error || "Failed to enroll member")
       toast.success("Syllabus enrollment created")
       setEnrollOpen(false)
       await onRefresh()

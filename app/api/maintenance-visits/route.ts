@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import type {
   AircraftMaintenanceVisitEntry,
   AircraftMaintenanceVisitsResponse,
@@ -54,23 +52,9 @@ const createVisitSchema = z.strictObject({
 })
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const visitId = request.nextUrl.searchParams.get("maintenance_visit_id")
   if (visitId) {
@@ -85,10 +69,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
 
       if (visitError || !visit) {
-        return NextResponse.json(
-          { error: "Maintenance visit not found" },
-          { status: 404, headers: { "cache-control": "no-store" } }
-        )
+        return noStoreJson({ error: "Maintenance visit not found" }, { status: 404 })
       }
 
       let component: ComponentLite | null = null
@@ -102,24 +83,15 @@ export async function GET(request: NextRequest) {
         component = componentRow
       }
 
-      return NextResponse.json(
-        { ...visit, component },
-        { headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ ...visit, component })
     } catch {
-      return NextResponse.json(
-        { error: "Failed to load maintenance visit" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to load maintenance visit" }, { status: 500 })
     }
   }
 
   const aircraftId = request.nextUrl.searchParams.get("aircraft_id")
   if (!aircraftId) {
-    return NextResponse.json(
-      { error: "aircraft_id is required" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "aircraft_id is required" }, { status: 400 })
   }
 
   try {
@@ -159,43 +131,21 @@ export async function GET(request: NextRequest) {
 
     const payload: AircraftMaintenanceVisitsResponse = { visits }
 
-    return NextResponse.json(payload, {
-      headers: { "cache-control": "no-store" },
-    })
+    return noStoreJson(payload)
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load maintenance visits" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load maintenance visits" }, { status: 500 })
   }
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateVisitSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -204,10 +154,7 @@ export async function PATCH(request: NextRequest) {
   )
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json(
-      { error: "No fields to update" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -219,41 +166,21 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: "Failed to update maintenance visit" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update maintenance visit" }, { status: 500 })
   }
 
-  return NextResponse.json(data, { headers: { "cache-control": "no-store" } })
+  return noStoreJson(data)
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createVisitSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -266,10 +193,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (aircraftError || !aircraft) {
-    return NextResponse.json(
-      { error: "Aircraft not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Aircraft not found" }, { status: 404 })
   }
 
   const performedBy = payload.performed_by ?? user.id
@@ -297,10 +221,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: "Failed to log maintenance visit" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to log maintenance visit" }, { status: 500 })
   }
 
   if (payload.component_id) {
@@ -332,13 +253,13 @@ export async function POST(request: NextRequest) {
         .eq("id", payload.component_id)
 
       if (componentError) {
-        return NextResponse.json(
+        return noStoreJson(
           { error: "Maintenance logged, but failed to update component" },
-          { status: 500, headers: { "cache-control": "no-store" } }
+          { status: 500 }
         )
       }
     }
   }
 
-  return NextResponse.json(data, { status: 201, headers: { "cache-control": "no-store" } })
+  return noStoreJson(data, { status: 201 })
 }

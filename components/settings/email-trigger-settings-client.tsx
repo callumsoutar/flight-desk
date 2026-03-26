@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { updateEmailTriggerSettings } from "@/hooks/use-email-trigger-settings-query"
 
 type TriggerMeta = {
   triggerKey: string
@@ -69,10 +70,8 @@ export function EmailTriggerSettingsClient({
     setSaveState((current) => ({ ...current, [triggerKey]: "saving" }))
     const config = configs[triggerKey]
 
-    const response = await fetch("/api/settings/email-triggers", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    try {
+      await updateEmailTriggerSettings({
         trigger_key: triggerKey,
         is_enabled: config.is_enabled,
         from_name: config.from_name?.trim() || null,
@@ -80,10 +79,8 @@ export function EmailTriggerSettingsClient({
         subject_template: config.subject_template?.trim() || null,
         cc_emails: config.cc_emails.filter(Boolean),
         notify_instructor: config.notify_instructor,
-      }),
-    })
-
-    if (!response.ok) {
+      })
+    } catch {
       setSaveState((current) => ({ ...current, [triggerKey]: "error" }))
       return
     }

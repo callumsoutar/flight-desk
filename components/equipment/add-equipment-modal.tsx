@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { createEquipment } from "@/hooks/use-equipment-query"
 import { EQUIPMENT_STATUS_OPTIONS, EQUIPMENT_TYPE_OPTIONS } from "@/lib/types/equipment"
 import { cn } from "@/lib/utils"
 import { equipmentCreateSchema } from "@/lib/validation/equipment"
@@ -103,17 +104,7 @@ export function AddEquipmentModal({ open, onOpenChange, onSuccess }: AddEquipmen
     setErrors({})
     setIsSubmitting(true)
     try {
-      const response = await fetch("/api/equipment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      })
-
-      const result = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) {
-        throw new Error(result?.error || "Failed to add equipment")
-      }
-
+      await createEquipment(parsed.data)
       toast.success("Equipment added successfully")
       onOpenChange(false)
       onSuccess?.()

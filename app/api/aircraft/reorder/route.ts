@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -17,27 +15,19 @@ const reorderSchema = z.strictObject({
 })
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = reorderSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const items = parsed.data.items
   if (!items.length) {
-    return NextResponse.json({ error: "No aircraft to reorder" }, { status: 400 })
+    return noStoreJson({ error: "No aircraft to reorder" }, { status: 400 })
   }
 
   const ids = items.map((item) => item.id)
@@ -49,12 +39,12 @@ export async function PATCH(request: NextRequest) {
     .in("id", ids)
 
   if (existingError) {
-    return NextResponse.json({ error: "Failed to validate aircraft list" }, { status: 500 })
+    return noStoreJson({ error: "Failed to validate aircraft list" }, { status: 500 })
   }
 
   const existingIds = new Set((existing ?? []).map((row) => row.id))
   if (existingIds.size !== ids.length) {
-    return NextResponse.json({ error: "One or more aircraft were not found" }, { status: 404 })
+    return noStoreJson({ error: "One or more aircraft were not found" }, { status: 404 })
   }
 
   const updateResults = await Promise.all(
@@ -69,8 +59,8 @@ export async function PATCH(request: NextRequest) {
 
   const updateError = updateResults.find((result) => result.error)?.error
   if (updateError) {
-    return NextResponse.json({ error: "Failed to update aircraft order" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update aircraft order" }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  return noStoreJson({ success: true })
 }

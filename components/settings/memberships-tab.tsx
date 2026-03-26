@@ -1,26 +1,21 @@
 "use client"
 
 import * as React from "react"
-import dynamic from "next/dynamic"
 import * as Tabs from "@radix-ui/react-tabs"
 import { IconCalendar, IconCreditCard } from "@tabler/icons-react"
 
+import { MembershipYearConfig } from "@/components/settings/memberships/membership-year-config"
 import { MembershipTypesConfig } from "@/components/settings/memberships/membership-types-config"
 import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
-
-const MembershipYearConfig = dynamic(
-  () =>
-    import("@/components/settings/memberships/membership-year-config").then(
-      (mod) => mod.MembershipYearConfig
-    ),
-  { ssr: false }
-)
 
 const membershipTabs = [
   { id: "membership-types", label: "Membership Types", icon: IconCreditCard },
   { id: "membership-year", label: "Membership Year", icon: IconCalendar },
 ] as const
 
+// Contract:
+// - membership-year uses the server-bootstrapped settings payload
+// - membership-types remains a client-owned collection editor
 export function MembershipsTab({
   initialSettings = null,
   initialLoadError = null,

@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server"
 import { claimsRoleToUserRole } from "@/lib/auth/roles"
 import type { Database } from "@/lib/types"
 import type { UserRole } from "@/lib/types/roles"
-import { getSupabasePublicEnv } from "@/lib/supabase/env"
+import { getSupabasePublicEnv } from "@/lib/supabase/env-public"
 
 export type CookieToSet = {
   name: string

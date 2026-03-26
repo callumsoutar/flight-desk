@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { fetchMembers } from "@/lib/members/fetch-members"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -22,41 +22,28 @@ function optionalTrimmed(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
+export async function GET() {
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
+
+  try {
+    const members = await fetchMembers(supabase, tenantId)
+    return noStoreJson({ members })
+  } catch {
+    return noStoreJson({ error: "Failed to load members" }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can add members" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { user, tenantId } = ctx.context
 
   const parsed = createMemberSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -77,17 +64,11 @@ export async function POST(request: NextRequest) {
   ])
 
   if (memberRoleResult.error || !memberRoleResult.data) {
-    return NextResponse.json(
-      { error: "Unable to resolve member role" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Unable to resolve member role" }, { status: 500 })
   }
 
   if (existingUserResult.error) {
-    return NextResponse.json(
-      { error: "Failed to validate email" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to validate email" }, { status: 500 })
   }
 
   const memberRole = memberRoleResult.data
@@ -112,10 +93,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (createUserError || !createdUser) {
-      return NextResponse.json(
-        { error: "Failed to create member profile" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to create member profile" }, { status: 500 })
     }
 
     userId = createdUser.id
@@ -129,17 +107,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (existingTenantUserError) {
-    return NextResponse.json(
-      { error: "Failed to validate existing member" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to validate existing member" }, { status: 500 })
   }
 
   if (existingTenantUser) {
-    return NextResponse.json(
-      { error: "A member with that email already exists." },
-      { status: 409, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "A member with that email already exists." }, { status: 409 })
   }
 
   const { data: tenantMember, error: createTenantUserError } = await supabase
@@ -155,17 +127,14 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (createTenantUserError || !tenantMember) {
-    return NextResponse.json(
-      { error: "Failed to add member to tenant" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to add member to tenant" }, { status: 500 })
   }
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       member: { id: tenantMember.user_id },
       invitation_requested: payload.send_invitation,
     },
-    { status: 201, headers: { "cache-control": "no-store" } }
+    { status: 201 }
   )
 }

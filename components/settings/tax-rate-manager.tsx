@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconAlertCircle,
   IconCheck,
@@ -15,23 +16,28 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { defaultTaxRateQueryKey } from "@/hooks/use-default-tax-rate-query"
+import { createTaxRate, setDefaultTaxRate, taxRatesQueryKey, useTaxRatesQuery } from "@/hooks/use-tax-rates-query"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import type { TaxRate } from "@/lib/types/tax-rates"
 import { cn } from "@/lib/utils"
 
 export function TaxRateManager() {
-  const [taxRates, setTaxRates] = React.useState<TaxRate[]>([])
-  const [loading, setLoading] = React.useState(true)
+  const queryClient = useQueryClient()
   const [saving, setSaving] = React.useState(false)
   const [creating, setCreating] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
   const [isEditing, setIsEditing] = React.useState(false)
   const [selectedTaxRateId, setSelectedTaxRateId] = React.useState<string>("")
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+  const {
+    data: taxRates = [],
+    isLoading,
+    error: taxRatesQueryError,
+  } = useTaxRatesQuery()
   const [createForm, setCreateForm] = React.useState(() => ({
     tax_name: "",
     rate_percent: "",
@@ -42,62 +48,36 @@ export function TaxRateManager() {
   }))
 
   React.useEffect(() => {
-    void fetchTaxRates()
-  }, [])
-
-  React.useEffect(() => {
     if (success) {
       const timer = setTimeout(() => setSuccess(null), 3000)
       return () => clearTimeout(timer)
     }
   }, [success])
 
-  const fetchTaxRates = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch("/api/tax-rates")
-      const data = (await response.json()) as { tax_rates?: TaxRate[]; error?: string }
-      if (response.ok) {
-        const rates = data.tax_rates ?? []
-        setTaxRates(rates)
-        const defaultRate = rates.find((r) => r.is_default)
-        if (defaultRate) {
-          setSelectedTaxRateId(defaultRate.id)
-        }
-      } else {
-        setError(data.error ?? "Failed to fetch tax rates")
-      }
-    } catch {
-      setError("Failed to fetch tax rates")
-    } finally {
-      setLoading(false)
+  React.useEffect(() => {
+    const defaultRate = taxRates.find((r) => r.is_default)
+    if (defaultRate && !isEditing) {
+      setSelectedTaxRateId(defaultRate.id)
     }
-  }
+  }, [isEditing, taxRates])
+
+  const error = mutationError ?? (taxRatesQueryError instanceof Error ? taxRatesQueryError.message : null)
 
   const handleSaveDefault = async () => {
     if (!selectedTaxRateId) return
 
     try {
       setSaving(true)
-      setError(null)
+      setMutationError(null)
       setSuccess(null)
 
-      const response = await fetch("/api/tax-rates", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedTaxRateId, is_default: true }),
-      })
-
-      if (response.ok) {
-        setSuccess("Tax rate updated successfully")
-        await fetchTaxRates()
-        setIsEditing(false)
-      } else {
-        const data = (await response.json()) as { error?: string }
-        setError(data.error ?? "Failed to update tax rate")
-      }
-    } catch {
-      setError("Failed to update tax rate")
+      await setDefaultTaxRate(selectedTaxRateId)
+      setSuccess("Tax rate updated successfully")
+      await queryClient.invalidateQueries({ queryKey: taxRatesQueryKey })
+      await queryClient.invalidateQueries({ queryKey: defaultTaxRateQueryKey })
+      setIsEditing(false)
+    } catch (error) {
+      setMutationError(error instanceof Error ? error.message : "Failed to update tax rate")
     } finally {
       setSaving(false)
     }
@@ -109,7 +89,7 @@ export function TaxRateManager() {
       setSelectedTaxRateId(defaultRate.id)
     }
     setIsEditing(false)
-    setError(null)
+    setMutationError(null)
   }
 
   const handleCreateRate = async () => {
@@ -117,56 +97,47 @@ export function TaxRateManager() {
     const rateValue = Number.parseFloat(createForm.rate_percent)
 
     if (!taxName || Number.isNaN(rateValue)) {
-      setError("Enter a tax name and a valid percentage rate.")
+      setMutationError("Enter a tax name and a valid percentage rate.")
       return
     }
 
     if (rateValue < 0 || rateValue > 100) {
-      setError("Rate must be between 0% and 100%.")
+      setMutationError("Rate must be between 0% and 100%.")
       return
     }
 
     try {
       setCreating(true)
-      setError(null)
+      setMutationError(null)
       setSuccess(null)
 
-      const response = await fetch("/api/tax-rates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tax_name: taxName,
-          rate_percent: rateValue,
-          effective_from: createForm.effective_from || undefined,
-          description: createForm.description.trim() || undefined,
-          region_code: createForm.region_code.trim() || undefined,
-          make_default: createForm.make_default,
-        }),
+      await createTaxRate({
+        tax_name: taxName,
+        rate_percent: rateValue,
+        effective_from: createForm.effective_from || undefined,
+        description: createForm.description.trim() || undefined,
+        region_code: createForm.region_code.trim() || undefined,
+        make_default: createForm.make_default,
       })
-
-      if (response.ok) {
-        setSuccess("Tax rate created successfully")
-        setCreateForm((prev) => ({
-          ...prev,
-          tax_name: "",
-          rate_percent: "",
-          description: "",
-          region_code: "",
-          make_default: false,
-        }))
-        await fetchTaxRates()
-      } else {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null
-        setError(data?.error ?? "Failed to create tax rate")
-      }
-    } catch {
-      setError("Failed to create tax rate")
+      setSuccess("Tax rate created successfully")
+      setCreateForm((prev) => ({
+        ...prev,
+        tax_name: "",
+        rate_percent: "",
+        description: "",
+        region_code: "",
+        make_default: false,
+      }))
+      await queryClient.invalidateQueries({ queryKey: taxRatesQueryKey })
+      await queryClient.invalidateQueries({ queryKey: defaultTaxRateQueryKey })
+    } catch (error) {
+      setMutationError(error instanceof Error ? error.message : "Failed to create tax rate")
     } finally {
       setCreating(false)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <IconLoader2 className="h-8 w-8 animate-spin text-slate-400" />

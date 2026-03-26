@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { XeroConnectionCard } from "@/components/settings/xero-connection-card"
 import { XeroSettingsForm } from "@/components/settings/xero-settings-form"
+import { xeroSettingsQueryKey, useXeroSettingsQuery } from "@/hooks/use-xero-settings-query"
+import { xeroStatusQueryKey, useXeroStatusQuery } from "@/hooks/use-xero-status-query"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
 
 export function IntegrationsTab({
@@ -20,8 +22,21 @@ export function IntegrationsTab({
     connected_at: string | null
   }
 }) {
-  const router = useRouter()
-  const settings = initialXeroSettings
+  const queryClient = useQueryClient()
+  const { data: xeroStatus } = useXeroStatusQuery({
+    connected: xeroConnectionStatus.connected,
+    xero_tenant_name: xeroConnectionStatus.xero_tenant_name,
+    connected_at: xeroConnectionStatus.connected_at,
+    enabled: initialXeroSettings?.enabled ?? false,
+  })
+  const { data: settings } = useXeroSettingsQuery(initialXeroSettings)
+
+  const refreshXero = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: xeroStatusQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: xeroSettingsQueryKey() }),
+    ])
+  }, [queryClient])
 
   return (
     <div className="space-y-6">
@@ -32,14 +47,14 @@ export function IntegrationsTab({
       ) : null}
 
       <XeroConnectionCard
-        connected={xeroConnectionStatus.connected}
-        tenantName={xeroConnectionStatus.xero_tenant_name}
-        connectedAt={xeroConnectionStatus.connected_at}
-        onRefresh={() => router.refresh()}
+        connected={xeroStatus?.connected ?? false}
+        tenantName={xeroStatus?.xero_tenant_name ?? null}
+        connectedAt={xeroStatus?.connected_at ?? null}
+        onRefresh={() => void refreshXero()}
       />
 
-      {xeroConnectionStatus.connected && settings ? (
-        <XeroSettingsForm settings={settings} onSaved={() => router.refresh()} />
+      {xeroStatus?.connected && settings ? (
+        <XeroSettingsForm settings={settings} onSaved={() => void refreshXero()} />
       ) : null}
     </div>
   )

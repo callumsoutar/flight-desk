@@ -1,7 +1,9 @@
+import "server-only"
+
 import { createClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
-import { getSupabaseAdminEnv } from "@/lib/supabase/env"
+import { getSupabaseAdminEnv } from "@/lib/supabase/env-admin"
 
 export function createSupabaseAdminClient() {
   const { url, serviceRoleKey } = getSupabaseAdminEnv()

@@ -1,8 +1,6 @@
 "use client"
 
 import * as React from "react"
-import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
 import * as Tabs from "@radix-ui/react-tabs"
 import {
   IconBuilding,
@@ -13,6 +11,7 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { TaxSettingsTab } from "@/components/settings/tax-settings-tab"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dropzone } from "@/components/ui/dropzone"
@@ -23,12 +22,12 @@ import { Separator } from "@/components/ui/separator"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  removeGeneralLogo,
+  updateGeneralSettings,
+  uploadGeneralLogo,
+} from "@/hooks/use-general-settings-query"
 import type { GeneralSettings } from "@/lib/settings/general-settings"
-
-const TaxSettingsTab = dynamic(
-  () => import("@/components/settings/tax-settings-tab").then((mod) => mod.TaxSettingsTab),
-  { ssr: false }
-)
 
 const generalTabs = [
   { id: "school", label: "School", icon: IconBuilding },
@@ -36,8 +35,6 @@ const generalTabs = [
   { id: "tax", label: "Tax settings", icon: IconReceiptTax },
   { id: "system", label: "System", icon: IconSettings },
 ]
-
-type GeneralSettingsResponse = { settings: GeneralSettings }
 
 function normalizeOptionalInput(value: string) {
   const trimmed = value.trim()
@@ -47,24 +44,6 @@ function normalizeOptionalInput(value: string) {
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
   return "Something went wrong."
-}
-
-async function patchGeneralSettings(payload: unknown): Promise<GeneralSettingsResponse> {
-  const response = await fetch("/api/settings/general", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message = data && typeof data === "object" && typeof data.error === "string"
-      ? data.error
-      : "Failed to update settings"
-    throw new Error(message)
-  }
-
-  return (await response.json()) as GeneralSettingsResponse
 }
 
 function createFormState(settings: GeneralSettings | null) {
@@ -95,7 +74,6 @@ export function GeneralTab({
   initialSettings: GeneralSettings | null
   loadError: string | null
 }) {
-  const router = useRouter()
   const [activeTab, setActiveTab] = React.useState("school")
   const [form, setForm] = React.useState(() => createFormState(initialSettings))
   const [baseSettings, setBaseSettings] = React.useState<GeneralSettings | null>(initialSettings)
@@ -195,7 +173,7 @@ export function GeneralTab({
   const onSave = async () => {
     setIsSaving(true)
     try {
-      const result = await patchGeneralSettings({
+      const result = await updateGeneralSettings({
         tenant: {
           name: form.name.trim(),
           registration_number: normalizeOptionalInput(form.registration_number),
@@ -218,7 +196,6 @@ export function GeneralTab({
       })
       setBaseSettings(result.settings)
       toast.success("General settings saved")
-      router.refresh()
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
@@ -230,15 +207,7 @@ export function GeneralTab({
     setIsUploadingLogo(true)
     try {
       if (!file) {
-        const response = await fetch("/api/settings/logo", { method: "DELETE" })
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-          const message =
-            data && typeof data === "object" && typeof data.error === "string"
-              ? data.error
-              : "Failed to remove logo"
-          throw new Error(message)
-        }
+        await removeGeneralLogo()
 
         setForm((prev) => ({ ...prev, logo_url: "" }))
         setBaseSettings((prev) =>
@@ -253,29 +222,10 @@ export function GeneralTab({
             : prev
         )
         toast.success("Logo removed")
-        router.refresh()
         return
       }
 
-      const uploadFormData = new FormData()
-      uploadFormData.append("file", file)
-      const response = await fetch("/api/settings/logo", {
-        method: "POST",
-        body: uploadFormData,
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to upload logo"
-        throw new Error(message)
-      }
-
-      const data = (await response.json().catch(() => null)) as { url?: unknown } | null
-      const url = data && typeof data.url === "string" ? data.url : null
-      if (!url) throw new Error("Upload completed, but logo URL was not returned.")
+      const url = await uploadGeneralLogo(file)
 
       setForm((prev) => ({ ...prev, logo_url: url }))
       setBaseSettings((prev) =>
@@ -290,7 +240,6 @@ export function GeneralTab({
           : prev
       )
       toast.success("Logo updated")
-      router.refresh()
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {

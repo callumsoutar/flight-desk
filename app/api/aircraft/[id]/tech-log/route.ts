@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
 import { fetchAircraftTechLog } from "@/lib/aircraft/fetch-aircraft-tech-log"
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -18,23 +16,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = querySchema.safeParse({
     page: request.nextUrl.searchParams.get("page") ?? undefined,
@@ -42,10 +26,7 @@ export async function GET(
   })
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid query parameters" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid query parameters" }, { status: 400 })
   }
 
   try {
@@ -56,13 +37,8 @@ export async function GET(
       pageSize: parsed.data.pageSize,
     })
 
-    return NextResponse.json(payload, {
-      headers: { "cache-control": "no-store" },
-    })
+    return noStoreJson(payload)
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load aircraft tech log" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load aircraft tech log" }, { status: 500 })
   }
 }

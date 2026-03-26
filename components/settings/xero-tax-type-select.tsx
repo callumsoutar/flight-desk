@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useQuery } from "@tanstack/react-query"
 import { Loader2 } from "lucide-react"
 
 import {
@@ -11,22 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-type TaxRateOption = {
-  tax_type: string
-  name: string
-  display_rate: string | null
-}
-
-async function fetchTaxRates(): Promise<TaxRateOption[]> {
-  const response = await fetch("/api/xero/tax-rates", { cache: "no-store" })
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(body?.error ?? "Failed to load tax rates")
-  }
-  const data = (await response.json().catch(() => null)) as { tax_rates?: TaxRateOption[] } | null
-  return data?.tax_rates ?? []
-}
+import { useXeroTaxRatesQuery, type XeroTaxRateOption as TaxRateOption } from "@/hooks/use-xero-tax-rates-query"
 
 function formatLabel(rate: TaxRateOption): string {
   if (rate.display_rate) {
@@ -56,12 +40,7 @@ export function XeroTaxTypeSelect({
     data: taxRates = [],
     isLoading,
     error,
-  } = useQuery({
-    queryKey: ["xero", "tax-rates"],
-    queryFn: fetchTaxRates,
-    staleTime: 60_000,
-    enabled: open,
-  })
+  } = useXeroTaxRatesQuery(open)
 
   const selectedRate = taxRates.find((r) => r.tax_type === value)
   const displayValue = selectedRate ? formatLabel(selectedRate) : value || null

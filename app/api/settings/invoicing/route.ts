@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isAdminRole } from "@/lib/auth/roles"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { DEFAULT_INVOICING_SETTINGS } from "@/lib/settings/invoicing-settings"
 import {
@@ -10,7 +8,6 @@ import {
   normalizeNonNegativeInt,
   normalizeNullableString as normalizeOptionalString,
 } from "@/lib/settings/utils"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -30,75 +27,26 @@ const patchSchema = z.strictObject({
 })
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   try {
     const settings = await fetchInvoicingSettings(supabase, tenantId)
-    return NextResponse.json(
-      { settings },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ settings })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load invoicing settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load invoicing settings" }, { status: 500 })
   }
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const patch = parsed.data.invoicing
@@ -126,10 +74,7 @@ export async function PATCH(request: Request) {
   }
 
   if (Object.keys(normalized).length === 0) {
-    return NextResponse.json(
-      { error: "No updates provided" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "No updates provided" }, { status: 400 })
   }
 
   const { data: existingRow, error: existingError } = await supabase
@@ -139,10 +84,7 @@ export async function PATCH(request: Request) {
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json(
-      { error: "Failed to load existing tenant settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load existing tenant settings" }, { status: 500 })
   }
 
   const existing = isJsonObject(existingRow?.settings) ? existingRow?.settings : {}
@@ -155,10 +97,7 @@ export async function PATCH(request: Request) {
       .eq("tenant_id", tenantId)
 
     if (updateError) {
-      return NextResponse.json(
-        { error: "Failed to update tenant settings" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to update tenant settings" }, { status: 500 })
     }
   } else {
     const { error: insertError } = await supabase
@@ -166,23 +105,14 @@ export async function PATCH(request: Request) {
       .insert({ tenant_id: tenantId, settings: nextSettings, updated_by: user.id })
 
     if (insertError) {
-      return NextResponse.json(
-        { error: "Failed to save tenant settings" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to save tenant settings" }, { status: 500 })
     }
   }
 
   try {
     const settings = await fetchInvoicingSettings(supabase, tenantId)
-    return NextResponse.json(
-      { settings },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ settings })
   } catch {
-    return NextResponse.json(
-      { error: "Settings saved, but failed to reload invoicing settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Settings saved, but failed to reload invoicing settings" }, { status: 500 })
   }
 }

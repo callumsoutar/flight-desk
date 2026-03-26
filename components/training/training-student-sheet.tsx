@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TrainingStudentOverviewTab } from "@/components/training/training-student-overview-tab"
+import { fetchMemberTraining } from "@/hooks/use-member-training-query"
 import { cn, getUserInitials } from "@/lib/utils"
 import type { MemberTrainingResponse } from "@/lib/types/member-training"
 import type { TrainingOverviewRow } from "@/lib/types/training-overview"
@@ -97,10 +98,7 @@ export function TrainingStudentSheet({
     setProgrammeLoading(true)
     setProgrammeError(null)
     try {
-      const res = await fetch(`/api/members/${row.user_id}/training`, { cache: "no-store" })
-      const payload = (await res.json().catch(() => null)) as { error?: string } | null
-      if (!res.ok) throw new Error(payload?.error || "Failed to load syllabus data")
-      const data = payload as unknown as MemberTrainingResponse
+      const data: MemberTrainingResponse = await fetchMemberTraining(row.user_id)
       setProgramme(data.training)
     } catch (err) {
       setProgramme(null)

@@ -17,7 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
-import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/types/account-statement"
+import { sendAccountStatementEmail, useAccountStatementQuery } from "@/hooks/use-account-statement-query"
+import type { AccountStatementEntry } from "@/lib/types/account-statement"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
 
@@ -59,25 +60,6 @@ function getEndOfMonth(date: Date): string {
   return `${y}-${m}-${day}`
 }
 
-async function fetchAccountStatement(
-  memberId: string,
-  startDate: string,
-  endDate: string
-): Promise<AccountStatementResponse> {
-  const params = new URLSearchParams({ user_id: memberId, start_date: startDate, end_date: endDate })
-  const response = await fetch(`/api/account-statement?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error || "Failed to load account statement")
-  }
-
-  return payload as AccountStatementResponse
-}
-
 const now = new Date()
 
 export function MemberFinances({ memberId }: MemberFinancesProps) {
@@ -85,48 +67,10 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
   const router = useRouter()
   const [startDate, setStartDate] = React.useState(() => getStartOfMonth(now))
   const [endDate, setEndDate] = React.useState(() => getEndOfMonth(now))
-  const [statement, setStatement] = React.useState<AccountStatementEntry[]>(EMPTY_STATEMENT)
-  const [closingBalance, setClosingBalance] = React.useState(0)
-  const [isLoading, setIsLoading] = React.useState(true)
   const [isEmailing, setIsEmailing] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    async function loadStatement() {
-      if (!memberId) {
-        setStatement(EMPTY_STATEMENT)
-        setClosingBalance(0)
-        setError(null)
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-      setError(null)
-      try {
-        const data = await fetchAccountStatement(memberId, startDate, endDate)
-        if (cancelled) return
-        setStatement(data.statement ?? EMPTY_STATEMENT)
-        setClosingBalance(data.closing_balance ?? 0)
-      } catch (err) {
-        if (cancelled) return
-        const message =
-          err instanceof Error ? err.message : "Failed to load account statement"
-        setError(message)
-        setStatement(EMPTY_STATEMENT)
-        setClosingBalance(0)
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-
-    void loadStatement()
-    return () => {
-      cancelled = true
-    }
-  }, [memberId, startDate, endDate])
+  const { data: statementData, isLoading, error } = useAccountStatementQuery(memberId, startDate, endDate)
+  const statement: AccountStatementEntry[] = statementData?.statement ?? EMPTY_STATEMENT
+  const closingBalance = statementData?.closing_balance ?? 0
 
   const outstandingBalance = Math.max(closingBalance, 0)
 
@@ -135,25 +79,14 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
 
     setIsEmailing(true)
     try {
-      const response = await fetch("/api/email/send-statement", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          user_id: memberId,
-          from_date: startDate,
-          to_date: endDate,
-        }),
+      await sendAccountStatementEmail({
+        memberId,
+        startDate,
+        endDate,
       })
-
-      const result = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) {
-        toast.error(result?.error ?? "Failed to send statement email")
-        return
-      }
-
       toast.success("Statement emailed to member")
-    } catch {
-      toast.error("Failed to send statement email")
+    } catch (sendError) {
+      toast.error(sendError instanceof Error ? sendError.message : "Failed to send statement email")
     } finally {
       setIsEmailing(false)
     }
@@ -232,7 +165,7 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
             </div>
           ) : error ? (
             <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {error}
+              {error instanceof Error ? error.message : "Failed to load account statement"}
             </div>
           ) : statement.length === 0 ? (
             <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">

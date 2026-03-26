@@ -1,24 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const url = new URL(request.url)
   const invoiceId = url.searchParams.get("invoiceId")
@@ -35,6 +24,6 @@ export async function GET(request: NextRequest) {
   if (invoiceId) query = query.eq("invoice_id", invoiceId)
   const { data, error } = await query
 
-  if (error) return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 })
-  return NextResponse.json({ logs: data ?? [] }, { headers: { "cache-control": "no-store" } })
+  if (error) return noStoreJson({ error: "Failed to fetch logs" }, { status: 500 })
+  return noStoreJson({ logs: data ?? [] })
 }

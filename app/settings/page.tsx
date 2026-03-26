@@ -13,7 +13,26 @@ import { fetchMembershipsSettings } from "@/lib/settings/fetch-memberships-setti
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
-async function SettingsContent() {
+const SETTINGS_TABS = new Set([
+  "general",
+  "invoicing",
+  "charges",
+  "bookings",
+  "training",
+  "memberships",
+  "integrations",
+])
+
+function resolveInitialSettingsTab(value: string | undefined) {
+  return value && SETTINGS_TABS.has(value) ? value : "general"
+}
+
+async function SettingsContent({
+  initialTab,
+}: {
+  initialTab: string
+}) {
+  // Server owns the initial settings bootstrap so tabs start from a single, explicit source of truth.
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await getAuthSession(supabase, {
     includeRole: true,
@@ -103,6 +122,7 @@ async function SettingsContent() {
 
   return (
     <SettingsPageClient
+      initialTab={initialTab}
       canManageSettings={canManageSettings}
       initialGeneralSettings={generalSettings}
       generalLoadError={generalLoadError}
@@ -119,12 +139,22 @@ async function SettingsContent() {
   )
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
+  const requestedTab = resolvedSearchParams?.tab
+  const initialTab = resolveInitialSettingsTab(
+    typeof requestedTab === "string" ? requestedTab : undefined
+  )
+
   return (
     <AppRouteShell>
       <AppRouteListContainer>
         <React.Suspense fallback={<SettingsPageSkeleton />}>
-          <SettingsContent />
+          <SettingsContent initialTab={initialTab} />
         </React.Suspense>
       </AppRouteListContainer>
     </AppRouteShell>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   closestCenter,
   DndContext,
@@ -16,10 +16,16 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { toast } from "sonner"
 
+import {
+  deactivateLesson,
+  lessonsQueryKey,
+  reorderLessons,
+  useLessonsQuery,
+} from "@/hooks/use-lessons-query"
+import { useSyllabiQuery } from "@/hooks/use-syllabi-query"
 import type { Lesson } from "@/lib/types/lessons"
 
 import { LessonModal } from "@/components/settings/training/lessons/lesson-modal"
-import { fetchLessons, fetchSyllabi } from "@/components/settings/training/lessons/lessons-api"
 import { LessonsEmptyState } from "@/components/settings/training/lessons/lessons-empty-state"
 import { LessonsSortableList } from "@/components/settings/training/lessons/lessons-sortable-list"
 import { LessonsToolbar } from "@/components/settings/training/lessons/lessons-toolbar"
@@ -47,15 +53,10 @@ export function LessonsTab() {
     })
   )
 
-  const { data: syllabi = [], isLoading: syllabusLoading } = useQuery({
-    queryKey: ["syllabi"],
-    queryFn: fetchSyllabi,
-  })
-
-  const { data: lessons = [], isLoading: lessonsLoading } = useQuery({
-    queryKey: ["lessons", selectedSyllabus],
-    queryFn: () => (selectedSyllabus ? fetchLessons(selectedSyllabus) : Promise.resolve([])),
-    enabled: Boolean(selectedSyllabus),
+  const { data: syllabi = [], isLoading: syllabusLoading } = useSyllabiQuery({ includeInactive: true })
+  const { data: lessons = [], isLoading: lessonsLoading } = useLessonsQuery({
+    syllabusId: selectedSyllabus,
+    includeInactive: true,
   })
 
   React.useEffect(() => {
@@ -72,12 +73,12 @@ export function LessonsTab() {
   }, [selectedSyllabus, syllabusLoading, syllabi])
 
   const deleteLessonMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/lessons?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("Failed to delete lesson")
-    },
+    mutationFn: (id: string) => deactivateLesson(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["lessons", selectedSyllabus] })
+      if (!selectedSyllabus) return
+      void queryClient.invalidateQueries({
+        queryKey: lessonsQueryKey({ syllabusId: selectedSyllabus, includeInactive: true }),
+      })
       toast.success("Lesson deleted successfully")
     },
     onError: (err: Error) => {
@@ -93,19 +94,15 @@ export function LessonsTab() {
       syllabusId: string
       lessonOrders: { id: string; order: number }[]
     }) => {
-      const response = await fetch("/api/lessons/reorder", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ syllabus_id: syllabusId, lesson_orders: lessonOrders }),
+      await reorderLessons({
+        syllabus_id: syllabusId,
+        lesson_orders: lessonOrders,
       })
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to reorder lessons")
-      }
-      return response.json()
     },
     onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["lessons", variables.syllabusId] })
+      void queryClient.invalidateQueries({
+        queryKey: lessonsQueryKey({ syllabusId: variables.syllabusId, includeInactive: true }),
+      })
       if (pendingReorderRef.current?.syllabusId === variables.syllabusId) {
         window.clearTimeout(pendingReorderRef.current.timeoutId)
         pendingReorderRef.current = null
@@ -139,8 +136,9 @@ export function LessonsTab() {
     const reorderedItems = arrayMove(lessons, oldIndex, newIndex)
     const lessonOrders = reorderedItems.map((lesson, index) => ({ id: lesson.id, order: index + 1 }))
     const updatedLessons = reorderedItems.map((lesson, index) => ({ ...lesson, order: index + 1 }))
+    const currentLessonsQueryKey = lessonsQueryKey({ syllabusId: selectedSyllabus, includeInactive: true })
 
-    queryClient.setQueryData(["lessons", selectedSyllabus], updatedLessons)
+    queryClient.setQueryData(currentLessonsQueryKey, updatedLessons)
 
     if (pendingReorderRef.current) {
       window.clearTimeout(pendingReorderRef.current.timeoutId)
@@ -152,7 +150,7 @@ export function LessonsTab() {
       action: {
         label: "Undo",
         onClick: () => {
-          queryClient.setQueryData(["lessons", selectedSyllabus], previousLessons)
+          queryClient.setQueryData(currentLessonsQueryKey, previousLessons)
           if (pendingReorderRef.current) {
             window.clearTimeout(pendingReorderRef.current.timeoutId)
             pendingReorderRef.current = null

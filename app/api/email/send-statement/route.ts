@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server"
 import { render } from "@react-email/render"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { buildAccountStatement } from "@/lib/account-statement/build-account-statement"
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { getPublicAppUrl } from "@/lib/env/public-app-url"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
 import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
@@ -12,11 +12,8 @@ import { AccountStatementEmail } from "@/lib/email/templates/account-statement"
 import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
 import { logError } from "@/lib/security/logger"
 import { enforceRateLimit } from "@/lib/security/rate-limit"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-const NO_STORE = { "cache-control": "no-store" } as const
 
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/
 const dateOnlySchema = z.string().regex(dateOnlyPattern, "Expected YYYY-MM-DD")
@@ -46,14 +43,9 @@ function formatDateLabel(dateValue: string, timeZone = "Pacific/Auckland") {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
-  }
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const rateLimitResult = enforceRateLimit({
     key: `email:send-statement:${tenantId}:${user.id}`,
@@ -61,12 +53,11 @@ export async function POST(request: Request) {
     windowMs: 60_000,
   })
   if (!rateLimitResult.ok) {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Too many email requests. Please try again shortly." },
       {
         status: 429,
         headers: {
-          ...NO_STORE,
           "retry-after": String(rateLimitResult.retryAfterSeconds),
         },
       }
@@ -75,7 +66,7 @@ export async function POST(request: Request) {
 
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400, headers: NO_STORE })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { user_id: memberUserId, from_date: fromDate, to_date: toDate } = parsed.data
@@ -105,25 +96,22 @@ export async function POST(request: Request) {
       | { id?: string | null; first_name?: string | null; last_name?: string | null; email?: string | null }
       | null) ?? null
   if (!member?.email) {
-    return NextResponse.json({ error: "Member profile not found" }, { status: 404, headers: NO_STORE })
+    return noStoreJson({ error: "Member profile not found" }, { status: 404 })
   }
 
   if (!statementResult.ok) {
     if (statementResult.error === "not_found") {
-      return NextResponse.json({ error: "Member profile not found" }, { status: 404, headers: NO_STORE })
+      return noStoreJson({ error: "Member profile not found" }, { status: 404 })
     }
 
-    return NextResponse.json(
-      { error: "Failed to prepare account statement" },
-      { status: 500, headers: NO_STORE }
-    )
+    return noStoreJson({ error: "Failed to prepare account statement" }, { status: 500 })
   }
 
   const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.STATEMENT_SEND)
   if (!triggerConfig.is_enabled) {
     return NextResponse.json(
       { error: "Statement email trigger is disabled" },
-      { status: 409, headers: NO_STORE }
+      { status: 409, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -142,7 +130,7 @@ export async function POST(request: Request) {
         : "All transactions"
 
     const portalStatementUrl = (() => {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      const appUrl = getPublicAppUrl()
       if (!appUrl) return null
       try {
         const url = new URL("/invoices", appUrl)
@@ -201,13 +189,13 @@ export async function POST(request: Request) {
     if (!result.ok) {
       return NextResponse.json(
         { error: "Failed to send statement email" },
-        { status: 500, headers: NO_STORE }
+        { status: 500, headers: { "cache-control": "no-store" } }
       )
     }
 
-    return NextResponse.json({ ok: true, messageId: result.messageId }, { headers: NO_STORE })
+    return noStoreJson({ ok: true, messageId: result.messageId })
   } catch (error) {
     logError("[email] Failed to render or send statement email", { error, tenantId })
-    return NextResponse.json({ error: "Failed to send statement email" }, { status: 500, headers: NO_STORE })
+    return noStoreJson({ error: "Failed to send statement email" }, { status: 500 })
   }
 }

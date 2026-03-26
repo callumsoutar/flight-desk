@@ -18,6 +18,10 @@ import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import type { ObservationWithUser } from "@/lib/types/observations"
 import { toast } from "sonner"
+import {
+  fetchAircraftObservation,
+  updateAircraftObservation,
+} from "@/hooks/use-aircraft-observations-query"
 
 type ResolveObservationModalProps = {
   open: boolean
@@ -42,8 +46,7 @@ export function ResolveObservationModal({
   useEffect(() => {
     if (!open || !observationId) return
     setLoadingObs(true)
-    fetch(`/api/observations?id=${observationId}`, { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to fetch observation"))))
+    fetchAircraftObservation(observationId)
       .then((data: ObservationWithUser) => {
         setObservation(data)
         setResolutionComments(data.resolution_comments || "")
@@ -63,21 +66,12 @@ export function ResolveObservationModal({
 
     setLoading(true)
     try {
-      const response = await fetch("/api/observations", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: observationId,
-          stage: "closed",
-          resolution_comments: resolutionComments.trim(),
-          resolved_at: new Date().toISOString(),
-        }),
+      await updateAircraftObservation({
+        id: observationId,
+        stage: "closed",
+        resolution_comments: resolutionComments.trim(),
+        resolved_at: new Date().toISOString(),
       })
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => ({}))) as { error?: string }
-        throw new Error(data.error || "Failed to resolve observation")
-      }
 
       toast.success("Observation resolved successfully")
       setResolutionComments("")

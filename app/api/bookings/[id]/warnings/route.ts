@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -12,22 +11,9 @@ export async function GET(
 ) {
   const { id } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getRequiredApiSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   try {
     const warnings = await fetchBookingCheckoutWarnings(supabase, tenantId, {
@@ -37,13 +23,8 @@ export async function GET(
       aircraftId: request.nextUrl.searchParams.get("aircraft_id"),
     })
 
-    return NextResponse.json(warnings, {
-      headers: { "cache-control": "no-store" },
-    })
+    return noStoreJson(warnings)
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load booking warnings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load booking warnings" }, { status: 500 })
   }
 }

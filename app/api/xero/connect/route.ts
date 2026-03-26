@@ -2,9 +2,7 @@ import { randomUUID } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { getXeroEnv } from "@/lib/xero/env"
 
 export const dynamic = "force-dynamic"
@@ -20,18 +18,9 @@ function encodeStatePayload(payload: XeroStatePayload) {
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   const { clientId, redirectUri, scopes } = getXeroEnv()
   const nonce = randomUUID()
@@ -59,7 +48,7 @@ export async function GET(request: NextRequest) {
 
   // ?debug=1 returns troubleshoot info instead of redirecting (admin only, dev only)
   if (process.env.NODE_ENV === "development" && request.nextUrl.searchParams.get("debug") === "1") {
-    return NextResponse.json({
+    return noStoreJson({
       message: "Xero OAuth debug — verify these match your Xero app",
       client_id: clientId,
       client_id_length: clientId.length,

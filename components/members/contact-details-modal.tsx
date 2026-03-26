@@ -16,16 +16,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
+import { fetchMemberContactDetails, type MemberContactDetailsDto } from "@/hooks/use-member-contact-details-query"
 import { cn, getUserInitials } from "@/lib/utils"
-
-type MemberContactDetailsDto = {
-  id: string
-  first_name: string | null
-  last_name: string | null
-  email: string | null
-  phone: string | null
-  street_address: string | null
-}
 
 function formatFullName(details: MemberContactDetailsDto) {
   const name = [details.first_name, details.last_name].filter(Boolean).join(" ").trim()
@@ -84,18 +76,8 @@ export function ContactDetailsModal({
     setError(null)
     setDetails(null)
 
-    void fetch(`/api/members/${memberId}/contact-details`, {
-      method: "GET",
-      cache: "no-store",
-      headers: { "cache-control": "no-store" },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string }
-          throw new Error(payload.error || "Failed to load contact details")
-        }
-        const payload = (await response.json()) as MemberContactDetailsDto
+    void fetchMemberContactDetails(memberId, controller.signal)
+      .then((payload) => {
         setDetails(payload)
       })
       .catch((err) => {

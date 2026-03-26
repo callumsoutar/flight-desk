@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { IconCheck, IconChevronDown, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 
@@ -35,6 +36,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
+import {
+  bookingQueryKey,
+  cancelBookingMutation,
+  fetchBookingWarningsQuery,
+  useBookingQuery,
+} from "@/hooks/use-booking-query"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { BookingWarningsResponse } from "@/lib/types/booking-warnings"
 import type { UserRole } from "@/lib/types/roles"
@@ -110,20 +117,6 @@ function buildWarningsFingerprint(payload: {
   })
 }
 
-function buildWarningsUrl(params: {
-  bookingId: string
-  userId: string | null
-  instructorId: string | null
-  aircraftId: string | null
-}) {
-  const searchParams = new URLSearchParams()
-  if (params.userId) searchParams.set("user_id", params.userId)
-  if (params.instructorId) searchParams.set("instructor_id", params.instructorId)
-  if (params.aircraftId) searchParams.set("aircraft_id", params.aircraftId)
-  const query = searchParams.toString()
-  return query.length > 0 ? `/api/bookings/${params.bookingId}/warnings?${query}` : `/api/bookings/${params.bookingId}/warnings`
-}
-
 function createCheckoutInitialState(booking: BookingWithRelations): CheckoutFormState {
   return {
     checked_out_aircraft_id: booking.checked_out_aircraft_id ?? booking.aircraft_id ?? null,
@@ -142,7 +135,7 @@ function createCheckoutInitialState(booking: BookingWithRelations): CheckoutForm
 
 export function BookingCheckoutClient({
   bookingId,
-  booking,
+  booking: initialBooking,
   initialWarnings,
   options,
   role,
@@ -154,6 +147,9 @@ export function BookingCheckoutClient({
   role: UserRole | null
 }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: liveBooking } = useBookingQuery(bookingId, initialBooking)
+  const booking = liveBooking ?? initialBooking
   const [isPending, startTransition] = React.useTransition()
   const serverInitialBookingForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
   const serverInitialCheckoutForm = React.useMemo(() => createCheckoutInitialState(booking), [booking])
@@ -257,24 +253,13 @@ export function BookingCheckoutClient({
 
     const loadWarnings = async () => {
       try {
-        const response = await fetch(
-          buildWarningsUrl({
-            bookingId,
-            userId: warningUserId,
-            instructorId: warningInstructorId,
-            aircraftId: warningAircraftId,
-          }),
-          {
-            cache: "no-store",
-            signal: controller.signal,
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error("Warning checks could not be refreshed for the current booking details.")
-        }
-
-        const payload = (await response.json()) as BookingWarningsResponse
+        const payload = await fetchBookingWarningsQuery({
+          bookingId,
+          userId: warningUserId,
+          instructorId: warningInstructorId,
+          aircraftId: warningAircraftId,
+          signal: controller.signal,
+        })
         setWarnings(payload)
       } catch (error) {
         if (controller.signal.aborted) return
@@ -504,7 +489,7 @@ export function BookingCheckoutClient({
 
       setSavedCheckoutForm(checkoutForm)
       savedCheckoutFormRef.current = checkoutForm
-      router.refresh()
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
     })
   }
 
@@ -531,7 +516,7 @@ export function BookingCheckoutClient({
 
       setSavedCheckoutForm(checkoutForm)
       savedCheckoutFormRef.current = checkoutForm
-      router.refresh()
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
     })
   }
 
@@ -542,26 +527,21 @@ export function BookingCheckoutClient({
 
   const handleCancel = (payload: CancelBookingPayload) => {
     startTransition(async () => {
-      const response = await fetch(`/api/bookings/${bookingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "cancelled",
-          cancellation_category_id: payload.cancellationCategoryId,
-          cancellation_reason: payload.cancellationReason,
-          cancelled_notes: payload.cancelledNotes,
-        }),
-      })
-
-      if (!response.ok) {
-        const json = (await response.json().catch(() => ({}))) as { error?: string }
-        toast.error(json.error || "Failed to cancel booking")
+      try {
+        await cancelBookingMutation({
+          bookingId,
+          cancellationCategoryId: payload.cancellationCategoryId,
+          cancellationReason: payload.cancellationReason,
+          cancelledNotes: payload.cancelledNotes,
+        })
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to cancel booking")
         return
       }
 
       toast.success("Booking cancelled")
       setCancelOpen(false)
-      router.refresh()
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
     })
   }
 

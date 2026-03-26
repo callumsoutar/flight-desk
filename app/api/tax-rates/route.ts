@@ -1,10 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -23,19 +20,9 @@ const postSchema = z.strictObject({
 })
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase, {
-    requireUser: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const isDefaultFilter = request.nextUrl.searchParams.get("is_default")
   const isDefault =
@@ -55,35 +42,26 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch tax rates" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch tax rates" }, { status: 500 })
   }
 
-  return NextResponse.json({ tax_rates: data ?? [] }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ tax_rates: data ?? [] })
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    authoritativeRole: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const body = await request.json().catch(() => null)
   if (body && typeof body.rate_percent === "string" && body.rate_percent.trim() === "") {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
   const parsed = postSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  if (!parsed.success) return noStoreJson({ error: "Invalid payload" }, { status: 400 })
 
   const taxName = parsed.data.tax_name.trim()
-  if (!taxName) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  if (!taxName) return noStoreJson({ error: "Invalid payload" }, { status: 400 })
 
   const today = new Date().toISOString().slice(0, 10)
   const effectiveFrom = parsed.data.effective_from ?? today
@@ -105,7 +83,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (insertError || !created?.id) {
-    return NextResponse.json({ error: "Failed to create tax rate" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create tax rate" }, { status: 500 })
   }
 
   if (parsed.data.make_default) {
@@ -115,12 +93,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (rpcError) {
-      return NextResponse.json({ error: "Failed to set default tax rate" }, { status: 500 })
+      return noStoreJson({ error: "Failed to set default tax rate" }, { status: 500 })
     }
 
     const result = rpcResult as { success: boolean; error?: string } | null
     if (!result?.success) {
-      return NextResponse.json({ error: result?.error ?? "Failed to set default tax rate" }, { status: 400 })
+      return noStoreJson({ error: result?.error ?? "Failed to set default tax rate" }, { status: 400 })
     }
   }
 
@@ -133,28 +111,19 @@ export async function POST(request: NextRequest) {
     .order("effective_from", { ascending: false })
 
   if (fetchError) {
-    return NextResponse.json({ error: "Failed to fetch tax rates" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch tax rates" }, { status: 500 })
   }
 
-  return NextResponse.json({ tax_rates: updated ?? [] }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ tax_rates: updated ?? [] })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    authoritativeRole: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  if (!parsed.success) return noStoreJson({ error: "Invalid payload" }, { status: 400 })
 
   const { id } = parsed.data
 
@@ -163,13 +132,13 @@ export async function PATCH(request: NextRequest) {
     p_tenant_id: tenantId,
   })
 
-  if (rpcError) return NextResponse.json({ error: "Failed to set default tax rate" }, { status: 500 })
+  if (rpcError) return noStoreJson({ error: "Failed to set default tax rate" }, { status: 500 })
 
   const result = rpcResult as { success: boolean; error?: string } | null
   if (!result?.success) {
     const msg = result?.error ?? "Failed to set default tax rate"
     const status = msg.includes("not found") ? 404 : 400
-    return NextResponse.json({ error: msg }, { status })
+    return noStoreJson({ error: msg }, { status })
   }
 
   const { data: updated } = await supabase
@@ -180,5 +149,5 @@ export async function PATCH(request: NextRequest) {
     .order("is_default", { ascending: false })
     .order("effective_from", { ascending: false })
 
-  return NextResponse.json({ tax_rates: updated ?? [] }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ tax_rates: updated ?? [] })
 }

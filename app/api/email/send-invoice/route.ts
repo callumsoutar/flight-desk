@@ -1,12 +1,11 @@
-import { NextResponse } from "next/server"
 import { render } from "@react-email/render"
 import { pdf } from "@react-pdf/renderer"
 import type { DocumentProps } from "@react-pdf/renderer"
+import { NextResponse } from "next/server"
 import * as React from "react"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import InvoiceReportPDF from "@/components/invoices/invoice-report-pdf"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
 import { interpolateSubject } from "@/lib/email/interpolate-subject"
@@ -16,26 +15,18 @@ import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
 import { fetchInvoicingSettings } from "@/lib/invoices/fetch-invoicing-settings"
 import { logError } from "@/lib/security/logger"
 import { enforceRateLimit } from "@/lib/security/rate-limit"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { formatDate } from "@/lib/utils/date-format"
 
 export const dynamic = "force-dynamic"
-
-const NO_STORE = { "cache-control": "no-store" } as const
 
 const payloadSchema = z.strictObject({
   invoice_id: z.string().uuid(),
 }).strict()
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
-  }
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const rateLimitResult = enforceRateLimit({
     key: `email:send-invoice:${tenantId}:${user.id}`,
@@ -43,12 +34,11 @@ export async function POST(request: Request) {
     windowMs: 60_000,
   })
   if (!rateLimitResult.ok) {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Too many email requests. Please try again shortly." },
       {
         status: 429,
         headers: {
-          ...NO_STORE,
           "retry-after": String(rateLimitResult.retryAfterSeconds),
         },
       }
@@ -57,7 +47,7 @@ export async function POST(request: Request) {
 
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400, headers: NO_STORE })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const invoiceId = parsed.data.invoice_id
@@ -83,14 +73,14 @@ export async function POST(request: Request) {
   ])
 
   if (!invoice) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404, headers: NO_STORE })
+    return noStoreJson({ error: "Invoice not found" }, { status: 404 })
   }
 
   const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.INVOICE_SEND)
   if (!triggerConfig.is_enabled) {
     return NextResponse.json(
       { error: "Invoice email trigger is disabled" },
-      { status: 409, headers: NO_STORE }
+      { status: 409, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -103,7 +93,7 @@ export async function POST(request: Request) {
   if (!memberEmail) {
     return NextResponse.json(
       { error: "Member email is not available for this invoice" },
-      { status: 422, headers: NO_STORE }
+      { status: 422, headers: { "cache-control": "no-store" } }
     )
   }
 
@@ -191,12 +181,12 @@ export async function POST(request: Request) {
     })
 
     if (!result.ok) {
-      return NextResponse.json({ error: "Failed to send email" }, { status: 500, headers: NO_STORE })
+      return noStoreJson({ error: "Failed to send email" }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, messageId: result.messageId }, { headers: NO_STORE })
+    return noStoreJson({ ok: true, messageId: result.messageId })
   } catch (error) {
     logError("[email] Failed to render or send invoice email", { error, tenantId })
-    return NextResponse.json({ error: "Failed to send invoice email" }, { status: 500, headers: NO_STORE })
+    return noStoreJson({ error: "Failed to send invoice email" }, { status: 500 })
   }
 }

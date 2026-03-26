@@ -28,6 +28,7 @@ import type {
   ObservationWithUsers,
 } from "@/lib/types/observations"
 import { toast } from "sonner"
+import { createAircraftObservation } from "@/hooks/use-aircraft-observations-query"
 
 const OBSERVATION_PRIORITIES: ObservationPriority[] = ["low", "medium", "high"]
 const OBSERVATION_STAGES: ObservationStage[] = ["open", "investigation", "resolution", "closed"]
@@ -71,26 +72,13 @@ export function AddObservationModal({
 
     setLoading(true)
     try {
-      const response = await fetch("/api/observations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          aircraft_id: aircraftId,
-          name: name.trim(),
-          description: description.trim() || null,
-          priority,
-          stage,
-        }),
+      const created: ObservationWithUsers = await createAircraftObservation({
+        aircraft_id: aircraftId,
+        name: name.trim(),
+        description: description.trim() || null,
+        priority,
+        stage,
       })
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => ({}))) as { error?: string }
-        throw new Error(data.error || "Failed to create observation")
-      }
-
-      const created = (await response.json()) as ObservationWithUsers
       toast.success("Observation created successfully")
       onCreated(created)
       reset()

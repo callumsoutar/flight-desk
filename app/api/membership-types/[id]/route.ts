@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -30,47 +28,17 @@ export async function PATCH(
 ) {
   const { id } = await params
   if (!z.string().uuid().safeParse(id).success) {
-    return NextResponse.json(
-      { error: "Invalid id" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid id" }, { status: 400 })
   }
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = patchSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -84,10 +52,7 @@ export async function PATCH(
   if (payload.benefits !== undefined) updateData.benefits = payload.benefits as unknown as Json
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json(
-      { error: "No fields to update" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   if (payload.chargeable_id) {
@@ -101,10 +66,7 @@ export async function PATCH(
       .maybeSingle()
 
     if (chargeableError || !chargeable) {
-      return NextResponse.json(
-        { error: "Linked chargeable not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Linked chargeable not found" }, { status: 404 })
     }
   }
 
@@ -116,10 +78,7 @@ export async function PATCH(
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json(
-      { error: "Membership type not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Membership type not found" }, { status: 404 })
   }
 
   const { error } = await supabase
@@ -129,13 +88,10 @@ export async function PATCH(
     .eq("id", id)
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to update membership type" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update membership type" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
 
 export async function DELETE(
@@ -144,39 +100,12 @@ export async function DELETE(
 ) {
   const { id } = await params
   if (!z.string().uuid().safeParse(id).success) {
-    return NextResponse.json(
-      { error: "Invalid id" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid id" }, { status: 400 })
   }
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data: existing, error: existingError } = await supabase
     .from("membership_types")
@@ -186,14 +115,11 @@ export async function DELETE(
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json(
-      { error: "Membership type not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Membership type not found" }, { status: 404 })
   }
 
   if (!existing.is_active) {
-    return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ ok: true })
   }
 
   const { error } = await supabase
@@ -203,12 +129,8 @@ export async function DELETE(
     .eq("id", id)
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to delete membership type" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to delete membership type" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
-

@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -62,21 +61,13 @@ async function validateReferences(
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const aircraftId = request.nextUrl.searchParams.get("aircraft_id")
   if (!aircraftId) {
-    return NextResponse.json({ error: "aircraft_id is required" }, { status: 400 })
+    return noStoreJson({ error: "aircraft_id is required" }, { status: 400 })
   }
 
   const flightTypeId = request.nextUrl.searchParams.get("flight_type_id")
@@ -91,16 +82,10 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json(
-        { error: "Failed to fetch aircraft charge rate" },
-        { status: 500 }
-      )
+      return noStoreJson({ error: "Failed to fetch aircraft charge rate" }, { status: 500 })
     }
 
-    return NextResponse.json(
-      { charge_rate: data ?? null },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ charge_rate: data ?? null })
   }
 
   const { data, error } = await supabase
@@ -111,29 +96,21 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch aircraft charge rates" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch aircraft charge rates" }, { status: 500 })
   }
 
-  return NextResponse.json({ rates: data ?? [] }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ rates: data ?? [] })
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -144,7 +121,7 @@ export async function POST(request: NextRequest) {
     payload.flight_type_id
   )
   if (!referenceCheck.ok) {
-    return NextResponse.json({ error: referenceCheck.message }, { status: 404 })
+    return noStoreJson({ error: referenceCheck.message }, { status: 404 })
   }
 
   const { data, error } = await supabase
@@ -162,29 +139,21 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to create aircraft charge rate" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create aircraft charge rate" }, { status: 500 })
   }
 
-  return NextResponse.json({ rate: data }, { status: 201 })
+  return noStoreJson({ rate: data }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -197,7 +166,7 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Charge rate not found" }, { status: 404 })
+    return noStoreJson({ error: "Charge rate not found" }, { status: 404 })
   }
 
   if (rest.flight_type_id) {
@@ -208,7 +177,7 @@ export async function PATCH(request: NextRequest) {
       rest.flight_type_id
     )
     if (!referenceCheck.ok) {
-      return NextResponse.json({ error: referenceCheck.message }, { status: 404 })
+      return noStoreJson({ error: referenceCheck.message }, { status: 404 })
     }
   }
 
@@ -216,7 +185,7 @@ export async function PATCH(request: NextRequest) {
     Object.entries(rest).filter(([, value]) => value !== undefined)
   )
   if (!Object.keys(updateData).length) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -228,29 +197,21 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to update aircraft charge rate" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update aircraft charge rate" }, { status: 500 })
   }
 
-  return NextResponse.json({ rate: data })
+  return noStoreJson({ rate: data })
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = deleteSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { error } = await supabase
@@ -260,8 +221,8 @@ export async function DELETE(request: NextRequest) {
     .eq("id", parsed.data.id)
 
   if (error) {
-    return NextResponse.json({ error: "Failed to delete aircraft charge rate" }, { status: 500 })
+    return noStoreJson({ error: "Failed to delete aircraft charge rate" }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  return noStoreJson({ success: true })
 }

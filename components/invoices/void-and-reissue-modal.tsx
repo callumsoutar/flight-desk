@@ -5,6 +5,7 @@ import { AlertTriangle, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { voidXeroInvoiceMutation } from "@/hooks/use-invoice-detail-query"
 import {
   Dialog,
   DialogContent,
@@ -42,24 +43,13 @@ export function VoidAndReissueModal({
 
     setLoading(true)
     try {
-      const response = await fetch("/api/xero/void-invoice", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invoiceId, reason: reason.trim() }),
-      })
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => null)
-        toast.error(body?.error || "Failed to void invoice")
-        return
-      }
-
+      await voidXeroInvoiceMutation({ invoiceId, reason: reason.trim() })
       toast.success("Xero invoice voided — you can now edit and re-export")
       setReason("")
       onOpenChange(false)
       onSuccess?.()
-    } catch {
-      toast.error("Network error — please try again")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Network error — please try again")
     } finally {
       setLoading(false)
     }

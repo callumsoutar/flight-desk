@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   flexRender,
   getCoreRowModel,
@@ -27,12 +28,13 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTimezone } from "@/contexts/timezone-context"
+import {
+  aircraftMaintenanceVisitsQueryKey,
+  useAircraftMaintenanceVisitsQuery,
+} from "@/hooks/use-aircraft-maintenance-visits-query"
 import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
-import type {
-  AircraftMaintenanceVisitEntry,
-  AircraftMaintenanceVisitsResponse,
-} from "@/lib/types/maintenance-history"
+import type { AircraftMaintenanceVisitEntry } from "@/lib/types/maintenance-history"
 import EditMaintenanceHistoryModal from "@/components/aircraft/edit-maintenance-history-modal"
 import LogMaintenanceModal from "@/components/aircraft/log-maintenance-modal"
 
@@ -100,27 +102,9 @@ function getVisitTypeBadge(type: string | null | undefined): { label: string; cl
   }
 }
 
-async function fetchMaintenanceVisits(aircraftId: string): Promise<AircraftMaintenanceVisitEntry[]> {
-  const response = await fetch(`/api/maintenance-visits?aircraft_id=${aircraftId}`, {
-    method: "GET",
-    cache: "no-store",
-  })
-  const payload = (await response.json().catch(() => ({}))) as Partial<AircraftMaintenanceVisitsResponse> & {
-    error?: string
-  }
-
-  if (!response.ok) {
-    throw new Error(payload.error || "Failed to load maintenance visits")
-  }
-
-  return payload.visits ?? []
-}
-
 export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }: Props) {
   const { timeZone } = useTimezone()
-  const [visits, setVisits] = React.useState<AircraftMaintenanceVisitEntry[]>(initialVisits)
-  const [isLoading, setIsLoading] = React.useState(initialVisits.length === 0)
-  const [error, setError] = React.useState<string | null>(null)
+  const queryClient = useQueryClient()
   const [search, setSearch] = React.useState("")
   const [selectedVisitId, setSelectedVisitId] = React.useState<string | null>(null)
   const [editModalOpen, setEditModalOpen] = React.useState(false)
@@ -128,33 +112,13 @@ export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "visit_date", desc: true },
   ])
-
-  const loadVisits = React.useCallback(
-    async (showLoader: boolean) => {
-      if (!aircraftId) {
-        setVisits([])
-        setIsLoading(false)
-        setError(null)
-        return
-      }
-
-      if (showLoader) setIsLoading(true)
-      setError(null)
-      try {
-        const next = await fetchMaintenanceVisits(aircraftId)
-        setVisits(next)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load maintenance visits")
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [aircraftId]
-  )
-
-  React.useEffect(() => {
-    void loadVisits(initialVisits.length === 0)
-  }, [initialVisits.length, loadVisits])
+  const {
+    data: visits = [],
+    isLoading,
+    error,
+    refetch,
+  } = useAircraftMaintenanceVisitsQuery(aircraftId, initialVisits)
+  const errorMessage = error instanceof Error ? error.message : null
 
   const filteredVisits = React.useMemo(() => {
     if (!search) return visits
@@ -305,13 +269,13 @@ export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }
     )
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <Card className="border-red-100 bg-red-50/30 p-12">
         <div className="flex flex-col items-center justify-center gap-3 text-red-600">
           <IconAlertTriangle className="h-10 w-10 opacity-50" />
-          <p className="text-sm font-bold">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => void loadVisits(true)}>
+          <p className="text-sm font-bold">{errorMessage}</p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
             Retry
           </Button>
         </div>
@@ -506,14 +470,18 @@ export function AircraftMaintenanceHistoryTab({ aircraftId, initialVisits = [] }
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         maintenanceVisitId={selectedVisitId}
-        onSuccess={() => void loadVisits(true)}
+        onSuccess={() =>
+          void queryClient.invalidateQueries({ queryKey: aircraftMaintenanceVisitsQueryKey(aircraftId) })
+        }
       />
 
       <LogMaintenanceModal
         open={logModalOpen}
         onOpenChange={setLogModalOpen}
         aircraft_id={aircraftId}
-        onSuccess={() => void loadVisits(true)}
+        onSuccess={() =>
+          void queryClient.invalidateQueries({ queryKey: aircraftMaintenanceVisitsQueryKey(aircraftId) })
+        }
       />
     </div>
   )

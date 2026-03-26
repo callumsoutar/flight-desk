@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { z } from "zod"
 
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+
+const inviteTypeSchema = z.enum(["invite", "email"])
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -25,9 +28,16 @@ export async function GET(request: NextRequest) {
       )
     }
   } else if (token_hash && type) {
+    const parsedType = inviteTypeSchema.safeParse(type)
+    if (!parsedType.success) {
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent("Invalid invite link")}`
+      )
+    }
+
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
-      type: type as "invite" | "email",
+      type: parsedType.data,
     })
     if (error) {
       return NextResponse.redirect(

@@ -7,16 +7,9 @@
  */
 
 import * as React from "react"
-import { useQuery } from "@tanstack/react-query"
 
+import { useXeroActiveAccountsQuery } from "@/hooks/use-xero-accounts-query"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-type XeroAccount = {
-  id: string
-  code: string | null
-  name: string
-  status: string | null
-}
 
 export function GlCodeSelect({
   value,
@@ -27,16 +20,7 @@ export function GlCodeSelect({
   onValueChange: (value: string) => void
   disabled?: boolean
 }) {
-  const { data: accounts = [] } = useQuery({
-    queryKey: ["xero", "accounts", "active"],
-    queryFn: async () => {
-      const response = await fetch("/api/xero/accounts", { cache: "no-store" })
-      if (!response.ok) return [] as XeroAccount[]
-      const body = (await response.json().catch(() => null)) as { accounts?: XeroAccount[] } | null
-      return (body?.accounts ?? []).filter((account) => account.status === "ACTIVE")
-    },
-    staleTime: 60_000,
-  })
+  const { data: accounts = [] } = useXeroActiveAccountsQuery()
 
   return (
     <Select value={value || "__none__"} onValueChange={(next) => onValueChange(next === "__none__" ? "" : next)} disabled={disabled}>

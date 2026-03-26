@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -24,35 +22,14 @@ export async function PATCH(
 ) {
   const { id: targetUserId, enrollmentId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateEnrollmentSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -64,16 +41,10 @@ export async function PATCH(
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json(
-      { error: "Failed to load enrollment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load enrollment" }, { status: 500 })
   }
   if (!existing) {
-    return NextResponse.json(
-      { error: "Enrollment not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Enrollment not found" }, { status: 404 })
   }
 
   if (parsed.data.primary_instructor_id) {
@@ -85,10 +56,7 @@ export async function PATCH(
       .maybeSingle()
 
     if (!instructor) {
-      return NextResponse.json(
-        { error: "Selected instructor was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected instructor was not found" }, { status: 404 })
     }
   }
 
@@ -101,10 +69,7 @@ export async function PATCH(
       .maybeSingle()
 
     if (!aircraftType) {
-      return NextResponse.json(
-        { error: "Selected aircraft type was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected aircraft type was not found" }, { status: 404 })
     }
   }
 
@@ -121,14 +86,8 @@ export async function PATCH(
     .eq("id", enrollmentId)
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to update enrollment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update enrollment" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { ok: true },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ ok: true })
 }

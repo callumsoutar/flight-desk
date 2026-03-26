@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -31,33 +30,13 @@ const updateSchema = z.strictObject({
 })
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
   const includeInactive = request.nextUrl.searchParams.get("include_inactive") === "true"
-  const { user, tenantId, role } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: includeInactive,
+  const session = await getTenantScopedRouteContext({
+    access: includeInactive ? "admin" : "authenticated",
     authoritativeRole: includeInactive,
   })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (includeInactive && !isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const syllabusId = request.nextUrl.searchParams.get("syllabus_id")
 
@@ -77,42 +56,22 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load exams" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load exams" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { exams: data ?? [] },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ exams: data ?? [] })
 }
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId, role } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
-  }
+  const ctx = await getTenantAdminRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -130,39 +89,22 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: "Failed to create exam" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to create exam" }, { status: 500 })
   }
 
-  return NextResponse.json({ exam: { id: data.id } }, { status: 201, headers: { "cache-control": "no-store" } })
+  return noStoreJson({ exam: { id: data.id } }, { status: 201 })
 }
 
 export async function PUT(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId, role } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
-  }
+  const ctx = await getTenantAdminRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -174,10 +116,7 @@ export async function PUT(request: NextRequest) {
   if (rest.is_active !== undefined) updateData.is_active = rest.is_active
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json(
-      { error: "No fields to update" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -189,42 +128,22 @@ export async function PUT(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json(
-      { error: "Exam not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Exam not found" }, { status: 404 })
   }
 
   const { error } = await supabase.from("exam").update(updateData).eq("tenant_id", tenantId).eq("id", id)
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to update exam" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update exam" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
 
 export async function DELETE(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId, role } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
-  }
+  const ctx = await getTenantAdminRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const url = new URL(request.url)
   const idFromQuery = url.searchParams.get("id")
@@ -236,7 +155,7 @@ export async function DELETE(request: NextRequest) {
   const id = idFromQuery || idFromBody
 
   if (!id || !z.string().uuid().safeParse(id).success) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Invalid id" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -248,23 +167,17 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json(
-      { error: "Exam not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Exam not found" }, { status: 404 })
   }
 
   if (!existing.is_active) {
-    return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ ok: true })
   }
 
   const { error } = await supabase.from("exam").update({ is_active: false }).eq("tenant_id", tenantId).eq("id", id)
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to deactivate exam" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to deactivate exam" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }

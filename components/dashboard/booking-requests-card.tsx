@@ -3,7 +3,6 @@
 import * as React from "react"
 import Link from "next/link"
 import { IconCheck, IconChevronRight, IconClipboardList, IconLoader2 } from "@tabler/icons-react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { updateBookingStatusAction } from "@/app/bookings/actions"
@@ -78,10 +77,14 @@ export function BookingRequestsCard({
   bookings: DashboardBookingLite[]
   timeZone: string
 }) {
-  const router = useRouter()
+  const [rows, setRows] = React.useState(bookings)
   const [pendingId, setPendingId] = React.useState<string | null>(null)
 
-  const count = bookings.length
+  React.useEffect(() => {
+    setRows(bookings)
+  }, [bookings])
+
+  const count = rows.length
 
   const approve = async (bookingId: string) => {
     if (pendingId) return
@@ -99,7 +102,7 @@ export function BookingRequestsCard({
     }
 
     toast.success("Booking confirmed")
-    router.refresh()
+    setRows((current) => current.filter((booking) => booking.id !== bookingId))
   }
 
   return (
@@ -137,7 +140,7 @@ export function BookingRequestsCard({
         ) : (
           <TooltipProvider delayDuration={300}>
             <div className="divide-y divide-border/50">
-              {bookings.map((booking) => {
+              {rows.map((booking) => {
                 const studentName = formatUser(booking.student)
                 const aircraft = booking.aircraft?.registration ?? "No aircraft"
                 const instructor = formatInstructor(booking.instructor)

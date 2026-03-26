@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import dynamic from "next/dynamic"
 import * as Tabs from "@radix-ui/react-tabs"
 import {
   IconCalendar,
@@ -13,7 +12,13 @@ import {
   IconSettings,
 } from "@tabler/icons-react"
 
+import { BookingsTab } from "@/components/settings/bookings-tab"
+import { ChargesTab } from "@/components/settings/charges-tab"
+import { IntegrationsTab } from "@/components/settings/integrations-tab"
+import { InvoicingTab } from "@/components/settings/invoicing-tab"
+import { MembershipsTab } from "@/components/settings/memberships-tab"
 import { GeneralTab } from "@/components/settings/general-tab"
+import { TrainingTab } from "@/components/settings/training-tab"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -29,35 +34,6 @@ import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
 import { cn } from "@/lib/utils"
 
-const InvoicingTab = dynamic(
-  () => import("@/components/settings/invoicing-tab").then((mod) => mod.InvoicingTab),
-  { ssr: false }
-)
-
-const ChargesTab = dynamic(() => import("@/components/settings/charges-tab").then((mod) => mod.ChargesTab), {
-  ssr: false,
-})
-
-const BookingsTab = dynamic(
-  () => import("@/components/settings/bookings-tab").then((mod) => mod.BookingsTab),
-  { ssr: false }
-)
-
-const TrainingTab = dynamic(
-  () => import("@/components/settings/training-tab").then((mod) => mod.TrainingTab),
-  { ssr: false }
-)
-
-const MembershipsTab = dynamic(
-  () => import("@/components/settings/memberships-tab").then((mod) => mod.MembershipsTab),
-  { ssr: false }
-)
-
-const IntegrationsTab = dynamic(
-  () => import("@/components/settings/integrations-tab").then((mod) => mod.IntegrationsTab),
-  { ssr: false }
-)
-
 const tabs = [
   { id: "general", label: "General", icon: IconSettings },
   { id: "invoicing", label: "Invoicing", icon: IconFileInvoice },
@@ -68,7 +44,13 @@ const tabs = [
   { id: "integrations", label: "Integrations", icon: IconPlugConnected },
 ]
 
+// Contract:
+// - `app/settings/page.tsx` owns initial tab selection and server bootstraps core settings payloads.
+// - tab components own local edit state after hydration.
+// - collection-style settings areas such as charges and training remain client-owned editors.
+
 export function SettingsPageClient({
+  initialTab,
   canManageSettings,
   initialGeneralSettings,
   generalLoadError,
@@ -82,6 +64,7 @@ export function SettingsPageClient({
   xeroLoadError,
   xeroConnectionStatus,
 }: {
+  initialTab: string
   canManageSettings: boolean
   initialGeneralSettings: GeneralSettings | null
   generalLoadError: string | null
@@ -99,12 +82,16 @@ export function SettingsPageClient({
     connected_at: string | null
   }
 }) {
-  const [activeTab, setActiveTab] = React.useState("general")
+  const [activeTab, setActiveTab] = React.useState(initialTab)
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
   const [showScrollLeft, setShowScrollLeft] = React.useState(false)
   const [showScrollRight, setShowScrollRight] = React.useState(false)
+
+  React.useEffect(() => {
+    setActiveTab(initialTab)
+  }, [initialTab])
 
   React.useEffect(() => {
     const activeElement = tabRefs.current[activeTab]

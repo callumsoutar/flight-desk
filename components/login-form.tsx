@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import {
   AlertCircle,
   ArrowRight,
@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 import { signInWithEmail } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
+import { sanitizeNextPath } from "@/lib/auth/redirect"
 import { Checkbox } from "@/components/ui/checkbox"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -44,8 +45,8 @@ const carouselSlides = [
 ]
 
 export function LoginForm({ nextUrl }: { nextUrl?: string }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
+  const safeNextUrl = sanitizeNextPath(nextUrl)
 
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -97,8 +98,7 @@ export function LoginForm({ nextUrl }: { nextUrl?: string }) {
       }
 
       broadcastAuthChanged()
-      router.refresh()
-      window.location.assign(nextUrl || "/")
+      window.location.assign(safeNextUrl)
     })
   }
 
@@ -106,7 +106,7 @@ export function LoginForm({ nextUrl }: { nextUrl?: string }) {
     const supabase = createSupabaseBrowserClient()
 
     const callbackUrl = new URL("/auth/callback", window.location.origin)
-    if (nextUrl) callbackUrl.searchParams.set("next", nextUrl)
+    if (safeNextUrl) callbackUrl.searchParams.set("next", safeNextUrl)
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",

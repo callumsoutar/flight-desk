@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import type { EquipmentUpdate } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -38,25 +36,9 @@ const equipmentUpdateSchema = z.strictObject({
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    requireUser: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data, error } = await supabase
     .from("equipment")
@@ -67,58 +49,25 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load equipment" }, { status: 500 })
   }
   if (!data) {
-    return NextResponse.json(
-      { error: "Equipment not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment not found" }, { status: 404 })
   }
 
-  return NextResponse.json({ equipment: data }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ equipment: data })
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can update equipment" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = equipmentUpdateSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const updatePayload = Object.fromEntries(
@@ -126,10 +75,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   ) as EquipmentUpdate
 
   if (!Object.keys(updatePayload).length) {
-    return NextResponse.json(
-      { error: "No changes provided" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "No changes provided" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -142,51 +88,21 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to update equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update equipment" }, { status: 500 })
   }
   if (!data) {
-    return NextResponse.json(
-      { error: "Equipment not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment not found" }, { status: 404 })
   }
 
-  return NextResponse.json({ equipment: data }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ equipment: data })
 }
 
 export async function DELETE(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Only owners and admins can delete equipment" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data: equipment, error: equipmentError } = await supabase
     .from("equipment")
@@ -197,16 +113,10 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     .maybeSingle()
 
   if (equipmentError) {
-    return NextResponse.json(
-      { error: "Failed to load equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load equipment" }, { status: 500 })
   }
   if (!equipment) {
-    return NextResponse.json(
-      { error: "Equipment not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment not found" }, { status: 404 })
   }
 
   const { data: activeIssuance, error: issuanceError } = await supabase
@@ -220,16 +130,10 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     .maybeSingle()
 
   if (issuanceError) {
-    return NextResponse.json(
-      { error: "Failed to validate equipment issuance state" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to validate equipment issuance state" }, { status: 500 })
   }
   if (activeIssuance) {
-    return NextResponse.json(
-      { error: "Equipment cannot be deleted while it is issued" },
-      { status: 409, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment cannot be deleted while it is issued" }, { status: 409 })
   }
 
   const { data, error } = await supabase
@@ -242,14 +146,8 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: "Failed to delete equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to delete equipment" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { success: true },
-    { status: 200, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ success: true }, { status: 200 })
 }

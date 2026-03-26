@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import {
   CalendarIcon,
   CheckCircle2,
@@ -72,15 +71,15 @@ export type RecordMemberCreditModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   members: UserResult[]
+  onSuccess?: () => void | Promise<void>
 }
 
 export default function RecordMemberCreditModal({
   open,
   onOpenChange,
   members,
+  onSuccess,
 }: RecordMemberCreditModalProps) {
-  const router = useRouter()
-
   const [selectedMember, setSelectedMember] = React.useState<UserResult | null>(null)
   const [amount, setAmount] = React.useState<number>(0)
   const [method, setMethod] = React.useState<PaymentMethod | "">("")
@@ -160,7 +159,7 @@ export default function RecordMemberCreditModal({
     setTimeout(() => {
       reset()
       onOpenChange(false)
-      router.refresh()
+      void onSuccess?.()
     }, 1600)
   }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 
@@ -11,6 +11,8 @@ import InvoiceDocumentView from "@/components/invoices/invoice-document-view"
 import InvoiceViewActions from "@/components/invoices/invoice-view-actions"
 import type { UserResult } from "@/components/invoices/member-select"
 import { Card } from "@/components/ui/card"
+import { invoiceDetailQueryKey, useInvoiceDetailQuery } from "@/hooks/use-invoice-detail-query"
+import { invoicesQueryKey } from "@/hooks/use-invoices-query"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
 import {
   DEFAULT_INVOICING_SETTINGS,
@@ -41,45 +43,56 @@ export function InvoiceDetailClient({
     error_message: string | null
   } | null
 }) {
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const [isApproving, startApproveTransition] = React.useTransition()
+  const { data } = useInvoiceDetailQuery({
+    invoice,
+    items,
+    xeroStatus,
+  })
+  const liveInvoice = data.invoice
+  const liveItems = data.items
+  const liveXeroStatus = data.xeroStatus
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
-    if (!invoice.user || !invoice.user.id || !invoice.user.email) return null
+    if (!liveInvoice.user || !liveInvoice.user.id || !liveInvoice.user.email) return null
     return {
-      id: invoice.user.id,
-      first_name: invoice.user.first_name,
-      last_name: invoice.user.last_name,
-      email: invoice.user.email ?? "",
+      id: liveInvoice.user.id,
+      first_name: liveInvoice.user.first_name,
+      last_name: liveInvoice.user.last_name,
+      email: liveInvoice.user.email ?? "",
     }
-  }, [invoice.user])
+  }, [liveInvoice.user])
 
-  const subtotal = roundToTwoDecimals(items.reduce((sum, item) => sum + (item.amount || 0), 0))
-  const totalTax = roundToTwoDecimals(items.reduce((sum, item) => sum + (item.tax_amount || 0), 0))
-  const total = roundToTwoDecimals(items.reduce((sum, item) => sum + (item.line_total || 0), 0))
+  const subtotal = roundToTwoDecimals(liveItems.reduce((sum, item) => sum + (item.amount || 0), 0))
+  const totalTax = roundToTwoDecimals(liveItems.reduce((sum, item) => sum + (item.tax_amount || 0), 0))
+  const total = roundToTwoDecimals(liveItems.reduce((sum, item) => sum + (item.line_total || 0), 0))
 
   const billToName =
     (selectedMember
       ? `${selectedMember.first_name || ""} ${selectedMember.last_name || ""}`.trim() || selectedMember.email
-      : invoice.user_id) || invoice.user_id
+      : liveInvoice.user_id) || liveInvoice.user_id
 
-  const isXeroLocked = xeroStatus?.export_status === "exported"
+  const isXeroLocked = liveXeroStatus?.export_status === "exported"
   const isReadOnly = isXeroLocked
 
   const handleApprove = React.useCallback(() => {
-    if (invoice.status !== "draft") return
+    if (liveInvoice.status !== "draft") return
 
     startApproveTransition(async () => {
-      const result = await approveDraftInvoiceAction({ invoiceId: invoice.id })
+      const result = await approveDraftInvoiceAction({ invoiceId: liveInvoice.id })
       if (!result.ok) {
         toast.error(result.error)
         return
       }
 
       toast.success("Invoice approved")
-      router.refresh()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: invoiceDetailQueryKey(liveInvoice.id) }),
+        queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) }),
+      ])
     })
-  }, [invoice.id, invoice.status, router])
+  }, [liveInvoice.status, liveInvoice.id, queryClient, xeroEnabled])
 
   return (
     <div className="flex flex-1 flex-col bg-muted/20">
@@ -87,36 +100,36 @@ export function InvoiceDetailClient({
         <div className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 sm:py-3.5 lg:-mx-10 lg:px-10">
           <InvoiceActionsToolbar
             mode={isReadOnly ? "view" : "edit"}
-            invoiceId={invoice.id}
-            invoiceNumber={invoice.invoice_number}
-            status={invoice.status}
+            invoiceId={liveInvoice.id}
+            invoiceNumber={liveInvoice.invoice_number}
+            status={liveInvoice.status}
             isXeroLocked={isXeroLocked}
             member={selectedMember}
             rightSlot={
-              invoice.status !== "draft" ? (
+              liveInvoice.status !== "draft" ? (
                 <InvoiceViewActions
-                  invoiceId={invoice.id}
-                  billToEmail={invoice.user?.email || selectedMember?.email || null}
-                  status={invoice.status}
+                  invoiceId={liveInvoice.id}
+                  billToEmail={liveInvoice.user?.email || selectedMember?.email || null}
+                  status={liveInvoice.status}
                   settings={settings}
                   xeroEnabled={xeroEnabled}
-                  xeroStatus={xeroStatus}
-                  bookingId={invoice.booking_id}
+                  xeroStatus={liveXeroStatus}
+                  bookingId={liveInvoice.booking_id}
                   invoice={{
-                    invoiceNumber: invoice.invoice_number || `#${invoice.id.slice(0, 8)}`,
-                    issueDate: invoice.issue_date,
-                    dueDate: invoice.due_date,
-                    taxRate: invoice.tax_rate,
-                    subtotal: invoice.subtotal ?? subtotal,
-                    taxTotal: invoice.tax_total ?? totalTax,
-                    totalAmount: invoice.total_amount ?? total,
-                    totalPaid: invoice.total_paid ?? 0,
+                    invoiceNumber: liveInvoice.invoice_number || `#${liveInvoice.id.slice(0, 8)}`,
+                    issueDate: liveInvoice.issue_date,
+                    dueDate: liveInvoice.due_date,
+                    taxRate: liveInvoice.tax_rate,
+                    subtotal: liveInvoice.subtotal ?? subtotal,
+                    taxTotal: liveInvoice.tax_total ?? totalTax,
+                    totalAmount: liveInvoice.total_amount ?? total,
+                    totalPaid: liveInvoice.total_paid ?? 0,
                     balanceDue:
-                      invoice.balance_due ??
-                      Math.max(0, (invoice.total_amount ?? total) - (invoice.total_paid ?? 0)),
+                      liveInvoice.balance_due ??
+                      Math.max(0, (liveInvoice.total_amount ?? total) - (liveInvoice.total_paid ?? 0)),
                     billToName,
                   }}
-                  items={items.map((item) => ({
+                  items={liveItems.map((item) => ({
                     id: item.id,
                     description: item.description,
                     quantity: item.quantity,
@@ -127,11 +140,13 @@ export function InvoiceDetailClient({
                 />
               ) : null
             }
-            onApprove={canApproveDraft && invoice.status === "draft" && !isXeroLocked ? handleApprove : undefined}
+            onApprove={
+              canApproveDraft && liveInvoice.status === "draft" && !isXeroLocked ? handleApprove : undefined
+            }
             saveDisabled
             approveDisabled={isApproving}
             approveLoading={isApproving}
-            showApprove={canApproveDraft && invoice.status === "draft" && !isXeroLocked}
+            showApprove={canApproveDraft && liveInvoice.status === "draft" && !isXeroLocked}
           />
         </div>
 
@@ -143,20 +158,20 @@ export function InvoiceDetailClient({
           <InvoiceDocumentView
             settings={settings}
             invoice={{
-              invoiceNumber: invoice.invoice_number || `#${invoice.id.slice(0, 8)}`,
-              issueDate: invoice.issue_date,
-              dueDate: invoice.due_date,
-              taxRate: invoice.tax_rate,
-              subtotal: invoice.subtotal ?? subtotal,
-              taxTotal: invoice.tax_total ?? totalTax,
-              totalAmount: invoice.total_amount ?? total,
-              totalPaid: invoice.total_paid ?? 0,
+              invoiceNumber: liveInvoice.invoice_number || `#${liveInvoice.id.slice(0, 8)}`,
+              issueDate: liveInvoice.issue_date,
+              dueDate: liveInvoice.due_date,
+              taxRate: liveInvoice.tax_rate,
+              subtotal: liveInvoice.subtotal ?? subtotal,
+              taxTotal: liveInvoice.tax_total ?? totalTax,
+              totalAmount: liveInvoice.total_amount ?? total,
+              totalPaid: liveInvoice.total_paid ?? 0,
               balanceDue:
-                invoice.balance_due ??
-                Math.max(0, (invoice.total_amount ?? total) - (invoice.total_paid ?? 0)),
+                liveInvoice.balance_due ??
+                Math.max(0, (liveInvoice.total_amount ?? total) - (liveInvoice.total_paid ?? 0)),
               billToName,
             }}
-            items={items.map((item) => ({
+            items={liveItems.map((item) => ({
               id: item.id,
               description: item.description,
               quantity: item.quantity,
@@ -174,12 +189,12 @@ export function InvoiceDetailClient({
               <details className="group mt-4 w-full">
                 <summary className="flex w-full cursor-pointer list-none items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground">
                   <ChevronRight className="h-4 w-4 transition-transform duration-200 group-open:rotate-90" />
-                  <span>{invoice.notes ? "View notes" : "No notes"}</span>
+                  <span>{liveInvoice.notes ? "View notes" : "No notes"}</span>
                 </summary>
                 <div className="pt-3">
                   <textarea
                     className="min-h-[120px] w-full resize-vertical rounded-md border border-input bg-background px-3 py-2 text-sm transition placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={invoice.notes || ""}
+                    value={liveInvoice.notes || ""}
                     readOnly
                   />
                 </div>

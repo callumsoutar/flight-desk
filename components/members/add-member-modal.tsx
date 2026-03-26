@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Plus } from "lucide-react"
 
+import { createMember } from "@/hooks/use-members-query"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -88,41 +89,21 @@ export function AddMemberModal(props: {
 
     setSubmitting(true)
     try {
-      const res = await fetch("/api/members", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: parsedValues.email,
-          first_name: parsedValues.first_name || null,
-          last_name: parsedValues.last_name || null,
-          phone: parsedValues.phone || null,
-          street_address: parsedValues.street_address || null,
-          send_invitation: parsedValues.send_invitation,
-        }),
+      const member = await createMember({
+        email: parsedValues.email,
+        first_name: parsedValues.first_name || null,
+        last_name: parsedValues.last_name || null,
+        phone: parsedValues.phone || null,
+        street_address: parsedValues.street_address || null,
+        send_invitation: parsedValues.send_invitation,
       })
-
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        const message =
-          typeof json?.error === "string"
-            ? json.error
-            : res.status === 409
-              ? "A member with that email already exists."
-              : "Failed to create member"
-        toast.error(message)
-        return
-      }
-
-      const member = json?.member as { id?: string } | undefined
-      if (!member?.id) {
-        toast.error("Member created, but response was unexpected.")
-        return
-      }
 
       toast.success("Member created")
       onOpenChange(false)
       onSuccess?.()
       router.push(`/members/${member.id}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create member")
     } finally {
       setSubmitting(false)
     }

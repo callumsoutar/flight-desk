@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, Archive, Edit, Plus, Search, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -17,43 +18,35 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  createExperienceType,
+  deactivateExperienceType,
+  experienceTypesQueryKey,
+  updateExperienceType,
+  useExperienceTypesQuery,
+} from "@/hooks/use-experience-types-query"
 import { cn } from "@/lib/utils"
 import type { ExperienceType, ExperienceTypeFormData } from "@/lib/types/experience-types"
 
 export function ExperienceTypesConfig() {
-  const [experienceTypes, setExperienceTypes] = useState<ExperienceType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingExperienceType, setEditingExperienceType] = useState<ExperienceType | null>(null)
+  const {
+    data: experienceTypes = [],
+    isLoading,
+    error: experienceTypesQueryError,
+  } = useExperienceTypesQuery({ includeInactive: true })
   const [formData, setFormData] = useState<ExperienceTypeFormData>({
     name: "",
     description: "",
     is_active: true,
   })
 
-  const fetchExperienceTypes = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch("/api/experience-types?include_inactive=true")
-      if (!response.ok) {
-        throw new Error("Failed to fetch experience types")
-      }
-      const data = (await response.json().catch(() => null)) as { experience_types?: ExperienceType[] } | null
-      setExperienceTypes(Array.isArray(data?.experience_types) ? data.experience_types : [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void fetchExperienceTypes()
-  }, [])
+  const error = mutationError ?? (experienceTypesQueryError instanceof Error ? experienceTypesQueryError.message : null)
 
   const resetForm = () => {
     setFormData({
@@ -65,25 +58,16 @@ export function ExperienceTypesConfig() {
 
   const handleAdd = async () => {
     try {
-      setError(null)
-      const response = await fetch("/api/experience-types", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      setMutationError(null)
+      await createExperienceType(formData)
+
+      await queryClient.invalidateQueries({
+        queryKey: experienceTypesQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to create experience type")
-      }
-
-      await fetchExperienceTypes()
       setIsAddDialogOpen(false)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -91,26 +75,17 @@ export function ExperienceTypesConfig() {
     if (!editingExperienceType) return
 
     try {
-      setError(null)
-      const response = await fetch("/api/experience-types", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...formData, id: editingExperienceType.id }),
+      setMutationError(null)
+      await updateExperienceType({ ...formData, id: editingExperienceType.id })
+
+      await queryClient.invalidateQueries({
+        queryKey: experienceTypesQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to update experience type")
-      }
-
-      await fetchExperienceTypes()
       setIsEditDialogOpen(false)
       setEditingExperienceType(null)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -124,19 +99,14 @@ export function ExperienceTypesConfig() {
     }
 
     try {
-      setError(null)
-      const response = await fetch(`/api/experience-types?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
+      setMutationError(null)
+      await deactivateExperienceType(id)
+
+      await queryClient.invalidateQueries({
+        queryKey: experienceTypesQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to deactivate experience type")
-      }
-
-      await fetchExperienceTypes()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -162,7 +132,7 @@ export function ExperienceTypesConfig() {
 
   return (
     <div className="space-y-6 w-full min-w-0">
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-6 w-full min-w-0">
           <div className="flex items-center justify-center py-12">
             <div className="text-slate-500">Loading experience types...</div>

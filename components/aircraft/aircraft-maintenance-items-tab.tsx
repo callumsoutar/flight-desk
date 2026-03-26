@@ -1,12 +1,19 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { IconClipboard, IconPlus } from "@tabler/icons-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useTimezone } from "@/contexts/timezone-context"
+import {
+  aircraftComponentsQueryKey,
+  createAircraftComponent,
+  updateAircraftComponent,
+  useAircraftComponentsQuery,
+} from "@/hooks/use-aircraft-components-query"
 import { formatDate } from "@/lib/utils/date-format"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
@@ -135,35 +142,18 @@ function getComponentStatus(component: ComponentWithComputed, currentHours: numb
 
 export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
   const { timeZone } = useTimezone()
-  const [rows, setRows] = React.useState<AircraftComponentsRow[]>(components)
+  const queryClient = useQueryClient()
   const [selectedComponent, setSelectedComponent] = React.useState<AircraftComponentsRow | null>(null)
   const [modalOpen, setModalOpen] = React.useState(false)
   const [newModalOpen, setNewModalOpen] = React.useState(false)
   const [logModalOpen, setLogModalOpen] = React.useState(false)
   const [logComponentId, setLogComponentId] = React.useState<string | null>(null)
   const [nowTime, setNowTime] = React.useState(0)
+  const { data: rows = [] } = useAircraftComponentsQuery(aircraft.id, components)
 
   React.useEffect(() => {
     setNowTime(Date.now())
   }, [rows])
-
-  const refreshComponents = React.useCallback(async () => {
-    const response = await fetch(`/api/aircraft-components?aircraft_id=${aircraft.id}`, {
-      method: "GET",
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}))
-      const message =
-        typeof payload.error === "string" ? payload.error : "Failed to refresh maintenance items"
-      toast.error(message)
-      return
-    }
-
-    const next = (await response.json().catch(() => [])) as AircraftComponentsRow[]
-    setRows(next)
-  }, [aircraft.id])
 
   const currentHours =
     aircraft.total_time_in_service === null || aircraft.total_time_in_service === undefined
@@ -208,46 +198,23 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
 
   const handleSave = async (updates: Partial<AircraftComponentsRow>) => {
     if (!selectedComponent) return
-    const response = await fetch("/api/aircraft-components", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: selectedComponent.id, ...updates }),
-    })
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}))
-      const message =
-        typeof payload.error === "string" ? payload.error : "Failed to update maintenance item"
-      toast.error(message)
-      throw new Error(message)
-    }
-
-    const updated = (await response.json()) as AircraftComponentsRow
-    setRows((prev) => prev.map((row) => (row.id === updated.id ? updated : row)))
+    const updated = await updateAircraftComponent({ id: selectedComponent.id, ...updates })
+    queryClient.setQueryData<AircraftComponentsRow[]>(aircraftComponentsQueryKey(aircraft.id), (prev) =>
+      (prev ?? rows).map((row) => (row.id === updated.id ? updated : row))
+    )
     setSelectedComponent(updated)
     toast.success("Maintenance item updated")
   }
 
   const handleCreate = async (newComponent: Partial<AircraftComponentsRow>) => {
-    const response = await fetch("/api/aircraft-components", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...newComponent,
-        aircraft_id: aircraft.id,
-      }),
+    const created = await createAircraftComponent({
+      ...newComponent,
+      aircraft_id: aircraft.id,
     })
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}))
-      const message =
-        typeof payload.error === "string" ? payload.error : "Failed to create maintenance item"
-      toast.error(message)
-      throw new Error(message)
-    }
-
-    const created = (await response.json()) as AircraftComponentsRow
-    setRows((prev) => [...prev, created])
+    queryClient.setQueryData<AircraftComponentsRow[]>(aircraftComponentsQueryKey(aircraft.id), (prev) => [
+      ...(prev ?? rows),
+      created,
+    ])
     toast.success("Maintenance item created")
   }
 
@@ -522,6 +489,9 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
         onOpenChange={setModalOpen}
         component={selectedComponent}
         onSave={handleSave}
+        onChanged={() =>
+          void queryClient.invalidateQueries({ queryKey: aircraftComponentsQueryKey(aircraft.id) })
+        }
       />
 
       <ComponentNewModal
@@ -535,7 +505,9 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
         onOpenChange={setLogModalOpen}
         aircraft_id={aircraft.id}
         component_id={logComponentId}
-        onSuccess={() => void refreshComponents()}
+        onSuccess={() =>
+          void queryClient.invalidateQueries({ queryKey: aircraftComponentsQueryKey(aircraft.id) })
+        }
       />
     </div>
   )

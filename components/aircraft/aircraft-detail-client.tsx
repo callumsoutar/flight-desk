@@ -101,7 +101,12 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
   const [showScrollLeft, setShowScrollLeft] = React.useState(false)
   const [showScrollRight, setShowScrollRight] = React.useState(false)
 
-  const { aircraft, flights, observations, components, maintenanceVisits } = data
+  const { flights, observations, components, maintenanceVisits } = data
+  const [aircraft, setAircraft] = React.useState(data.aircraft)
+
+  React.useEffect(() => {
+    setAircraft(data.aircraft)
+  }, [data.aircraft])
 
   const registration = aircraft.registration || ""
   const model = aircraft.model || ""
@@ -381,7 +386,11 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                 </Tabs.Content>
 
                 <Tabs.Content value="settings">
-                  <AircraftSettingsTab aircraft={aircraft} aircraftId={aircraftId} />
+                  <AircraftSettingsTab
+                    aircraft={aircraft}
+                    aircraftId={aircraftId}
+                    onSaved={(updatedAircraft) => setAircraft(updatedAircraft)}
+                  />
                 </Tabs.Content>
               </div>
             </Tabs.Root>

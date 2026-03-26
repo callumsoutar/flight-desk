@@ -4,6 +4,12 @@ import * as React from "react"
 import { IconArchive, IconCategory, IconPencil, IconPlus } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import {
+  createChargeableType,
+  deleteChargeableType,
+  updateChargeableType,
+  useChargeableTypesQuery,
+} from "@/hooks/use-chargeable-types-query"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -40,48 +46,34 @@ function blankForm(): FormState {
 }
 
 export function ChargeableTypesConfig() {
-  const [items, setItems] = React.useState<ChargeableType[]>([])
-  const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [form, setForm] = React.useState<FormState>(blankForm())
   const [editing, setEditing] = React.useState<ChargeableType | null>(null)
   const [addOpen, setAddOpen] = React.useState(false)
   const [editOpen, setEditOpen] = React.useState(false)
-
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await fetch("/api/chargeable_types?is_active=true", { cache: "no-store" })
-      if (!response.ok) throw new Error("Failed to load chargeable types")
-      const data = (await response.json().catch(() => null)) as { chargeable_types?: ChargeableType[] } | null
-      setItems(data?.chargeable_types ?? [])
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load chargeable types")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const {
+    data: items = [],
+    isLoading: loading,
+    error: loadError,
+    refetch,
+  } = useChargeableTypesQuery()
 
   React.useEffect(() => {
-    void load()
-  }, [load])
+    if (!loadError) return
+    toast.error(loadError instanceof Error ? loadError.message : "Failed to load chargeable types")
+  }, [loadError])
 
   const handleCreate = async () => {
     setSaving(true)
     try {
-      const response = await fetch("/api/chargeable_types", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          code: form.code,
-          name: form.name,
-          description: form.description || null,
-          gl_code: form.gl_code || null,
-          is_active: form.is_active,
-        }),
+      await createChargeableType({
+        code: form.code,
+        name: form.name,
+        description: form.description || null,
+        gl_code: form.gl_code || null,
+        is_active: form.is_active,
       })
-      if (!response.ok) throw new Error("Failed to create chargeable type")
-      await load()
+      await refetch()
       setAddOpen(false)
       setForm(blankForm())
       toast.success("Chargeable type created")
@@ -96,20 +88,15 @@ export function ChargeableTypesConfig() {
     if (!editing) return
     setSaving(true)
     try {
-      const response = await fetch("/api/chargeable_types", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: editing.id,
-          code: form.code,
-          name: form.name,
-          description: form.description || null,
-          gl_code: form.gl_code || null,
-          is_active: form.is_active,
-        }),
+      await updateChargeableType({
+        id: editing.id,
+        code: form.code,
+        name: form.name,
+        description: form.description || null,
+        gl_code: form.gl_code || null,
+        is_active: form.is_active,
       })
-      if (!response.ok) throw new Error("Failed to update chargeable type")
-      await load()
+      await refetch()
       setEditOpen(false)
       setEditing(null)
       setForm(blankForm())
@@ -128,10 +115,8 @@ export function ChargeableTypesConfig() {
 
     setSaving(true)
     try {
-      const response = await fetch(`/api/chargeable_types?id=${encodeURIComponent(item.id)}`, { method: "DELETE" })
-      const body = (await response.json().catch(() => null)) as { error?: string } | null
-      if (!response.ok) throw new Error(body?.error || "Failed to delete chargeable type")
-      await load()
+      await deleteChargeableType(item.id)
+      await refetch()
       toast.success("Chargeable type deleted")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete chargeable type")

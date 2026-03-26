@@ -1,13 +1,11 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
 import { fetchBookings } from "@/lib/bookings/fetch-bookings"
 import { sendBookingConfirmedEmailForBooking } from "@/lib/email/send-booking-confirmed-for-booking"
 import { logError } from "@/lib/security/logger"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
 export const dynamic = "force-dynamic"
@@ -22,31 +20,16 @@ const ALLOWED_STATUSES: BookingStatus[] = [
 ]
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const userIdParam = request.nextUrl.searchParams.get("user_id")
   const targetUserId = userIdParam ?? user.id
 
   const canViewOtherMembers = isStaffRole(role)
   if (targetUserId !== user.id && !canViewOtherMembers) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
   const statusParam = request.nextUrl.searchParams.get("status")
@@ -65,56 +48,26 @@ export async function GET(request: NextRequest) {
       status: statuses.length > 0 ? statuses : undefined,
     })
 
-    return NextResponse.json(
-      { bookings },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ bookings })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load bookings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load bookings" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true, authoritativeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const parsed = createBookingPayloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
   const result = await createBookingInTenant({ supabase, tenantId, user, role, payload })
   if (!result.ok) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.status, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: result.error }, { status: result.status })
   }
 
   try {
@@ -140,8 +93,5 @@ export async function POST(request: NextRequest) {
     logError("[email] Trigger send failed (non-fatal)", { error: emailErr, tenantId })
   }
 
-  return NextResponse.json(
-    { booking: result.booking },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ booking: result.booking }, { status: 201 })
 }

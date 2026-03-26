@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { logWarn } from "@/lib/security/logger"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getXeroClient } from "@/lib/xero/get-xero-client"
 import type { XeroAccount } from "@/lib/xero/types"
 
@@ -28,18 +26,9 @@ function mapXeroAccount(account: XeroAccount): AccountResult {
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const url = new URL(request.url)
   const typeFilter = url.searchParams.get("type")
@@ -62,10 +51,7 @@ export async function GET(request: NextRequest) {
 
     const accounts: AccountResult[] = filtered.map(mapXeroAccount)
 
-    return NextResponse.json(
-      { accounts, source: "live" },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ accounts, source: "live" })
   } catch (error) {
     logWarn("[xero] Live fetch failed, falling back to cache", {
       tenantId,
@@ -86,15 +72,9 @@ export async function GET(request: NextRequest) {
 
     const { data, error: dbError } = await query
     if (dbError) {
-      return NextResponse.json(
-        { error: "Failed to fetch accounts" },
-        { status: 500 }
-      )
+      return noStoreJson({ error: "Failed to fetch accounts" }, { status: 500 })
     }
 
-    return NextResponse.json(
-      { accounts: data ?? [], source: "cache" },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ accounts: data ?? [], source: "cache" })
   }
 }

@@ -1,19 +1,12 @@
-import { NextResponse } from "next/server"
-
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const [{ data: connection, error }, settings] = await Promise.all([
     supabase
@@ -24,15 +17,14 @@ export async function GET() {
     fetchXeroSettings(supabase, tenantId),
   ])
 
-  if (error) return NextResponse.json({ error: "Failed to fetch status" }, { status: 500 })
+  if (error) return noStoreJson({ error: "Failed to fetch status" }, { status: 500 })
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       connected: Boolean(connection),
       xero_tenant_name: connection?.xero_tenant_name ?? null,
       connected_at: settings.connected_at ?? connection?.created_at ?? null,
       enabled: settings.enabled,
-    },
-    { headers: { "cache-control": "no-store" } }
+    }
   )
 }

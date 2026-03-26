@@ -44,6 +44,7 @@ function formatTotalHours(hours: number | null): string {
 }
 
 export function AircraftTable({ aircraft }: AircraftTableProps) {
+  const [aircraftRows, setAircraftRows] = React.useState<AircraftWithType[]>(aircraft)
   const [search, setSearch] = React.useState("")
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [addAircraftOpen, setAddAircraftOpen] = React.useState(false)
@@ -60,11 +61,15 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
     [router]
   )
 
+  React.useEffect(() => {
+    setAircraftRows(aircraft)
+  }, [aircraft])
+
   const filteredAircraft = React.useMemo(() => {
-    if (!search) return aircraft
+    if (!search) return aircraftRows
 
     const searchLower = search.toLowerCase()
-    return aircraft.filter((item) => {
+    return aircraftRows.filter((item) => {
       const registration = item.registration?.toLowerCase() || ""
       const model = item.model?.toLowerCase() || ""
       const type = item.type?.toLowerCase() || ""
@@ -77,7 +82,7 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
         aircraftTypeName.includes(searchLower)
       )
     })
-  }, [aircraft, search])
+  }, [aircraftRows, search])
 
   const columns = React.useMemo<ColumnDef<AircraftWithType>[]>(
     () => [
@@ -354,8 +359,17 @@ export function AircraftTable({ aircraft }: AircraftTableProps) {
       <ReorderAircraftModal
         open={reorderOpen}
         onOpenChange={setReorderOpen}
-        aircraft={aircraft}
-        onSaved={() => router.refresh()}
+        aircraft={aircraftRows}
+        onSaved={(orderedIds) => {
+          const indexById = new Map(orderedIds.map((id, index) => [id, index]))
+          setAircraftRows((prev) =>
+            [...prev].sort((a, b) => {
+              const aIndex = indexById.get(a.id) ?? Number.MAX_SAFE_INTEGER
+              const bIndex = indexById.get(b.id) ?? Number.MAX_SAFE_INTEGER
+              return aIndex - bIndex
+            })
+          )
+        }}
       />
     </div>
   )

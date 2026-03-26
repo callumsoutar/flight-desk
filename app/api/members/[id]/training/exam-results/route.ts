@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
@@ -25,34 +24,14 @@ export async function POST(
   const { id: targetUserId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createExamResultSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { data: tenant, error: tenantError } = await supabase
@@ -62,10 +41,7 @@ export async function POST(
     .maybeSingle()
 
   if (tenantError) {
-    return NextResponse.json(
-      { error: "Failed to resolve tenant settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to resolve tenant settings" }, { status: 500 })
   }
 
   const timeZone = tenant?.timezone ?? "Pacific/Auckland"
@@ -82,10 +58,7 @@ export async function POST(
     .maybeSingle()
 
   if (!exam) {
-    return NextResponse.json(
-      { error: "Selected exam was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Selected exam was not found" }, { status: 404 })
   }
 
   const { data, error } = await supabase
@@ -105,14 +78,8 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to log exam result" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to log exam result" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { result: data },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ result: data }, { status: 201 })
 }

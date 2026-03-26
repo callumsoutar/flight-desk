@@ -3,7 +3,6 @@
 import * as React from "react"
 import { CheckCircle, CreditCard, Gift, RotateCcw, UserPlus } from "lucide-react"
 import { addDays, addMonths, format } from "date-fns"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -35,6 +34,7 @@ import { formatDate } from "@/lib/utils/date-format"
 interface CreateMembershipModalProps {
   open: boolean
   onClose: () => void
+  onSuccess?: () => void | Promise<void>
   memberId: string
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
@@ -70,12 +70,12 @@ function getInvoiceReadyChargeable(
 export function CreateMembershipModal({
   open,
   onClose,
+  onSuccess,
   memberId,
   membershipTypes,
   defaultTaxRate,
   membershipYear,
 }: CreateMembershipModalProps) {
-  const router = useRouter()
   const { timeZone } = useTimezone()
   const [selectedTypeId, setSelectedTypeId] = React.useState<string>("")
   const [notes, setNotes] = React.useState("")
@@ -84,10 +84,10 @@ export function CreateMembershipModal({
   const [expiryDate, setExpiryDate] = React.useState<Date | null>(null)
   const [expiryIsManual, setExpiryIsManual] = React.useState(false)
   const { submit, loading, error } = useMembershipSubmit({
-    onSuccess: ({ invoiceId }) => {
+    onSuccess: async ({ invoiceId }) => {
       toast.success(invoiceId ? "Membership created with invoice" : "Membership created")
       onClose()
-      router.refresh()
+      await onSuccess?.()
     },
     onError: (submissionError) => toast.error(submissionError.message),
   })

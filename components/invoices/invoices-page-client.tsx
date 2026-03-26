@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { InvoicesTable } from "@/components/invoices/invoices-table"
+import { useInvoicesQuery } from "@/hooks/use-invoices-query"
 import type { UserResult } from "@/components/invoices/member-select"
 import type {
   InvoiceStatus,
@@ -35,6 +36,7 @@ function matchesSearch(invoice: InvoiceWithRelations, search: string | undefined
 }
 
 export function InvoicesPageClient({ invoices, members, xeroEnabled = false }: Props) {
+  const { data: invoiceRows = [] } = useInvoicesQuery({ includeXero: xeroEnabled, initialData: invoices })
   const [activeTab, setActiveTab] = React.useState("all")
   const [filters, setFilters] = React.useState<InvoicesFilter>({})
 
@@ -54,8 +56,8 @@ export function InvoicesPageClient({ invoices, members, xeroEnabled = false }: P
   )
 
   const baseForCounts = React.useMemo(
-    () => invoices.filter((invoice) => matchesSearch(invoice, filters.search)),
-    [filters.search, invoices]
+    () => invoiceRows.filter((invoice) => matchesSearch(invoice, filters.search)),
+    [filters.search, invoiceRows]
   )
 
   const filteredInvoices = React.useMemo(() => {

@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Edit, Plus } from "lucide-react"
 import { toast } from "sonner"
 
+import { createLesson, lessonsQueryKey, updateLesson } from "@/hooks/use-lessons-query"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -52,24 +53,16 @@ export function LessonModal({ isOpen, onClose, syllabusId, lesson }: LessonModal
 
   const mutation = useMutation({
     mutationFn: async (data: LessonInsert | (LessonUpdate & { id: string })) => {
-      const method = isEditing ? "PATCH" : "POST"
-      const body = isEditing ? { id: lesson?.id, ...data } : data
-
-      const response = await fetch("/api/lessons", {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || `Failed to ${isEditing ? "update" : "create"} lesson`)
+      if (isEditing) {
+        await updateLesson({ ...(data as LessonUpdate), id: lesson!.id })
+      } else {
+        await createLesson(data as LessonInsert)
       }
-
-      return response.json()
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["lessons", syllabusId] })
+      void queryClient.invalidateQueries({
+        queryKey: lessonsQueryKey({ syllabusId, includeInactive: true }),
+      })
       toast.success(`Lesson ${isEditing ? "updated" : "created"} successfully`)
       onClose()
     },

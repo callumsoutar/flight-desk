@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { noStoreJson } from "@/lib/api/tenant-route"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchUserProfile } from "@/lib/auth/user-profile"
@@ -11,19 +11,14 @@ export async function GET() {
   const { user, role } = await getAuthSession(supabase, {
     includeRole: true,
     requireUser: true,
+    authoritativeRole: true,
   })
 
   if (!user) {
-    return NextResponse.json(
-      { user: null, role: null, profile: null },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ user: null, role: null, profile: null })
   }
 
   const profile = await fetchUserProfile(supabase, user)
 
-  return NextResponse.json(
-    { user, role, profile },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ user, role, profile })
 }

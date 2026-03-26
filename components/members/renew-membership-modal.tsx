@@ -11,7 +11,6 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { addDays, format } from "date-fns"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -70,6 +69,7 @@ function getInvoiceReadyChargeable(
 export function RenewMembershipModal({
   open,
   onClose,
+  onSuccess,
   memberId,
   currentMembership,
   membershipTypes,
@@ -77,12 +77,12 @@ export function RenewMembershipModal({
 }: {
   open: boolean
   onClose: () => void
+  onSuccess?: () => void | Promise<void>
   memberId: string
   currentMembership: MembershipRecord
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
 }) {
-  const router = useRouter()
   const activeTypes = React.useMemo(
     () => membershipTypes.filter((type) => type.is_active),
     [membershipTypes]
@@ -100,10 +100,10 @@ export function RenewMembershipModal({
     [currentMembership.expiry_date]
   )
   const { submit, loading, error } = useMembershipSubmit({
-    onSuccess: ({ invoiceId }) => {
+    onSuccess: async ({ invoiceId }) => {
       toast.success(invoiceId ? "Membership renewed with invoice" : "Membership renewed")
       onClose()
-      router.refresh()
+      await onSuccess?.()
     },
     onError: (submissionError) => toast.error(submissionError.message),
   })

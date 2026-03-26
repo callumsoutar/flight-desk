@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { useAuth } from "@/contexts/auth-context"
 import { useTimezone } from "@/contexts/timezone-context"
@@ -31,6 +32,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { XeroBulkExportButton } from "@/components/invoices/xero-bulk-export-button"
 import { XeroStatusBadge } from "@/components/invoices/xero-status-badge"
+import { useInvoiceMemberOptionsQuery } from "@/hooks/use-invoice-member-options-query"
+import { invoicesQueryKey } from "@/hooks/use-invoices-query"
 import { cn } from "@/lib/utils"
 import type { UserResult } from "@/components/invoices/member-select"
 import type { InvoiceStatus, InvoiceWithRelations } from "@/lib/types/invoices"
@@ -108,9 +111,11 @@ export function InvoicesTable({
   tabCounts,
   onFiltersChange,
 }: InvoicesTableProps) {
+  const queryClient = useQueryClient()
   const { role } = useAuth()
   const { timeZone } = useTimezone()
   const router = useRouter()
+  const { data: memberOptions = [] } = useInvoiceMemberOptionsQuery(members)
   const [isNavigating, startNavigation] = React.useTransition()
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({})
@@ -415,7 +420,10 @@ export function InvoicesTable({
       <RecordMemberCreditModal
         open={memberCreditOpen}
         onOpenChange={setMemberCreditOpen}
-        members={members}
+        members={memberOptions}
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) })
+        }}
       />
 
       <div className="flex items-center gap-1 border-b border-slate-200">
@@ -482,7 +490,7 @@ export function InvoicesTable({
               variant={selectedInvoiceIds.length ? "default" : "outline"}
               onDone={() => {
                 setRowSelection({})
-                router.refresh()
+                void queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) })
               }}
             />
           </div>

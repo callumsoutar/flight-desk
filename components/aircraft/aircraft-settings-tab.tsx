@@ -11,6 +11,8 @@ import {
 import { toast } from "sonner"
 
 import type { AircraftType, AircraftWithType } from "@/lib/types/aircraft"
+import { updateAircraft } from "@/hooks/use-aircraft-query"
+import { createAircraftType, useAircraftTypesCache, useAircraftTypesQuery } from "@/hooks/use-aircraft-types-query"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -38,6 +40,7 @@ import { cn } from "@/lib/utils"
 type Props = {
   aircraft: AircraftWithType
   aircraftId: string
+  onSaved?: (aircraft: AircraftWithType) => void
 }
 
 type AircraftFormState = {
@@ -183,18 +186,22 @@ function ToggleRow({
   )
 }
 
-export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
+export function AircraftSettingsTab({ aircraft, aircraftId, onSaved }: Props) {
   const [formState, setFormState] = React.useState<AircraftFormState>(() => toFormState(aircraft))
   const [isSaving, setIsSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [aircraftTypes, setAircraftTypes] = React.useState<AircraftType[]>([])
-  const [isLoadingAircraftTypes, setIsLoadingAircraftTypes] = React.useState(true)
   const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = React.useState(false)
   const [isAircraftTypeSelectOpen, setIsAircraftTypeSelectOpen] = React.useState(false)
   const [newTypeName, setNewTypeName] = React.useState("")
   const [newTypeCategory, setNewTypeCategory] = React.useState("")
   const [newTypeDescription, setNewTypeDescription] = React.useState("")
   const [isCreatingType, setIsCreatingType] = React.useState(false)
+  const {
+    data: aircraftTypes = [],
+    isLoading: isLoadingAircraftTypes,
+    error: aircraftTypesError,
+  } = useAircraftTypesQuery()
+  const { mergeAircraftType } = useAircraftTypesCache()
 
   React.useEffect(() => {
     const initial = toFormState(aircraft)
@@ -207,21 +214,9 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
   }, [aircraft])
 
   React.useEffect(() => {
-    const loadAircraftTypes = async () => {
-      setIsLoadingAircraftTypes(true)
-      try {
-        const res = await fetch("/api/aircraft-types", { cache: "no-store" })
-        if (!res.ok) throw new Error("Failed to fetch")
-        const payload = (await res.json()) as { aircraft_types?: AircraftType[] }
-        setAircraftTypes(payload.aircraft_types ?? [])
-      } catch {
-        toast.error("Failed to load aircraft types")
-      } finally {
-        setIsLoadingAircraftTypes(false)
-      }
-    }
-    void loadAircraftTypes()
-  }, [])
+    if (!aircraftTypesError) return
+    toast.error("Failed to load aircraft types")
+  }, [aircraftTypesError])
 
   const isDirty = React.useMemo(() => {
     return JSON.stringify(formState) !== JSON.stringify(initialStateRef.current)
@@ -249,30 +244,20 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
 
     setIsCreatingType(true)
     try {
-      const res = await fetch("/api/aircraft-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newTypeName.trim(),
-          category: newTypeCategory.trim() || null,
-          description: newTypeDescription.trim() || null,
-        }),
+      const aircraftType: AircraftType = await createAircraftType({
+        name: newTypeName.trim(),
+        category: newTypeCategory.trim() || null,
+        description: newTypeDescription.trim() || null,
       })
-      const result = (await res.json()) as { error?: string; aircraft_type?: AircraftType }
-      if (!res.ok || result.error || !result.aircraft_type) {
-        toast.error(result.error || "Failed to create aircraft type")
-        return
-      }
-
-      setAircraftTypes((prev) => [...prev, result.aircraft_type!].sort((a, b) => a.name.localeCompare(b.name)))
-      updateField("aircraft_type_id", result.aircraft_type.id)
+      mergeAircraftType(aircraftType)
+      updateField("aircraft_type_id", aircraftType.id)
       setIsAddTypeDialogOpen(false)
       setNewTypeName("")
       setNewTypeCategory("")
       setNewTypeDescription("")
       toast.success("Aircraft type created")
-    } catch {
-      toast.error("Failed to create aircraft type")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create aircraft type")
     } finally {
       setIsCreatingType(false)
     }
@@ -321,26 +306,16 @@ export function AircraftSettingsTab({ aircraft, aircraftId }: Props) {
         aircraft_type_id: formState.aircraft_type_id || null,
       }
 
-      const res = await fetch(`/api/aircraft/${aircraftId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      const result = (await res.json()) as { error?: string }
-
-      if (!res.ok || result.error) {
-        const message = result.error || "Failed to update aircraft"
-        setError(message)
-        toast.error(message)
-        return
-      }
-
-      initialStateRef.current = formState
+      const updatedAircraft = await updateAircraft(aircraftId, payload)
+      const nextState = toFormState(updatedAircraft)
+      setFormState(nextState)
+      initialStateRef.current = nextState
+      onSaved?.(updatedAircraft)
       toast.success("Aircraft details saved")
-      window.location.reload()
-    } catch {
-      setError("Failed to update aircraft")
-      toast.error("Failed to update aircraft")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update aircraft"
+      setError(message)
+      toast.error(message)
     } finally {
       setIsSaving(false)
     }

@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +16,18 @@ const returnIssueSchema = z.strictObject({
   issuance_id: z.string().uuid("Invalid issuance id"),
   notes: z.string().trim().optional().nullable(),
 })
+
+function toDisplayName(user: {
+  id: string | null
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+}) {
+  const fullName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
+  if (fullName.length > 0) return fullName
+  if (user.email && user.email.length > 0) return user.email
+  return user.id ?? ""
+}
 
 function dateInputToUtcIso(value: string): string | null {
   const [yearRaw, monthRaw, dayRaw] = value.split("-")
@@ -38,41 +48,59 @@ function mergeReturnNotes(existingNotes: string | null, returnNotes: string | nu
   return `${existingNotes}\n\nReturn notes:\n${returnNotes}`
 }
 
-export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+export async function GET(request: NextRequest) {
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
+  const equipmentId = request.nextUrl.searchParams.get("equipmentId")
+  if (!equipmentId || !z.string().uuid().safeParse(equipmentId).success) {
+    return noStoreJson({ error: "Invalid equipment id" }, { status: 400 })
   }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+
+  const { data: issuances, error: issuanceError } = await supabase
+    .from("equipment_issuance")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("equipment_id", equipmentId)
+    .order("issued_at", { ascending: false })
+
+  if (issuanceError) {
+    return noStoreJson({ error: "Failed to load equipment issuance history" }, { status: 500 })
   }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can issue equipment" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+
+  const safeIssuances = issuances ?? []
+  if (safeIssuances.length === 0) {
+    return noStoreJson({ issuances: [], userMap: {} })
   }
+
+  const userIds = Array.from(new Set(safeIssuances.flatMap((row) => [row.user_id, row.issued_by])))
+  const { data: users, error: usersError } = await supabase
+    .from("user_directory")
+    .select("id, first_name, last_name, email")
+    .in("id", userIds)
+
+  if (usersError) {
+    return noStoreJson({ error: "Failed to load issuance users" }, { status: 500 })
+  }
+
+  const userMap: Record<string, string> = {}
+  for (const user of users ?? []) {
+    if (!user.id) continue
+    userMap[user.id] = toDisplayName(user)
+  }
+
+  return noStoreJson({ issuances: safeIssuances, userMap })
+}
+
+export async function POST(request: NextRequest) {
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const parsed = createIssueSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -82,10 +110,7 @@ export async function POST(request: NextRequest) {
       : null
 
   if (payload.expected_return && !expectedReturn) {
-    return NextResponse.json(
-      { error: "Expected return date is invalid" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Expected return date is invalid" }, { status: 400 })
   }
 
   const { data: equipment, error: equipmentError } = await supabase
@@ -97,10 +122,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (equipmentError || !equipment) {
-    return NextResponse.json(
-      { error: "Equipment was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment was not found" }, { status: 404 })
   }
 
   const { data: member, error: memberError } = await supabase
@@ -112,10 +134,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (memberError || !member) {
-    return NextResponse.json(
-      { error: "Selected member was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Selected member was not found" }, { status: 404 })
   }
 
   const { data: existingIssuance, error: issuanceCheckError } = await supabase
@@ -129,17 +148,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (issuanceCheckError) {
-    return NextResponse.json(
-      { error: "Failed to validate issuance state" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to validate issuance state" }, { status: 500 })
   }
 
   if (existingIssuance) {
-    return NextResponse.json(
-      { error: "Equipment is already issued" },
-      { status: 409, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment is already issued" }, { status: 409 })
   }
 
   const notes = payload.notes?.trim() || null
@@ -158,53 +171,20 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (createError || !issuance) {
-    return NextResponse.json(
-      { error: "Failed to issue equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to issue equipment" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { issuance },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ issuance }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can return equipment" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = returnIssueSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -217,16 +197,10 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (issuanceError) {
-    return NextResponse.json(
-      { error: "Failed to validate issuance state" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to validate issuance state" }, { status: 500 })
   }
   if (!issuance) {
-    return NextResponse.json(
-      { error: "Active issuance was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Active issuance was not found" }, { status: 404 })
   }
 
   const returnNotes = payload.notes?.trim() || null
@@ -245,14 +219,8 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (updateError || !updatedIssuance) {
-    return NextResponse.json(
-      { error: "Failed to return equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to return equipment" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { issuance: updatedIssuance },
-    { status: 200, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ issuance: updatedIssuance }, { status: 200 })
 }

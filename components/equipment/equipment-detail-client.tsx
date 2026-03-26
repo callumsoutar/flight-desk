@@ -4,6 +4,7 @@ import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { Tabs } from "radix-ui"
 import { toast } from "sonner"
 import {
@@ -47,6 +48,12 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { EquipmentRow } from "@/lib/types"
+import {
+  deleteEquipment,
+  equipmentDetailQueryKey,
+  updateEquipment,
+  useEquipmentDetailQuery,
+} from "@/hooks/use-equipment-detail-query"
 import {
   EQUIPMENT_STATUS_OPTIONS,
   EQUIPMENT_TYPE_OPTIONS,
@@ -143,12 +150,12 @@ function formatStatusLabel(status: EquipmentStatus) {
 
 export function EquipmentDetailClient({
   equipmentId,
-  equipment,
-  issuances,
-  issuanceUserMap,
+  equipment: initialEquipment,
+  issuances: initialIssuances,
+  issuanceUserMap: initialIssuanceUserMap,
   issuanceError,
-  updates,
-  updatesUserMap,
+  updates: initialUpdates,
+  updatesUserMap: initialUpdatesUserMap,
   updatesError,
   issueMembers,
   canIssueEquipment,
@@ -156,6 +163,19 @@ export function EquipmentDetailClient({
   canDelete,
 }: Props) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: detailData } = useEquipmentDetailQuery(equipmentId, {
+    equipment: initialEquipment,
+    issuances: initialIssuances,
+    issuanceUserMap: initialIssuanceUserMap,
+    updates: initialUpdates,
+    updatesUserMap: initialUpdatesUserMap,
+  })
+  const equipment = detailData?.equipment ?? initialEquipment
+  const issuances = detailData?.issuances ?? initialIssuances
+  const issuanceUserMap = detailData?.issuanceUserMap ?? initialIssuanceUserMap
+  const updates = detailData?.updates ?? initialUpdates
+  const updatesUserMap = detailData?.updatesUserMap ?? initialUpdatesUserMap
   const [selectedTab, setSelectedTab] = React.useState<TabId>("overview")
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
@@ -206,37 +226,21 @@ export function EquipmentDetailClient({
 
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/equipment/${equipmentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmedName,
-          label: formData.label.trim() || null,
-          serial_number: formData.serial_number.trim() || null,
-          location: formData.location.trim() || null,
-          status: formData.status,
-          type: formData.type,
-          notes: formData.notes.trim() || null,
-        }),
+      const updatedEquipment = await updateEquipment(equipmentId, {
+        name: trimmedName,
+        label: formData.label.trim() || null,
+        serial_number: formData.serial_number.trim() || null,
+        location: formData.location.trim() || null,
+        status: formData.status,
+        type: formData.type,
+        notes: formData.notes.trim() || null,
       })
-
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string
-        equipment?: EquipmentRow
-      } | null
-
-      if (!response.ok || !payload?.equipment) {
-        toast.error(payload?.error || "Failed to update equipment")
-        return
-      }
-
-      const next = toFormState(payload.equipment)
+      const next = toFormState(updatedEquipment)
       setFormData(next)
       setInitialFormData(next)
       toast.success("Equipment updated successfully")
-      router.refresh()
-    } catch {
-      toast.error("Network error while saving equipment")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Network error while saving equipment")
     } finally {
       setIsSaving(false)
     }
@@ -251,30 +255,20 @@ export function EquipmentDetailClient({
 
     setIsDeleting(true)
     try {
-      const response = await fetch(`/api/equipment/${equipmentId}`, {
-        method: "DELETE",
-      })
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
-
-      if (!response.ok) {
-        toast.error(payload?.error || "Failed to delete equipment")
-        return
-      }
-
+      await deleteEquipment(equipmentId)
       toast.success("Equipment deleted successfully")
       setShowDeleteDialog(false)
       router.push("/equipment")
-      router.refresh()
-    } catch {
-      toast.error("Network error while deleting equipment")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Network error while deleting equipment")
     } finally {
       setIsDeleting(false)
     }
   }
 
   const handleRefreshHistory = React.useCallback(() => {
-    router.refresh()
-  }, [router])
+    void queryClient.invalidateQueries({ queryKey: equipmentDetailQueryKey(equipmentId) })
+  }, [equipmentId, queryClient])
 
   const activeIssuance = React.useMemo(
     () => issuances.find((row) => row.returned_at === null) ?? null,

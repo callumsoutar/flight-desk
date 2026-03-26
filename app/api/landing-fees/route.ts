@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -49,24 +47,17 @@ export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const url = new URL(request.url)
   const includeInactive = url.searchParams.get("include_inactive") === "true"
-
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: includeInactive,
+  const session = await getTenantScopedRouteContext({
+    access: includeInactive ? "admin" : "authenticated",
     authoritativeRole: includeInactive,
-    requireUser: true,
+    existingSupabase: supabase,
   })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (includeInactive && !isAdminRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   const landingFeeTypeId = await getLandingFeeTypeId(supabase, tenantId)
   if (!landingFeeTypeId) {
-    return NextResponse.json({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
+    return noStoreJson({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
   }
 
   let query = supabase
@@ -83,7 +74,7 @@ export async function GET(request: NextRequest) {
 
   const { data: chargeables, error } = await query
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch landing fees" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch landing fees" }, { status: 500 })
   }
 
   const chargeableIds = (chargeables ?? []).map((row) => row.id).filter((id): id is string => typeof id === "string")
@@ -97,7 +88,7 @@ export async function GET(request: NextRequest) {
     : { data: [], error: null }
 
   if (ratesError) {
-    return NextResponse.json({ error: "Failed to fetch landing fee rates" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch landing fee rates" }, { status: 500 })
   }
 
   const ratesByChargeable = new Map<string, typeof rates>()
@@ -112,32 +103,23 @@ export async function GET(request: NextRequest) {
     landing_fee_rates: ratesByChargeable.get(fee.id) ?? [],
   }))
 
-  return NextResponse.json({ landing_fees: landingFees }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ landing_fees: landingFees })
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: true,
-    authoritativeRole: true,
-    requireUser: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const landingFeeTypeId = await getLandingFeeTypeId(supabase, tenantId)
   if (!landingFeeTypeId) {
-    return NextResponse.json({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
+    return noStoreJson({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -157,38 +139,26 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to create landing fee" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create landing fee" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { landing_fee: { ...data, landing_fee_rates: [] } },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ landing_fee: { ...data, landing_fee_rates: [] } }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: true,
-    authoritativeRole: true,
-    requireUser: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const landingFeeTypeId = await getLandingFeeTypeId(supabase, tenantId)
   if (!landingFeeTypeId) {
-    return NextResponse.json({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
+    return noStoreJson({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -200,7 +170,7 @@ export async function PATCH(request: NextRequest) {
   if (rest.rate !== undefined) updateData.rate = rest.rate
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -213,30 +183,21 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Landing fee not found" }, { status: 404 })
+    return noStoreJson({ error: "Landing fee not found" }, { status: 404 })
   }
 
   const { error } = await supabase.from("chargeables").update(updateData).eq("tenant_id", tenantId).eq("id", id)
   if (error) {
-    return NextResponse.json({ error: "Failed to update landing fee" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update landing fee" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role } = await getAuthSession(supabase, {
-    includeRole: true,
-    authoritativeRole: true,
-    requireUser: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const url = new URL(request.url)
   const idFromQuery = url.searchParams.get("id")
@@ -248,12 +209,12 @@ export async function DELETE(request: NextRequest) {
   const id = idFromQuery || idFromBody
 
   if (!id || !z.string().uuid().safeParse(id).success) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+    return noStoreJson({ error: "Invalid id" }, { status: 400 })
   }
 
   const landingFeeTypeId = await getLandingFeeTypeId(supabase, tenantId)
   if (!landingFeeTypeId) {
-    return NextResponse.json({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
+    return noStoreJson({ error: "Landing fee chargeable type is not configured" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -266,7 +227,7 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Landing fee not found" }, { status: 404 })
+    return noStoreJson({ error: "Landing fee not found" }, { status: 404 })
   }
 
   const { error } = await supabase
@@ -276,8 +237,8 @@ export async function DELETE(request: NextRequest) {
     .eq("id", id)
 
   if (error) {
-    return NextResponse.json({ error: "Failed to delete landing fee" }, { status: 500 })
+    return noStoreJson({ error: "Failed to delete landing fee" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }

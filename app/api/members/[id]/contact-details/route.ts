@@ -1,9 +1,7 @@
-import { NextResponse } from "next/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
 import { fetchMemberContactDetails } from "@/lib/members/fetch-member-contact-details"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -13,41 +11,24 @@ export async function GET(
 ) {
   const { id: memberId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
-    includeRole: true,
-  })
-
-  if (!user || !tenantId) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const isStaff = isStaffRole(role)
   const isOwn = user.id === memberId
   if (!isStaff && !isOwn) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
   try {
     const details = await fetchMemberContactDetails(supabase, tenantId, memberId)
     if (!details) {
-      return NextResponse.json(
-        { error: "Member not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Member not found" }, { status: 404 })
     }
 
-    return NextResponse.json(details, { headers: { "cache-control": "no-store" } })
+    return noStoreJson(details)
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load contact details" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load contact details" }, { status: 500 })
   }
 }

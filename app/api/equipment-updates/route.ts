@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -12,6 +10,18 @@ const createUpdateSchema = z.strictObject({
   next_due_at: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
 })
+
+function toDisplayName(user: {
+  id: string | null
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+}) {
+  const fullName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
+  if (fullName.length > 0) return fullName
+  if (user.email && user.email.length > 0) return user.email
+  return user.id ?? ""
+}
 
 function dateInputToUtcIso(value: string): string | null {
   const [yearRaw, monthRaw, dayRaw] = value.split("-")
@@ -26,41 +36,59 @@ function dateInputToUtcIso(value: string): string | null {
   return date.toISOString()
 }
 
-export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+export async function GET(request: NextRequest) {
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
+  const equipmentId = request.nextUrl.searchParams.get("equipmentId")
+  if (!equipmentId || !z.string().uuid().safeParse(equipmentId).success) {
+    return noStoreJson({ error: "Invalid equipment id" }, { status: 400 })
   }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+
+  const { data: updates, error: updatesError } = await supabase
+    .from("equipment_updates")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("equipment_id", equipmentId)
+    .order("updated_at", { ascending: false })
+
+  if (updatesError) {
+    return noStoreJson({ error: "Failed to load equipment updates history" }, { status: 500 })
   }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can log equipment updates" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+
+  const safeUpdates = updates ?? []
+  if (safeUpdates.length === 0) {
+    return noStoreJson({ updates: [], userMap: {} })
   }
+
+  const userIds = Array.from(new Set(safeUpdates.map((row) => row.updated_by)))
+  const { data: users, error: usersError } = await supabase
+    .from("user_directory")
+    .select("id, first_name, last_name, email")
+    .in("id", userIds)
+
+  if (usersError) {
+    return noStoreJson({ error: "Failed to load update users" }, { status: 500 })
+  }
+
+  const userMap: Record<string, string> = {}
+  for (const user of users ?? []) {
+    if (!user.id) continue
+    userMap[user.id] = toDisplayName(user)
+  }
+
+  return noStoreJson({ updates: safeUpdates, userMap })
+}
+
+export async function POST(request: NextRequest) {
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const parsed = createUpdateSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -68,10 +96,7 @@ export async function POST(request: NextRequest) {
     payload.next_due_at && payload.next_due_at.length > 0 ? dateInputToUtcIso(payload.next_due_at) : null
 
   if (payload.next_due_at && !nextDueAt) {
-    return NextResponse.json(
-      { error: "Next due date is invalid" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Next due date is invalid" }, { status: 400 })
   }
 
   const { data: equipment, error: equipmentError } = await supabase
@@ -83,10 +108,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (equipmentError || !equipment) {
-    return NextResponse.json(
-      { error: "Equipment was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Equipment was not found" }, { status: 404 })
   }
 
   const notes = payload.notes?.trim() || null
@@ -104,11 +126,8 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (createError || !update) {
-    return NextResponse.json(
-      { error: "Failed to create equipment update" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to create equipment update" }, { status: 500 })
   }
 
-  return NextResponse.json({ update }, { status: 201, headers: { "cache-control": "no-store" } })
+  return noStoreJson({ update }, { status: 201 })
 }

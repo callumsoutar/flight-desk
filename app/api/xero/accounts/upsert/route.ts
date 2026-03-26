@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { upsertXeroAccount } from "@/lib/xero/upsert-account"
 
 export const dynamic = "force-dynamic"
@@ -19,28 +17,19 @@ const bodySchema = z.strictObject({
 })
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { tenantId } = session.context
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { xero_account_id, code, name, type, status, class: cls } = parsed.data
 
   try {
-    const admin = createSupabaseAdminClient()
+    const admin = createPrivilegedSupabaseClient("cache Xero chart-of-accounts records for a tenant")
     await upsertXeroAccount(admin, tenantId, {
       AccountID: xero_account_id,
       Code: code,
@@ -50,9 +39,9 @@ export async function POST(request: NextRequest) {
       Class: cls ?? null,
     })
 
-    return NextResponse.json({ ok: true })
+    return noStoreJson({ ok: true })
   } catch {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Failed to cache account" },
       { status: 500 }
     )

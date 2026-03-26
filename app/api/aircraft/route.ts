@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 
 const querySchema = z.strictObject({
@@ -39,60 +37,35 @@ const createSchema = z.strictObject({
 })
 
 export async function GET(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getRequiredApiSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const url = new URL(request.url)
   const rawQuery = Object.fromEntries(url.searchParams.entries())
   const parsedQuery = querySchema.safeParse(rawQuery)
 
   if (!parsedQuery.success) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 })
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Forbidden: Missing tenant context" },
-      { status: 403 }
-    )
+    return noStoreJson({ error: "Invalid query" }, { status: 400 })
   }
 
   try {
     const aircraft = await fetchAircraft(supabase, tenantId, parsedQuery.data)
-    return NextResponse.json(
-      { aircraft },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ aircraft })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch aircraft" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to fetch aircraft" }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getRequiredApiSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Forbidden: Missing tenant context" },
-      { status: 403 }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -119,18 +92,15 @@ export async function POST(request: Request) {
   ])
 
   if (duplicateResult.error) {
-    return NextResponse.json({ error: "Failed to validate registration" }, { status: 500 })
+    return noStoreJson({ error: "Failed to validate registration" }, { status: 500 })
   }
   if (duplicateResult.data) {
-    return NextResponse.json(
-      { error: "An aircraft with that registration already exists." },
-      { status: 409 }
-    )
+    return noStoreJson({ error: "An aircraft with that registration already exists." }, { status: 409 })
   }
 
   if (payload.aircraft_type_id) {
     if (aircraftTypeResult?.error || !aircraftTypeResult?.data) {
-      return NextResponse.json({ error: "Aircraft type not found" }, { status: 404 })
+      return noStoreJson({ error: "Aircraft type not found" }, { status: 404 })
     }
   }
 
@@ -170,8 +140,8 @@ export async function POST(request: Request) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to create aircraft" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create aircraft" }, { status: 500 })
   }
 
-  return NextResponse.json({ aircraft: data }, { status: 201 })
+  return noStoreJson({ aircraft: data }, { status: 201 })
 }

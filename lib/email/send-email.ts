@@ -6,7 +6,14 @@ import type { Database } from "@/lib/types"
 import { getResendClient } from "./resend-client"
 import type { EmailTriggerKey } from "./trigger-keys"
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "noreply@flightdesk.app"
+function getFromEmail() {
+  const configured = process.env.RESEND_FROM_EMAIL?.trim()
+  if (configured) return configured
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("RESEND_FROM_EMAIL environment variable is not set")
+  }
+  return "noreply@flightdesk.app"
+}
 
 export type SendEmailOptions = {
   supabase: SupabaseClient<Database>
@@ -55,7 +62,8 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
     metadata,
   } = opts
 
-  const fromAddress = fromName ? `${fromName} <${FROM_EMAIL}>` : `Flight Desk <${FROM_EMAIL}>`
+  const fromEmail = getFromEmail()
+  const fromAddress = fromName ? `${fromName} <${fromEmail}>` : `Flight Desk <${fromEmail}>`
   const recipients = Array.isArray(to) ? to : [to]
 
   let messageId: string | undefined

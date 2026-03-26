@@ -1,22 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isAdminRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
-const NO_STORE = { "cache-control": "no-store" } as const
-
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
-  }
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const page = Math.max(1, Number.parseInt(request.nextUrl.searchParams.get("page") ?? "1", 10) || 1)
   const limit = Math.min(
@@ -46,16 +37,15 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await query
   if (error) {
-    return NextResponse.json({ error: "Failed to load email logs" }, { status: 500, headers: NO_STORE })
+    return noStoreJson({ error: "Failed to load email logs" }, { status: 500 })
   }
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       logs: data ?? [],
       total: count ?? 0,
       page,
       limit,
-    },
-    { headers: NO_STORE }
+    }
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Check, Edit2, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -9,24 +10,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-
-interface FlightType {
-  id: string
-  name: string
-}
+import {
+  aircraftChargeRatesQueryKey,
+  createAircraftChargeRate,
+  deleteAircraftChargeRate,
+  updateAircraftChargeRate,
+  useAircraftChargeRatesQuery,
+  type AircraftChargeRate,
+} from "@/hooks/use-aircraft-charge-rates-query"
+import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
+import { useFlightTypesQuery } from "@/hooks/use-flight-types-query"
 
 interface Props {
   aircraftId: string
-}
-
-interface Rate {
-  id: string
-  aircraft_id: string
-  flight_type_id: string
-  rate_per_hour: string
-  charge_hobbs: boolean
-  charge_tacho: boolean
-  charge_airswitch: boolean
 }
 
 interface EditingRate {
@@ -37,60 +33,13 @@ interface EditingRate {
 }
 
 export default function AircraftChargeRatesTable({ aircraftId }: Props) {
-  const [rates, setRates] = useState<Rate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [flightTypes, setFlightTypes] = useState<FlightType[]>([])
-  const [editingRate, setEditingRate] = useState<EditingRate | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [addingNewRate, setAddingNewRate] = useState(false)
-  const [defaultTaxRate, setDefaultTaxRate] = useState<number>(0.15)
-
-  useEffect(() => {
-    async function fetchRates() {
-      try {
-        const ratesRes = await fetch(`/api/aircraft-charge-rates?aircraft_id=${aircraftId}`)
-        if (!ratesRes.ok) {
-          setRates([])
-        } else {
-          const ratesData = (await ratesRes.json()) as { rates?: Rate[] }
-          setRates(ratesData.rates || [])
-        }
-      } catch {
-        setRates([])
-      } finally {
-        setLoading(false)
-      }
-    }
-    void fetchRates()
-  }, [aircraftId])
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [typesRes, taxRes] = await Promise.all([
-          fetch("/api/flight-types"),
-          fetch("/api/tax-rates?is_default=true"),
-        ])
-
-        if (!typesRes.ok) {
-          return
-        }
-
-        const typesData = (await typesRes.json()) as { flight_types?: FlightType[] }
-        setFlightTypes(typesData.flight_types || [])
-
-        if (taxRes.ok) {
-          const taxData = (await taxRes.json()) as { tax_rates?: Array<{ rate: string }> }
-          if (taxData.tax_rates && taxData.tax_rates.length > 0) {
-            setDefaultTaxRate(Number.parseFloat(taxData.tax_rates[0].rate))
-          }
-        }
-      } catch {
-        // Ignore initial load errors.
-      }
-    }
-    void fetchData()
-  }, [])
+  const queryClient = useQueryClient()
+  const [editingRate, setEditingRate] = React.useState<EditingRate | null>(null)
+  const [saving, setSaving] = React.useState(false)
+  const [addingNewRate, setAddingNewRate] = React.useState(false)
+  const { data: rates = [], isLoading: loading } = useAircraftChargeRatesQuery(aircraftId)
+  const { data: flightTypes = [] } = useFlightTypesQuery({ includeInactive: false })
+  const { data: defaultTaxRate = 0.15 } = useDefaultTaxRateQuery()
 
   const handleAddRate = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -141,29 +90,15 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
 
     setSaving(true)
     try {
-      const res = await fetch("/api/aircraft-charge-rates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          aircraft_id: aircraftId,
-          flight_type_id: editingRate.flight_type_id,
-          rate_per_hour: taxExclusiveRate,
-          charge_hobbs: editingRate.charge_method === "hobbs",
-          charge_tacho: editingRate.charge_method === "tacho",
-          charge_airswitch: editingRate.charge_method === "airswitch",
-        }),
+      await createAircraftChargeRate({
+        aircraft_id: aircraftId,
+        flight_type_id: editingRate.flight_type_id,
+        rate_per_hour: taxExclusiveRate,
+        charge_hobbs: editingRate.charge_method === "hobbs",
+        charge_tacho: editingRate.charge_method === "tacho",
+        charge_airswitch: editingRate.charge_method === "airswitch",
       })
-
-      if (!res.ok) {
-        const errorData = (await res.json()) as { error?: string }
-        throw new Error(errorData.error || "Failed to add rate")
-      }
-
-      const ratesRes = await fetch(`/api/aircraft-charge-rates?aircraft_id=${aircraftId}`)
-      if (ratesRes.ok) {
-        const ratesData = (await ratesRes.json()) as { rates?: Rate[] }
-        setRates(ratesData.rates || [])
-      }
+      await queryClient.invalidateQueries({ queryKey: aircraftChargeRatesQueryKey(aircraftId) })
 
       setAddingNewRate(false)
       setEditingRate(null)
@@ -180,7 +115,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
     setEditingRate(null)
   }
 
-  const handleEditRate = (rate: Rate) => {
+  const handleEditRate = (rate: AircraftChargeRate) => {
     const taxInclusiveRate = calculateTaxInclusive(Number.parseFloat(rate.rate_per_hour))
 
     let chargeMethod: "hobbs" | "tacho" | "airswitch" | "" = ""
@@ -213,29 +148,15 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
 
     setSaving(true)
     try {
-      const res = await fetch("/api/aircraft-charge-rates", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingRate.id,
-          flight_type_id: editingRate.flight_type_id,
-          rate_per_hour: taxExclusiveRate,
-          charge_hobbs: editingRate.charge_method === "hobbs",
-          charge_tacho: editingRate.charge_method === "tacho",
-          charge_airswitch: editingRate.charge_method === "airswitch",
-        }),
+      await updateAircraftChargeRate({
+        id: editingRate.id,
+        flight_type_id: editingRate.flight_type_id,
+        rate_per_hour: taxExclusiveRate,
+        charge_hobbs: editingRate.charge_method === "hobbs",
+        charge_tacho: editingRate.charge_method === "tacho",
+        charge_airswitch: editingRate.charge_method === "airswitch",
       })
-
-      if (!res.ok) {
-        const errorData = (await res.json()) as { error?: string }
-        throw new Error(errorData.error || "Failed to update rate")
-      }
-
-      const ratesRes = await fetch(`/api/aircraft-charge-rates?aircraft_id=${aircraftId}`)
-      if (ratesRes.ok) {
-        const ratesData = (await ratesRes.json()) as { rates?: Rate[] }
-        setRates(ratesData.rates || [])
-      }
+      await queryClient.invalidateQueries({ queryKey: aircraftChargeRatesQueryKey(aircraftId) })
 
       setEditingRate(null)
       toast.success("Rate updated successfully")
@@ -250,21 +171,8 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
     if (!confirm("Are you sure you want to delete this rate?")) return
 
     try {
-      const res = await fetch("/api/aircraft-charge-rates", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: rateId }),
-      })
-
-      if (!res.ok) {
-        throw new Error("Failed to delete rate")
-      }
-
-      const ratesRes = await fetch(`/api/aircraft-charge-rates?aircraft_id=${aircraftId}`)
-      if (ratesRes.ok) {
-        const ratesData = (await ratesRes.json()) as { rates?: Rate[] }
-        setRates(ratesData.rates || [])
-      }
+      await deleteAircraftChargeRate(rateId)
+      await queryClient.invalidateQueries({ queryKey: aircraftChargeRatesQueryKey(aircraftId) })
       toast.success("Rate deleted successfully")
     } catch {
       toast.error("Failed to delete rate")
@@ -290,7 +198,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
     return isCurrentFlightType || !isAlreadyAssigned
   })
 
-  const getChargeMethodLabel = (rate: Rate) => {
+  const getChargeMethodLabel = (rate: AircraftChargeRate) => {
     if (rate.charge_hobbs) return "Hobbs"
     if (rate.charge_tacho) return "Tacho"
     if (rate.charge_airswitch) return "Airswitch"

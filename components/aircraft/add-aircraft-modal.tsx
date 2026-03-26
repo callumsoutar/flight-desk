@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import type { AircraftType } from "@/lib/types/aircraft"
+import { createAircraft } from "@/hooks/use-aircraft-query"
+import { useAircraftTypesQuery } from "@/hooks/use-aircraft-types-query"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -68,13 +69,6 @@ const initialValues: FormValues = {
   record_airswitch: false,
 }
 
-async function fetchAircraftTypes(): Promise<AircraftType[]> {
-  const res = await fetch("/api/aircraft-types")
-  if (!res.ok) return []
-  const json = (await res.json().catch(() => ({}))) as { aircraft_types?: AircraftType[] }
-  return json.aircraft_types || []
-}
-
 function getNumberInputValue(value: number | undefined): string {
   return value === undefined ? "" : String(value)
 }
@@ -90,17 +84,24 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
   const router = useRouter()
 
   const [submitting, setSubmitting] = React.useState(false)
-  const [aircraftTypes, setAircraftTypes] = React.useState<AircraftType[]>([])
   const [values, setValues] = React.useState<FormValues>(initialValues)
   const [errors, setErrors] = React.useState<FormErrors>({})
+  const {
+    data: aircraftTypes = [],
+    error: aircraftTypesError,
+  } = useAircraftTypesQuery(open)
 
   React.useEffect(() => {
     if (!open) return
     setValues(initialValues)
     setErrors({})
     setSubmitting(false)
-    void fetchAircraftTypes().then(setAircraftTypes).catch(() => setAircraftTypes([]))
   }, [open])
+
+  React.useEffect(() => {
+    if (!open || !aircraftTypesError) return
+    toast.error("Failed to load aircraft types")
+  }, [aircraftTypesError, open])
 
   const update = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -123,49 +124,27 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
 
     setSubmitting(true)
     try {
-      const res = await fetch("/api/aircraft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          registration: values.registration,
-          type: values.type,
-          model: values.model?.trim() ? values.model : null,
-          manufacturer: values.manufacturer?.trim() ? values.manufacturer : null,
-          year_manufactured: values.year_manufactured ?? null,
-          aircraft_type_id: values.aircraft_type_id ?? null,
-          total_time_method: values.total_time_method,
-          current_hobbs: values.current_hobbs,
-          current_tach: values.current_tach,
-          on_line: values.on_line ?? true,
-          prioritise_scheduling: values.prioritise_scheduling ?? false,
-          record_hobbs: values.record_hobbs ?? false,
-          record_tacho: values.record_tacho ?? false,
-          record_airswitch: values.record_airswitch ?? false,
-        }),
+      const aircraft = await createAircraft({
+        registration: values.registration,
+        type: values.type,
+        model: values.model?.trim() ? values.model : null,
+        manufacturer: values.manufacturer?.trim() ? values.manufacturer : null,
+        year_manufactured: values.year_manufactured ?? null,
+        aircraft_type_id: values.aircraft_type_id ?? null,
+        total_time_method: values.total_time_method,
+        current_hobbs: values.current_hobbs,
+        current_tach: values.current_tach,
+        on_line: values.on_line ?? true,
+        prioritise_scheduling: values.prioritise_scheduling ?? false,
+        record_hobbs: values.record_hobbs ?? false,
+        record_tacho: values.record_tacho ?? false,
+        record_airswitch: values.record_airswitch ?? false,
       })
-
-      const json = (await res.json().catch(() => ({}))) as { error?: string; aircraft?: { id?: string } }
-
-      if (!res.ok) {
-        const msg =
-          typeof json.error === "string"
-            ? json.error
-            : res.status === 409
-              ? "An aircraft with that registration already exists."
-              : "Failed to create aircraft"
-        toast.error(msg)
-        return
-      }
-
-      if (!json.aircraft?.id) {
-        toast.error("Aircraft created, but response was unexpected.")
-        return
-      }
-
       toast.success("Aircraft created")
       onOpenChange(false)
-      router.push(`/aircraft/${json.aircraft.id}`)
-      router.refresh()
+      router.push(`/aircraft/${aircraft.id}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create aircraft")
     } finally {
       setSubmitting(false)
     }

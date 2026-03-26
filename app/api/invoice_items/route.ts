@@ -1,35 +1,18 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const invoiceId = request.nextUrl.searchParams.get("invoice_id")
   if (!invoiceId) {
-    return NextResponse.json(
-      { error: "invoice_id is required" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "invoice_id is required" }, { status: 400 })
   }
 
   const { data: invoice, error: invoiceError } = await supabase
@@ -41,24 +24,15 @@ export async function GET(request: NextRequest) {
     .maybeSingle()
 
   if (invoiceError) {
-    return NextResponse.json(
-      { error: "Failed to load invoice" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load invoice" }, { status: 500 })
   }
 
   if (!invoice) {
-    return NextResponse.json(
-      { error: "Invoice not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invoice not found" }, { status: 404 })
   }
 
   if (!isStaffRole(role) && invoice.user_id !== user.id) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
   const { data, error } = await supabase
@@ -70,14 +44,8 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: true })
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load invoice items" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load invoice items" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { invoice_items: data ?? [] },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ invoice_items: data ?? [] })
 }

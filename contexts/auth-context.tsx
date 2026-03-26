@@ -2,18 +2,13 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { signOut as serverSignOut } from "@/app/actions/auth"
 import type { AuthUser } from "@/lib/auth/session"
 import type { UserRole } from "@/lib/types/roles"
 import type { UserProfile } from "@/lib/auth/user-profile"
-
-type AuthMeResponse = {
-  user: AuthUser | null
-  role: UserRole | null
-  profile: UserProfile
-}
+import { authMeQueryKey, useAuthMeQuery, type AuthMeQueryData } from "@/hooks/use-auth-me-query"
 
 type AuthContextValue = {
   user: AuthUser | null
@@ -38,36 +33,35 @@ export function AuthProvider({
   initialRole: UserRole | null
   initialProfile: UserProfile
 }) {
-  const router = useRouter()
+  const queryClient = useQueryClient()
+  const initialAuthData = React.useMemo<AuthMeQueryData>(
+    () => ({ user: initialUser, role: initialRole, profile: initialProfile }),
+    [initialUser, initialRole, initialProfile]
+  )
+  const { data, isFetching, refetch } = useAuthMeQuery(initialAuthData)
+  const user = data?.user ?? null
+  const role = data?.role ?? null
+  const profile = data?.profile ?? null
+  const loading = isFetching
 
-  const [user, setUser] = React.useState<AuthUser | null>(initialUser)
-  const [role, setRole] = React.useState<UserRole | null>(initialRole)
-  const [profile, setProfile] = React.useState<UserProfile>(initialProfile)
-  const [loading, setLoading] = React.useState<boolean>(false)
+  const clearAuthCache = React.useCallback(() => {
+    queryClient.setQueryData<AuthMeQueryData>(authMeQueryKey(), {
+      user: null,
+      role: null,
+      profile: null,
+    })
+  }, [queryClient])
 
   const refreshUser = React.useCallback(async () => {
-    setLoading(true)
     try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        cache: "no-store",
-        headers: { "cache-control": "no-store" },
-      })
-
-      if (!response.ok) throw new Error(`Failed to load auth state`)
-
-      const json = (await response.json()) as AuthMeResponse
-      setUser(json.user)
-      setRole(json.role)
-      setProfile(json.profile)
+      const result = await refetch()
+      if (result.error) {
+        clearAuthCache()
+      }
     } catch {
-      setUser(null)
-      setRole(null)
-      setProfile(null)
-    } finally {
-      setLoading(false)
+      clearAuthCache()
     }
-  }, [])
+  }, [clearAuthCache, refetch])
 
   React.useEffect(() => {
     const channel =
@@ -87,9 +81,7 @@ export function AuthProvider({
   }, [refreshUser])
 
   const signOut = React.useCallback(async () => {
-    setUser(null)
-    setRole(null)
-    setProfile(null)
+    clearAuthCache()
 
     try {
       await serverSignOut()
@@ -107,9 +99,8 @@ export function AuthProvider({
       // ignore
     }
 
-    router.refresh()
     window.location.assign("/login")
-  }, [router])
+  }, [clearAuthCache])
 
   const value = React.useMemo<AuthContextValue>(
     () => ({ user, role, profile, loading, refreshUser, signOut }),

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   flexRender,
   getCoreRowModel,
@@ -18,6 +19,10 @@ import { AddObservationModal } from "@/components/aircraft/add-observation-modal
 import { ResolveObservationModal } from "@/components/aircraft/resolve-observation-modal"
 import { ViewObservationModal } from "@/components/aircraft/view-observation-modal"
 import { useTimezone } from "@/contexts/timezone-context"
+import {
+  aircraftObservationsQueryKey,
+  useAircraftObservationsQuery,
+} from "@/hooks/use-aircraft-observations-query"
 import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import type { ObservationWithUsers } from "@/lib/types/aircraft-detail"
@@ -64,7 +69,8 @@ function getAssignedName(observation: ObservationWithUsers) {
 
 export function AircraftObservationsTable({ aircraftId, observations }: Props) {
   const { timeZone } = useTimezone()
-  const [allObservations, setAllObservations] = React.useState<ObservationWithUsers[]>(observations)
+  const queryClient = useQueryClient()
+  const { data: allObservations = [] } = useAircraftObservationsQuery(aircraftId, observations)
   const [view, setView] = React.useState<"open" | "all">("open")
   const [addModalOpen, setAddModalOpen] = React.useState(false)
   const [selectedObservationId, setSelectedObservationId] = React.useState<string | null>(null)
@@ -73,22 +79,9 @@ export function AircraftObservationsTable({ aircraftId, observations }: Props) {
     { id: "reported_date", desc: true },
   ])
 
-  React.useEffect(() => {
-    setAllObservations(observations)
-  }, [observations])
-
   const refreshObservations = React.useCallback(async () => {
-    try {
-      const res = await fetch(`/api/observations?aircraft_id=${aircraftId}`, {
-        cache: "no-store",
-      })
-      if (!res.ok) return
-      const data = (await res.json()) as ObservationWithUsers[]
-      setAllObservations(Array.isArray(data) ? data : [])
-    } catch {
-      // no-op; existing data remains visible
-    }
-  }, [aircraftId])
+    await queryClient.invalidateQueries({ queryKey: aircraftObservationsQueryKey(aircraftId) })
+  }, [aircraftId, queryClient])
 
   const filteredObservations = React.useMemo(() => {
     if (view === "all") return allObservations
@@ -422,7 +415,10 @@ export function AircraftObservationsTable({ aircraftId, observations }: Props) {
         onClose={() => setAddModalOpen(false)}
         aircraftId={aircraftId}
         onCreated={(observation) => {
-          setAllObservations((prev) => [observation, ...prev])
+          queryClient.setQueryData<ObservationWithUsers[]>(
+            aircraftObservationsQueryKey(aircraftId),
+            (prev) => [observation, ...(prev ?? allObservations)]
+          )
         }}
       />
 

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   AlertTriangle,
   CalendarCheck2,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react"
 import { CreateMembershipModal } from "@/components/members/create-membership-modal"
 import { RenewMembershipModal } from "@/components/members/renew-membership-modal"
+import { memberMembershipsQueryKey, useMemberMembershipsQuery } from "@/hooks/use-member-memberships-query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -47,8 +49,18 @@ export function MemberMemberships({
   defaultTaxRate: TenantDefaultTaxRate
   membershipYear: MembershipYearSettings | null
 }) {
+  const queryClient = useQueryClient()
   const { timeZone } = useTimezone()
-  const membershipSummary = initialSummary
+  const { data: membershipsData } = useMemberMembershipsQuery(memberId, {
+    summary: initialSummary,
+    membershipTypes,
+    defaultTaxRate,
+    membershipYear,
+  })
+  const membershipSummary = membershipsData.summary
+  const currentMembershipTypes = membershipsData.membershipTypes
+  const currentDefaultTaxRate = membershipsData.defaultTaxRate
+  const currentMembershipYear = membershipsData.membershipYear
   const [showRenewalModal, setShowRenewalModal] = React.useState(false)
   const [showCreateModal, setShowCreateModal] = React.useState(false)
 
@@ -108,8 +120,8 @@ export function MemberMemberships({
                   {calculateMembershipFee(
                     currentMembership.membership_types?.chargeables?.rate,
                     currentMembership.membership_types?.chargeables?.is_taxable,
-                    defaultTaxRate?.rate,
-                    defaultTaxRate?.tax_name
+                            currentDefaultTaxRate?.rate,
+                            currentDefaultTaxRate?.tax_name
                   )}
                 </p>
               </div>
@@ -253,8 +265,8 @@ export function MemberMemberships({
                           {calculateMembershipFee(
                             membership.membership_types?.chargeables?.rate,
                             membership.membership_types?.chargeables?.is_taxable,
-                            defaultTaxRate?.rate,
-                            defaultTaxRate?.tax_name
+                            currentDefaultTaxRate?.rate,
+                            currentDefaultTaxRate?.tax_name
                           )}
                         </td>
                         <td className="py-3 pr-4">
@@ -303,8 +315,8 @@ export function MemberMemberships({
                           {calculateMembershipFee(
                             membership.membership_types?.chargeables?.rate,
                             membership.membership_types?.chargeables?.is_taxable,
-                            defaultTaxRate?.rate,
-                            defaultTaxRate?.tax_name
+                            currentDefaultTaxRate?.rate,
+                            currentDefaultTaxRate?.tax_name
                           )}
                         </p>
                         <Badge
@@ -341,21 +353,27 @@ export function MemberMemberships({
         <RenewMembershipModal
           open={showRenewalModal}
           onClose={() => setShowRenewalModal(false)}
+          onSuccess={async () => {
+            await queryClient.invalidateQueries({ queryKey: memberMembershipsQueryKey(memberId) })
+          }}
           memberId={memberId}
           currentMembership={currentMembership}
-          membershipTypes={membershipTypes}
-          defaultTaxRate={defaultTaxRate}
+          membershipTypes={currentMembershipTypes}
+          defaultTaxRate={currentDefaultTaxRate}
         />
       ) : null}
 
-      {membershipTypes.length ? (
+      {currentMembershipTypes.length ? (
         <CreateMembershipModal
           open={showCreateModal}
           onClose={() => setShowCreateModal(false)}
+          onSuccess={async () => {
+            await queryClient.invalidateQueries({ queryKey: memberMembershipsQueryKey(memberId) })
+          }}
           memberId={memberId}
-          membershipTypes={membershipTypes}
-          defaultTaxRate={defaultTaxRate}
-          membershipYear={membershipYear}
+          membershipTypes={currentMembershipTypes}
+          defaultTaxRate={currentDefaultTaxRate}
+          membershipYear={currentMembershipYear}
         />
       ) : null}
     </div>

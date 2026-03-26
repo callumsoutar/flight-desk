@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { invalidPayloadResponse } from "@/lib/security/http"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -38,36 +37,14 @@ async function fetchBookingContext(
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
-    includeRole: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const { id } = await context.params
   const booking = await fetchBookingContext(tenantId, id, supabase).catch(() => null)
   if (!booking) {
-    return NextResponse.json(
-      { error: "Booking not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Booking not found" }, { status: 404 })
   }
 
   const { data, error } = await supabase
@@ -78,42 +55,17 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     .order("created_at", { ascending: true })
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load booking experience" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load booking experience" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { entries: data ?? [] },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ entries: data ?? [] })
 }
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
-    includeRole: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { user, tenantId } = ctx.context
 
   const parsed = putSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
@@ -123,10 +75,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   const { id } = await context.params
   const booking = await fetchBookingContext(tenantId, id, supabase).catch(() => null)
   if (!booking) {
-    return NextResponse.json(
-      { error: "Booking not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Booking not found" }, { status: 404 })
   }
 
   const { data: lessonProgress } = await supabase
@@ -144,14 +93,11 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     .eq("booking_id", id)
 
   if (deleteError) {
-    return NextResponse.json(
-      { error: "Failed to clear existing experience" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to clear existing experience" }, { status: 500 })
   }
 
   if (parsed.data.entries.length === 0) {
-    return NextResponse.json({ entries: [] }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ entries: [] })
   }
 
   const occurredAt = booking.end_time ?? new Date().toISOString()
@@ -172,9 +118,9 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
   const validRows = rows.filter((row): row is typeof row & { user_id: string } => Boolean(row.user_id))
   if (validRows.length !== rows.length) {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Booking does not have a valid member for experience logging" },
-      { status: 400, headers: { "cache-control": "no-store" } }
+      { status: 400 }
     )
   }
 
@@ -184,14 +130,8 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     .select("experience_type_id, value, unit, notes, conditions")
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to save experience entries" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to save experience entries" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { entries: data ?? [] },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ entries: data ?? [] })
 }

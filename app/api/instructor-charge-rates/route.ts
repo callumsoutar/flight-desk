@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -39,21 +37,13 @@ function toRateResponse(row: {
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const instructorId = request.nextUrl.searchParams.get("instructor_id")
   if (!instructorId) {
-    return NextResponse.json({ error: "instructor_id is required" }, { status: 400 })
+    return noStoreJson({ error: "instructor_id is required" }, { status: 400 })
   }
 
   const flightTypeId = request.nextUrl.searchParams.get("flight_type_id")
@@ -69,13 +59,10 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: "Failed to fetch instructor charge rate" }, { status: 500 })
+      return noStoreJson({ error: "Failed to fetch instructor charge rate" }, { status: 500 })
     }
 
-    return NextResponse.json(
-      { charge_rate: data ? toRateResponse(data) : null },
-      { headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ charge_rate: data ? toRateResponse(data) : null })
   }
 
   const { data, error } = await supabase
@@ -86,11 +73,8 @@ export async function GET(request: NextRequest) {
     .order("effective_from", { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch instructor charge rates" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch instructor charge rates" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { rates: (data ?? []).map(toRateResponse) },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ rates: (data ?? []).map(toRateResponse) })
 }

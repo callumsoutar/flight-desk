@@ -1,10 +1,7 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { exportInvoiceToXero } from "@/lib/xero/export-invoice"
 
 export const dynamic = "force-dynamic"
@@ -14,23 +11,14 @@ const schema = z.strictObject({
 })
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { user, tenantId } = session.context
 
   const parsed = schema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  if (!parsed.success) return noStoreJson({ error: "Invalid payload" }, { status: 400 })
 
-  const admin = createSupabaseAdminClient()
+  const admin = createPrivilegedSupabaseClient("reset failed Xero export state before retry")
   const { data: failedRow } = await admin
     .from("xero_invoices")
     .select("id")
@@ -40,7 +28,7 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (!failedRow?.id) {
-    return NextResponse.json({ error: "Invoice is not in failed export state" }, { status: 400 })
+    return noStoreJson({ error: "Invoice is not in failed export state" }, { status: 400 })
   }
 
   const { error: resetError } = await admin
@@ -52,7 +40,7 @@ export async function POST(request: Request) {
     .eq("id", failedRow.id)
 
   if (resetError) {
-    return NextResponse.json({ error: "Failed to reset export state" }, { status: 500 })
+    return noStoreJson({ error: "Failed to reset export state" }, { status: 500 })
   }
 
   const result = await exportInvoiceToXero(tenantId, parsed.data.invoiceId, user.id)
@@ -67,5 +55,5 @@ export async function POST(request: Request) {
     response_payload: result,
   })
 
-  return NextResponse.json(result, { headers: { "cache-control": "no-store" } })
+  return noStoreJson(result)
 }

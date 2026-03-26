@@ -1,11 +1,10 @@
 import { revalidatePath } from "next/cache"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { invalidPayloadResponse } from "@/lib/security/http"
 import { logError } from "@/lib/security/logger"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -29,29 +28,15 @@ type RpcResult = {
   updated_current_meters?: boolean
 }
 
-const NO_STORE = { "cache-control": "no-store" } as const
-
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return invalidPayloadResponse()
   }
 
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase } = session.context
 
   const { id: bookingId } = await context.params
   const payload = parsed.data
@@ -73,10 +58,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   if (rpcError) {
     logError("[checkin/correct] RPC error", { error: rpcError.message, bookingId })
-    return NextResponse.json(
-      { error: "Correction failed" },
-      { status: 500, headers: NO_STORE }
-    )
+    return noStoreJson({ error: "Correction failed" }, { status: 500 })
   }
 
   const rpcResult = result as RpcResult | null
@@ -88,9 +70,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       : errorKey === "Not found" ? 404
       : 400
 
-    return NextResponse.json(
+    return noStoreJson(
       { error: errorKey ?? "Correction failed", message: rpcResult?.message },
-      { status, headers: NO_STORE }
+      { status }
     )
   }
 
@@ -99,13 +81,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   revalidatePath(`/bookings/checkin/${bookingId}`)
   revalidatePath("/aircraft")
 
-  return NextResponse.json(
+  return noStoreJson(
     {
       booking_id: rpcResult.booking_id,
       correction_delta: rpcResult.correction_delta,
       new_applied_delta: rpcResult.new_applied_delta,
       aircraft_total_time_in_service: rpcResult.aircraft_total_time_in_service,
     },
-    { headers: NO_STORE }
+    {}
   )
 }

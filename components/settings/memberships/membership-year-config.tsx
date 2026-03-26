@@ -4,13 +4,12 @@ import * as React from "react"
 import { IconCalendar, IconDeviceFloppy, IconInfoCircle, IconLoader2 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import { updateMembershipsSettings } from "@/hooks/use-memberships-settings-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
-
-type MembershipsSettingsResponse = { settings: MembershipsSettings }
 
 const months = [
   { value: "1", label: "January" },
@@ -74,38 +73,6 @@ function formatRangeDescription(startMonth: number, startDay: number) {
   return `Membership year runs from ${startMonthName} ${startDay}${getOrdinalSuffix(startDay)} to ${endMonthName} ${end_day}${getOrdinalSuffix(end_day)}.`
 }
 
-async function fetchMembershipsSettings(signal?: AbortSignal): Promise<MembershipsSettingsResponse> {
-  const response = await fetch("/api/settings/memberships", { cache: "no-store", signal })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to load membership settings"
-    throw new Error(message)
-  }
-  return (await response.json()) as MembershipsSettingsResponse
-}
-
-async function patchMembershipsSettings(payload: unknown): Promise<MembershipsSettingsResponse> {
-  const response = await fetch("/api/settings/memberships", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to update membership settings"
-    throw new Error(message)
-  }
-
-  return (await response.json()) as MembershipsSettingsResponse
-}
-
 function createFormState(settings: MembershipsSettings | null) {
   const startMonth = settings?.membership_year.start_month ?? 4
   const startDay = clampStartDay(startMonth, settings?.membership_year.start_day ?? 1)
@@ -131,33 +98,15 @@ export function MembershipYearConfig({
   initialSettings?: MembershipsSettings | null
   initialLoadError?: string | null
 }) {
-  const [loading, setLoading] = React.useState(!initialSettings && !initialLoadError)
   const [loadError, setLoadError] = React.useState<string | null>(initialLoadError)
   const [isSaving, setIsSaving] = React.useState(false)
   const [baseSettings, setBaseSettings] = React.useState<MembershipsSettings | null>(initialSettings)
   const [form, setForm] = React.useState(() => createFormState(initialSettings))
 
   React.useEffect(() => {
-    if (initialSettings || initialLoadError) return
-
-    const controller = new AbortController()
-    setLoading(true)
-    setLoadError(null)
-
-    void fetchMembershipsSettings(controller.signal)
-      .then((result) => {
-        setBaseSettings(result.settings)
-        setForm(createFormState(result.settings))
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return
-        setLoadError(getErrorMessage(error))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
-
-    return () => controller.abort()
+    setBaseSettings(initialSettings)
+    setForm(createFormState(initialSettings))
+    setLoadError(initialLoadError)
   }, [initialLoadError, initialSettings])
 
   const baseForm = React.useMemo(() => createFormState(baseSettings), [baseSettings])
@@ -220,7 +169,7 @@ export function MembershipYearConfig({
 
     setIsSaving(true)
     try {
-      const result = await patchMembershipsSettings({
+      const result = await updateMembershipsSettings({
         memberships: {
           membership_year: {
             start_month: startMonth,
@@ -239,20 +188,20 @@ export function MembershipYearConfig({
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <IconLoader2 className="h-8 w-8 animate-spin text-slate-400" />
-        <span className="mt-2 text-sm font-medium text-slate-500">Loading settings…</span>
-      </div>
-    )
-  }
-
   if (loadError) {
     return (
       <div className="rounded-xl border border-dashed border-red-200 bg-red-50 p-6">
         <p className="text-sm font-semibold text-red-900">Unable to load membership settings</p>
         <p className="mt-1 text-sm text-red-700">{loadError}</p>
+      </div>
+    )
+  }
+
+  if (!baseSettings) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6">
+        <p className="text-sm font-semibold text-slate-900">Membership settings unavailable</p>
+        <p className="mt-1 text-sm text-slate-600">Membership settings are not available yet for this tenant.</p>
       </div>
     )
   }
@@ -362,4 +311,3 @@ export function MembershipYearConfig({
     </div>
   )
 }
-

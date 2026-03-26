@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
 import {
   buildBookingUpdatedChanges,
@@ -13,7 +12,6 @@ import { sendBookingCancelledEmailForBooking } from "@/lib/email/send-booking-ca
 import { sendBookingConfirmedEmailForBooking } from "@/lib/email/send-booking-confirmed-for-booking"
 import { sendBookingUpdatedEmailForBooking } from "@/lib/email/send-booking-updated-for-booking"
 import { logError } from "@/lib/security/logger"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { BookingStatus } from "@/lib/types/bookings"
 
 const BOOKING_SELECT =
@@ -67,21 +65,9 @@ function toComparableBooking(input: {
 }
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const { id } = await context.params
 
@@ -93,61 +79,28 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load booking" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load booking" }, { status: 500 })
   }
   if (!data) {
-    return NextResponse.json(
-      { error: "Booking not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Booking not found" }, { status: 404 })
   }
 
   if (!isStaffRole(role) && data.user_id !== user.id) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
-  return NextResponse.json(
-    { booking: data },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ booking: data })
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext({ includeRole: true, authoritativeRole: true })
+  if (session.response) return session.response
+  const { supabase, user, role, tenantId } = session.context
 
   const { id } = await context.params
   const payload = patchSchema.safeParse(await request.json().catch(() => null))
   if (!payload.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -160,16 +113,10 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json(
-      { error: "Failed to load booking" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load booking" }, { status: 500 })
   }
   if (!existing) {
-    return NextResponse.json(
-      { error: "Booking not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Booking not found" }, { status: 404 })
   }
 
   const staff = isStaffRole(role)
@@ -177,22 +124,13 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
   const nextStatus = payload.data.status
   if (nextStatus === "confirmed" && !staff) {
-    return NextResponse.json(
-      { error: "Only staff can confirm bookings" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Only staff can confirm bookings" }, { status: 403 })
   }
   if (nextStatus === "cancelled" && !staff && !isOwn) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
   if (!nextStatus && !staff && !isOwn) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
   const hasTimeChange = "start_time" in payload.data || "end_time" in payload.data
@@ -206,22 +144,16 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     "cancelled_notes" in payload.data
 
   if (hasScheduleChange && !staff) {
-    return NextResponse.json(
-      { error: "Only staff can reschedule bookings" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Only staff can reschedule bookings" }, { status: 403 })
   }
 
   if (hasScheduleChange && (existing.status === "cancelled" || existing.status === "complete")) {
-    return NextResponse.json(
-      { error: "This booking can no longer be rescheduled" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "This booking can no longer be rescheduled" }, { status: 400 })
   }
   if (hasCancellationChange && nextStatus !== "cancelled") {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Cancellation details can only be set when cancelling a booking" },
-      { status: 400, headers: { "cache-control": "no-store" } }
+      { status: 400 }
     )
   }
 
@@ -248,16 +180,10 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     const cancelledNotes = payload.data.cancelled_notes?.trim() ?? null
 
     if (!cancellationCategoryId) {
-      return NextResponse.json(
-        { error: "Cancellation category is required" },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Cancellation category is required" }, { status: 400 })
     }
     if (!cancellationReason) {
-      return NextResponse.json(
-        { error: "Cancellation reason is required" },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Cancellation reason is required" }, { status: 400 })
     }
 
     const { data: cancellationCategory, error: cancellationCategoryError } = await supabase
@@ -269,10 +195,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       .maybeSingle()
 
     if (cancellationCategoryError || !cancellationCategory) {
-      return NextResponse.json(
-        { error: "Selected cancellation category was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected cancellation category was not found" }, { status: 404 })
     }
 
     updatePayload.cancelled_at = new Date().toISOString()
@@ -293,10 +216,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       Number.isNaN(nextEndDate.getTime()) ||
       nextStartDate >= nextEndDate
     ) {
-      return NextResponse.json(
-        { error: "Invalid booking time range" },
-        { status: 400, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Invalid booking time range" }, { status: 400 })
     }
 
     const nextAircraftId =
@@ -333,31 +253,25 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     ])
 
     if (aircraftCheck.error || !aircraftCheck.data) {
-      return NextResponse.json(
-        { error: "Selected aircraft was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected aircraft was not found" }, { status: 404 })
     }
 
     if (instructorCheck.error || !instructorCheck.data) {
-      return NextResponse.json(
-        { error: "Selected instructor was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected instructor was not found" }, { status: 404 })
     }
 
     const { unavailableAircraftIds, unavailableInstructorIds } = availabilityResult
 
     if (nextAircraftId && unavailableAircraftIds.includes(nextAircraftId)) {
-      return NextResponse.json(
+      return noStoreJson(
         { error: "Selected aircraft is no longer available for this time range." },
-        { status: 409, headers: { "cache-control": "no-store" } }
+        { status: 409 }
       )
     }
     if (nextInstructorId && unavailableInstructorIds.includes(nextInstructorId)) {
-      return NextResponse.json(
+      return noStoreJson(
         { error: "Selected instructor is no longer available for this time range." },
-        { status: 409, headers: { "cache-control": "no-store" } }
+        { status: 409 }
       )
     }
 
@@ -384,10 +298,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     .maybeSingle()
 
   if (error || !data) {
-    return NextResponse.json(
-      { error: "Failed to update booking" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update booking" }, { status: 500 })
   }
 
   try {
@@ -449,8 +360,5 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     logError("[email] Trigger send failed (non-fatal)", { error: emailErr, tenantId, bookingId: id })
   }
 
-  return NextResponse.json(
-    { booking: data },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ booking: data })
 }

@@ -4,6 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import { toast } from "sonner"
 
+import { disconnectXero } from "@/hooks/use-xero-status-query"
 import { Button } from "@/components/ui/button"
 
 export function XeroConnectionCard({
@@ -37,15 +38,11 @@ export function XeroConnectionCard({
             onClick={async () => {
               try {
                 setIsDisconnecting(true)
-                const response = await fetch("/api/xero/disconnect", { method: "POST" })
-                if (!response.ok) {
-                  toast.error("Failed to disconnect Xero")
-                  return
-                }
+                await disconnectXero()
                 toast.success("Disconnected from Xero")
                 onRefresh?.()
-              } catch {
-                toast.error("Failed to disconnect Xero")
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Failed to disconnect Xero")
               } finally {
                 setIsDisconnecting(false)
               }

@@ -18,6 +18,9 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { useTimezone } from "@/contexts/timezone-context"
+import { fetchAircraftComponent } from "@/hooks/use-aircraft-components-query"
+import { createAircraftMaintenanceVisit } from "@/hooks/use-aircraft-maintenance-visits-query"
+import { fetchAircraftDetail } from "@/hooks/use-aircraft-query"
 import { formatDate } from "@/lib/utils/date-format"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
 
@@ -94,12 +97,9 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
     if (open && aircraft_id) {
       ;(async () => {
         try {
-          const res = await fetch(`/api/aircraft/${aircraft_id}`)
-          if (res.ok) {
-            const { aircraft } = await res.json()
-            if (aircraft.total_time_in_service) {
-              setHoursAtVisit(String(aircraft.total_time_in_service))
-            }
+          const aircraft = await fetchAircraftDetail(aircraft_id)
+          if (aircraft.total_time_in_service) {
+            setHoursAtVisit(String(aircraft.total_time_in_service))
           }
         } catch {
           // best effort
@@ -112,23 +112,20 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
     if (open && component_id) {
       ;(async () => {
         try {
-          const res = await fetch(`/api/aircraft-components?id=${component_id}`)
-          if (res.ok) {
-            const component: AircraftComponentsRow = await res.json()
+          const component: AircraftComponentsRow = await fetchAircraftComponent(component_id)
 
-            if (component.current_due_hours !== null && component.current_due_hours !== undefined) {
-              let effectiveDueHours = Number(component.current_due_hours)
-              if (component.extension_limit_hours && component.interval_hours) {
-                const extensionHours =
-                  (Number(component.interval_hours) * Number(component.extension_limit_hours)) / 100
-                effectiveDueHours += extensionHours
-              }
-              setComponentDueHours(String(effectiveDueHours))
+          if (component.current_due_hours !== null && component.current_due_hours !== undefined) {
+            let effectiveDueHours = Number(component.current_due_hours)
+            if (component.extension_limit_hours && component.interval_hours) {
+              const extensionHours =
+                (Number(component.interval_hours) * Number(component.extension_limit_hours)) / 100
+              effectiveDueHours += extensionHours
             }
+            setComponentDueHours(String(effectiveDueHours))
+          }
 
-            if (component.current_due_date) {
-              setComponentDueDate(new Date(component.current_due_date))
-            }
+          if (component.current_due_date) {
+            setComponentDueDate(new Date(component.current_due_date))
           }
         } catch {
           // best effort
@@ -166,21 +163,10 @@ const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
     }
 
     try {
-      const res = await fetch("/api/maintenance-visits", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      if (res.ok) {
-        toast.success("Maintenance visit logged successfully.")
-        onOpenChange(false)
-        onSuccess?.()
-      } else {
-        const data = await res.json().catch(() => ({}))
-        setError(data.error || "Failed to log maintenance visit")
-        toast.error(data.error || "Failed to log maintenance visit")
-      }
+      await createAircraftMaintenanceVisit(payload)
+      toast.success("Maintenance visit logged successfully.")
+      onOpenChange(false)
+      onSuccess?.()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to log maintenance visit"
       setError(errorMessage)

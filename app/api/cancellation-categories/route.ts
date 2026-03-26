@@ -1,10 +1,5 @@
-import { NextResponse } from "next/server"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { z } from "zod"
-
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -32,22 +27,9 @@ const patchSchema = z.strictObject({
 })
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getRequiredApiSession(supabase)
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data, error } = await supabase
     .from("cancellation_categories")
@@ -56,57 +38,22 @@ export async function GET() {
     .is("voided_at", null)
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load cancellation categories" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load cancellation categories" }, { status: 500 })
   }
 
   const categories = (data as CancellationCategory[]).sort((a, b) => a.name.localeCompare(b.name))
 
-  return NextResponse.json(
-    { categories },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ categories })
 }
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { name, description } = parsed.data
@@ -122,55 +69,20 @@ export async function POST(request: Request) {
     .single()
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to create cancellation category" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to create cancellation category" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { category: { id: data.id } },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ category: { id: data.id } })
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, name, description } = parsed.data
@@ -182,24 +94,15 @@ export async function PATCH(request: Request) {
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json(
-      { error: "Failed to load cancellation category" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load cancellation category" }, { status: 500 })
   }
 
   if (!existing || existing.voided_at) {
-    return NextResponse.json(
-      { error: "Cancellation category not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Cancellation category not found" }, { status: 404 })
   }
 
   if (existing.tenant_id !== tenantId) {
-    return NextResponse.json(
-      { error: "Cancellation category not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Cancellation category not found" }, { status: 404 })
   }
 
   const updates: Record<string, unknown> = {}
@@ -207,10 +110,7 @@ export async function PATCH(request: Request) {
   if (description !== undefined) updates.description = normalizeOptionalString(description) ?? null
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json(
-      { error: "No updates provided" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "No updates provided" }, { status: 400 })
   }
 
   const { error: updateError } = await supabase
@@ -219,16 +119,10 @@ export async function PATCH(request: Request) {
     .eq("id", id)
 
   if (updateError) {
-    return NextResponse.json(
-      { error: "Failed to update cancellation category" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to update cancellation category" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { ok: true },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ ok: true })
 }
 
 export async function DELETE(request: Request) {
@@ -236,41 +130,12 @@ export async function DELETE(request: Request) {
   const id = url.searchParams.get("id")
 
   if (!id) {
-    return NextResponse.json(
-      { error: "Missing id" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Missing id" }, { status: 400 })
   }
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data: existing, error: existingError } = await supabase
     .from("cancellation_categories")
@@ -279,24 +144,15 @@ export async function DELETE(request: Request) {
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json(
-      { error: "Failed to load cancellation category" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load cancellation category" }, { status: 500 })
   }
 
   if (!existing || existing.voided_at) {
-    return NextResponse.json(
-      { error: "Cancellation category not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Cancellation category not found" }, { status: 404 })
   }
 
   if (existing.tenant_id !== tenantId) {
-    return NextResponse.json(
-      { error: "Cancellation category not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Cancellation category not found" }, { status: 404 })
   }
 
   const { error: voidError } = await supabase
@@ -305,14 +161,8 @@ export async function DELETE(request: Request) {
     .eq("id", id)
 
   if (voidError) {
-    return NextResponse.json(
-      { error: "Failed to delete cancellation category" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to delete cancellation category" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { ok: true },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ ok: true })
 }

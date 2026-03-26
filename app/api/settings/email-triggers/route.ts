@@ -1,14 +1,9 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
-
-const NO_STORE = { "cache-control": "no-store" } as const
 
 const triggerValues = Object.values(EMAIL_TRIGGER_KEYS)
 
@@ -23,24 +18,13 @@ const payloadSchema = z.strictObject({
 })
 
 export async function PATCH(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: NO_STORE })
-  }
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: NO_STORE })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400, headers: NO_STORE })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -61,8 +45,8 @@ export async function PATCH(request: Request) {
   )
 
   if (error) {
-    return NextResponse.json({ error: "Failed to save email trigger settings" }, { status: 500, headers: NO_STORE })
+    return noStoreJson({ error: "Failed to save email trigger settings" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: NO_STORE })
+  return noStoreJson({ ok: true })
 }

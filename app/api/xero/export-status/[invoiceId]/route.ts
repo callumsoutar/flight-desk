@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -12,18 +10,9 @@ type RouteContext = {
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { invoiceId } = await context.params
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isStaffRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data, error } = await supabase
     .from("xero_invoices")
@@ -32,6 +21,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .eq("invoice_id", invoiceId)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: "Failed to load export status" }, { status: 500 })
-  return NextResponse.json({ status: data ?? null }, { headers: { "cache-control": "no-store" } })
+  if (error) return noStoreJson({ error: "Failed to load export status" }, { status: 500 })
+  return noStoreJson({ status: data ?? null })
 }

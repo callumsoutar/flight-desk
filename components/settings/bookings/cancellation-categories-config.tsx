@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconBan,
   IconLoader2,
@@ -11,6 +12,13 @@ import {
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 
+import {
+  cancellationCategoriesQueryKey,
+  createCancellationCategory,
+  deleteCancellationCategory,
+  updateCancellationCategory,
+  useCancellationCategoriesQuery,
+} from "@/hooks/use-cancellation-categories-query"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -44,27 +52,16 @@ function normalizeDescription(value: string) {
   return value.trim()
 }
 
-async function fetchCategories(): Promise<CancellationCategory[]> {
-  const response = await fetch("/api/cancellation-categories", { cache: "no-store" })
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to load cancellation categories"
-    throw new Error(message)
-  }
-
-  const data = (await response.json().catch(() => null)) as { categories?: unknown } | null
-  return Array.isArray(data?.categories) ? (data?.categories as CancellationCategory[]) : []
-}
-
 export function CancellationCategoriesConfig({ showHeader = true }: { showHeader?: boolean }) {
-  const [categories, setCategories] = React.useState<CancellationCategory[]>([])
-  const [loading, setLoading] = React.useState(true)
+  const queryClient = useQueryClient()
   const [saving, setSaving] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
+  const {
+    data: categories = [],
+    isLoading,
+    error: categoriesQueryError,
+  } = useCancellationCategoriesQuery()
 
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
@@ -75,23 +72,7 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
     description: "",
   })
 
-  const load = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const items = await fetchCategories()
-      setCategories(items)
-    } catch (err) {
-      setCategories([])
-      setError(err instanceof Error ? err.message : "Failed to load cancellation categories")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void load()
-  }, [load])
+  const error = mutationError ?? (categoriesQueryError ? getErrorMessage(categoriesQueryError) : null)
 
   const resetForm = React.useCallback(() => {
     setFormData({ name: "", description: "" })
@@ -125,33 +106,20 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
     }
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch("/api/cancellation-categories", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: normalizeDescription(formData.description) || null,
-        }),
+      await createCancellationCategory({
+        name,
+        description: normalizeDescription(formData.description) || null,
       })
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to create cancellation category"
-        throw new Error(message)
-      }
-
-      await load()
+      await queryClient.invalidateQueries({ queryKey: cancellationCategoriesQueryKey })
       setIsAddDialogOpen(false)
       resetForm()
       toast.success("Cancellation category created")
     } catch (err) {
       const message = getErrorMessage(err)
-      setError(message)
+      setMutationError(message)
       toast.error(message)
     } finally {
       setSaving(false)
@@ -169,35 +137,22 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
     }
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch("/api/cancellation-categories", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: current.id,
-          name,
-          description: normalizeDescription(formData.description) || null,
-        }),
+      await updateCancellationCategory({
+        id: current.id,
+        name,
+        description: normalizeDescription(formData.description) || null,
       })
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to update cancellation category"
-        throw new Error(message)
-      }
-
-      await load()
+      await queryClient.invalidateQueries({ queryKey: cancellationCategoriesQueryKey })
       setIsEditDialogOpen(false)
       setEditingCategory(null)
       resetForm()
       toast.success("Cancellation category updated")
     } catch (err) {
       const message = getErrorMessage(err)
-      setError(message)
+      setMutationError(message)
       toast.error(message)
     } finally {
       setSaving(false)
@@ -208,33 +163,22 @@ export function CancellationCategoriesConfig({ showHeader = true }: { showHeader
     if (!confirm(`Delete "${category.name}"?`)) return
 
     setSaving(true)
-    setError(null)
+    setMutationError(null)
     try {
-      const response = await fetch(`/api/cancellation-categories?id=${category.id}`, {
-        method: "DELETE",
-      })
+      await deleteCancellationCategory(category.id)
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null)
-        const message =
-          data && typeof data === "object" && typeof data.error === "string"
-            ? data.error
-            : "Failed to delete cancellation category"
-        throw new Error(message)
-      }
-
-      await load()
+      await queryClient.invalidateQueries({ queryKey: cancellationCategoriesQueryKey })
       toast.success("Cancellation category deleted")
     } catch (err) {
       const message = getErrorMessage(err)
-      setError(message)
+      setMutationError(message)
       toast.error(message)
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12 text-slate-600">
         <IconLoader2 className="h-5 w-5 animate-spin text-slate-400" />

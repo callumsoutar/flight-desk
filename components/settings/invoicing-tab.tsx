@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import {
   IconAutomation,
   IconFileInvoice,
@@ -18,33 +17,13 @@ import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { updateInvoicingSettings } from "@/hooks/use-invoicing-settings-query"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { InvoicingSettings } from "@/lib/settings/invoicing-settings"
-
-type InvoicingSettingsResponse = { settings: InvoicingSettings }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
   return "Something went wrong."
-}
-
-async function patchInvoicingSettings(payload: unknown): Promise<InvoicingSettingsResponse> {
-  const response = await fetch("/api/settings/invoicing", {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    const message =
-      data && typeof data === "object" && typeof data.error === "string"
-        ? data.error
-        : "Failed to update settings"
-    throw new Error(message)
-  }
-
-  return (await response.json()) as InvoicingSettingsResponse
 }
 
 function createFormState(settings: InvoicingSettings | null) {
@@ -66,7 +45,6 @@ export function InvoicingTab({
   initialSettings: InvoicingSettings | null
   loadError: string | null
 }) {
-  const router = useRouter()
   const [form, setForm] = React.useState(() => createFormState(initialSettings))
   const [baseSettings, setBaseSettings] = React.useState<InvoicingSettings | null>(initialSettings)
   const [isSaving, setIsSaving] = React.useState(false)
@@ -113,7 +91,7 @@ export function InvoicingTab({
   const onSave = async () => {
     setIsSaving(true)
     try {
-      const result = await patchInvoicingSettings({
+      const result = await updateInvoicingSettings({
         invoicing: {
           invoice_prefix: form.invoice_prefix.trim(),
           invoice_number_mode: form.invoice_number_mode,
@@ -126,7 +104,6 @@ export function InvoicingTab({
       })
       setBaseSettings(result.settings)
       toast.success("Invoicing settings saved")
-      router.refresh()
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {

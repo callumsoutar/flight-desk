@@ -7,8 +7,7 @@ import {
   resolveInvoicingSettings,
   type InvoicingSettings,
 } from "@/lib/invoices/invoicing-settings"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { TENANT_LOGO_BUCKET, isProbablyUrl } from "@/lib/settings/logo-storage"
+import { resolveTenantLogoSignedUrl } from "@/lib/settings/logo-storage-admin"
 import { isJsonObject } from "@/lib/settings/utils"
 import type { Database } from "@/lib/types"
 
@@ -41,20 +40,7 @@ export async function fetchInvoicingSettings(
 
   let tenantLogoUrl: string | null = null
   if (includeLogoOnInvoice && typeof tenant.logo_url === "string" && tenant.logo_url) {
-    const raw = tenant.logo_url
-    if (isProbablyUrl(raw)) {
-      tenantLogoUrl = raw
-    } else {
-      try {
-        const adminClient = createSupabaseAdminClient()
-        const { data } = await adminClient.storage
-          .from(TENANT_LOGO_BUCKET)
-          .createSignedUrl(raw, 60 * 60 * 24 * 30)
-        tenantLogoUrl = data?.signedUrl ?? null
-      } catch {
-        tenantLogoUrl = null
-      }
-    }
+    tenantLogoUrl = await resolveTenantLogoSignedUrl(tenant.logo_url)
   }
 
   return resolveInvoicingSettings({

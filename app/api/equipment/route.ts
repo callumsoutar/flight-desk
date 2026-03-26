@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantScopedRouteContext, getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { fetchEquipment } from "@/lib/equipment/fetch-equipment"
+import { EQUIPMENT_STATUS_OPTIONS, EQUIPMENT_TYPE_OPTIONS } from "@/lib/types/equipment"
 import { equipmentCreateSchema } from "@/lib/validation/equipment"
 
 export const dynamic = "force-dynamic"
@@ -13,41 +13,43 @@ function optionalTrimmedValue(value?: string): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
-export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+const equipmentStatuses = new Set(EQUIPMENT_STATUS_OPTIONS.map((option) => option.value))
+const equipmentTypes = new Set(EQUIPMENT_TYPE_OPTIONS.map((option) => option.value))
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
+export async function GET(request: NextRequest) {
+  const session = await getTenantScopedRouteContext({ access: "authenticated" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
+
+  const params = request.nextUrl.searchParams
+  const status = params.get("status")
+  const type = params.get("type")
+  const search = params.get("search")
+  const issued = params.get("issued")
+
+  const filters = {
+    status: status && equipmentStatuses.has(status) ? status : undefined,
+    type: type && equipmentTypes.has(type) ? type : undefined,
+    search: search?.trim() || undefined,
+    issued: issued === "true" ? true : issued === "false" ? false : undefined,
   }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+
+  try {
+    const equipment = await fetchEquipment(supabase, tenantId, filters)
+    return noStoreJson({ equipment })
+  } catch {
+    return noStoreJson({ error: "Failed to fetch equipment" }, { status: 500 })
   }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can add equipment" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+}
+
+export async function POST(request: NextRequest) {
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const parsed = equipmentCreateSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -63,17 +65,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (existingError) {
-      return NextResponse.json(
-        { error: "Failed to validate serial number" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to validate serial number" }, { status: 500 })
     }
 
     if (existing) {
-      return NextResponse.json(
-        { error: "Equipment with that serial number already exists" },
-        { status: 409, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Equipment with that serial number already exists" }, { status: 409 })
     }
   }
 
@@ -94,14 +90,8 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (createError || !equipment) {
-    return NextResponse.json(
-      { error: "Failed to add equipment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to add equipment" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { equipment },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ equipment }, { status: 201 })
 }

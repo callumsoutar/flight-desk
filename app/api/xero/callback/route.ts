@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 
 import { getAuthSession } from "@/lib/auth/session"
 import { logError } from "@/lib/security/logger"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { exchangeCodeForTokens, fetchXeroConnections } from "@/lib/xero/client"
 import { getXeroEnv } from "@/lib/xero/env"
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(integrationRedirect("error", "no_xero_tenant"), request.url))
     }
 
-    const admin = createSupabaseAdminClient()
+    const admin = createPrivilegedSupabaseClient("persist Xero OAuth connection tokens and tenant integration state")
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
     const { error: upsertConnectionError } = await admin.from("xero_connections").upsert(

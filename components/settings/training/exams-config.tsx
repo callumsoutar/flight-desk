@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   AlertCircle,
   Archive,
@@ -32,20 +33,25 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { createExam, deactivateExam, examsQueryKey, updateExam, useExamsQuery } from "@/hooks/use-exams-query"
+import { useSyllabiQuery } from "@/hooks/use-syllabi-query"
 import { cn } from "@/lib/utils"
 import type { Exam, ExamFormData } from "@/lib/types/exam"
-import type { Syllabus } from "@/lib/types/syllabus"
 
 export function ExamsConfig() {
-  const [exams, setExams] = useState<Exam[]>([])
-  const [syllabi, setSyllabi] = useState<Syllabus[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [mutationError, setMutationError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSyllabusFilter, setSelectedSyllabusFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
+  const {
+    data: exams = [],
+    isLoading,
+    error: examsQueryError,
+  } = useExamsQuery({ includeInactive: true })
+  const { data: syllabi = [] } = useSyllabiQuery({ includeInactive: true })
   const [formData, setFormData] = useState<ExamFormData>({
     name: "",
     description: "",
@@ -54,36 +60,7 @@ export function ExamsConfig() {
     is_active: true,
   })
 
-  const fetchExams = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch("/api/exams?include_inactive=true")
-      if (!response.ok) throw new Error("Failed to fetch exams")
-      const data = (await response.json().catch(() => null)) as { exams?: Exam[] } | null
-      setExams(Array.isArray(data?.exams) ? data.exams : [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchSyllabi = async () => {
-    try {
-      const response = await fetch("/api/syllabus?include_inactive=true")
-      if (!response.ok) throw new Error("Failed to fetch syllabi")
-      const data = (await response.json().catch(() => null)) as { syllabi?: Syllabus[] } | null
-      setSyllabi(Array.isArray(data?.syllabi) ? data.syllabi : [])
-    } catch {
-      // ignore: exams can still be managed without syllabi labels
-    }
-  }
-
-  useEffect(() => {
-    void fetchExams()
-    void fetchSyllabi()
-  }, [])
+  const error = mutationError ?? (examsQueryError instanceof Error ? examsQueryError.message : null)
 
   const resetForm = () => {
     setFormData({
@@ -97,29 +74,22 @@ export function ExamsConfig() {
 
   const handleAdd = async () => {
     try {
-      setError(null)
-      const response = await fetch("/api/exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description,
-          passing_score: formData.passing_score,
-          is_active: formData.is_active,
-          syllabus_id: formData.syllabus_id === "none" ? null : formData.syllabus_id,
-        }),
+      setMutationError(null)
+      await createExam({
+        name: formData.name,
+        description: formData.description,
+        passing_score: formData.passing_score,
+        is_active: formData.is_active,
+        syllabus_id: formData.syllabus_id === "none" ? null : formData.syllabus_id,
       })
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to create exam")
-      }
-
-      await fetchExams()
+      await queryClient.invalidateQueries({
+        queryKey: examsQueryKey({ includeInactive: true }),
+      })
       setIsAddDialogOpen(false)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -127,31 +97,24 @@ export function ExamsConfig() {
     if (!editingExam) return
 
     try {
-      setError(null)
-      const response = await fetch("/api/exams", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: editingExam.id,
-          name: formData.name,
-          description: formData.description,
-          passing_score: formData.passing_score,
-          is_active: formData.is_active,
-          syllabus_id: formData.syllabus_id === "none" ? null : formData.syllabus_id,
-        }),
+      setMutationError(null)
+      await updateExam({
+        id: editingExam.id,
+        name: formData.name,
+        description: formData.description,
+        passing_score: formData.passing_score,
+        is_active: formData.is_active,
+        syllabus_id: formData.syllabus_id === "none" ? null : formData.syllabus_id,
       })
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to update exam")
-      }
-
-      await fetchExams()
+      await queryClient.invalidateQueries({
+        queryKey: examsQueryKey({ includeInactive: true }),
+      })
       setIsEditDialogOpen(false)
       setEditingExam(null)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -165,19 +128,14 @@ export function ExamsConfig() {
     }
 
     try {
-      setError(null)
-      const response = await fetch(`/api/exams?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
+      setMutationError(null)
+      await deactivateExam(id)
+
+      await queryClient.invalidateQueries({
+        queryKey: examsQueryKey({ includeInactive: true }),
       })
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(errorData?.error || "Failed to deactivate exam")
-      }
-
-      await fetchExams()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setMutationError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -218,7 +176,7 @@ export function ExamsConfig() {
     })
   }, [exams, searchTerm, selectedSyllabusFilter])
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6 w-full min-w-0">
         <div className="flex items-center justify-center py-12">

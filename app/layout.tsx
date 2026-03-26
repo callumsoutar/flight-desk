@@ -22,8 +22,11 @@ export default async function RootLayout({
 }>) {
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await getAuthSession(supabase, {
+    requireUser: true,
     includeRole: true,
     includeTenant: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
   })
 
   const [profile, tenantTimezone] = await Promise.all([
@@ -44,18 +47,14 @@ export default async function RootLayout({
         suppressHydrationWarning
         className="antialiased"
       >
-        <AuthProvider
-          initialUser={user}
-          initialRole={role}
-          initialProfile={profile}
-        >
-          <TimezoneProvider timeZone={tenantTimezone}>
-            <ReactQueryProvider>
+        <ReactQueryProvider>
+          <AuthProvider initialUser={user} initialRole={role} initialProfile={profile}>
+            <TimezoneProvider timeZone={tenantTimezone}>
               {children}
               <Toaster />
-            </ReactQueryProvider>
-          </TimezoneProvider>
-        </AuthProvider>
+            </TimezoneProvider>
+          </AuthProvider>
+        </ReactQueryProvider>
         <SpeedInsights />
       </body>
     </html>

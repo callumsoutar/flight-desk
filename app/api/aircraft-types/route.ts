@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getAuthSession } from "@/lib/auth/session"
-import { getUserTenantId } from "@/lib/auth/tenant"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -14,17 +12,9 @@ const createAircraftTypeSchema = z.strictObject({
 })
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantScopedRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data, error } = await supabase
     .from("aircraft_types")
@@ -33,29 +23,21 @@ export async function GET() {
     .order("name", { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: "Failed to fetch aircraft types" }, { status: 500 })
+    return noStoreJson({ error: "Failed to fetch aircraft types" }, { status: 500 })
   }
 
-  return NextResponse.json({ aircraft_types: data ?? [] }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ aircraft_types: data ?? [] })
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const tenantId = await getUserTenantId(supabase, user.id)
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createAircraftTypeSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { data, error } = await supabase
@@ -70,8 +52,8 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: "Failed to create aircraft type" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create aircraft type" }, { status: 500 })
   }
 
-  return NextResponse.json({ aircraft_type: data }, { status: 201 })
+  return noStoreJson({ aircraft_type: data }, { status: 201 })
 }

@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconAlertCircle,
   IconArrowRight,
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner"
 
 import { BookingHeader } from "@/components/bookings/booking-header"
+import { FinalizedInvoiceCard } from "@/components/bookings/finalized-invoice-card"
 import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
@@ -35,10 +36,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  bookingCheckinInvoiceQueryKey,
+  useBookingCheckinInvoiceQuery,
+} from "@/hooks/use-booking-checkin-invoice-query"
+import { bookingQueryKey, useBookingQuery } from "@/hooks/use-booking-query"
+import { useChargeRateQuery, type ChargeRate } from "@/hooks/use-charge-rate-query"
+import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
 import { InvoiceCalculations, roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
-import type { InvoiceRow } from "@/lib/types"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
-import type { InvoiceItem } from "@/lib/types/invoice_items"
 import type { UserRole } from "@/lib/types/roles"
 import type { LessonProgressRow } from "@/lib/types/tables"
 import { useTimezone } from "@/contexts/timezone-context"
@@ -46,14 +52,6 @@ import { formatDateTime } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 
 type ChargeBasis = "hobbs" | "tacho" | "airswitch"
-
-type ChargeRate = {
-  id: string
-  rate_per_hour: number | string
-  charge_hobbs: boolean
-  charge_tacho: boolean
-  charge_airswitch: boolean
-}
 
 type ManualItemGroup = "landing_fees" | "airways_fees" | "other"
 type GeneratedItemGroup = "briefing" | "flight_hire"
@@ -228,7 +226,7 @@ const MANUAL_GROUP_FILTERS: Array<{
 
 export function BookingCheckinClient({
   bookingId,
-  booking,
+  booking: initialBooking,
   options,
   role,
 }: {
@@ -238,6 +236,9 @@ export function BookingCheckinClient({
   role: UserRole | null
 }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: liveBooking } = useBookingQuery(bookingId, initialBooking)
+  const booking = liveBooking ?? initialBooking
   const { timeZone } = useTimezone()
   const isAdminOrInstructor = role === "owner" || role === "admin" || role === "instructor"
 
@@ -286,12 +287,6 @@ export function BookingCheckinClient({
   const [isCalculating, setIsCalculating] = React.useState(false)
   const [isApproving, setIsApproving] = React.useState(false)
 
-  const [aircraftChargeRate, setAircraftChargeRate] = React.useState<ChargeRate | null>(null)
-  const [instructorChargeRate, setInstructorChargeRate] = React.useState<ChargeRate | null>(null)
-  const [aircraftRateLoading, setAircraftRateLoading] = React.useState(false)
-  const [instructorRateLoading, setInstructorRateLoading] = React.useState(false)
-
-  const [taxRate, setTaxRate] = React.useState(0.15)
   const [manualItems, setManualItems] = React.useState<ManualInvoiceItem[]>([])
   const [generatedItemOverrides, setGeneratedItemOverrides] = React.useState<
     Record<string, GeneratedItemOverride>
@@ -322,10 +317,6 @@ export function BookingCheckinClient({
   }>(null)
 
   const [localInvoiceId, setLocalInvoiceId] = React.useState<string | null>(null)
-  const [invoice, setInvoice] = React.useState<InvoiceRow | null>(null)
-  const [invoiceItems, setInvoiceItems] = React.useState<InvoiceItem[]>([])
-  const [invoiceLoading, setInvoiceLoading] = React.useState(false)
-
   const [isCorrectionMode, setIsCorrectionMode] = React.useState(false)
   const [correctionHobbsEnd, setCorrectionHobbsEnd] = React.useState("")
   const [correctionTachEnd, setCorrectionTachEnd] = React.useState("")
@@ -333,6 +324,22 @@ export function BookingCheckinClient({
   const [isCorrecting, setIsCorrecting] = React.useState(false)
 
   const checkinInvoiceId = booking.checkin_invoice_id ?? localInvoiceId
+  const { data: aircraftChargeRate, isLoading: aircraftRateLoading } = useChargeRateQuery({
+    scope: "aircraft",
+    resourceId: selectedAircraftId,
+    flightTypeId: selectedFlightTypeId,
+  })
+  const { data: instructorChargeRate, isLoading: instructorRateLoading } = useChargeRateQuery({
+    scope: "instructor",
+    resourceId: selectedInstructorId,
+    flightTypeId: selectedFlightTypeId,
+  })
+  const { data: resolvedTaxRate = 0.15 } = useDefaultTaxRateQuery()
+  const taxRate = resolvedTaxRate
+  const { data: invoiceData, isLoading: invoiceLoading } = useBookingCheckinInvoiceQuery(checkinInvoiceId)
+  const invoice = invoiceData?.invoice ?? null
+  const invoiceItems = invoiceData?.invoiceItems ?? []
+
   const isApproved = Boolean(booking.checkin_approved_at || localInvoiceId)
   const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
   const trackerStages = React.useMemo(
@@ -535,111 +542,6 @@ export function BookingCheckinClient({
       setSoloEndTachInput("")
     }
   }, [instructionType, hasSoloAtEnd])
-
-  React.useEffect(() => {
-    if (!selectedAircraftId || !selectedFlightTypeId) {
-      setAircraftChargeRate(null)
-      return
-    }
-
-    let cancelled = false
-    setAircraftRateLoading(true)
-    fetchJson<{ charge_rate: ChargeRate | null }>(
-      `/api/aircraft-charge-rates?aircraft_id=${selectedAircraftId}&flight_type_id=${selectedFlightTypeId}`
-    )
-      .then((result) => {
-        if (!cancelled) setAircraftChargeRate(result.charge_rate ?? null)
-      })
-      .catch(() => {
-        if (!cancelled) setAircraftChargeRate(null)
-      })
-      .finally(() => {
-        if (!cancelled) setAircraftRateLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedAircraftId, selectedFlightTypeId])
-
-  React.useEffect(() => {
-    if (!selectedInstructorId || !selectedFlightTypeId) {
-      setInstructorChargeRate(null)
-      return
-    }
-
-    let cancelled = false
-    setInstructorRateLoading(true)
-    fetchJson<{ charge_rate: ChargeRate | null }>(
-      `/api/instructor-charge-rates?instructor_id=${selectedInstructorId}&flight_type_id=${selectedFlightTypeId}`
-    )
-      .then((result) => {
-        if (!cancelled) setInstructorChargeRate(result.charge_rate ?? null)
-      })
-      .catch(() => {
-        if (!cancelled) setInstructorChargeRate(null)
-      })
-      .finally(() => {
-        if (!cancelled) setInstructorRateLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedInstructorId, selectedFlightTypeId])
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    fetchJson<{ tax_rates: Array<{ rate: number }> }>("/api/tax-rates?is_default=true")
-      .then((result) => {
-        if (cancelled) return
-        const rate = result.tax_rates?.[0]?.rate
-        if (typeof rate === "number" && Number.isFinite(rate)) {
-          setTaxRate(rate)
-        }
-      })
-      .catch(() => {
-        // keep fallback value
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  React.useEffect(() => {
-    if (!checkinInvoiceId) {
-      setInvoice(null)
-      setInvoiceItems([])
-      return
-    }
-
-    let cancelled = false
-    setInvoiceLoading(true)
-
-    Promise.all([
-      fetchJson<{ invoice: InvoiceRow }>(`/api/invoices/${checkinInvoiceId}`),
-      fetchJson<{ invoice_items: InvoiceItem[] }>(`/api/invoice_items?invoice_id=${checkinInvoiceId}`),
-    ])
-      .then(([invoiceResult, itemsResult]) => {
-        if (cancelled) return
-        setInvoice(invoiceResult.invoice)
-        setInvoiceItems(itemsResult.invoice_items ?? [])
-      })
-      .catch(() => {
-        if (cancelled) return
-        setInvoice(null)
-        setInvoiceItems([])
-      })
-      .finally(() => {
-        if (!cancelled) setInvoiceLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [checkinInvoiceId])
 
   React.useEffect(() => {
     if (!landingFeeAircraftTypeOverrideId) return
@@ -1473,7 +1375,8 @@ export function BookingCheckinClient({
         router.push(`/bookings/${bookingId}/debrief/write`)
         return
       }
-      router.refresh()
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
+      await queryClient.invalidateQueries({ queryKey: bookingCheckinInvoiceQueryKey(result.invoice.id) })
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
@@ -1491,6 +1394,7 @@ export function BookingCheckinClient({
     instructionType,
     isAdminOrInstructor,
     isDraftStale,
+    queryClient,
     router,
     selectedAircraftId,
     selectedFlightTypeId,
@@ -1569,7 +1473,10 @@ export function BookingCheckinClient({
       toast.success("Flight readings corrected successfully")
       setIsCorrectionMode(false)
       setCorrectionReason("")
-      router.refresh()
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
+      if (checkinInvoiceId) {
+        await queryClient.invalidateQueries({ queryKey: bookingCheckinInvoiceQueryKey(checkinInvoiceId) })
+      }
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {
@@ -1578,10 +1485,11 @@ export function BookingCheckinClient({
   }, [
     bookingId,
     canSubmitCorrection,
+    checkinInvoiceId,
     correctionHobbsEndNum,
     correctionReason,
     correctionTachEndNum,
-    router,
+    queryClient,
   ])
 
   const aircraftRatePerHourInclTax =
@@ -2305,76 +2213,13 @@ export function BookingCheckinClient({
       </div>
 
         {checkinInvoiceId ? (
-          <Card className="border-border/60">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <IconPlane className="h-4 w-4" />
-                Finalized Invoice
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {invoiceLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <IconLoader2 className="h-4 w-4 animate-spin" />
-                  Loading invoice details...
-                </div>
-              ) : invoice ? (
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="rounded-md border p-3">
-                      <div className="text-xs font-medium uppercase text-muted-foreground">Invoice Number</div>
-                      <div className="mt-1 font-semibold">{invoice.invoice_number || "Draft"}</div>
-                    </div>
-                    <div className="rounded-md border p-3">
-                      <div className="text-xs font-medium uppercase text-muted-foreground">Total</div>
-                      <div className="mt-1 font-semibold">${Number(invoice.total_amount || 0).toFixed(2)}</div>
-                    </div>
-                    <div className="rounded-md border p-3">
-                      <div className="text-xs font-medium uppercase text-muted-foreground">Aircraft</div>
-                      <div className="mt-1 font-semibold">{selectedAircraftLabel}</div>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">Rate</TableHead>
-                          <TableHead className="text-right">Line Total</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {invoiceItems.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.description}</TableCell>
-                            <TableCell className="text-right tabular-nums">{item.quantity.toFixed(2)}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              ${(item.rate_inclusive ?? item.unit_price).toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              ${Number(item.line_total ?? 0).toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button asChild variant="outline">
-                      <Link href={`/invoices/${checkinInvoiceId}`}>View Full Invoice</Link>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-                  Failed to load invoice details.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <FinalizedInvoiceCard
+            invoiceId={checkinInvoiceId}
+            invoiceLoading={invoiceLoading}
+            invoice={invoice}
+            invoiceItems={invoiceItems}
+            selectedAircraftLabel={selectedAircraftLabel}
+          />
         ) : null}
 
         {isApproved && !isCorrectionMode ? (

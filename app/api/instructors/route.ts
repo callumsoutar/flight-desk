@@ -1,33 +1,11 @@
-import { NextResponse } from "next/server"
-
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const { data, error } = await supabase
     .from("instructors")
@@ -39,14 +17,8 @@ export async function GET() {
     .order("first_name", { ascending: true })
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to load instructors" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load instructors" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { instructors: data ?? [] },
-    { headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ instructors: data ?? [] })
 }

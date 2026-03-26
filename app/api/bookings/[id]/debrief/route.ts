@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { invalidPayloadResponse } from "@/lib/security/http"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getZonedYyyyMmDdAndHHmm, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
@@ -84,25 +83,14 @@ function resolveTimezoneOrUtc(value: string | null) {
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const { id } = await context.params
   const booking = await fetchBookingContext(tenantId, id, supabase).catch(() => null)
   if (!booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Booking not found" }, { status: 404 })
   }
 
   const { data, error } = await supabase
@@ -115,31 +103,17 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     .maybeSingle()
 
   if (error) {
-    return NextResponse.json({ error: "Failed to load debrief" }, { status: 500, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Failed to load debrief" }, { status: 500 })
   }
 
-  return NextResponse.json({ lesson_progress: data ?? null }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ lesson_progress: data ?? null })
 }
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } })
-  }
-  if (!tenantId) {
-    return NextResponse.json({ error: "Account not configured" }, { status: 400, headers: { "cache-control": "no-store" } })
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: { "cache-control": "no-store" } })
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { tenantId } = ctx.context
 
   const parsed = putSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
@@ -149,13 +123,10 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   const { id } = await context.params
   const booking = await fetchBookingContext(tenantId, id, supabase).catch(() => null)
   if (!booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Booking not found" }, { status: 404 })
   }
   if (!booking.user_id) {
-    return NextResponse.json(
-      { error: "Booking does not have a valid member for debrief logging" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Booking does not have a valid member for debrief logging" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -168,7 +139,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json({ error: "Failed to load existing debrief" }, { status: 500, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Failed to load existing debrief" }, { status: 500 })
   }
 
   const incoming = parsed.data
@@ -184,10 +155,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   )
 
   if (!existing && !hasAnyContent) {
-    return NextResponse.json(
-      { error: "Nothing to save" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Nothing to save" }, { status: 400 })
   }
 
   const timezone = resolveTimezoneOrUtc(await fetchTenantTimezone(tenantId, supabase).catch(() => null))
@@ -239,10 +207,10 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       .single()
 
     if (error) {
-      return NextResponse.json({ error: "Failed to save debrief" }, { status: 500, headers: { "cache-control": "no-store" } })
+      return noStoreJson({ error: "Failed to save debrief" }, { status: 500 })
     }
 
-    return NextResponse.json({ lesson_progress: data }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ lesson_progress: data })
   }
 
   const insertRow = {
@@ -262,8 +230,8 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     .single()
 
   if (error) {
-    return NextResponse.json({ error: "Failed to create debrief" }, { status: 500, headers: { "cache-control": "no-store" } })
+    return noStoreJson({ error: "Failed to create debrief" }, { status: 500 })
   }
 
-  return NextResponse.json({ lesson_progress: data }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ lesson_progress: data })
 }

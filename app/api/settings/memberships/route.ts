@@ -1,15 +1,12 @@
-import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchMembershipsSettings } from "@/lib/settings/fetch-memberships-settings"
 import {
   DEFAULT_MEMBERSHIP_YEAR,
   resolveMembershipsSettings,
 } from "@/lib/settings/memberships-settings"
 import { isJsonObject } from "@/lib/settings/utils"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { Json } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -29,80 +26,26 @@ const patchSchema = z.strictObject({
 })
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   try {
     const settings = await fetchMembershipsSettings(supabase, tenantId)
-    return NextResponse.json({ settings }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ settings })
   } catch {
-    return NextResponse.json(
-      { error: "Failed to load membership settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load membership settings" }, { status: 500 })
   }
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isAdminRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, user, tenantId } = session.context
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const patch = parsed.data.memberships
@@ -125,10 +68,7 @@ export async function PATCH(request: Request) {
     .maybeSingle()
 
   if (existingError) {
-    return NextResponse.json(
-      { error: "Failed to load existing tenant settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to load existing tenant settings" }, { status: 500 })
   }
 
   const existing = isJsonObject(existingRow?.settings) ? existingRow?.settings : {}
@@ -141,10 +81,7 @@ export async function PATCH(request: Request) {
       .eq("tenant_id", tenantId)
 
     if (updateError) {
-      return NextResponse.json(
-        { error: "Failed to update tenant settings" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to update tenant settings" }, { status: 500 })
     }
   } else {
     const { error: insertError } = await supabase
@@ -152,21 +89,14 @@ export async function PATCH(request: Request) {
       .insert({ tenant_id: tenantId, settings: nextSettings, updated_by: user.id })
 
     if (insertError) {
-      return NextResponse.json(
-        { error: "Failed to save tenant settings" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to save tenant settings" }, { status: 500 })
     }
   }
 
   try {
     const settings = await fetchMembershipsSettings(supabase, tenantId)
-    return NextResponse.json({ settings }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ settings })
   } catch {
-    return NextResponse.json(
-      { error: "Settings saved, but failed to reload membership settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Settings saved, but failed to reload membership settings" }, { status: 500 })
   }
 }
-

@@ -15,6 +15,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { DatePicker } from "@/components/ui/date-picker"
 import { CalendarIcon, Wrench, Clock, FileText, Settings, DollarSign, Info } from "lucide-react"
 import { toast } from "sonner"
+import {
+  fetchAircraftMaintenanceVisit,
+  updateAircraftMaintenanceVisit,
+} from "@/hooks/use-aircraft-maintenance-visits-query"
 import { cn } from "@/lib/utils"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
@@ -97,11 +101,8 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
     setError(null)
     setInitialLoaded(false)
 
-    fetch(`/api/maintenance-visits?maintenance_visit_id=${maintenanceVisitId}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to fetch maintenance visit")
-        const visit = await res.json()
-
+    fetchAircraftMaintenanceVisit(maintenanceVisitId)
+      .then(async (visit) => {
         const visitDateParsed = visit.visit_date ? new Date(visit.visit_date) : null
         setVisitDate(visitDateParsed && isValidDate(visitDateParsed) ? visitDateParsed : null)
         setVisitType(visit.visit_type || "")
@@ -189,21 +190,10 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
     }
 
     try {
-      const res = await fetch("/api/maintenance-visits", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      if (res.ok) {
-        toast.success("Maintenance visit updated successfully.")
-        onOpenChange(false)
-        onSuccess?.()
-      } else {
-        const data = await res.json().catch(() => ({}))
-        setError(data.error || "Failed to update maintenance visit")
-        toast.error(data.error || "Failed to update maintenance visit")
-      }
+      await updateAircraftMaintenanceVisit(payload)
+      toast.success("Maintenance visit updated successfully.")
+      onOpenChange(false)
+      onSuccess?.()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update maintenance visit"
       setError(errorMessage)

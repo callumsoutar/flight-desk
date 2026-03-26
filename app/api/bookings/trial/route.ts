@@ -1,19 +1,16 @@
 import { randomUUID } from "crypto"
 
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
 import { logError } from "@/lib/security/logger"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
 
 export const dynamic = "force-dynamic"
-
-const STUDENT_ROLE_ID = "9ac4dbd5-648d-4f9a-8c13-4307aae0da40"
 
 const trialBookingSchema = z.strictObject({
   guest_first_name: z.string().trim().min(1, "First name is required"),
@@ -33,50 +30,21 @@ const trialBookingSchema = z.strictObject({
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Only staff can create trial flight bookings" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const ctx = await getTenantStaffRouteContext(supabase)
+  if (ctx.response) return ctx.response
+  const { user, tenantId } = ctx.context
 
   const parsed = trialBookingSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     const firstError = parsed.error.issues[0]?.message ?? "Invalid payload"
-    return NextResponse.json(
-      { error: firstError },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: firstError }, { status: 400 })
   }
 
   const payload = parsed.data
   const startDate = new Date(payload.start_time)
   const endDate = new Date(payload.end_time)
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate >= endDate) {
-    return NextResponse.json(
-      { error: "Invalid booking time range" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid booking time range" }, { status: 400 })
   }
 
   if (payload.aircraft_id) {
@@ -89,10 +57,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (aircraftError || !aircraft) {
-      return NextResponse.json(
-        { error: "Selected aircraft was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected aircraft was not found" }, { status: 404 })
     }
   }
 
@@ -106,10 +71,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (instructorError || !instructor) {
-      return NextResponse.json(
-        { error: "Selected instructor was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected instructor was not found" }, { status: 404 })
     }
   }
 
@@ -124,10 +86,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (flightTypeError || !flightType) {
-      return NextResponse.json(
-        { error: "Selected flight type was not found" },
-        { status: 404, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Selected flight type was not found" }, { status: 404 })
     }
   }
 
@@ -139,15 +98,15 @@ export async function POST(request: NextRequest) {
   })
 
   if (payload.aircraft_id && unavailableAircraftIds.includes(payload.aircraft_id)) {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Selected aircraft is no longer available for this time range." },
-      { status: 409, headers: { "cache-control": "no-store" } }
+      { status: 409 }
     )
   }
   if (payload.instructor_id && unavailableInstructorIds.includes(payload.instructor_id)) {
-    return NextResponse.json(
+    return noStoreJson(
       { error: "Selected instructor is no longer available for this time range." },
-      { status: 409, headers: { "cache-control": "no-store" } }
+      { status: 409 }
     )
   }
 
@@ -204,16 +163,30 @@ export async function POST(request: NextRequest) {
       })
 
       if (!fitsInAnyWindow) {
-        return NextResponse.json(
-          { error: "Booking falls outside the instructor\u2019s rostered availability." },
-          { status: 409, headers: { "cache-control": "no-store" } }
+        return noStoreJson(
+          { error: "Booking falls outside the instructor's rostered availability." },
+          { status: 409 }
         )
       }
     }
   }
 
-  const admin = createSupabaseAdminClient()
+  const admin = createPrivilegedSupabaseClient("trial booking guest provisioning and tenant linking")
   const normalizedEmail = payload.guest_email.toLowerCase()
+  const { data: studentRole, error: studentRoleError } = await admin
+    .from("roles")
+    .select("id")
+    .eq("name", "student")
+    .eq("is_active", true)
+    .maybeSingle()
+
+  if (studentRoleError || !studentRole) {
+    logError("[trial-booking] unable to resolve student role", {
+      error: studentRoleError?.message ?? "student_role_not_found",
+      tenantId,
+    })
+    return noStoreJson({ error: "Booking configuration is incomplete" }, { status: 500 })
+  }
 
   const { data: existingUser, error: lookupError } = await admin
     .from("users")
@@ -250,10 +223,7 @@ export async function POST(request: NextRequest) {
         code: userError?.code,
         tenantId,
       })
-      return NextResponse.json(
-        { error: "Failed to create guest user record" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to create guest user record" }, { status: 500 })
     }
 
     guestUserId = newUser.id
@@ -276,7 +246,7 @@ export async function POST(request: NextRequest) {
       .insert({
         tenant_id: tenantId,
         user_id: guestUserId,
-        role_id: STUDENT_ROLE_ID,
+        role_id: studentRole.id,
         granted_by: user.id,
       })
 
@@ -288,10 +258,7 @@ export async function POST(request: NextRequest) {
         tenantId,
         userId: guestUserId,
       })
-      return NextResponse.json(
-        { error: "Failed to link guest to organisation" },
-        { status: 500, headers: { "cache-control": "no-store" } }
-      )
+      return noStoreJson({ error: "Failed to link guest to organisation" }, { status: 500 })
     }
   }
 
@@ -324,14 +291,8 @@ export async function POST(request: NextRequest) {
       tenantId,
       userId: guestUserId,
     })
-    return NextResponse.json(
-      { error: "Failed to create trial flight booking" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to create trial flight booking" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { booking: data, guestUserId },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ booking: data, guestUserId }, { status: 201 })
 }

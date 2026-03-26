@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { publicSyllabusStageSchema } from "@/lib/schema/generated"
 
 export const dynamic = "force-dynamic"
@@ -33,29 +31,16 @@ const updateSchema = z.strictObject({
 })
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
   const url = new URL(request.url)
   const syllabusId = url.searchParams.get("syllabus_id")
   const includeInactive = url.searchParams.get("include_inactive") === "true"
-
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: includeInactive,
-    authoritativeTenant: includeInactive,
+  const session = await getTenantScopedRouteContext({
+    access: includeInactive ? "admin" : "staff",
   })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
   if (!syllabusId || !z.string().uuid().safeParse(syllabusId).success) {
-    return NextResponse.json({ error: "Invalid syllabus id" }, { status: 400 })
-  }
-
-  if (includeInactive) {
-    if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  } else if (!isStaffRole(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return noStoreJson({ error: "Invalid syllabus id" }, { status: 400 })
   }
 
   let query = supabase
@@ -71,30 +56,21 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query
   if (error) {
-    return NextResponse.json({ error: "Failed to load lessons" }, { status: 500 })
+    return noStoreJson({ error: "Failed to load lessons" }, { status: 500 })
   }
 
-  return NextResponse.json({ lessons: data ?? [] }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ lessons: data ?? [] })
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const payload = parsed.data
@@ -108,7 +84,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (maxError) {
-    return NextResponse.json({ error: "Failed to create lesson" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create lesson" }, { status: 500 })
   }
 
   const nextOrder = typeof maxRow?.order === "number" ? maxRow.order + 1 : 1
@@ -129,30 +105,21 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error || !data) {
-    return NextResponse.json({ error: "Failed to create lesson" }, { status: 500 })
+    return noStoreJson({ error: "Failed to create lesson" }, { status: 500 })
   }
 
-  return NextResponse.json({ lesson: { id: data.id } }, { status: 201, headers: { "cache-control": "no-store" } })
+  return noStoreJson({ lesson: { id: data.id } }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const { id, ...rest } = parsed.data
@@ -164,7 +131,7 @@ export async function PATCH(request: NextRequest) {
   if (rest.is_active !== undefined) updateData.is_active = rest.is_active
 
   if (!Object.keys(updateData).length) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    return noStoreJson({ error: "No fields to update" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -175,30 +142,21 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
+    return noStoreJson({ error: "Lesson not found" }, { status: 404 })
   }
 
   const { error } = await supabase.from("lessons").update(updateData).eq("tenant_id", tenantId).eq("id", id)
   if (error) {
-    return NextResponse.json({ error: "Failed to update lesson" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update lesson" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const url = new URL(request.url)
   const idFromQuery = url.searchParams.get("id")
@@ -210,7 +168,7 @@ export async function DELETE(request: NextRequest) {
   const id = idFromQuery || idFromBody
 
   if (!id || !z.string().uuid().safeParse(id).success) {
-    return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+    return noStoreJson({ error: "Invalid id" }, { status: 400 })
   }
 
   const { data: existing, error: existingError } = await supabase
@@ -221,18 +179,17 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
 
   if (existingError || !existing) {
-    return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
+    return noStoreJson({ error: "Lesson not found" }, { status: 404 })
   }
 
   if (!existing.is_active) {
-    return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+    return noStoreJson({ ok: true })
   }
 
   const { error } = await supabase.from("lessons").update({ is_active: false }).eq("tenant_id", tenantId).eq("id", id)
   if (error) {
-    return NextResponse.json({ error: "Failed to delete lesson" }, { status: 500 })
+    return noStoreJson({ error: "Failed to delete lesson" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }
-

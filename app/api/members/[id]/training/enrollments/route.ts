@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
-import { getRequiredApiSession } from "@/lib/auth/api-session"
-import { isStaffRole } from "@/lib/auth/roles"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 export const dynamic = "force-dynamic"
@@ -24,35 +22,14 @@ export async function POST(
 ) {
   const { id: targetUserId } = await params
 
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Account not configured" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
-  }
-  if (!isStaffRole(role)) {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403, headers: { "cache-control": "no-store" } }
-    )
-  }
+  const session = await getTenantStaffRouteContext()
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
 
   const raw = await request.json().catch(() => null)
   const parsed = createEnrollmentSchema.safeParse(raw)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload" },
-      { status: 400, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Invalid payload" }, { status: 400 })
   }
 
   const [tenantResult, syllabusResult, instructorResult, aircraftTypeResult] = await Promise.all([
@@ -88,34 +65,22 @@ export async function POST(
   ])
 
   if (tenantResult.error) {
-    return NextResponse.json(
-      { error: "Failed to resolve tenant settings" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to resolve tenant settings" }, { status: 500 })
   }
 
   const timeZone = tenantResult.data?.timezone ?? "Pacific/Auckland"
   const enrolledAt = parsed.data.enrolled_at ?? zonedTodayYyyyMmDd(timeZone)
 
   if (!syllabusResult.data) {
-    return NextResponse.json(
-      { error: "Selected syllabus was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Selected syllabus was not found" }, { status: 404 })
   }
 
   if (parsed.data.primary_instructor_id && !instructorResult.data) {
-    return NextResponse.json(
-      { error: "Selected instructor was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Selected instructor was not found" }, { status: 404 })
   }
 
   if (parsed.data.aircraft_type && !aircraftTypeResult.data) {
-    return NextResponse.json(
-      { error: "Selected aircraft type was not found" },
-      { status: 404, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Selected aircraft type was not found" }, { status: 404 })
   }
 
   const { data, error } = await supabase
@@ -136,14 +101,8 @@ export async function POST(
     .single()
 
   if (error) {
-    return NextResponse.json(
-      { error: "Failed to create enrollment" },
-      { status: 500, headers: { "cache-control": "no-store" } }
-    )
+    return noStoreJson({ error: "Failed to create enrollment" }, { status: 500 })
   }
 
-  return NextResponse.json(
-    { enrollment: data },
-    { status: 201, headers: { "cache-control": "no-store" } }
-  )
+  return noStoreJson({ enrollment: data }, { status: 201 })
 }

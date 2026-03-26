@@ -15,10 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
-import type {
-  MemberFlightHistoryEntry,
-  MemberFlightHistoryResponse,
-} from "@/lib/types/flight-history"
+import { useMemberFlightHistoryQuery } from "@/hooks/use-member-flight-history-query"
+import type { MemberFlightHistoryEntry } from "@/lib/types/flight-history"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate as formatDateTz } from "@/lib/utils/date-format"
 
@@ -72,60 +70,20 @@ function getFlightHoursDisplay(flight: MemberFlightHistoryEntry): string {
   return raw.includes(".") ? raw : `${raw}.0`
 }
 
-async function fetchMemberFlightHistory(memberId: string): Promise<MemberFlightHistoryResponse> {
-  const response = await fetch(`/api/members/${memberId}/flight-history`, {
-    method: "GET",
-    cache: "no-store",
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(payload?.error || "Failed to load flight history")
-  }
-
-  return payload as MemberFlightHistoryResponse
-}
-
 export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps) {
   const { timeZone } = useTimezone()
-  const [allFlights, setAllFlights] = React.useState<MemberFlightHistoryEntry[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+  const {
+    data: historyData,
+    isLoading,
+    error,
+  } = useMemberFlightHistoryQuery(memberId)
+  const allFlights = React.useMemo<MemberFlightHistoryEntry[]>(
+    () => historyData?.flights ?? [],
+    [historyData?.flights]
+  )
 
   const [dateFrom, setDateFrom] = React.useState<Date>(() => startOfDay(subDays(new Date(), 30)))
   const [dateTo, setDateTo] = React.useState<Date>(() => endOfDay(new Date()))
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      if (!memberId) {
-        setAllFlights([])
-        setIsLoading(false)
-        setError(null)
-        return
-      }
-
-      setIsLoading(true)
-      setError(null)
-      try {
-        const data = await fetchMemberFlightHistory(memberId)
-        if (cancelled) return
-        setAllFlights(data.flights || [])
-      } catch (err) {
-        if (cancelled) return
-        setAllFlights([])
-        setError(err instanceof Error ? err.message : "Failed to load flight history")
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [memberId])
 
   const handlePresetClick = (days: number) => {
     setDateFrom(startOfDay(subDays(new Date(), days)))
@@ -161,7 +119,9 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
   if (error) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="text-destructive">{error}</div>
+        <div className="text-destructive">
+          {error instanceof Error ? error.message : "Failed to load flight history"}
+        </div>
       </div>
     )
   }

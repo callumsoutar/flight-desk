@@ -1,40 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { useQuery } from "@tanstack/react-query"
 import { Command } from "cmdk"
 import { Check, ChevronsUpDown, Loader2, Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import {
+  cacheSelectedXeroAccount,
+  useXeroChartOfAccountsQuery,
+  type XeroAccountOption,
+} from "@/hooks/use-xero-accounts-query"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-type XeroAccountOption = {
-  xero_account_id: string
-  code: string | null
-  name: string
-  type: string | null
-  status: string | null
-}
-
 function formatAccountLabel(account: XeroAccountOption) {
   return account.code ? `${account.code} — ${account.name}` : account.name
-}
-
-function cacheSelectedAccount(account: XeroAccountOption) {
-  fetch("/api/xero/accounts/upsert", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      xero_account_id: account.xero_account_id,
-      code: account.code,
-      name: account.name,
-      type: account.type,
-      status: account.status,
-    }),
-  }).catch(() => {
-    // best-effort cache — dropdown still works if this fails
-  })
 }
 
 export function XeroAccountSelect({
@@ -54,29 +34,11 @@ export function XeroAccountSelect({
 }) {
   const [open, setOpen] = React.useState(false)
 
-  const typeParam = accountTypes?.length
-    ? `?type=${accountTypes.join(",")}`
-    : ""
-
   const {
     data: accounts = [],
     isLoading,
     error,
-  } = useQuery({
-    queryKey: ["xero", "chart-of-accounts", typeParam],
-    queryFn: async () => {
-      const response = await fetch(`/api/xero/chart-of-accounts${typeParam}`, {
-        cache: "no-store",
-      })
-      if (!response.ok) return [] as XeroAccountOption[]
-      const body = (await response.json().catch(() => null)) as {
-        accounts?: XeroAccountOption[]
-      } | null
-      return body?.accounts ?? []
-    },
-    staleTime: 60_000,
-    enabled: open,
-  })
+  } = useXeroChartOfAccountsQuery(accountTypes, open)
 
   const selectedAccount = accounts.find((account) => account.code === value)
   const displayValue = selectedAccount
@@ -87,7 +49,9 @@ export function XeroAccountSelect({
     (account: XeroAccountOption) => {
       onChange(account.code ?? "")
       setOpen(false)
-      cacheSelectedAccount(account)
+      cacheSelectedXeroAccount(account).catch(() => {
+        // best-effort cache — dropdown still works if this fails
+      })
     },
     [onChange]
   )

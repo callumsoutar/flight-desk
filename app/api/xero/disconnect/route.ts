@@ -1,30 +1,17 @@
-import { NextResponse } from "next/server"
-
-import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { logWarn } from "@/lib/security/logger"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { revokeXeroToken } from "@/lib/xero/client"
 import { getXeroEnv } from "@/lib/xero/env"
 
 export const dynamic = "force-dynamic"
 
 export async function POST() {
-  const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const session = await getTenantAdminRouteContext()
+  if (session.response) return session.response
+  const { user, tenantId } = session.context
 
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
-  if (!isAdminRole(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const admin = createSupabaseAdminClient()
+  const admin = createPrivilegedSupabaseClient("disconnect Xero tenant connection and reset integration settings")
   const { data: connection } = await admin
     .from("xero_connections")
     .select("refresh_token")
@@ -79,5 +66,5 @@ export async function POST() {
     initiated_by: user.id,
   })
 
-  return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } })
+  return noStoreJson({ ok: true })
 }

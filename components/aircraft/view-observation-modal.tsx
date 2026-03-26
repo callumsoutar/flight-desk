@@ -33,6 +33,10 @@ import type {
   ObservationWithUser,
 } from "@/lib/types/observations"
 import { toast } from "sonner"
+import {
+  fetchAircraftObservation,
+  updateAircraftObservation,
+} from "@/hooks/use-aircraft-observations-query"
 
 const OBSERVATION_PRIORITIES: ObservationPriority[] = ["low", "medium", "high"]
 const OBSERVATION_STAGES: ObservationStage[] = ["open", "investigation", "resolution", "closed"]
@@ -105,8 +109,7 @@ export function ViewObservationModal({
   useEffect(() => {
     if (!open || !observationId) return
     setLoadingObs(true)
-    fetch(`/api/observations?id=${observationId}`, { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to fetch observation"))))
+    fetchAircraftObservation(observationId)
       .then((data: ObservationWithUser) => setObservation(data))
       .catch(() => setObservation(null))
       .finally(() => setLoadingObs(false))
@@ -130,20 +133,7 @@ export function ViewObservationModal({
     }
 
     try {
-      const res = await fetch("/api/observations", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(data.error || "Failed to update observation")
-      }
-
-      const updated = await fetch(`/api/observations?id=${observationId}`, { cache: "no-store" }).then((response) =>
-        response.ok ? (response.json() as Promise<ObservationWithUser>) : null
-      )
+      const updated = await updateAircraftObservation(payload)
       setObservation(updated)
       toast.success("Observation changes saved.")
       refresh?.()
