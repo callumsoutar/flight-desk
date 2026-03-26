@@ -63,27 +63,22 @@ function asStringClaim(value: unknown): string | null {
 
 function resolveRoleFromClaims(claims: JwtClaims): UserRole | null {
   const appMetadata = asRecord(claims.app_metadata)
-  const userMetadata = asRecord(claims.user_metadata)
 
   return (
     claimsRoleToUserRole(claims.app_role) ??
     claimsRoleToUserRole(claims.role) ??
     claimsRoleToUserRole(appMetadata?.app_role) ??
     claimsRoleToUserRole(appMetadata?.role) ??
-    claimsRoleToUserRole(userMetadata?.app_role) ??
-    claimsRoleToUserRole(userMetadata?.role) ??
     null
   )
 }
 
 function resolveTenantFromClaims(claims: JwtClaims): string | null {
   const appMetadata = asRecord(claims.app_metadata)
-  const userMetadata = asRecord(claims.user_metadata)
 
   return (
     asStringClaim(claims.tenant_id) ??
     asStringClaim(appMetadata?.tenant_id) ??
-    asStringClaim(userMetadata?.tenant_id) ??
     null
   )
 }

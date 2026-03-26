@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -32,7 +33,7 @@ const patchSchema = z.strictObject({
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId } = await getRequiredApiSession(supabase)
 
   if (!user) {
     return NextResponse.json(

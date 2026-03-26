@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { DEFAULT_INVOICING_SETTINGS } from "@/lib/settings/invoicing-settings"
 import {
@@ -31,13 +31,7 @@ const patchSchema = z.strictObject({
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(
@@ -76,13 +70,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(

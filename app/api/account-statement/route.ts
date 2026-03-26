@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/types/account-statement"
 
@@ -59,13 +59,7 @@ function getBookingDescription(booking: InvoiceBookingSummary | null): string | 
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(

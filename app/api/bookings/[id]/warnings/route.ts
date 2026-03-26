@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getAuthSession } from "@/lib/auth/session"
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -13,7 +13,7 @@ export async function GET(
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId } = await getRequiredApiSession(supabase)
 
   if (!user) {
     return NextResponse.json(

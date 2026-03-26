@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -25,7 +25,7 @@ export async function PATCH(
   const { id: targetUserId, enrollmentId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, { includeRole: true, includeTenant: true })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(
@@ -132,4 +132,3 @@ export async function PATCH(
     { headers: { "cache-control": "no-store" } }
   )
 }
-

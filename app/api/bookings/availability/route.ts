@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getAuthSession } from "@/lib/auth/session"
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId } = await getRequiredApiSession(supabase)
 
   if (!user) {
     return NextResponse.json(

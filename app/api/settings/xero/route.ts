@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 import { isJsonObject, normalizeNullableString } from "@/lib/settings/utils"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -20,13 +20,7 @@ const patchSchema = z.strictObject({
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })
@@ -42,13 +36,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })

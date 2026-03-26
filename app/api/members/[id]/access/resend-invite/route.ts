@@ -18,6 +18,8 @@ export async function POST(
     includeRole: true,
     includeTenant: true,
     requireUser: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
   })
 
   if (!user || !tenantId) {
@@ -35,18 +37,35 @@ export async function POST(
   }
 
   try {
-    const { data: memberUser, error: userError } = await supabase
-      .from("users")
-      .select("id, email")
-      .eq("id", memberId)
-      .maybeSingle()
+    const [memberUserResult, tenantUserResult] = await Promise.all([
+      supabase
+        .from("users")
+        .select("id, email")
+        .eq("id", memberId)
+        .maybeSingle(),
+      supabase
+        .from("tenant_users")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", memberId)
+        .maybeSingle(),
+    ])
 
-    if (userError || !memberUser?.email) {
+    if (memberUserResult.error || !memberUserResult.data?.email) {
       return NextResponse.json(
         { error: "Member not found or has no email" },
         { status: 404, headers: { "cache-control": "no-store" } }
       )
     }
+
+    if (!tenantUserResult.data) {
+      return NextResponse.json(
+        { error: "Member not found in tenant" },
+        { status: 404, headers: { "cache-control": "no-store" } }
+      )
+    }
+
+    const memberUser = memberUserResult.data
 
     const admin = createSupabaseAdminClient()
     const { error: resendError } =

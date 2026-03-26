@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
 
@@ -9,13 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!tenantId) return NextResponse.json({ error: "Account not configured" }, { status: 400 })

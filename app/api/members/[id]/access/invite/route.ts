@@ -18,6 +18,8 @@ export async function POST(
     includeRole: true,
     includeTenant: true,
     requireUser: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
   })
 
   if (!user || !tenantId) {

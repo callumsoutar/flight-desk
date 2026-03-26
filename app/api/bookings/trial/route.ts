@@ -229,19 +229,6 @@ export async function POST(request: NextRequest) {
 
   if (existingUser) {
     guestUserId = existingUser.id
-
-    const { error: updateError } = await admin
-      .from("users")
-      .update({
-        first_name: payload.guest_first_name,
-        last_name: payload.guest_last_name,
-        phone: payload.guest_phone || null,
-      })
-      .eq("id", guestUserId)
-
-    if (updateError) {
-      logError("[trial-booking] user update error", { error: updateError.message, tenantId, userId: guestUserId })
-    }
   } else {
     const newId = randomUUID()
     const { data: newUser, error: userError } = await admin

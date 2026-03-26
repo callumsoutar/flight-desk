@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { MemberTrainingPeekInstructor, MemberTrainingPeekResponse } from "@/lib/types/member-training-peek"
 
@@ -18,9 +18,8 @@ export async function GET(
   const { id: targetUserId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
     includeRole: true,
-    includeTenant: true,
   })
 
   if (!user) {

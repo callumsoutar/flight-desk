@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import { DEFAULT_BOOKINGS_SETTINGS } from "@/lib/settings/bookings-settings"
 import { isJsonObject, normalizeNonNegativeInt } from "@/lib/settings/utils"
@@ -31,13 +31,7 @@ const patchSchema = z.strictObject({
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(
@@ -73,13 +67,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeTenant: true,
-    includeRole: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(

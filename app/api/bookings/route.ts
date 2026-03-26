@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createBookingInTenant, createBookingPayloadSchema } from "@/lib/bookings/create-booking"
@@ -22,7 +23,7 @@ const ALLOWED_STATUSES: BookingStatus[] = [
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, { includeRole: true, includeTenant: true })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(

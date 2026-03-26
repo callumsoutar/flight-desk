@@ -5,9 +5,9 @@ import type { DocumentProps } from "@react-pdf/renderer"
 import * as React from "react"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
 import InvoiceReportPDF from "@/components/invoices/invoice-report-pdf"
-import { getAuthSession } from "@/lib/auth/session"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
 import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
@@ -29,13 +29,7 @@ const payloadSchema = z.strictObject({
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
   if (!tenantId) {

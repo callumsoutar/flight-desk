@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoiceCreateData } from "@/lib/invoices/fetch-invoice-create-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -9,13 +9,7 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) {
     return NextResponse.json(

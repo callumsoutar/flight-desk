@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchAircraft } from "@/lib/aircraft/fetch-aircraft"
 
 const querySchema = z.strictObject({
@@ -40,7 +40,7 @@ const createSchema = z.strictObject({
 
 export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId } = await getRequiredApiSession(supabase)
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId } = await getRequiredApiSession(supabase)
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

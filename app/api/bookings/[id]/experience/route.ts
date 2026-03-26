@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { invalidPayloadResponse } from "@/lib/security/http"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -38,9 +38,8 @@ async function fetchBookingContext(
 
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
     includeRole: true,
-    includeTenant: true,
   })
 
   if (!user) {
@@ -93,9 +92,8 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
 
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
     includeRole: true,
-    includeTenant: true,
   })
 
   if (!user) {

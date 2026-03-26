@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isAdminRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -10,13 +10,7 @@ const NO_STORE = { "cache-control": "no-store" } as const
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    includeRole: true,
-    includeTenant: true,
-    requireUser: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, { includeRole: true })
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
   if (!tenantId) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
 import { fetchMemberContactDetails } from "@/lib/members/fetch-member-contact-details"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -14,10 +14,8 @@ export async function GET(
   const { id: memberId } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
+  const { user, role, tenantId } = await getRequiredApiSession(supabase, {
     includeRole: true,
-    includeTenant: true,
-    requireUser: true,
   })
 
   if (!user || !tenantId) {
@@ -53,4 +51,3 @@ export async function GET(
     )
   }
 }
-
