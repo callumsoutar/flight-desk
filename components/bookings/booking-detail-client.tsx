@@ -54,12 +54,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { useAuth } from "@/contexts/auth-context"
-import {
-  bookingQueryKey,
-  cancelBookingMutation,
-  sendBookingConfirmationEmailMutation,
-  useBookingQuery,
-} from "@/hooks/use-booking-query"
+import { bookingQueryKey, useBookingQuery } from "@/hooks/use-booking-query"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import type { AuditLog, AuditLookupMaps, BookingOptions, BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
@@ -180,10 +175,15 @@ export function BookingDetailClient({
   const handleSendConfirmationEmail = React.useCallback(async () => {
     setSendingConfirmation(true)
     try {
-      await sendBookingConfirmationEmailMutation(bookingId)
+      const response = await fetch(`/api/bookings/${bookingId}/send-confirmation-email`, {
+        method: "POST",
+      })
+      const json = (await response.json().catch(() => ({}))) as { error?: string }
+      if (!response.ok) {
+        toast.error(json.error || "Failed to send confirmation email")
+        return
+      }
       toast.success("Confirmation email sent")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to send confirmation email")
     } finally {
       setSendingConfirmation(false)
     }
@@ -191,15 +191,20 @@ export function BookingDetailClient({
 
   const handleCancel = (payload: CancelBookingPayload) => {
     startTransition(async () => {
-      try {
-        await cancelBookingMutation({
-          bookingId,
-          cancellationCategoryId: payload.cancellationCategoryId,
-          cancellationReason: payload.cancellationReason,
-          cancelledNotes: payload.cancelledNotes,
-        })
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to cancel booking")
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellation_category_id: payload.cancellationCategoryId,
+          cancellation_reason: payload.cancellationReason,
+          cancelled_notes: payload.cancelledNotes,
+        }),
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string }
+        toast.error(json.error || "Failed to cancel booking")
         return
       }
 
