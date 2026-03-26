@@ -7,9 +7,12 @@ import {
   ArrowUpCircle,
   DollarSign,
   Loader2,
+  Mail,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -85,6 +88,7 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
   const [statement, setStatement] = React.useState<AccountStatementEntry[]>(EMPTY_STATEMENT)
   const [closingBalance, setClosingBalance] = React.useState(0)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isEmailing, setIsEmailing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -126,6 +130,35 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
 
   const outstandingBalance = Math.max(closingBalance, 0)
 
+  const handleEmailStatement = async () => {
+    if (!memberId || isEmailing) return
+
+    setIsEmailing(true)
+    try {
+      const response = await fetch("/api/email/send-statement", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          user_id: memberId,
+          from_date: startDate,
+          to_date: endDate,
+        }),
+      })
+
+      const result = (await response.json().catch(() => null)) as { error?: string } | null
+      if (!response.ok) {
+        toast.error(result?.error ?? "Failed to send statement email")
+        return
+      }
+
+      toast.success("Statement emailed to member")
+    } catch {
+      toast.error("Failed to send statement email")
+    } finally {
+      setIsEmailing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="border border-slate-200 shadow-sm">
@@ -159,6 +192,17 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
               Account Statement
             </CardTitle>
             <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleEmailStatement()}
+                disabled={!memberId || isLoading || isEmailing}
+                className="h-9 gap-1.5"
+              >
+                {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                Email statement
+              </Button>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-600">From</span>
                 <DatePicker

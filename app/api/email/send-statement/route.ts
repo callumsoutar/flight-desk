@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { render } from "@react-email/render"
 import { z } from "zod"
 
+import { buildAccountStatement } from "@/lib/account-statement/build-account-statement"
 import { getRequiredApiSession } from "@/lib/auth/api-session"
 import { isStaffRole } from "@/lib/auth/roles"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
@@ -34,12 +35,14 @@ const payloadSchema = z.strictObject({
   }
 })
 
-function toUtcStartOfDay(dateValue: string) {
-  return `${dateValue}T00:00:00.000Z`
-}
-
-function toUtcEndOfDay(dateValue: string) {
-  return `${dateValue}T23:59:59.999Z`
+function formatDateLabel(dateValue: string, timeZone = "Pacific/Auckland") {
+  const date = new Date(`${dateValue}T00:00:00.000Z`)
+  return new Intl.DateTimeFormat("en-NZ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone,
+  }).format(date)
 }
 
 export async function POST(request: Request) {
@@ -77,32 +80,7 @@ export async function POST(request: Request) {
 
   const { user_id: memberUserId, from_date: fromDate, to_date: toDate } = parsed.data
 
-  const invoicesQuery = supabase
-    .from("invoices")
-    .select("id, invoice_number, issue_date, reference, total_amount, status")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", memberUserId)
-    .is("deleted_at", null)
-    .order("issue_date", { ascending: false })
-
-  if (fromDate) invoicesQuery.gte("issue_date", fromDate)
-  if (toDate) invoicesQuery.lte("issue_date", toDate)
-
-  const creditsQuery = supabase
-    .from("transactions")
-    .select("id, amount")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", memberUserId)
-    .eq("status", "completed")
-    .eq("type", "credit")
-    .contains("metadata", { transaction_type: "member_credit_topup" })
-
-  if (fromDate) creditsQuery.gte("completed_at", toUtcStartOfDay(fromDate))
-  if (toDate) creditsQuery.lte("completed_at", toUtcEndOfDay(toDate))
-
-  const [{ data: invoices }, { data: credits }, { data: memberTenant }, { data: tenant }] = await Promise.all([
-    invoicesQuery,
-    creditsQuery,
+  const [{ data: memberTenant }, { data: tenant }, statementResult] = await Promise.all([
     supabase
       .from("tenant_users")
       .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")
@@ -114,6 +92,12 @@ export async function POST(request: Request) {
       .select("name, logo_url, contact_email, currency")
       .eq("id", tenantId)
       .maybeSingle(),
+    buildAccountStatement(supabase, {
+      tenantId,
+      targetUserId: memberUserId,
+      startDate: fromDate ?? null,
+      endDate: toDate ?? null,
+    }),
   ])
 
   const member =
@@ -124,89 +108,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Member profile not found" }, { status: 404, headers: NO_STORE })
   }
 
-  const invoiceIds = (invoices ?? []).map((invoice) => invoice.id)
-  const { data: payments } = invoiceIds.length
-    ? await supabase
-        .from("invoice_payments")
-        .select("invoice_id, amount")
-        .eq("tenant_id", tenantId)
-        .in("invoice_id", invoiceIds)
-    : { data: [] as Array<{ invoice_id: string; amount: number }> }
-
-  const paidByInvoice = new Map<string, number>()
-  for (const payment of payments ?? []) {
-    paidByInvoice.set(payment.invoice_id, (paidByInvoice.get(payment.invoice_id) ?? 0) + payment.amount)
-  }
-
-  const periodCreditsTotal = (credits ?? []).reduce((total, credit) => total + (credit.amount ?? 0), 0)
-
-  let openingBalance = 0
-  if (fromDate) {
-    const { data: previousInvoices } = await supabase
-      .from("invoices")
-      .select("id, total_amount")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", memberUserId)
-      .is("deleted_at", null)
-      .lt("issue_date", fromDate)
-
-    const previousInvoiceIds = (previousInvoices ?? []).map((invoice) => invoice.id)
-    const { data: previousPayments } = previousInvoiceIds.length
-      ? await supabase
-          .from("invoice_payments")
-          .select("invoice_id, amount")
-          .eq("tenant_id", tenantId)
-          .in("invoice_id", previousInvoiceIds)
-      : { data: [] as Array<{ invoice_id: string; amount: number }> }
-
-    const { data: previousCredits } = await supabase
-      .from("transactions")
-      .select("id, amount")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", memberUserId)
-      .eq("status", "completed")
-      .eq("type", "credit")
-      .contains("metadata", { transaction_type: "member_credit_topup" })
-      .lt("completed_at", toUtcStartOfDay(fromDate))
-
-    const previousPaidByInvoice = new Map<string, number>()
-    for (const payment of previousPayments ?? []) {
-      previousPaidByInvoice.set(
-        payment.invoice_id,
-        (previousPaidByInvoice.get(payment.invoice_id) ?? 0) + payment.amount
-      )
+  if (!statementResult.ok) {
+    if (statementResult.error === "not_found") {
+      return NextResponse.json({ error: "Member profile not found" }, { status: 404, headers: NO_STORE })
     }
 
-    const openingInvoiceBalance = (previousInvoices ?? []).reduce((total, invoice) => {
-      const paid = previousPaidByInvoice.get(invoice.id) ?? 0
-      return total + (invoice.total_amount ?? 0) - paid
-    }, 0)
-
-    const openingCreditsTotal = (previousCredits ?? []).reduce(
-      (total, credit) => total + (credit.amount ?? 0),
-      0
+    return NextResponse.json(
+      { error: "Failed to prepare account statement" },
+      { status: 500, headers: NO_STORE }
     )
-
-    openingBalance = openingInvoiceBalance - openingCreditsTotal
   }
-
-  const statementInvoices = (invoices ?? []).map((invoice) => {
-    const paid = paidByInvoice.get(invoice.id) ?? 0
-    const amount = invoice.total_amount ?? 0
-    const balance = amount - paid
-
-    return {
-      invoiceNumber: invoice.invoice_number ?? "Draft",
-      date: invoice.issue_date,
-      description: invoice.reference ?? "Invoice",
-      amount,
-      paid,
-      balance,
-      status: invoice.status,
-    }
-  })
-
-  const totalOutstanding = statementInvoices.reduce((sum, invoice) => sum + invoice.balance, 0) - periodCreditsTotal
 
   const triggerConfig = await getTriggerConfig(supabase, tenantId, EMAIL_TRIGGER_KEYS.STATEMENT_SEND)
   if (!triggerConfig.is_enabled) {
@@ -217,24 +128,45 @@ export async function POST(request: Request) {
   }
 
   try {
+    const timeZone = "Pacific/Auckland"
     const statementDate = new Intl.DateTimeFormat("en-NZ", {
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone,
     }).format(new Date())
-    const statementUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/invoices`
+
+    const statementPeriodLabel =
+      fromDate && toDate
+        ? `${formatDateLabel(fromDate, timeZone)} to ${formatDateLabel(toDate, timeZone)}`
+        : "All transactions"
+
+    const portalStatementUrl = (() => {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      if (!appUrl) return null
+      try {
+        const url = new URL("/invoices", appUrl)
+        if (fromDate && toDate) {
+          url.searchParams.set("start_date", fromDate)
+          url.searchParams.set("end_date", toDate)
+        }
+        return url.toString()
+      } catch {
+        return null
+      }
+    })()
+
     const html = await render(
       AccountStatementEmail({
         tenantName: tenant?.name ?? "Your Aero Club",
         logoUrl: tenant?.logo_url,
         memberFirstName: member.first_name ?? "there",
-        memberEmail: member.email,
         statementDate,
+        statementPeriodLabel,
         currency: tenant?.currency ?? "NZD",
-        openingBalance,
-        invoices: statementInvoices,
-        totalOutstanding,
-        statementUrl,
+        statement: statementResult.data.statement,
+        closingBalance: statementResult.data.closing_balance,
+        statementUrl: portalStatementUrl,
         contactEmail: tenant?.contact_email,
       })
     )
