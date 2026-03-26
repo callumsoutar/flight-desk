@@ -63,6 +63,7 @@ const data = {
       label: "Management",
       items: [
         { title: "Reports", url: "/reports", icon: IconReport },
+        { title: "Financial Reports", url: "/reports/financial", icon: IconReport },
       ],
     },
   ],
@@ -85,14 +86,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     (metadata["avatar_url"] as string | undefined) ?? "/avatars/shadcn.jpg"
 
   const canAccessTraining = role === "owner" || role === "admin" || role === "instructor"
+  const canAccessFinancialReports = role === "owner" || role === "admin"
   const navMainSections = React.useMemo(() => {
-    if (canAccessTraining) return data.navMainSections
-
     return data.navMainSections.map((section) => ({
       ...section,
-      items: section.items.filter((item) => item.url !== "/training"),
+      items: section.items.filter((item) => {
+        if (!canAccessTraining && item.url === "/training") return false
+        if (!canAccessFinancialReports && item.url === "/reports/financial") return false
+        return true
+      }),
     }))
-  }, [canAccessTraining])
+  }, [canAccessFinancialReports, canAccessTraining])
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

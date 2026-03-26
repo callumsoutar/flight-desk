@@ -25,6 +25,18 @@ export function NavMain({
   }[]
 }) {
   const pathname = usePathname()
+  const activeItemUrl = (() => {
+    const matches: string[] = []
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (pathname === item.url || pathname.startsWith(`${item.url}/`)) {
+          matches.push(item.url)
+        }
+      }
+    }
+    if (matches.length === 0) return null
+    return matches.sort((a, b) => b.length - a.length)[0] ?? null
+  })()
 
   return (
     <>
@@ -38,7 +50,7 @@ export function NavMain({
                   <SidebarMenuButton
                     asChild
                     tooltip={item.title}
-                    isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
+                    isActive={activeItemUrl === item.url}
                   >
                     <Link href={item.url}>
                       {item.icon ? <item.icon /> : null}

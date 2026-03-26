@@ -4,11 +4,14 @@ Scope: follow-up review and remediation pass across the Flight Desk application,
 
 ## Executive Summary
 
-- Completed the remaining endpoint validation pass for server routes and server actions that accept JSON payloads.
-- Added a centralized server logging utility with redaction for common secrets, provider payloads, HTML bodies, email addresses, and tokens.
-- Removed remaining internal error leakage from the highest-risk API routes reviewed in this pass.
-- Added CI security automation for linting, dependency auditing, and CodeQL scanning.
-- Re-verified the application with `npm run lint`, `npm run build`, and a live `npm audit` run on 2026-03-26.
+- This document now reflects the current repository state after a follow-up re-review on 2026-03-26.
+- The original hardening work from this pass remains in place: strict payload validation, centralized redacted logging, shared HTTP security helpers, and CI security automation.
+- The auth server actions in `app/actions/auth.ts` have now also been remediated to stop returning raw Supabase/setup error text to the UI.
+- Dependency remediation previously listed as outstanding is no longer outstanding: `next` is already on `16.2.1` and `localtunnel` is no longer present.
+- Remaining meaningful follow-up work is limited to:
+  - choosing a long-term rate-limit storage approach if multi-instance deployments are expected
+  - migrating `middleware.ts` to the newer `proxy` convention
+  - optionally tightening lint policy further
 
 ## Completed Work
 
@@ -66,7 +69,7 @@ Security effect:
 
 ### 3) Error Detail Leakage Review
 
-Status: materially improved.
+Status: completed for the routes and auth server actions reviewed in scope.
 
 Remediated routes:
 
@@ -88,6 +91,7 @@ Remediated routes:
 Note:
 
 - Some routes still intentionally return user-facing business-rule failures such as `Forbidden`, `Not found`, conflict messages, or domain validation messages. Those are acceptable where they reflect expected application behavior rather than internal stack/provider details.
+- `app/actions/auth.ts` now logs original sign-in/sign-up/setup failures server-side via `lib/security/logger.ts` and returns curated user-safe error messages to the UI.
 
 ### 4) Shared HTTP Security Helpers
 
@@ -126,10 +130,14 @@ Security effect:
 
 ### 6) Verification / Build Integrity
 
-Status: completed.
+Status: partially stale; historical note retained, current status recorded below.
 
 - Restored `lib/email/templates/checkin-approved.tsx` because the prior change set had deleted the template while `app/api/bookings/[id]/checkin/approve/route.ts` still imported it.
-- Verified that the current codebase builds successfully after the security changes.
+- At the time of the original pass, the security changes themselves built successfully.
+- Current repository status on re-review:
+  - `npm run lint` passes
+  - `npm run build` still emits the `middleware.ts` deprecation warning
+  - `npm run build` currently fails later on an unrelated TypeScript RPC typing issue in `lib/reports/fetch-financial-report-data.ts`
 
 ## Findings From This Pass
 
@@ -152,67 +160,88 @@ Status: completed.
 
 ### Medium
 
-4. Dependency audit still reports unresolved advisories as of 2026-03-26.
-
-Live `npm audit --audit-level=high` results on 2026-03-26 before follow-up dependency remediation:
-
-- `next@16.1.6`
-  - multiple moderate advisories
-  - fix path points to `next@16.2.1`
-- `localtunnel -> axios`
-  - high severity
-  - currently a development dependency
-- additional high-severity advisories in transitive packages including:
-  - `@hono/node-server`
-  - `hono`
-  - `flatted`
-  - `picomatch`
-  - `minimatch`
-  - `express-rate-limit`
-
-Important context:
-
-- Several findings are in development-only tooling or indirect dependencies.
-- They were not auto-fixed in this pass because the required upgrades include breaking or out-of-range changes and should be validated deliberately.
-
-## Remaining Suggested Fixes / Improvements
-
-These are the items still worth doing after this pass.
-
-### 1) Dependency Remediation
-
-Recommended next actions:
-
-- Upgrade `next` from `16.1.6` to the patched release line identified by audit.
-- Remove `localtunnel` if it is no longer required to eliminate the `axios` advisory chain.
-- Run `npm audit fix` in a branch, then manually validate.
-- Only use `npm audit fix --force` after reviewing the resulting version jumps.
-
-### 2) Replace In-Memory Rate Limiting
+4. In-memory rate limiting is still process-local.
 
 Current state:
 
-- High-risk email routes are rate-limited in-process only.
-
-Recommended improvement:
-
-- Move `lib/security/rate-limit.ts` to Redis/Upstash-backed storage for multi-instance correctness and consistent throttling under scale.
-
-### 3) Review Auth Server Actions For User-Facing Error Disclosure
-
-Current state:
-
-- `app/actions/auth.ts` still returns raw Supabase/auth setup error messages directly to the UI.
+- `lib/security/rate-limit.ts` still uses an in-process `Map`
+- the limiter is applied to:
+  - `app/api/email/send-invoice/route.ts`
+  - `app/api/email/send-statement/route.ts`
+  - `app/api/bookings/[id]/send-confirmation-email/route.ts`
 
 Risk:
 
-- Low to moderate information disclosure depending on exact provider responses.
+- acceptable for a single-instance deployment
+- not reliable across multiple instances, cold starts, or restarts
 
-Recommended improvement:
+5. `middleware.ts` still uses a deprecated Next.js convention.
 
-- Replace raw messages with curated user-safe responses and log the original error server-side through `lib/security/logger.ts`.
+Current state:
 
-### 4) Migrate Deprecated Next Middleware Convention
+- `npm run build` emits the `middleware` to `proxy` deprecation warning
+
+Risk:
+
+- low immediate risk
+- should be migrated before the convention is removed in a future Next.js release
+
+### Resolved Since Original Pass
+
+6. Dependency remediation previously listed as outstanding has already been applied.
+
+Current state:
+
+- `next` is now `16.2.1`
+- `localtunnel` is no longer present in `package.json` or `package-lock.json`
+
+Impact:
+
+- the previously documented `next@16.1.6` and `localtunnel -> axios` follow-up items should be treated as resolved in this repo state
+
+## Remaining Suggested Fixes / Improvements
+
+These are the items still worth doing in the current repository state.
+
+### 1) Choose the Long-Term Rate-Limit Approach
+
+Current state:
+
+- High-risk email routes are rate-limited in-process only through `lib/security/rate-limit.ts`.
+
+Recommendation:
+
+- Redis is not planned for this application, so pick one of these two explicit approaches and document the choice:
+
+Option A: keep the current in-memory limiter and explicitly scope it to single-instance deployments.
+
+- Lowest implementation cost.
+- Acceptable if the app runs as one long-lived instance.
+- Document clearly that throttling resets on restart/deploy and does not coordinate across instances.
+
+Option B: move the limiter to Supabase/Postgres-backed state.
+
+- Best fit if multi-instance correctness is needed without adding Redis.
+- Implement via a small table or RPC keyed by route + tenant + user with an expiry window.
+- Preserves consistent throttling across instances and deployments.
+
+Suggested follow-up:
+
+- If you expect only a single app instance, keep the current limiter and add a short note to deployment/security docs.
+- If you expect horizontal scaling or frequent cold starts, implement the database-backed limiter.
+
+### 2) Auth Error Disclosure
+
+Current state:
+
+- Resolved.
+- `app/actions/auth.ts` now returns curated user-safe responses and logs the original failures through `lib/security/logger.ts`.
+
+Reason to keep this note:
+
+- Future contributors should know this item has already been completed and should not be reopened unless raw auth/provider errors are reintroduced.
+
+### 3) Migrate Deprecated Next Middleware Convention
 
 Current state:
 
@@ -222,7 +251,7 @@ Recommended improvement:
 
 - Migrate to the newer `proxy` convention when convenient so security controls remain aligned with the supported Next.js path.
 
-### 5) Tighten Lint Policy Further If Desired
+### 4) Tighten Lint Policy Further If Desired
 
 Current state:
 
@@ -235,16 +264,21 @@ Recommended improvement:
 
 ## Validation Performed
 
-Executed on 2026-03-26:
+Re-checked on 2026-03-26 against the current repository state:
 
 - `npm run lint`
-  - passed with warnings only
-  - current warnings are unrelated unused-variable warnings in existing booking/email template files
-- `npm run build`
   - passed
-- `npm run security:audit`
-  - completed successfully after allowing registry access
-  - reported 10 vulnerabilities total: 8 high, 2 moderate
+- `npm run build`
+  - emits the `middleware.ts` deprecation warning
+  - currently fails on an unrelated TypeScript RPC typing error in `lib/reports/fetch-financial-report-data.ts`
+- package manifest review
+  - `next` is `16.2.1`
+  - `localtunnel` is not present in `package.json` or `package-lock.json`
+- code review confirmation
+  - `app/actions/auth.ts` now uses curated UI-safe auth messages with server-side logging
+  - `lib/security/rate-limit.ts` remains process-local
+  - `middleware.ts` remains on the deprecated convention
+  - `eslint.config.mjs` still scopes `no-console` to `app/**` and `lib/**`
 
 ## Files Added For This Pass
 
@@ -256,11 +290,12 @@ Executed on 2026-03-26:
 
 ## Conclusion
 
-This pass closes the remaining application-level work from the prior audit that was practical to complete safely inside the repo:
+This audit note is now updated to match the current codebase rather than the original point-in-time state.
 
-- strict request validation is now broadly enforced
-- redacted centralized logging is in place
-- major internal error leaks were removed
-- CI security automation was added
+- strict request validation remains broadly enforced
+- redacted centralized logging remains in place
+- auth server action error disclosure has now been remediated
+- CI security automation remains in place
+- the previously listed dependency remediation item is already resolved
 
-The main remaining risk is dependency hygiene rather than application-layer authorization or input-handling weakness. The next priority should be deliberate dependency upgrades, especially the Next.js patch release and any removable dev-only vulnerable tooling.
+The main remaining decisions are operational rather than application-layer security defects: whether the current single-instance rate limiter is sufficient for the intended deployment model, and when to migrate `middleware.ts` to `proxy`. This document should be treated as the source of truth for what remains open from this pass.

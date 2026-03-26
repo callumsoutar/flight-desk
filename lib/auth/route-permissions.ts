@@ -11,6 +11,7 @@ const ADMIN_ROLES: UserRole[] = ["owner", "admin"]
 
 // Most-specific prefixes first to avoid broad prefix collisions.
 const ROUTE_PERMISSIONS: RoutePermission[] = [
+  { prefix: "/reports/financial", allowedRoles: ADMIN_ROLES },
   { prefix: "/invoices", allowedRoles: STAFF_ROLES },
   { prefix: "/members", allowedRoles: STAFF_ROLES },
   { prefix: "/reports", allowedRoles: STAFF_ROLES },

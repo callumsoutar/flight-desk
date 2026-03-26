@@ -4144,6 +4144,36 @@ export type Database = {
           total_time_method: Database["public"]["Enums"]["total_time_method"] | null
         }[]
       }
+      get_financial_daily_summary_report: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          difference: number
+          payment_breakdown: Json
+          period_end: string
+          period_start: string
+          total_received: number
+          total_sales: number
+        }[]
+      }
+      get_financial_transaction_list_report: {
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          description: string
+          payment_method: string | null
+          reference: string
+          related_invoice_id: string | null
+          transaction_id: string
+          transaction_subtype: string
+          transaction_type: string
+        }[]
+      }
       get_auth_user_details: {
         Args: { user_uuid: string }
         Returns: {

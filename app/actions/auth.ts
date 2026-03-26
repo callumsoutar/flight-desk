@@ -2,8 +2,36 @@
 
 import { revalidatePath } from "next/cache"
 
+import { logError } from "@/lib/security/logger"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+
+function getSafeSignInErrorMessage(message: string) {
+  const normalizedMessage = message.toLowerCase()
+
+  if (
+    normalizedMessage.includes("invalid login credentials") ||
+    normalizedMessage.includes("email not confirmed")
+  ) {
+    return "Invalid email or password"
+  }
+
+  return "Unable to sign in right now. Please try again."
+}
+
+function getSafeSignUpErrorMessage(message: string) {
+  const normalizedMessage = message.toLowerCase()
+
+  if (normalizedMessage.includes("already registered")) {
+    return "An account with this email already exists"
+  }
+
+  if (normalizedMessage.includes("password")) {
+    return "Password does not meet the required security rules"
+  }
+
+  return "Unable to create your account right now. Please try again."
+}
 
 export async function signInWithEmail(email: string, password: string) {
   const supabase = await createSupabaseServerClient()
@@ -13,7 +41,10 @@ export async function signInWithEmail(email: string, password: string) {
     password,
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    logError("[auth] Sign-in failed", { email, error })
+    return { error: getSafeSignInErrorMessage(error.message) }
+  }
 
   revalidatePath("/", "layout")
   return { error: null as string | null }
@@ -42,7 +73,10 @@ export async function signUpWithEmail(
     },
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    logError("[auth] Sign-up failed", { email, organization, error })
+    return { error: getSafeSignUpErrorMessage(error.message) }
+  }
   if (!data.user) return { error: "Failed to create account" }
 
   const adminClient = createSupabaseAdminClient()
@@ -56,7 +90,13 @@ export async function signUpWithEmail(
   )
 
   if (rpcError) {
-    return { error: `Account created but organization setup failed: ${rpcError.message}` }
+    logError("[auth] Tenant setup failed after sign-up", {
+      email,
+      organization,
+      userId: data.user.id,
+      error: rpcError,
+    })
+    return { error: "Account created, but organization setup could not be completed. Please contact support." }
   }
 
   revalidatePath("/", "layout")
