@@ -66,7 +66,7 @@ export function BookingsTab({
     data: chargeables = [],
     isLoading: chargeablesLoading,
     error: chargeablesQueryError,
-  } = useChargeablesQuery({ includeInactive: true })
+  } = useChargeablesQuery({ includeInactive: true, pageSize: 100 })
   const { data: taxRate = 0.15 } = useDefaultTaxRateQuery()
 
   React.useEffect(() => {

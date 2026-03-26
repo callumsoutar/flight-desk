@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
@@ -126,14 +127,14 @@ export function TrainingStudentSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full md:w-[65vw] max-w-[900px] sm:max-w-[900px]"
+        className="min-w-0 w-full md:w-[72vw] max-w-[960px] sm:max-w-[960px]"
         overlayClassName="bg-black/60 backdrop-blur-[2px]"
       >
         {row ? (
-          <div className="flex h-full flex-col">
-            <SheetHeader className="gap-3 border-b">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-full min-w-0 flex-col">
+            <SheetHeader className="gap-3 border-b pr-14 sm:pr-16">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <Avatar className="h-10 w-10 rounded-full border border-slate-200/50 shadow-sm ring-2 ring-white">
                     <AvatarFallback className="bg-slate-100 text-slate-500 text-[11px] font-bold">
                       {initials}
@@ -157,7 +158,7 @@ export function TrainingStudentSheet({
                     </div>
                   </div>
                 </div>
-                <div className="sm:ml-auto shrink-0">
+                <div className="shrink-0">
                   <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
                     <Link href={`/members/${row.user_id}?tab=training&syllabus_id=${row.syllabus_id}`}>
                       Open full record
@@ -165,10 +166,14 @@ export function TrainingStudentSheet({
                   </Button>
                 </div>
               </div>
+              <SheetDescription className="sr-only">
+                Training details for {name} on {row.syllabus.name}. Use tabs for overview, flying, debriefs,
+                theory, and syllabus.
+              </SheetDescription>
             </SheetHeader>
 
-            <div className="flex-1 overflow-auto">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-0">
+            <div className="min-w-0 flex-1 overflow-auto">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 gap-0">
                 <div className="border-b px-4 py-3">
                   <TabsList
                     variant="line"
@@ -231,7 +236,12 @@ export function TrainingStudentSheet({
             </div>
           </div>
         ) : (
-          <div className="p-6 text-sm text-muted-foreground">No student selected.</div>
+          <>
+            <SheetDescription className="sr-only">
+              No student is selected. Close this panel and choose a student from the training table.
+            </SheetDescription>
+            <div className="p-6 text-sm text-muted-foreground">No student selected.</div>
+          </>
         )}
       </SheetContent>
     </Sheet>

@@ -8,6 +8,7 @@ type ChargeablesQueryParams = {
   includeInactive?: boolean
   type?: string
   excludeTypeCode?: string
+  pageSize?: number
 }
 
 type ChargeablesResponse = { chargeables: InvoiceCreateChargeable[] }
@@ -17,6 +18,7 @@ function buildChargeablesQuery(params: ChargeablesQueryParams) {
   if (params.includeInactive) query.set("include_inactive", "true")
   if (params.type) query.set("type", params.type)
   if (params.excludeTypeCode) query.set("exclude_type_code", params.excludeTypeCode)
+  if (params.pageSize) query.set("page_size", String(params.pageSize))
   return query.toString()
 }
 
@@ -26,6 +28,7 @@ export function chargeablesQueryKey(params: ChargeablesQueryParams) {
     params.includeInactive ? "inactive" : "active",
     params.type ?? "",
     params.excludeTypeCode ?? "",
+    params.pageSize ?? 25,
   ] as const
 }
 
