@@ -139,7 +139,7 @@ export function CancelBookingModal({
               <div>
                 <DialogTitle className="text-lg font-bold text-foreground">Cancel Booking</DialogTitle>
                 <DialogDescription className="mt-0.5 text-sm text-muted-foreground">
-                  Please select a cancellation reason before cancelling this booking.
+                  Please select a cancellation reason before cancelling this booking. You will be charged a fee if it is not wothin your orgs specified cancellation window.""
                 </DialogDescription>
               </div>
             </div>

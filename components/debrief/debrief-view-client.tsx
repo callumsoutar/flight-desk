@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useTimezone } from "@/contexts/timezone-context"
+import { sendDebriefEmailMutation } from "@/hooks/use-debrief-email-mutation"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type {
   FlightExperienceEntryWithType,
@@ -118,6 +119,7 @@ export function DebriefViewClient({
 }: DebriefViewClientProps) {
   const router = useRouter()
   const { timeZone } = useTimezone()
+  const [isEmailingDebrief, setIsEmailingDebrief] = React.useState(false)
   const studentName = booking.student ? formatName(booking.student) : "Student"
 
   const instructorName = lessonProgress?.instructor
@@ -157,18 +159,23 @@ export function DebriefViewClient({
     }
   }, [])
 
-  const handleEmail = React.useCallback(() => {
-    const studentEmail = booking.student?.email
-    if (!studentEmail) {
+  const handleEmailDebrief = React.useCallback(async () => {
+    if (!booking.student?.email?.trim()) {
       toast.error("Student email not found")
       return
     }
 
-    const subject = `Flight Debrief - ${lessonName}`
-    const body = `Hi ${booking.student?.first_name || "there"},\n\nHere is your flight debrief report:\n${window.location.href}\n\nRegards,\n${instructorName}`
-
-    window.location.href = `mailto:${studentEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-  }, [booking.student?.email, booking.student?.first_name, instructorName, lessonName])
+    setIsEmailingDebrief(true)
+    try {
+      await sendDebriefEmailMutation(bookingId)
+      toast.success("Debrief emailed to the member")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send debrief email"
+      toast.error(message)
+    } finally {
+      setIsEmailingDebrief(false)
+    }
+  }, [booking.student?.email, bookingId])
 
   const invoiceId = booking.checkin_invoice_id ?? null
 
@@ -183,9 +190,15 @@ export function DebriefViewClient({
         </Button>
       ) : null}
       {lessonProgress ? (
-        <Button variant="outline" size="sm" className="h-9 w-full gap-2 sm:w-auto" onClick={handleEmail}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 w-full gap-2 sm:w-auto"
+          disabled={isEmailingDebrief}
+          onClick={() => void handleEmailDebrief()}
+        >
           <Mail className="h-3.5 w-3.5" />
-          Email
+          {isEmailingDebrief ? "Sending…" : "Email debrief"}
         </Button>
       ) : (
         <Button variant="outline" size="sm" className="h-9 w-full gap-2 sm:w-auto" asChild>

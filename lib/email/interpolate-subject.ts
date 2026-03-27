@@ -6,6 +6,8 @@ type SubjectVars = {
   invoiceNumber?: string
   flightDate?: string
   aircraftRegistration?: string
+  lessonName?: string
+  instructorName?: string
 }
 
 export function interpolateSubject(template: string, vars: SubjectVars): string {
