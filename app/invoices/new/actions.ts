@@ -3,10 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import {
-  calculateInvoiceTotals,
-  calculateItemAmounts,
-} from "@/lib/invoices/invoice-calculations"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInvoicingSettings } from "@/lib/settings/fetch-invoicing-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
@@ -40,6 +36,13 @@ function isRpcSuccess(v: unknown): v is { success: true } {
   if (typeof v !== "object" || v === null) return false
   if (!("success" in v)) return false
   return (v as Record<string, unknown>).success === true
+}
+
+function getRpcErrorMessage(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null
+  if (!("error" in value)) return null
+  const errorValue = (value as Record<string, unknown>).error
+  return typeof errorValue === "string" && errorValue.trim().length > 0 ? errorValue : null
 }
 
 async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
@@ -149,12 +152,6 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
 
     const unitPrice = item.unitPrice
     const taxRate = chargeable.is_taxable ? defaultTaxRate : 0
-    const amounts = calculateItemAmounts({
-      quantity: item.quantity,
-      unitPrice,
-      taxRate,
-    })
-
     return {
       chargeable_id: chargeable.id,
       description: chargeable.name,
@@ -172,100 +169,92 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
       quantity: item.quantity,
       unit_price: unitPrice,
       tax_rate: taxRate,
-      amount: amounts.amount,
-      tax_amount: amounts.taxAmount,
-      rate_inclusive: amounts.rateInclusive,
-      line_total: amounts.lineTotal,
       notes: null as string | null,
-      deleted_at: null as string | null,
     }
   })
 
-  const totals = calculateInvoiceTotals(normalizedItems)
   const issueDate = payload.issueDate ?? new Date().toISOString()
-  const { data: invoiceNumber, error: invoiceNumberError } = await supabase.rpc(
-    "generate_invoice_number_app"
-  )
+  const rpcItems = normalizedItems.map((item) => ({
+    chargeable_id: item.chargeable_id,
+    description: item.description,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    tax_rate: item.tax_rate,
+    notes: item.notes,
+  }))
+  const createStatus = shouldApprove ? "authorised" : "draft"
 
-  if (invoiceNumberError || !invoiceNumber) {
-    return { ok: false as const, error: "Failed to generate invoice number" }
-  }
+  const { data: createResult, error: createError } = await supabase.rpc("create_invoice_atomic", {
+    p_user_id: payload.userId,
+    p_booking_id: undefined,
+    p_status: createStatus,
+    p_invoice_number: undefined,
+    p_tax_rate: defaultTaxRate,
+    p_issue_date: issueDate,
+    p_due_date: payload.dueDate ?? undefined,
+    p_reference: payload.reference ?? undefined,
+    p_notes: payload.notes ?? undefined,
+    p_items: rpcItems,
+  })
 
-  const { data: insertedInvoice, error: insertInvoiceError } = await supabase
-    .from("invoices")
-    .insert({
-      tenant_id: tenantId,
-      invoice_number: invoiceNumber,
-      user_id: payload.userId,
-      status: "draft",
-      issue_date: issueDate,
-      due_date: payload.dueDate ?? null,
-      reference: payload.reference ?? null,
-      notes: payload.notes ?? null,
-      tax_rate: defaultTaxRate,
-      subtotal: totals.subtotal,
-      tax_total: totals.taxTotal,
-      total_amount: totals.totalAmount,
-      total_paid: 0,
-      balance_due: totals.totalAmount,
-    })
-    .select("id")
-    .single()
-
-  if (insertInvoiceError || !insertedInvoice?.id) {
+  if (createError) {
     return { ok: false as const, error: "Failed to create invoice" }
   }
+  if (!isRpcSuccess(createResult)) {
+    return {
+      ok: false as const,
+      error: getRpcErrorMessage(createResult) ?? "Failed to create invoice",
+    }
+  }
 
-  const invoiceId = insertedInvoice.id
+  const result = createResult as Record<string, unknown>
+  const invoiceId = typeof result.invoice_id === "string" ? result.invoice_id : null
+  if (!invoiceId) {
+    return { ok: false as const, error: "Failed to resolve created invoice id" }
+  }
 
-  const { error: insertItemsError } = await supabase.from("invoice_items").insert(
-    normalizedItems.map((item) => ({
-      ...item,
-      tenant_id: tenantId,
-      invoice_id: invoiceId,
-    }))
+  const { data: createdInvoiceItems } = await supabase
+    .from("invoice_items")
+    .select("id, chargeable_id, tax_rate")
+    .eq("tenant_id", tenantId)
+    .eq("invoice_id", invoiceId)
+    .is("deleted_at", null)
+
+  const itemUpdates = (createdInvoiceItems ?? []).map((item) => {
+    let glCode: string | null = null
+    let xeroTaxType: string | null = (item.tax_rate ?? 0) > 0 ? defaultXeroTaxType : null
+    if (item.chargeable_id) {
+      const chargeable = chargeableMap.get(item.chargeable_id)
+      xeroTaxType = (item.tax_rate ?? 0) > 0 ? chargeable?.xero_tax_type ?? defaultXeroTaxType : null
+      if (chargeable?.chargeable_type_id) {
+        const chargeableType = chargeableTypeById.get(chargeable.chargeable_type_id)
+        if (chargeableType?.code === "landing_fees") {
+          glCode = invoicingSettings?.landing_fee_gl_code || null
+        } else if (chargeableType?.code === "airways_fees") {
+          glCode = invoicingSettings?.airways_fee_gl_code || null
+        } else {
+          glCode = chargeable.gl_code ?? chargeableType?.gl_code ?? null
+        }
+      }
+    }
+
+    return { id: item.id, gl_code: glCode, xero_tax_type: xeroTaxType }
+  })
+
+  await Promise.all(
+    itemUpdates
+      .filter((item) => item.gl_code || item.xero_tax_type)
+      .map((item) =>
+        supabase
+          .from("invoice_items")
+          .update({
+            gl_code: item.gl_code ?? null,
+            xero_tax_type: item.xero_tax_type ?? null,
+          })
+          .eq("id", item.id)
+          .eq("tenant_id", tenantId)
+      )
   )
-
-  if (insertItemsError) {
-    await supabase.rpc("soft_delete_invoice", {
-      p_invoice_id: invoiceId,
-      p_user_id: user.id,
-      p_reason: "Rollback due to invoice item insert failure",
-    })
-
-    return { ok: false as const, error: "Failed to create invoice items" }
-  }
-
-  if (shouldApprove) {
-    const { data: totalsResult, error: totalsUpdateError } = await supabase.rpc(
-      "update_invoice_totals_atomic",
-      {
-        p_invoice_id: invoiceId,
-      }
-    )
-
-    if (totalsUpdateError || !isRpcSuccess(totalsResult)) {
-      return {
-        ok: false as const,
-        error: "Invoice created, but totals update failed before approval",
-      }
-    }
-
-    const { data: statusResult, error: statusUpdateError } = await supabase.rpc(
-      "update_invoice_status_atomic",
-      {
-        p_invoice_id: invoiceId,
-        p_new_status: "authorised",
-      }
-    )
-
-    if (statusUpdateError || !isRpcSuccess(statusResult)) {
-      return {
-        ok: false as const,
-        error: "Invoice created as draft, but approval failed",
-      }
-    }
-  }
 
   revalidatePath("/invoices")
   revalidatePath(`/invoices/${invoiceId}`)

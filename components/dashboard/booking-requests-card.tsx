@@ -106,40 +106,38 @@ export function BookingRequestsCard({
   }
 
   return (
-    <Card className="border border-border/50 shadow-sm">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              Booking requests
-              {count > 0 && (
-                <Badge variant="secondary" className="ml-0.5 h-5 rounded-full px-1.5 text-[10px] font-semibold">
-                  {count}
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="text-xs">Requests awaiting confirmation</CardDescription>
-          </div>
-          <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-            <Link href="/bookings?tab=unconfirmed">
-              View all <IconChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+    <Card className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <div className="space-y-1">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            Booking requests
+            {count > 0 && (
+              <Badge variant="secondary" className="ml-0.5 h-5 rounded-full px-1.5 text-[10px] font-semibold">
+                {count}
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription className="text-xs">Requests awaiting confirmation</CardDescription>
         </div>
+        <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
+          <Link href="/bookings?tab=unconfirmed">
+            View all <IconChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
       </CardHeader>
 
       <CardContent>
         {count === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 py-8 text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
               <IconClipboardList className="h-5 w-5 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">No pending requests</p>
-            <p className="mt-1 text-xs text-muted-foreground">You&apos;re all caught up.</p>
+            <p className="mt-4 text-sm font-medium">No pending requests</p>
+            <p className="mt-1 text-sm text-muted-foreground">You&apos;re all caught up.</p>
           </div>
         ) : (
           <TooltipProvider delayDuration={300}>
-            <div className="divide-y divide-border/50">
+            <div className="space-y-3">
               {rows.map((booking) => {
                 const studentName = formatUser(booking.student)
                 const aircraft = booking.aircraft?.registration ?? "No aircraft"
@@ -151,65 +149,65 @@ export function BookingRequestsCard({
                 return (
                   <div
                     key={booking.id}
-                    className="py-2.5 first:pt-0 last:pb-0"
+                    className="rounded-lg border p-4 shadow-sm transition-all"
                   >
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="cursor-default">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-medium text-foreground">{studentName}</p>
-                            <div className="flex shrink-0 items-center gap-1.5">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn(
-                                  "h-7 px-3 text-[11px]",
-                                  isApproving ? "pointer-events-none opacity-60" : ""
-                                )}
-                                asChild
-                              >
-                                <Link href={`/bookings/${booking.id}`}>Review</Link>
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="h-7 gap-1.5 bg-emerald-600 px-3 text-[11px] text-white hover:bg-emerald-700"
-                                disabled={!!isApproving}
-                                onClick={() => approve(booking.id)}
-                              >
-                                {isApproving ? (
-                                  <>
-                                    <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
-                                    Confirming
-                                  </>
-                                ) : (
-                                  <>
-                                    <IconCheck className="h-3 w-3" />
-                                    Confirm
-                                  </>
-                                )}
-                              </Button>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-foreground">{studentName}</span>
+                              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span>{aircraft}</span>
+                                <span className="text-muted-foreground/40">·</span>
+                                <span>{bookingType}</span>
+                                <span className="text-muted-foreground/40">·</span>
+                                <span className="tabular-nums">
+                                  {formatShortDate(booking.start_time, timeZone)}, {formatTime(booking.start_time, timeZone)}–{formatTime(booking.end_time, timeZone)}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <span>{aircraft}</span>
-                            <span className="text-muted-foreground/40">·</span>
-                            <span>{bookingType}</span>
-                            <span className="text-muted-foreground/40">·</span>
-                            <span className="tabular-nums">
-                              {formatShortDate(booking.start_time, timeZone)}, {formatTime(booking.start_time, timeZone)}–{formatTime(booking.end_time, timeZone)}
-                            </span>
-                          </div>
+                          
                           {booking.purpose && (
-                            <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
-                              <span className="font-medium text-muted-foreground/70">Purpose:</span> {booking.purpose}
+                            <p className="mt-3 line-clamp-2 text-sm text-muted-foreground bg-muted/30 rounded-md p-2 border border-border/50">
+                              <span className="font-medium text-foreground/70 text-xs uppercase tracking-wider mr-1">Purpose:</span> 
+                              {booking.purpose}
                             </p>
                           )}
-                          {isApproving ? (
-                            <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                              <IconLoader2 className="h-3 w-3 animate-spin" />
-                              Applying confirmation...
-                            </p>
-                          ) : null}
+                          
+                          <div className="mt-4 flex items-center justify-end gap-2">
+                            {isApproving ? (
+                              <p className="mr-auto flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
+                                Confirming...
+                              </p>
+                            ) : null}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "h-8 px-3 text-xs",
+                                isApproving ? "pointer-events-none opacity-60" : ""
+                              )}
+                              asChild
+                            >
+                              <Link href={`/bookings/${booking.id}`}>Review details</Link>
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-8 gap-1.5 bg-emerald-600 px-4 text-xs text-white hover:bg-emerald-700"
+                              disabled={!!isApproving}
+                              onClick={() => approve(booking.id)}
+                            >
+                              {isApproving ? (
+                                <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <IconCheck className="h-3.5 w-3.5" />
+                              )}
+                              Confirm
+                            </Button>
+                          </div>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent

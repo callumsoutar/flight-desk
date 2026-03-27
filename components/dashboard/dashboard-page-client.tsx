@@ -27,12 +27,14 @@ export function DashboardPageClient({ data }: { data: DashboardData }) {
   )
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          {data.tenantName} &mdash; {dateLabel}
-        </p>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {data.tenantName} &mdash; {dateLabel}
+          </p>
+        </div>
       </div>
 
       <DashboardStatCards metrics={data.metrics} />

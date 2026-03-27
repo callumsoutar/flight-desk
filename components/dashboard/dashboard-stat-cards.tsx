@@ -13,8 +13,7 @@ import {
 import { cn } from "@/lib/utils"
 import {
   Card,
-  CardDescription,
-  CardFooter,
+  CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -24,7 +23,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Badge } from "@/components/ui/badge"
 import type { DashboardMetrics } from "@/lib/types/dashboard"
 
 function formatHours(value: number) {
@@ -89,44 +87,36 @@ export function DashboardStatCards({ metrics }: { metrics: DashboardMetrics }) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon
           return (
-            <Card key={card.title} className="@container/card">
-              <CardHeader>
+            <Card key={card.title} className="shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-1.5">
-                  <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
                     {card.title}
-                  </CardDescription>
+                  </CardTitle>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button className="outline-hidden">
-                        <IconInfoCircle className="h-3 w-3 text-slate-300 hover:text-slate-400 transition-colors" />
+                        <IconInfoCircle className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-[220px] text-[11px] font-medium leading-tight bg-slate-900 text-white border-slate-800 shadow-xl rounded-lg px-3 py-2">
+                    <TooltipContent className="max-w-[220px] text-xs">
                       {card.description}
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <CardTitle className="text-3xl font-semibold tabular-nums @[250px]/card:text-4xl">
-                  {card.value}
-              </CardTitle>
-              <div className="ml-auto -mt-8">
-                <Badge
-                  variant="outline"
-                  className="h-8 w-8 justify-center p-0 text-slate-700"
-                  aria-label={card.title}
-                >
-                  <Icon className={cn("h-4 w-4", card.iconColor)} />
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardFooter className="flex-col items-start gap-1.5 text-sm">
-              <div className="line-clamp-1 flex gap-2 font-medium">{card.sub}</div>
-            </CardFooter>
-          </Card>
+                <Icon className={cn("h-4 w-4", card.iconColor)} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                  {card.sub}
+                </p>
+              </CardContent>
+            </Card>
           )
         })}
       </div>

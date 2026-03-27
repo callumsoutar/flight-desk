@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchMembers } from "@/lib/members/fetch-members"
+import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
   const existingUser = existingUserResult.data
 
   let userId = existingUser?.id ?? null
+  let createdUserIdForRollback: string | null = null
 
   if (!userId) {
     const generatedId = crypto.randomUUID()
@@ -97,6 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     userId = createdUser.id
+    createdUserIdForRollback = createdUser.id
   }
 
   const { data: existingTenantUser, error: existingTenantUserError } = await supabase
@@ -127,6 +130,11 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (createTenantUserError || !tenantMember) {
+    if (createdUserIdForRollback) {
+      const admin = createSupabaseAdminClient()
+      await admin.from("users").delete().eq("id", createdUserIdForRollback)
+    }
+
     return noStoreJson({ error: "Failed to add member to tenant" }, { status: 500 })
   }
 

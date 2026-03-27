@@ -64,40 +64,38 @@ export function FlyingNowCard({
   nowIso: string
 }) {
   return (
-    <Card className="border border-border/50 shadow-sm">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              Flying now
-              {bookings.length > 0 && (
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-              )}
-            </CardTitle>
-            <CardDescription className="text-xs">Aircraft currently in the air</CardDescription>
-          </div>
-          <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-            <Link href="/bookings?tab=flying">
-              Bookings <IconChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+    <Card className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <div className="space-y-1">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            Flying now
+            {bookings.length > 0 && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+            )}
+          </CardTitle>
+          <CardDescription className="text-xs">Aircraft currently in the air</CardDescription>
         </div>
+        <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
+          <Link href="/bookings?tab=flying">
+            Bookings <IconChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
       </CardHeader>
 
       <CardContent>
         {bookings.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 py-8 text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
               <IconNavigation className="h-5 w-5 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">No active flights</p>
-            <p className="mt-1 text-xs text-muted-foreground">Nothing is marked as flying right now.</p>
+            <p className="mt-4 text-sm font-medium">No active flights</p>
+            <p className="mt-1 text-sm text-muted-foreground">Nothing is marked as flying right now.</p>
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-2">
             {bookings.map((booking) => {
               const href = getBookingOpenPath(booking.id, booking.status)
               const studentName = formatUser(booking.student)
@@ -108,31 +106,36 @@ export function FlyingNowCard({
                 <Link
                   key={booking.id}
                   href={href}
-                  className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50"
+                  className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <IconPlane className="h-3.5 w-3.5 text-emerald-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{studentName}</p>
-                      <span className="text-xs text-muted-foreground">{aircraft}</span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
+                      <IconPlane className="h-5 w-5 text-emerald-600" />
                     </div>
-                    <p className="text-xs tabular-nums text-muted-foreground">
-                      {formatTime(booking.start_time, timeZone)} – {formatTime(booking.end_time, timeZone)}
-                    </p>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">{studentName}</span>
+                        <span className="text-xs text-muted-foreground">{aircraft}</span>
+                      </div>
+                      <span className="text-xs tabular-nums text-muted-foreground mt-0.5">
+                        {formatTime(booking.start_time, timeZone)} – {formatTime(booking.end_time, timeZone)}
+                      </span>
+                    </div>
                   </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                      status.overdue
-                        ? "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200"
-                        : "bg-muted/70 text-muted-foreground ring-1 ring-inset ring-border/50"
-                    )}
-                  >
-                    {status.label}
-                  </span>
-                  <IconChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+                  
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        status.overdue
+                          ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {status.label}
+                    </span>
+                    <IconChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
+                  </div>
                 </Link>
               )
             })}
