@@ -13,6 +13,12 @@ function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
 export type InvoiceDetailData = {
   invoice: InvoiceWithRelations | null
   items: InvoiceItemsRow[]
+  xeroStatus: {
+    export_status: Database["public"]["Enums"]["xero_export_status"]
+    xero_invoice_id: string | null
+    exported_at: string | null
+    error_message: string | null
+  } | null
 }
 
 export async function fetchInvoiceDetail(
@@ -20,7 +26,7 @@ export async function fetchInvoiceDetail(
   tenantId: string,
   invoiceId: string
 ): Promise<InvoiceDetailData> {
-  const [invoiceResult, itemResult] = await Promise.all([
+  const [invoiceResult, itemResult, xeroStatusResult] = await Promise.all([
     supabase
       .from("invoices")
       .select("*, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email)")
@@ -35,10 +41,17 @@ export async function fetchInvoiceDetail(
       .eq("invoice_id", invoiceId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("xero_invoices")
+      .select("export_status, xero_invoice_id, exported_at, error_message")
+      .eq("tenant_id", tenantId)
+      .eq("invoice_id", invoiceId)
+      .maybeSingle(),
   ])
 
   if (invoiceResult.error) throw invoiceResult.error
   if (itemResult.error) throw itemResult.error
+  if (xeroStatusResult.error) throw xeroStatusResult.error
 
   const invoice = invoiceResult.data
     ? ({
@@ -50,5 +63,6 @@ export async function fetchInvoiceDetail(
   return {
     invoice,
     items: invoice ? (itemResult.data ?? []) : [],
+    xeroStatus: xeroStatusResult.data ?? null,
   }
 }

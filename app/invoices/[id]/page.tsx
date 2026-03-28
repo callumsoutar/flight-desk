@@ -73,7 +73,7 @@ async function InvoiceDetailContent({
       loadErrors={loadErrors}
       canApproveDraft={canApproveDraft}
       xeroEnabled={xeroEnabled}
-      xeroStatus={null}
+      xeroStatus={detail.xeroStatus}
     />
   )
 }

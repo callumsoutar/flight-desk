@@ -134,6 +134,7 @@ export function useInvoiceDetailQuery(initialData: InvoiceDetailQueryData) {
     queryKey: invoiceDetailQueryKey(initialData.invoice.id),
     queryFn: () => fetchInvoiceDetailQuery(initialData.invoice.id),
     initialData,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
   })
 }
