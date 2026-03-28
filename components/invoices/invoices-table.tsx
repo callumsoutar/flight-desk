@@ -252,9 +252,7 @@ export function InvoicesTable({
         ),
         cell: ({ row }) => {
           const dueDate = row.original.due_date
-          const isOverdue =
-            row.original.status === "overdue" ||
-            (row.original.status === "authorised" && dueDate !== null && new Date(dueDate) < new Date())
+          const isOverdue = row.original.status === "overdue"
 
           return (
             <div>

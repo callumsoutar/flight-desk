@@ -17,6 +17,12 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
   const { supabase, user, role, tenantId } = session.context
 
   const { id } = await context.params
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+  const timeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
 
   const { data, error } = await supabase
     .from("invoices")
@@ -45,6 +51,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
       status: data.status,
       dueDate: data.due_date,
       balanceDue: data.balance_due,
+      timeZone,
     }),
   }
 

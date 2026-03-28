@@ -13,6 +13,7 @@ import {
   computeMembershipRenewalExpiry,
   parseMembershipDateKey,
 } from "@/lib/utils/membership-utils"
+import { getZonedYyyyMmDdAndHHmm, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 async function fetchTenantTimezone(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -235,14 +236,17 @@ export async function removeMemberEndorsementAction(input: RemoveMemberEndorseme
   return { ok: true as const }
 }
 
-function formatDateKey(dateValue: Date) {
-  return dateValue.toISOString().slice(0, 10)
+function formatDateKey(dateValue: Date, timeZone: string) {
+  return getZonedYyyyMmDdAndHHmm(dateValue, timeZone).yyyyMmDd
 }
 
-function daysUntilDateKey(dateKey: string, now = new Date()): number | null {
+function daysUntilDateKey(dateKey: string, timeZone: string): number | null {
   const targetDate = parseMembershipDateKey(dateKey)
   if (!targetDate) return null
-  const utcToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const todayDateKey = zonedTodayYyyyMmDd(timeZone)
+  const todayDate = parseMembershipDateKey(todayDateKey)
+  if (!todayDate) return null
+  const utcToday = Date.UTC(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate())
   const utcTarget = Date.UTC(
     targetDate.getFullYear(),
     targetDate.getMonth(),
@@ -251,8 +255,8 @@ function daysUntilDateKey(dateKey: string, now = new Date()): number | null {
   return Math.round((utcTarget - utcToday) / 86_400_000)
 }
 
-function canRenewMembershipByExpiryDate(expiryDateKey: string): boolean {
-  const daysUntilExpiry = daysUntilDateKey(expiryDateKey)
+function canRenewMembershipByExpiryDate(expiryDateKey: string, timeZone: string): boolean {
+  const daysUntilExpiry = daysUntilDateKey(expiryDateKey, timeZone)
   if (daysUntilExpiry === null) return false
   return daysUntilExpiry <= MEMBERSHIP_RENEWAL_WINDOW_DAYS
 }
@@ -268,6 +272,7 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
   if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
 
   const { memberId, currentMembershipId, membership_type_id, notes } = parsed.data
+  const timeZone = await fetchTenantTimezone(supabase, tenantId)
   const hasAccess = await verifyMemberInTenant(memberId, tenantId)
   if (!hasAccess) return { ok: false as const, error: "Member not found" }
 
@@ -282,7 +287,7 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
   if (currentError || !currentMembership) {
     return { ok: false as const, error: "Current membership not found" }
   }
-  if (!canRenewMembershipByExpiryDate(currentMembership.expiry_date)) {
+  if (!canRenewMembershipByExpiryDate(currentMembership.expiry_date, timeZone)) {
     return {
       ok: false as const,
       error: `Membership can only be renewed within ${MEMBERSHIP_RENEWAL_WINDOW_DAYS} days of expiry or after expiry.`,
@@ -313,7 +318,7 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
     .from("memberships")
     .update({
       is_active: false,
-      end_date: formatDateKey(startDate),
+      end_date: formatDateKey(startDate, timeZone),
       updated_by: user.id,
     })
     .eq("tenant_id", tenantId)
@@ -325,9 +330,9 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
     user_id: memberId,
     membership_type_id: nextType.id,
     is_active: true,
-    start_date: formatDateKey(startDate),
-    purchased_date: formatDateKey(startDate),
-    expiry_date: formatDateKey(expiryDate),
+    start_date: formatDateKey(startDate, timeZone),
+    purchased_date: formatDateKey(startDate, timeZone),
+    expiry_date: formatDateKey(expiryDate, timeZone),
     grace_period_days: currentMembership.grace_period_days ?? 14,
     notes: notes ?? null,
     updated_by: user.id,
@@ -337,7 +342,6 @@ export async function renewMemberMembershipAction(input: RenewMemberMembershipIn
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/members")
 
-  const timeZone = await fetchTenantTimezone(supabase, tenantId)
   const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone)
   return { ok: true as const, summary: updated.summary }
 }
@@ -353,6 +357,7 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
   if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
 
   const { memberId, membership_type_id, custom_expiry_date, notes } = parsed.data
+  const timeZone = await fetchTenantTimezone(supabase, tenantId)
   const hasAccess = await verifyMemberInTenant(memberId, tenantId)
   if (!hasAccess) return { ok: false as const, error: "Member not found" }
 
@@ -382,7 +387,7 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
     .from("memberships")
     .update({
       is_active: false,
-      end_date: formatDateKey(startDate),
+      end_date: formatDateKey(startDate, timeZone),
       updated_by: user.id,
     })
     .eq("tenant_id", tenantId)
@@ -395,9 +400,9 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
     user_id: memberId,
     membership_type_id: membershipType.id,
     is_active: true,
-    start_date: formatDateKey(startDate),
-    purchased_date: formatDateKey(startDate),
-    expiry_date: formatDateKey(finalExpiry),
+    start_date: formatDateKey(startDate, timeZone),
+    purchased_date: formatDateKey(startDate, timeZone),
+    expiry_date: formatDateKey(finalExpiry, timeZone),
     grace_period_days: 14,
     notes: notes ?? null,
     updated_by: user.id,
@@ -407,7 +412,6 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/members")
 
-  const timeZone = await fetchTenantTimezone(supabase, tenantId)
   const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone)
   return { ok: true as const, summary: updated.summary }
 }

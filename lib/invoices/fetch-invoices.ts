@@ -51,6 +51,13 @@ export async function fetchInvoices(
   filters?: InvoicesFilter,
   xeroEnabled = false
 ): Promise<InvoiceWithRelations[]> {
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+  const timeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
+
   const requestedStatuses = filters?.status ?? []
   const includesOverdue = requestedStatuses.includes("overdue")
   const dbStatuses = requestedStatuses.filter((status) => status !== "overdue")
@@ -91,6 +98,7 @@ export async function fetchInvoices(
       status: row.status,
       dueDate: row.due_date,
       balanceDue: row.balance_due,
+      timeZone,
     })
 
     return {

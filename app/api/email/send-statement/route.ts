@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       .maybeSingle(),
     supabase
       .from("tenants")
-      .select("name, logo_url, contact_email, currency")
+      .select("name, logo_url, contact_email, currency, timezone")
       .eq("id", tenantId)
       .maybeSingle(),
     buildAccountStatement(supabase, {
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const timeZone = "Pacific/Auckland"
+    const timeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
     const statementDate = new Intl.DateTimeFormat("en-NZ", {
       day: "numeric",
       month: "long",

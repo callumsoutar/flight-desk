@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { z } from "zod"
 
 import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 export const dynamic = "force-dynamic"
 
@@ -63,7 +64,13 @@ export async function POST(request: NextRequest) {
   const taxName = parsed.data.tax_name.trim()
   if (!taxName) return noStoreJson({ error: "Invalid payload" }, { status: 400 })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+  const timeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
+  const today = zonedTodayYyyyMmDd(timeZone)
   const effectiveFrom = parsed.data.effective_from ?? today
 
   const { data: created, error: insertError } = await supabase

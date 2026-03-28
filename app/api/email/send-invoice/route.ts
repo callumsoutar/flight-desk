@@ -51,13 +51,12 @@ export async function POST(request: Request) {
   }
 
   const invoiceId = parsed.data.invoice_id
-  const invoiceTimeZone = "Pacific/Auckland"
 
   const [{ data: invoice }, { data: items }, invoicingSettings] = await Promise.all([
     supabase
       .from("invoices")
       .select(
-        "id, tenant_id, user_id, invoice_number, issue_date, due_date, tax_rate, subtotal, tax_total, total_amount, total_paid, balance_due, notes, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email), tenant:tenants!invoices_tenant_id_fkey(name, logo_url, contact_email, currency)"
+        "id, tenant_id, user_id, invoice_number, issue_date, due_date, tax_rate, subtotal, tax_total, total_amount, total_paid, balance_due, notes, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email), tenant:tenants!invoices_tenant_id_fkey(name, logo_url, contact_email, currency, timezone)"
       )
       .eq("tenant_id", tenantId)
       .eq("id", invoiceId)
@@ -86,8 +85,9 @@ export async function POST(request: Request) {
 
   const member = (invoice.user as { first_name?: string | null; email?: string | null } | null) ?? null
   const tenant = (invoice.tenant as
-    | { name?: string | null; logo_url?: string | null; contact_email?: string | null; currency?: string | null }
+    | { name?: string | null; logo_url?: string | null; contact_email?: string | null; currency?: string | null; timezone?: string | null }
     | null) ?? null
+  const invoiceTimeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
   const memberEmail = member?.email ?? null
 
   if (!memberEmail) {

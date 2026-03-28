@@ -14,6 +14,27 @@ function isExportableInvoiceStatus(status: string) {
   return EXPORTABLE_INVOICE_STATUSES.includes(status as (typeof EXPORTABLE_INVOICE_STATUSES)[number])
 }
 
+function toXeroDateInTimeZone(value: string | null, timeZone: string) {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date)
+
+  const year = parts.find((part) => part.type === "year")?.value ?? ""
+  const month = parts.find((part) => part.type === "month")?.value ?? ""
+  const day = parts.find((part) => part.type === "day")?.value ?? ""
+
+  if (!year || !month || !day) return null
+  return `${year}-${month}-${day}`
+}
+
 function isLikelyStaleContactError(error: unknown) {
   if (!(error instanceof XeroApiError)) return false
   if (error.status !== 400 && error.status !== 404) return false
@@ -38,6 +59,20 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
 
   if (!isExportableInvoiceStatus(invoice.status)) {
     return { invoiceId, status: "failed" as const, error: "Invoice is not eligible for Xero export" }
+  }
+
+  const { data: tenant } = await admin
+    .from("tenants")
+    .select("timezone")
+    .eq("id", tenantId)
+    .maybeSingle()
+
+  const exportTimeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
+  const xeroIssueDate = toXeroDateInTimeZone(invoice.issue_date, exportTimeZone)
+  const xeroDueDate = toXeroDateInTimeZone(invoice.due_date, exportTimeZone)
+
+  if (!xeroIssueDate) {
+    return { invoiceId, status: "failed" as const, error: "Invoice issue date is invalid for Xero export" }
   }
 
   const { data: existingExport, error: existingExportError } = await admin
@@ -166,8 +201,8 @@ export async function exportInvoiceToXero(tenantId: string, invoiceId: string, i
       const payload = {
         Type: "ACCREC" as const,
         Contact: { ContactID: xeroContactId },
-        Date: invoice.issue_date.slice(0, 10),
-        DueDate: invoice.due_date ? invoice.due_date.slice(0, 10) : null,
+        Date: xeroIssueDate,
+        DueDate: xeroDueDate,
         Reference: invoice.reference ?? null,
         Status: "AUTHORISED" as const,
         LineAmountTypes: "Inclusive" as const,
