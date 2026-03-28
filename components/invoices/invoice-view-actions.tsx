@@ -21,6 +21,7 @@ import { useTimezone } from "@/contexts/timezone-context"
 import { Button } from "@/components/ui/button"
 import {
   exportInvoicesToXeroMutation,
+  type InvoiceDetailQueryData,
   invoiceDetailQueryKey,
   sendInvoiceEmailMutation,
 } from "@/hooks/use-invoice-detail-query"
@@ -149,10 +150,32 @@ export default function InvoiceViewActions({
   const handleExportToXero = async () => {
     setIsExporting(true)
     try {
-      await exportInvoicesToXeroMutation([invoiceId])
+      const results = await exportInvoicesToXeroMutation([invoiceId])
+      const exportResult = results.find((result) => result.invoiceId === invoiceId)
+
+      if (exportResult?.status === "failed") {
+        throw new Error(exportResult.error || "Failed to export to Xero")
+      }
+
+      if (exportResult?.status === "exported" || exportResult?.status === "skipped") {
+        queryClient.setQueryData<InvoiceDetailQueryData>(invoiceDetailQueryKey(invoiceId), (current) => {
+          if (!current) return current
+          return {
+            ...current,
+            xeroStatus: {
+              export_status: "exported",
+              xero_invoice_id:
+                exportResult.xeroInvoiceId ?? current.xeroStatus?.xero_invoice_id ?? null,
+              exported_at: new Date().toISOString(),
+              error_message: null,
+            },
+          }
+        })
+      }
+
       toast.success("Invoice exported to Xero")
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: invoiceDetailQueryKey(invoiceId) }),
+        queryClient.refetchQueries({ queryKey: invoiceDetailQueryKey(invoiceId), exact: true }),
         queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) }),
       ])
     } catch (error) {

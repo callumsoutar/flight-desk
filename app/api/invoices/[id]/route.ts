@@ -6,6 +6,11 @@ import { getEffectiveInvoiceStatus } from "@/lib/invoices/effective-status"
 
 export const dynamic = "force-dynamic"
 
+function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
 export async function GET(_: NextRequest, context: { params: Promise<{ id: string }> }) {
   const session = await getTenantScopedRouteContext({ includeRole: true })
   if (session.response) return session.response
@@ -15,7 +20,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
 
   const { data, error } = await supabase
     .from("invoices")
-    .select("*")
+    .select("*, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email)")
     .eq("tenant_id", tenantId)
     .eq("id", id)
     .is("deleted_at", null)
@@ -35,6 +40,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
 
   const invoice = {
     ...data,
+    user: pickMaybeOne(data.user),
     status: getEffectiveInvoiceStatus({
       status: data.status,
       dueDate: data.due_date,

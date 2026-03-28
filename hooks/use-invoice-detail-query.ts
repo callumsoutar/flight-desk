@@ -5,14 +5,14 @@ import { useQuery } from "@tanstack/react-query"
 import type { InvoiceItemsRow } from "@/lib/types"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
 
-type XeroStatusData = {
+export type XeroStatusData = {
   export_status: "pending" | "exported" | "failed" | "voided"
   xero_invoice_id: string | null
   exported_at: string | null
   error_message: string | null
 }
 
-type InvoiceDetailQueryData = {
+export type InvoiceDetailQueryData = {
   invoice: InvoiceWithRelations
   items: InvoiceItemsRow[]
   xeroStatus: XeroStatusData | null

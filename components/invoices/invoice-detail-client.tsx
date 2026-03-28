@@ -55,7 +55,7 @@ export function InvoiceDetailClient({
   const liveXeroStatus = data.xeroStatus
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
-    if (!liveInvoice.user || !liveInvoice.user.id || !liveInvoice.user.email) return null
+    if (!liveInvoice.user || !liveInvoice.user.id) return null
     return {
       id: liveInvoice.user.id,
       first_name: liveInvoice.user.first_name,
