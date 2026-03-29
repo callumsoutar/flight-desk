@@ -121,7 +121,7 @@ const cancellationsConfig = {
 // Summary card
 // ---------------------------------------------------------------------------
 
-function SummaryItem({
+function SummaryCard({
   title,
   value,
   description,
@@ -133,14 +133,21 @@ function SummaryItem({
   icon: React.ComponentType<{ className?: string }>
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-slate-500 mb-2">
-        <Icon className="h-4 w-4" />
-        <span className="text-sm font-medium">{title}</span>
-      </div>
-      <div className="text-3xl font-semibold tracking-tight text-slate-900">{value}</div>
-      <p className="text-xs font-medium text-slate-500">{description}</p>
-    </div>
+    <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
+      <CardContent className="relative flex flex-col p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-slate-600">{title}</h3>
+          <div className="rounded-md bg-slate-100/80 p-1.5 ring-1 ring-slate-200/50">
+            <Icon className="h-4 w-4 text-slate-600" />
+          </div>
+        </div>
+        <div>
+          <div className="text-3xl font-bold tracking-tight text-slate-900">{value}</div>
+          <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -232,9 +239,9 @@ function FlyingMetricItem({
   helpText?: string
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 p-4 sm:p-5 transition-colors hover:bg-slate-50/50">
       <div className="flex items-center gap-1.5 text-slate-500 mb-1">
-        <span className="text-xs font-medium uppercase tracking-wider">{title}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{title}</span>
         {helpText && (
           <div className="group relative flex cursor-help items-center justify-center">
             <IconInfoCircle className="h-3.5 w-3.5 text-slate-400" />
@@ -290,74 +297,55 @@ export function ReportsDashboard({
       {/* ---- OVERVIEW PANEL ---- */}
       {activeTab === "overview" && (
         <div className="flex flex-col gap-4">
-          {/* Unified Metrics Card */}
-          <Card className="overflow-hidden border-slate-200/60 bg-white shadow-sm">
-            <div className="p-6 sm:p-8">
-              <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-slate-200/60">
-                <SummaryItem
-                  title="Total Bookings"
-                  value={data.summary.totalBookings.toLocaleString()}
-                  description={`${data.summary.completedBookings} completed · ${data.summary.cancelledBookings} cancelled`}
-                  icon={IconCalendarEvent}
-                />
-                <div className="lg:pl-8">
-                  <SummaryItem
-                    title="Flight Hours"
-                    value={data.summary.totalFlightHours.toLocaleString()}
-                    description="Hours from completed bookings"
-                    icon={IconClock}
-                  />
-                </div>
-                <div className="lg:pl-8">
-                  <SummaryItem
-                    title="Active Aircraft"
-                    value={data.summary.activeAircraft}
-                    description="Currently on-line"
-                    icon={IconPlane}
-                  />
-                </div>
-                <div className="lg:pl-8">
-                  <SummaryItem
-                    title="Open Observations"
-                    value={data.summary.openObservations}
-                    description={`${data.summary.activeStudents} active students`}
-                    icon={IconAlertTriangle}
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div className="border-t border-slate-100 bg-slate-50/50 p-6 sm:px-8 sm:py-6">
-              <div className="mb-6 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">Flying Activity</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-y-8 gap-x-6 sm:grid-cols-3 lg:grid-cols-6 lg:divide-x lg:divide-slate-200/60">
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryCard
+              title="Total Bookings"
+              value={data.summary.totalBookings.toLocaleString()}
+              description={`${data.summary.completedBookings} completed · ${data.summary.cancelledBookings} cancelled`}
+              icon={IconCalendarEvent}
+            />
+            <SummaryCard
+              title="Flight Hours"
+              value={data.summary.totalFlightHours.toLocaleString()}
+              description="Hours from completed bookings"
+              icon={IconClock}
+            />
+            <SummaryCard
+              title="Active Aircraft"
+              value={data.summary.activeAircraft}
+              description="Currently on-line"
+              icon={IconPlane}
+            />
+            <SummaryCard
+              title="Open Observations"
+              value={data.summary.openObservations}
+              description={`${data.summary.activeStudents} active students`}
+              icon={IconAlertTriangle}
+            />
+          </div>
+
+          {/* Flying Activity Bar */}
+          <div className="flex flex-col gap-3">
+            <h3 className="px-1 text-sm font-semibold text-slate-900">Flying Activity</h3>
+            <Card className="overflow-hidden border-slate-200/60 bg-white shadow-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
                 <FlyingMetricItem title="Total Hours" value={formatHours(flyingActivity?.total_flying_hours)} />
-                <div className="lg:pl-6">
-                  <FlyingMetricItem title="Dual Hours" value={formatHours(flyingActivity?.dual_hours)} />
-                </div>
-                <div className="lg:pl-6">
-                  <FlyingMetricItem title="Solo Hours" value={formatHours(flyingActivity?.solo_hours)} />
-                </div>
-                <div className="lg:pl-6">
-                  <FlyingMetricItem title="Trial Hours" value={formatHours(flyingActivity?.trial_flight_hours)} />
-                </div>
-                <div className="lg:pl-6">
-                  <FlyingMetricItem
-                    title="Avg Flight Duration"
-                    value={formatHours(flyingActivity?.avg_flight_duration_hours)}
-                  />
-                </div>
-                <div className="lg:pl-6">
-                  <FlyingMetricItem 
-                    title="Conversion Rate" 
-                    value={formatPercent(flyingActivity?.conversion_rate)} 
-                    helpText="Percentage of trial flights that resulted in a student enrollment."
-                  />
-                </div>
+                <FlyingMetricItem title="Dual Hours" value={formatHours(flyingActivity?.dual_hours)} />
+                <FlyingMetricItem title="Solo Hours" value={formatHours(flyingActivity?.solo_hours)} />
+                <FlyingMetricItem title="Trial Hours" value={formatHours(flyingActivity?.trial_flight_hours)} />
+                <FlyingMetricItem
+                  title="Avg Flight Duration"
+                  value={formatHours(flyingActivity?.avg_flight_duration_hours)}
+                />
+                <FlyingMetricItem 
+                  title="Conversion Rate" 
+                  value={formatPercent(flyingActivity?.conversion_rate)} 
+                  helpText="Percentage of trial flights that resulted in a student enrollment."
+                />
               </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
           {/* Timelines */}
           <div className="grid gap-4 lg:grid-cols-2">
