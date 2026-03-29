@@ -18,6 +18,7 @@ import {
   IconClock,
   IconPlane,
   IconAlertTriangle,
+  IconInfoCircle,
 } from "@tabler/icons-react"
 
 import {
@@ -132,14 +133,17 @@ function SummaryCard({
   icon: React.ComponentType<{ className?: string }>
 }) {
   return (
-    <Card className="border border-border/50 bg-card py-0 shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+    <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
+      <CardHeader className="relative flex flex-row items-center justify-between space-y-0 px-5 pt-5 pb-2">
+        <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
+        <div className="rounded-md bg-slate-100 p-2">
+          <Icon className="h-4 w-4 text-slate-600" />
+        </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
-        <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground">{description}</p>
+      <CardContent className="relative px-5 pb-5">
+        <div className="text-3xl font-bold tracking-tight text-slate-900">{value}</div>
+        <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
       </CardContent>
     </Card>
   )
@@ -227,17 +231,31 @@ function formatMonthLabel(yearMonth: string): string {
 function FlyingMetricCard({
   title,
   value,
+  helpText,
 }: {
   title: string
   value: string
+  helpText?: string
 }) {
   return (
-    <Card className="border border-border/50 bg-card py-0 shadow-sm">
-      <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+    <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
+      <CardHeader className="relative px-5 pt-5 pb-2">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</CardTitle>
+          {helpText && (
+            <div className="group relative flex cursor-help items-center justify-center">
+              <IconInfoCircle className="h-3.5 w-3.5 text-slate-400" />
+              <div className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-48 -translate-x-1/2 rounded-md bg-slate-800 px-2 py-1.5 text-xs text-slate-100 opacity-0 shadow-lg group-hover:block group-hover:opacity-100">
+                {helpText}
+                <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-800" />
+              </div>
+            </div>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
-        <p className="text-2xl font-semibold text-slate-900">{value}</p>
+      <CardContent className="relative px-5 pb-5">
+        <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
       </CardContent>
     </Card>
   )
@@ -246,7 +264,7 @@ function FlyingMetricCard({
 function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActivityDashboard | null }) {
   if (!flyingActivity) {
     return (
-      <Card className="border border-border/50 bg-card py-0 shadow-sm">
+      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
         <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
           <CardTitle>Flying Activity</CardTitle>
           <CardDescription>Detailed flying metrics for the selected period.</CardDescription>
@@ -288,11 +306,15 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
           title="Avg Flight Duration"
           value={formatHours(flyingActivity.avg_flight_duration_hours)}
         />
-        <FlyingMetricCard title="Conversion Rate" value={formatPercent(flyingActivity.conversion_rate)} />
+        <FlyingMetricCard 
+          title="Conversion Rate" 
+          value={formatPercent(flyingActivity.conversion_rate)} 
+          helpText="Percentage of trial flights that resulted in a student enrollment."
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="border border-border/50 bg-card py-0 shadow-sm lg:col-span-2">
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-2">
           <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
             <CardTitle>Hours by Month</CardTitle>
             <CardDescription>Completed flight hours grouped by month.</CardDescription>
@@ -317,7 +339,7 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
           </CardContent>
         </Card>
 
-        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
           <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
             <CardTitle>Weekend vs Weekday</CardTitle>
             <CardDescription>Share of total flight hours</CardDescription>
@@ -379,7 +401,7 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
           <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
             <CardTitle>Hours by Flight Type</CardTitle>
             <CardDescription>Distribution of flight types</CardDescription>
@@ -432,7 +454,7 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
           </CardContent>
         </Card>
 
-        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
           <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
             <CardTitle>Hours by Stage</CardTitle>
             <CardDescription>Distribution across training stages</CardDescription>
@@ -486,7 +508,7 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
         </Card>
       </div>
 
-      <Card className="border border-border/50 bg-card py-0 shadow-sm">
+      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
         <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
           <CardTitle>Cancellations by Category</CardTitle>
           <CardDescription>Breakdown of cancelled flights</CardDescription>
@@ -613,6 +635,62 @@ export function ReportsDashboard({
           </div>
 
           <FlyingActivitySection flyingActivity={flyingActivity} />
+
+          {/* Instructor Utilisation */}
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
+            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+              <CardTitle>Instructor Utilisation</CardTitle>
+              <CardDescription>
+                Hours flown per instructor (completed bookings)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+              {data.instructorUtilisation.length === 0 ? (
+                <EmptyChart message="No completed instructor bookings in this period" />
+              ) : (
+                <ChartContainer
+                  config={instructorConfig}
+                  className="aspect-auto w-full"
+                  style={{
+                    height: `${Math.max(200, data.instructorUtilisation.length * 44)}px`,
+                  }}
+                >
+                  <BarChart
+                    data={data.instructorUtilisation}
+                    layout="vertical"
+                    margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid horizontal={false} />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      width={120}
+                    />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value, _name, item) => [
+                            `${value} hrs · ${item.payload.bookings} bookings`,
+                            "Utilisation",
+                          ]}
+                        />
+                      }
+                    />
+                    <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ChartContainer>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -620,7 +698,7 @@ export function ReportsDashboard({
       {activeTab === "bookings" && (
         <div className="flex flex-col gap-4">
           {/* Booking Volume */}
-          <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
             <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
               <CardTitle>Booking Volume</CardTitle>
               <CardDescription>
@@ -666,7 +744,7 @@ export function ReportsDashboard({
 
           <div className="grid gap-4 lg:grid-cols-7">
             {/* Cancellation Rate */}
-            <Card className="border border-border/50 bg-card py-0 shadow-sm lg:col-span-4">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4">
               <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
                 <CardTitle>Cancellation Rate</CardTitle>
                 <CardDescription>
@@ -726,7 +804,7 @@ export function ReportsDashboard({
             </Card>
 
             {/* Top Cancellation Reasons */}
-            <Card className="border border-border/50 bg-card py-0 shadow-sm lg:col-span-3">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3">
               <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
                 <CardTitle>Top Cancellation Reasons</CardTitle>
                 <CardDescription>
@@ -767,69 +845,13 @@ export function ReportsDashboard({
               </CardContent>
             </Card>
           </div>
-
-          {/* Instructor Utilisation */}
-          <Card className="border border-border/50 bg-card py-0 shadow-sm">
-            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-              <CardTitle>Instructor Utilisation</CardTitle>
-              <CardDescription>
-                Hours flown per instructor (completed bookings)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
-              {data.instructorUtilisation.length === 0 ? (
-                <EmptyChart message="No completed instructor bookings in this period" />
-              ) : (
-                <ChartContainer
-                  config={instructorConfig}
-                  className="aspect-auto w-full"
-                  style={{
-                    height: `${Math.max(200, data.instructorUtilisation.length * 44)}px`,
-                  }}
-                >
-                  <BarChart
-                    data={data.instructorUtilisation}
-                    layout="vertical"
-                    margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-                  >
-                    <CartesianGrid horizontal={false} />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      width={120}
-                    />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value, _name, item) => [
-                            `${value} hrs · ${item.payload.bookings} bookings`,
-                            "Utilisation",
-                          ]}
-                        />
-                      }
-                    />
-                    <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
         </div>
       )}
 
       {/* ---- AIRCRAFT PANEL ---- */}
       {activeTab === "aircraft" && (
         <div className="flex flex-col gap-4">
-          <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
             <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
               <CardTitle>Hours Flown per Aircraft</CardTitle>
               <CardDescription>
@@ -890,7 +912,7 @@ export function ReportsDashboard({
       {activeTab === "training" && (
         <div className="flex flex-col gap-4">
           {/* Training Activity */}
-          <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
             <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
               <CardTitle>Training Activity</CardTitle>
               <CardDescription>Monthly lesson sessions and outcomes</CardDescription>
@@ -931,7 +953,7 @@ export function ReportsDashboard({
           </Card>
 
           {/* Syllabus Progress */}
-          <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
             <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
               <CardTitle>Syllabus Progress</CardTitle>
               <CardDescription>
@@ -987,7 +1009,7 @@ export function ReportsDashboard({
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 lg:grid-cols-7">
             {/* Observation Trends */}
-            <Card className="border border-border/50 bg-card py-0 shadow-sm lg:col-span-4">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4">
               <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
                 <CardTitle>Observation Trends</CardTitle>
                 <CardDescription>
@@ -1040,7 +1062,7 @@ export function ReportsDashboard({
             </Card>
 
             {/* Observations by Stage */}
-            <Card className="border border-border/50 bg-card py-0 shadow-sm lg:col-span-3">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3">
               <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
                 <CardTitle>Observations by Stage</CardTitle>
                 <CardDescription>

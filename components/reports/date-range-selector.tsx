@@ -25,13 +25,6 @@ const PRESET_LABELS: Record<DateRangePreset, string> = {
   custom: "Custom range",
 }
 
-const QUICK_PRESETS: { value: DateRangePreset; label: string }[] = [
-  { value: "last30d", label: "30d" },
-  { value: "last3m", label: "3m" },
-  { value: "last6m", label: "6m" },
-  { value: "last12m", label: "12m" },
-]
-
 export function DateRangeSelector({ dateRange }: { dateRange: DateRange }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -77,50 +70,32 @@ export function DateRangeSelector({ dateRange }: { dateRange: DateRange }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <IconCalendar className="h-4 w-4" />
-        <span className="hidden sm:inline">Period:</span>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2">
+        <Select value={dateRange.preset} onValueChange={handlePresetChange}>
+          <SelectTrigger className="h-9 w-[180px] bg-white font-medium shadow-sm">
+            <div className="flex items-center gap-2">
+              <IconCalendar className="h-4 w-4 text-muted-foreground" />
+              <SelectValue />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(PRESET_LABELS) as DateRangePreset[]).map((preset) => (
+              <SelectItem key={preset} value={preset}>
+                {PRESET_LABELS[preset]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <Select value={dateRange.preset} onValueChange={handlePresetChange}>
-        <SelectTrigger className="h-9 w-auto min-w-[160px] border-slate-200 bg-white text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {(Object.keys(PRESET_LABELS) as DateRangePreset[]).map((preset) => (
-            <SelectItem key={preset} value={preset}>
-              {PRESET_LABELS[preset]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <div className="hidden items-center gap-1 md:flex">
-        {QUICK_PRESETS.map((preset) => (
-          <Button
-            key={preset.value}
-            type="button"
-            variant={dateRange.preset === preset.value ? "default" : "outline"}
-            size="sm"
-            className="h-8 px-2.5"
-            onClick={() => {
-              setShowCustom(false)
-              navigate(preset.value)
-            }}
-          >
-            {preset.label}
-          </Button>
-        ))}
-      </div>
-
-      {showCustom && (
-        <div className="flex flex-wrap items-center gap-2">
+      {showCustom ? (
+        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
           <Input
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="h-9 w-[140px] border-slate-200 bg-white text-sm"
+            className="h-9 w-[140px] bg-white text-sm shadow-sm"
             max={customTo || undefined}
           />
           <span className="text-sm text-muted-foreground">to</span>
@@ -128,22 +103,20 @@ export function DateRangeSelector({ dateRange }: { dateRange: DateRange }) {
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="h-9 w-[140px] border-slate-200 bg-white text-sm"
+            className="h-9 w-[140px] bg-white text-sm shadow-sm"
             min={customFrom || undefined}
           />
           <Button
             size="sm"
-            className="h-9"
+            className="h-9 px-4 shadow-sm"
             onClick={handleCustomApply}
             disabled={!customFrom || !customTo || customFrom > customTo}
           >
             Apply
           </Button>
         </div>
-      )}
-
-      {!showCustom && (
-        <span className="hidden text-xs text-muted-foreground sm:inline">
+      ) : (
+        <span className="text-sm font-medium text-slate-500">
           {formatDateRangeLabel(dateRange)}
         </span>
       )}
