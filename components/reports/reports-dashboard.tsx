@@ -169,7 +169,6 @@ function EmptyChart({ message }: { message: string }) {
 
 const TABS = [
   { id: "overview",   label: "Overview"   },
-  { id: "bookings",   label: "Bookings"   },
   { id: "aircraft",   label: "Aircraft"   },
   { id: "training",   label: "Training"   },
   { id: "operations", label: "Operations" },
@@ -691,12 +690,6 @@ export function ReportsDashboard({
               )}
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      {/* ---- BOOKINGS PANEL ---- */}
-      {activeTab === "bookings" && (
-        <div className="flex flex-col gap-4">
           {/* Booking Volume */}
           <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
             <CardHeader className="px-5 pt-5 pb-0">
