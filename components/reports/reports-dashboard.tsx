@@ -38,6 +38,7 @@ import {
 import { cn } from "@/lib/utils"
 import { DateRangeSelector } from "@/components/reports/date-range-selector"
 import type { ReportData, DateRange } from "@/lib/reports/fetch-report-data"
+import type { FlyingActivityDashboard } from "@/lib/types/reports"
 
 // ---------------------------------------------------------------------------
 // Soft, muted palette — stays within the navy/blue brand family but
@@ -94,6 +95,27 @@ const observationStageConfig = {
   closed:        { label: "Closed",        color: C5 },
 } satisfies ChartConfig
 
+const flyingHoursByMonthConfig = {
+  hours: { label: "Hours", color: C1 },
+} satisfies ChartConfig
+
+const weekendWeekdayConfig = {
+  weekend: { label: "Weekend", color: C1 },
+  weekday: { label: "Weekday", color: C3 },
+} satisfies ChartConfig
+
+const flightTypeConfig = {
+  hours: { label: "Hours", color: C2 },
+} satisfies ChartConfig
+
+const stageConfig = {
+  hours: { label: "Hours", color: C4 },
+} satisfies ChartConfig
+
+const cancellationsConfig = {
+  count: { label: "Cancellations", color: C2 },
+} satisfies ChartConfig
+
 // ---------------------------------------------------------------------------
 // Summary card
 // ---------------------------------------------------------------------------
@@ -140,6 +162,7 @@ function EmptyChart({ message }: { message: string }) {
 // ---------------------------------------------------------------------------
 
 const TABS = [
+  { id: "overview",   label: "Overview"   },
   { id: "bookings",   label: "Bookings"   },
   { id: "aircraft",   label: "Aircraft"   },
   { id: "training",   label: "Training"   },
@@ -182,17 +205,360 @@ function TabBar({
 }
 
 // ---------------------------------------------------------------------------
+// Flying activity section
+// ---------------------------------------------------------------------------
+
+function formatHours(value: number | null | undefined): string {
+  if (!Number.isFinite(value ?? NaN)) return "0.0h"
+  return `${(value ?? 0).toFixed(1)}h`
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (!Number.isFinite(value ?? NaN)) return "0.0%"
+  return `${(value ?? 0).toFixed(1)}%`
+}
+
+function formatMonthLabel(yearMonth: string): string {
+  const [year, month] = yearMonth.split("-")
+  const date = new Date(Number(year), Number(month) - 1, 1)
+  return date.toLocaleDateString("en-NZ", { month: "short", year: "2-digit" })
+}
+
+function FlyingMetricCard({
+  title,
+  value,
+}: {
+  title: string
+  value: string
+}) {
+  return (
+    <Card className="border border-border/50 bg-card py-0 shadow-sm">
+      <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+        <p className="text-2xl font-semibold text-slate-900">{value}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActivityDashboard | null }) {
+  if (!flyingActivity) {
+    return (
+      <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
+          <CardTitle>Flying Activity</CardTitle>
+          <CardDescription>Detailed flying metrics for the selected period.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+          <p className="text-sm text-muted-foreground">No flying activity data available for this period.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const totalWeekendWeekday = flyingActivity.weekend_hours + flyingActivity.weekday_hours
+  const weekendPct =
+    totalWeekendWeekday > 0 ? Math.round((flyingActivity.weekend_hours / totalWeekendWeekday) * 100) : 0
+
+  const weekendWeekdayData = [
+    { name: "Weekend", hours: flyingActivity.weekend_hours, fill: "var(--color-weekend)" },
+    { name: "Weekday", hours: flyingActivity.weekday_hours, fill: "var(--color-weekday)" },
+  ]
+
+  const totalCancellations = (flyingActivity.cancellations_by_category ?? []).reduce(
+    (sum, item) => sum + item.count,
+    0
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight text-slate-900">Flying Activity</h2>
+        <p className="text-sm text-slate-600">Operational flying metrics for the selected period.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <FlyingMetricCard title="Total Hours" value={formatHours(flyingActivity.total_flying_hours)} />
+        <FlyingMetricCard title="Dual Hours" value={formatHours(flyingActivity.dual_hours)} />
+        <FlyingMetricCard title="Solo Hours" value={formatHours(flyingActivity.solo_hours)} />
+        <FlyingMetricCard title="Trial Hours" value={formatHours(flyingActivity.trial_flight_hours)} />
+        <FlyingMetricCard
+          title="Avg Flight Duration"
+          value={formatHours(flyingActivity.avg_flight_duration_hours)}
+        />
+        <FlyingMetricCard title="Conversion Rate" value={formatPercent(flyingActivity.conversion_rate)} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="border border-border/50 bg-card py-0 shadow-sm lg:col-span-2">
+          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+            <CardTitle>Hours by Month</CardTitle>
+            <CardDescription>Completed flight hours grouped by month.</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            {flyingActivity.hours_by_month.length === 0 ? (
+              <EmptyChart message="No monthly flying hours in this period" />
+            ) : (
+              <ChartContainer
+                config={flyingHoursByMonthConfig}
+                className="aspect-auto h-[280px] w-full"
+              >
+                <BarChart data={flyingActivity.hours_by_month.map((item) => ({ ...item, label: formatMonthLabel(item.month) }))}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+            <CardTitle>Weekend vs Weekday</CardTitle>
+            <CardDescription>Share of total flight hours</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            {totalWeekendWeekday === 0 ? (
+              <EmptyChart message="No flight hours in this period" />
+            ) : (
+              <ChartContainer
+                config={weekendWeekdayConfig}
+                className="mx-auto aspect-square max-h-[280px]"
+              >
+                <PieChart>
+                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                  <Pie
+                    data={weekendWeekdayData}
+                    dataKey="hours"
+                    nameKey="name"
+                    innerRadius={60}
+                    strokeWidth={5}
+                  >
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          return (
+                            <text
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              <tspan
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                className="fill-foreground text-3xl font-bold"
+                              >
+                                {weekendPct}%
+                              </tspan>
+                              <tspan
+                                x={viewBox.cx}
+                                y={(viewBox.cy ?? 0) + 24}
+                                className="fill-muted-foreground"
+                              >
+                                Weekend
+                              </tspan>
+                            </text>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                  </Pie>
+                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                </PieChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+            <CardTitle>Hours by Flight Type</CardTitle>
+            <CardDescription>Distribution of flight types</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            {flyingActivity.hours_by_flight_type.length === 0 ? (
+              <EmptyChart message="No flight type data in this period." />
+            ) : (
+              <ChartContainer
+                config={flightTypeConfig}
+                className="aspect-auto w-full"
+                style={{
+                  height: `${Math.max(250, flyingActivity.hours_by_flight_type.length * 44)}px`,
+                }}
+              >
+                <BarChart
+                  data={flyingActivity.hours_by_flight_type}
+                  layout="vertical"
+                  margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
+                >
+                  <CartesianGrid horizontal={false} />
+                  <YAxis
+                    dataKey="flight_type"
+                    type="category"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    width={100}
+                  />
+                  <XAxis
+                    type="number"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, _name, item) => [
+                          `${value} hrs`,
+                          item.payload.flight_type,
+                        ]}
+                      />
+                    }
+                  />
+                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/50 bg-card py-0 shadow-sm">
+          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+            <CardTitle>Hours by Stage</CardTitle>
+            <CardDescription>Distribution across training stages</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            {flyingActivity.hours_by_stage.length === 0 ? (
+              <EmptyChart message="No stage data in this period." />
+            ) : (
+              <ChartContainer
+                config={stageConfig}
+                className="aspect-auto w-full"
+                style={{
+                  height: `${Math.max(250, flyingActivity.hours_by_stage.length * 44)}px`,
+                }}
+              >
+                <BarChart
+                  data={flyingActivity.hours_by_stage}
+                  layout="vertical"
+                  margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
+                >
+                  <CartesianGrid horizontal={false} />
+                  <YAxis
+                    dataKey="stage"
+                    type="category"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    width={120}
+                  />
+                  <XAxis
+                    type="number"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, _name, item) => [
+                          `${value} hrs`,
+                          item.payload.stage,
+                        ]}
+                      />
+                    }
+                  />
+                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border border-border/50 bg-card py-0 shadow-sm">
+        <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
+          <CardTitle>Cancellations by Category</CardTitle>
+          <CardDescription>Breakdown of cancelled flights</CardDescription>
+        </CardHeader>
+        <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+          {(flyingActivity.cancellations_by_category ?? []).length === 0 ? (
+            <EmptyChart message="No cancellations in this period." />
+          ) : (
+            <ChartContainer
+              config={cancellationsConfig}
+              className="aspect-auto w-full"
+              style={{
+                height: `${Math.max(250, (flyingActivity.cancellations_by_category ?? []).length * 44)}px`,
+              }}
+            >
+              <BarChart
+                data={flyingActivity.cancellations_by_category ?? []}
+                layout="vertical"
+                margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
+              >
+                <CartesianGrid horizontal={false} />
+                <YAxis
+                  dataKey="category"
+                  type="category"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  width={140}
+                />
+                <XAxis
+                  type="number"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value, _name, item) => {
+                        const pct = totalCancellations > 0 ? Math.round((Number(value) / totalCancellations) * 100) : 0
+                        return [
+                          `${value} (${pct}%)`,
+                          item.payload.category,
+                        ]
+                      }}
+                    />
+                  }
+                />
+                <Bar dataKey="count" fill="var(--color-count)" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main dashboard
 // ---------------------------------------------------------------------------
 
 export function ReportsDashboard({
   data,
   dateRange,
+  flyingActivity,
 }: {
   data: ReportData
   dateRange: DateRange
+  flyingActivity: FlyingActivityDashboard | null
 }) {
-  const [activeTab, setActiveTab] = React.useState<TabId>("bookings")
+  const [activeTab, setActiveTab] = React.useState<TabId>("overview")
 
   const totalObservations = data.observationsByStage.reduce(
     (sum, s) => sum + s.count,
@@ -212,36 +578,43 @@ export function ReportsDashboard({
         <DateRangeSelector dateRange={dateRange} />
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          title="Total Bookings"
-          value={data.summary.totalBookings.toLocaleString()}
-          description={`${data.summary.completedBookings} completed · ${data.summary.cancelledBookings} cancelled`}
-          icon={IconCalendarEvent}
-        />
-        <SummaryCard
-          title="Flight Hours"
-          value={data.summary.totalFlightHours.toLocaleString()}
-          description="Hours from completed bookings"
-          icon={IconClock}
-        />
-        <SummaryCard
-          title="Active Aircraft"
-          value={data.summary.activeAircraft}
-          description="Currently on-line"
-          icon={IconPlane}
-        />
-        <SummaryCard
-          title="Open Observations"
-          value={data.summary.openObservations}
-          description={`${data.summary.activeStudents} active students`}
-          icon={IconAlertTriangle}
-        />
-      </div>
-
       {/* Bookings-style tab bar */}
       <TabBar active={activeTab} onChange={setActiveTab} />
+
+      {/* ---- OVERVIEW PANEL ---- */}
+      {activeTab === "overview" && (
+        <div className="flex flex-col gap-6">
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryCard
+              title="Total Bookings"
+              value={data.summary.totalBookings.toLocaleString()}
+              description={`${data.summary.completedBookings} completed · ${data.summary.cancelledBookings} cancelled`}
+              icon={IconCalendarEvent}
+            />
+            <SummaryCard
+              title="Flight Hours"
+              value={data.summary.totalFlightHours.toLocaleString()}
+              description="Hours from completed bookings"
+              icon={IconClock}
+            />
+            <SummaryCard
+              title="Active Aircraft"
+              value={data.summary.activeAircraft}
+              description="Currently on-line"
+              icon={IconPlane}
+            />
+            <SummaryCard
+              title="Open Observations"
+              value={data.summary.openObservations}
+              description={`${data.summary.activeStudents} active students`}
+              icon={IconAlertTriangle}
+            />
+          </div>
+
+          <FlyingActivitySection flyingActivity={flyingActivity} />
+        </div>
+      )}
 
       {/* ---- BOOKINGS PANEL ---- */}
       {activeTab === "bookings" && (

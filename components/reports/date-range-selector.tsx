@@ -25,6 +25,13 @@ const PRESET_LABELS: Record<DateRangePreset, string> = {
   custom: "Custom range",
 }
 
+const QUICK_PRESETS: { value: DateRangePreset; label: string }[] = [
+  { value: "last30d", label: "30d" },
+  { value: "last3m", label: "3m" },
+  { value: "last6m", label: "6m" },
+  { value: "last12m", label: "12m" },
+]
+
 export function DateRangeSelector({ dateRange }: { dateRange: DateRange }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -88,6 +95,24 @@ export function DateRangeSelector({ dateRange }: { dateRange: DateRange }) {
           ))}
         </SelectContent>
       </Select>
+
+      <div className="hidden items-center gap-1 md:flex">
+        {QUICK_PRESETS.map((preset) => (
+          <Button
+            key={preset.value}
+            type="button"
+            variant={dateRange.preset === preset.value ? "default" : "outline"}
+            size="sm"
+            className="h-8 px-2.5"
+            onClick={() => {
+              setShowCustom(false)
+              navigate(preset.value)
+            }}
+          >
+            {preset.label}
+          </Button>
+        ))}
+      </div>
 
       {showCustom && (
         <div className="flex flex-wrap items-center gap-2">

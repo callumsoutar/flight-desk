@@ -6,6 +6,7 @@ import { ReportsPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteShell, AppRouteDetailContainer } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { getAuthSession } from "@/lib/auth/session"
+import { getFlyingActivityDashboard } from "@/lib/reports/fetch-flying-activity-dashboard"
 import { fetchReportData, resolveDateRange } from "@/lib/reports/fetch-report-data"
 import type { DateRangePreset } from "@/lib/reports/fetch-report-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -40,13 +41,21 @@ async function ReportsContent({
   const customTo = typeof searchParams.to === "string" ? searchParams.to : null
 
   const dateRange = resolveDateRange(preset, customFrom, customTo)
+  const rangeStart = new Date(`${dateRange.startDate}T00:00:00.000Z`)
+  const rangeEnd = new Date(`${dateRange.endDate}T23:59:59.999Z`)
 
   const supabase = await createSupabaseServerClient()
 
   let data: Awaited<ReturnType<typeof fetchReportData>> | null = null
+  let flyingActivity: Awaited<ReturnType<typeof getFlyingActivityDashboard>> | null = null
   let loadError: string | null = null
   try {
-    data = await fetchReportData(supabase, tenantId, dateRange)
+    const [reportData, flyingActivityData] = await Promise.all([
+      fetchReportData(supabase, tenantId, dateRange),
+      getFlyingActivityDashboard(supabase, tenantId, rangeStart, rangeEnd),
+    ])
+    data = reportData
+    flyingActivity = flyingActivityData
   } catch {
     loadError = "Failed to load report data. Please try again."
   }
@@ -59,7 +68,7 @@ async function ReportsContent({
     )
   }
 
-  return <ReportsPageClient data={data} dateRange={dateRange} />
+  return <ReportsPageClient data={data} dateRange={dateRange} flyingActivity={flyingActivity} />
 }
 
 export default async function ReportsPage({ searchParams }: PageProps) {
