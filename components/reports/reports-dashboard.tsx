@@ -135,15 +135,17 @@ function SummaryCard({
   return (
     <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
-      <CardHeader className="relative flex flex-row items-center justify-between space-y-0 px-5 pt-5 pb-2">
-        <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
-        <div className="rounded-md bg-slate-100 p-2">
-          <Icon className="h-4 w-4 text-slate-600" />
+      <CardContent className="relative flex flex-col p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-slate-600">{title}</h3>
+          <div className="rounded-md bg-slate-100/80 p-1.5 ring-1 ring-slate-200/50">
+            <Icon className="h-4 w-4 text-slate-600" />
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="relative px-5 pb-5">
-        <div className="text-3xl font-bold tracking-tight text-slate-900">{value}</div>
-        <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
+        <div>
+          <div className="text-3xl font-bold tracking-tight text-slate-900">{value}</div>
+          <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
+        </div>
       </CardContent>
     </Card>
   )
@@ -240,9 +242,9 @@ function FlyingMetricCard({
   return (
     <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
-      <CardHeader className="relative px-5 pt-5 pb-2">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</CardTitle>
+      <CardContent className="relative flex flex-col justify-center p-4 sm:p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</h3>
           {helpText && (
             <div className="group relative flex cursor-help items-center justify-center">
               <IconInfoCircle className="h-3.5 w-3.5 text-slate-400" />
@@ -253,8 +255,6 @@ function FlyingMetricCard({
             </div>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="relative px-5 pb-5">
         <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
       </CardContent>
     </Card>
@@ -264,12 +264,12 @@ function FlyingMetricCard({
 function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActivityDashboard | null }) {
   if (!flyingActivity) {
     return (
-      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-        <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
-          <CardTitle>Flying Activity</CardTitle>
-          <CardDescription>Detailed flying metrics for the selected period.</CardDescription>
+      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+        <CardHeader className="px-5 pt-5 pb-2">
+          <CardTitle className="text-base font-semibold text-slate-900">Flying Activity</CardTitle>
+          <CardDescription className="text-xs">Detailed flying metrics for the selected period.</CardDescription>
         </CardHeader>
-        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+        <CardContent className="px-5 pb-5">
           <p className="text-sm text-muted-foreground">No flying activity data available for this period.</p>
         </CardContent>
       </Card>
@@ -291,13 +291,13 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
   )
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight text-slate-900">Flying Activity</h2>
-        <p className="text-sm text-slate-600">Operational flying metrics for the selected period.</p>
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Flying Activity</h2>
+        <p className="text-sm text-slate-500">Operational flying metrics for the selected period.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <FlyingMetricCard title="Total Hours" value={formatHours(flyingActivity.total_flying_hours)} />
         <FlyingMetricCard title="Dual Hours" value={formatHours(flyingActivity.dual_hours)} />
         <FlyingMetricCard title="Solo Hours" value={formatHours(flyingActivity.solo_hours)} />
@@ -314,12 +314,12 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-2">
-          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-            <CardTitle>Hours by Month</CardTitle>
-            <CardDescription>Completed flight hours grouped by month.</CardDescription>
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-2 transition-all hover:shadow-md">
+          <CardHeader className="px-5 pt-5 pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-900">Hours by Month</CardTitle>
+            <CardDescription className="text-xs">Completed flight hours grouped by month.</CardDescription>
           </CardHeader>
-          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+          <CardContent className="px-3 pb-5">
             {flyingActivity.hours_by_month.length === 0 ? (
               <EmptyChart message="No monthly flying hours in this period" />
             ) : (
@@ -339,12 +339,12 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-            <CardTitle>Weekend vs Weekday</CardTitle>
-            <CardDescription>Share of total flight hours</CardDescription>
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+          <CardHeader className="px-5 pt-5 pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-900">Weekend vs Weekday</CardTitle>
+            <CardDescription className="text-xs">Share of total flight hours</CardDescription>
           </CardHeader>
-          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+          <CardContent className="px-3 pb-5">
             {totalWeekendWeekday === 0 ? (
               <EmptyChart message="No flight hours in this period" />
             ) : (
@@ -401,12 +401,12 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-            <CardTitle>Hours by Flight Type</CardTitle>
-            <CardDescription>Distribution of flight types</CardDescription>
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+          <CardHeader className="px-5 pt-5 pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-900">Hours by Flight Type</CardTitle>
+            <CardDescription className="text-xs">Distribution of flight types</CardDescription>
           </CardHeader>
-          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+          <CardContent className="px-3 pb-5">
             {flyingActivity.hours_by_flight_type.length === 0 ? (
               <EmptyChart message="No flight type data in this period." />
             ) : (
@@ -454,12 +454,12 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-          <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-            <CardTitle>Hours by Stage</CardTitle>
-            <CardDescription>Distribution across training stages</CardDescription>
+        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+          <CardHeader className="px-5 pt-5 pb-0">
+            <CardTitle className="text-sm font-semibold text-slate-900">Hours by Stage</CardTitle>
+            <CardDescription className="text-xs">Distribution across training stages</CardDescription>
           </CardHeader>
-          <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+          <CardContent className="px-3 pb-5">
             {flyingActivity.hours_by_stage.length === 0 ? (
               <EmptyChart message="No stage data in this period." />
             ) : (
@@ -508,12 +508,12 @@ function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActiv
         </Card>
       </div>
 
-      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-        <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-          <CardTitle>Cancellations by Category</CardTitle>
-          <CardDescription>Breakdown of cancelled flights</CardDescription>
+      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+        <CardHeader className="px-5 pt-5 pb-0">
+          <CardTitle className="text-sm font-semibold text-slate-900">Cancellations by Category</CardTitle>
+          <CardDescription className="text-xs">Breakdown of cancelled flights</CardDescription>
         </CardHeader>
-        <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+        <CardContent className="px-3 pb-5">
           {(flyingActivity.cancellations_by_category ?? []).length === 0 ? (
             <EmptyChart message="No cancellations in this period." />
           ) : (
@@ -607,7 +607,7 @@ export function ReportsDashboard({
       {activeTab === "overview" && (
         <div className="flex flex-col gap-6">
           {/* Summary cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-2">
             <SummaryCard
               title="Total Bookings"
               value={data.summary.totalBookings.toLocaleString()}
@@ -637,14 +637,14 @@ export function ReportsDashboard({
           <FlyingActivitySection flyingActivity={flyingActivity} />
 
           {/* Instructor Utilisation */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-              <CardTitle>Instructor Utilisation</CardTitle>
-              <CardDescription>
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="px-5 pt-5 pb-0">
+              <CardTitle className="text-sm font-semibold text-slate-900">Instructor Utilisation</CardTitle>
+              <CardDescription className="text-xs">
                 Hours flown per instructor (completed bookings)
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            <CardContent className="px-3 pb-5">
               {data.instructorUtilisation.length === 0 ? (
                 <EmptyChart message="No completed instructor bookings in this period" />
               ) : (
@@ -698,14 +698,14 @@ export function ReportsDashboard({
       {activeTab === "bookings" && (
         <div className="flex flex-col gap-4">
           {/* Booking Volume */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-              <CardTitle>Booking Volume</CardTitle>
-              <CardDescription>
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="px-5 pt-5 pb-0">
+              <CardTitle className="text-sm font-semibold text-slate-900">Booking Volume</CardTitle>
+              <CardDescription className="text-xs">
                 Monthly bookings by type
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            <CardContent className="px-3 pb-5">
               {data.bookingVolume.every((m) => m.total === 0) ? (
                 <EmptyChart message="No booking data available for this period" />
               ) : (
@@ -744,14 +744,14 @@ export function ReportsDashboard({
 
           <div className="grid gap-4 lg:grid-cols-7">
             {/* Cancellation Rate */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4">
-              <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-                <CardTitle>Cancellation Rate</CardTitle>
-                <CardDescription>
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4 transition-all hover:shadow-md">
+              <CardHeader className="px-5 pt-5 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Cancellation Rate</CardTitle>
+                <CardDescription className="text-xs">
                   Percentage of bookings cancelled each month
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+              <CardContent className="px-3 pb-5">
                 {data.cancellationRate.every((m) => m.total === 0) ? (
                   <EmptyChart message="No booking data available for this period" />
                 ) : (
@@ -804,14 +804,14 @@ export function ReportsDashboard({
             </Card>
 
             {/* Top Cancellation Reasons */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3">
-              <CardHeader className="px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
-                <CardTitle>Top Cancellation Reasons</CardTitle>
-                <CardDescription>
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3 transition-all hover:shadow-md">
+              <CardHeader className="px-5 pt-5 pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-900">Top Cancellation Reasons</CardTitle>
+                <CardDescription className="text-xs">
                   Most frequent reasons in this period
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+              <CardContent className="px-5 pb-5">
                 {data.cancellationReasons.length === 0 ? (
                   <EmptyChart message="No cancellations in this period" />
                 ) : (
@@ -851,14 +851,14 @@ export function ReportsDashboard({
       {/* ---- AIRCRAFT PANEL ---- */}
       {activeTab === "aircraft" && (
         <div className="flex flex-col gap-4">
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-              <CardTitle>Hours Flown per Aircraft</CardTitle>
-              <CardDescription>
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="px-5 pt-5 pb-0">
+              <CardTitle className="text-sm font-semibold text-slate-900">Hours Flown per Aircraft</CardTitle>
+              <CardDescription className="text-xs">
                 Total hours from completed bookings in this period
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            <CardContent className="px-3 pb-5">
               {data.aircraftHours.every((a) => a.hours === 0) ? (
                 <EmptyChart message="No completed flights for this period" />
               ) : (
@@ -912,12 +912,12 @@ export function ReportsDashboard({
       {activeTab === "training" && (
         <div className="flex flex-col gap-4">
           {/* Training Activity */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-              <CardTitle>Training Activity</CardTitle>
-              <CardDescription>Monthly lesson sessions and outcomes</CardDescription>
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="px-5 pt-5 pb-0">
+              <CardTitle className="text-sm font-semibold text-slate-900">Training Activity</CardTitle>
+              <CardDescription className="text-xs">Monthly lesson sessions and outcomes</CardDescription>
             </CardHeader>
-            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            <CardContent className="px-3 pb-5">
               {data.trainingActivity.every((m) => m.sessions === 0) ? (
                 <EmptyChart message="No training sessions in this period" />
               ) : (
@@ -953,14 +953,14 @@ export function ReportsDashboard({
           </Card>
 
           {/* Syllabus Progress */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm">
-            <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-              <CardTitle>Syllabus Progress</CardTitle>
-              <CardDescription>
+          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+            <CardHeader className="px-5 pt-5 pb-0">
+              <CardTitle className="text-sm font-semibold text-slate-900">Syllabus Progress</CardTitle>
+              <CardDescription className="text-xs">
                 Student enrollment and completion by syllabus
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+            <CardContent className="px-3 pb-5">
               {data.syllabusProgress.length === 0 ? (
                 <EmptyChart message="No syllabus enrollment data" />
               ) : (
@@ -1009,14 +1009,14 @@ export function ReportsDashboard({
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 lg:grid-cols-7">
             {/* Observation Trends */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4">
-              <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-                <CardTitle>Observation Trends</CardTitle>
-                <CardDescription>
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4 transition-all hover:shadow-md">
+              <CardHeader className="px-5 pt-5 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Observation Trends</CardTitle>
+                <CardDescription className="text-xs">
                   Monthly observations reported
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+              <CardContent className="px-3 pb-5">
                 {data.observationTrends.every((m) => m.count === 0) ? (
                   <EmptyChart message="No observations in this period" />
                 ) : (
@@ -1062,14 +1062,14 @@ export function ReportsDashboard({
             </Card>
 
             {/* Observations by Stage */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3">
-              <CardHeader className="px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
-                <CardTitle>Observations by Stage</CardTitle>
-                <CardDescription>
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3 transition-all hover:shadow-md">
+              <CardHeader className="px-5 pt-5 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Observations by Stage</CardTitle>
+                <CardDescription className="text-xs">
                   Current breakdown across all observations
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-2 pb-4 sm:px-6 sm:pb-6">
+              <CardContent className="px-3 pb-5">
                 {data.observationsByStage.length === 0 ? (
                   <EmptyChart message="No observations recorded" />
                 ) : (
