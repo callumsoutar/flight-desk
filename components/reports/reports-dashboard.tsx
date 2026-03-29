@@ -121,7 +121,7 @@ const cancellationsConfig = {
 // Summary card
 // ---------------------------------------------------------------------------
 
-function SummaryCard({
+function SummaryItem({
   title,
   value,
   description,
@@ -133,21 +133,18 @@ function SummaryCard({
   icon: React.ComponentType<{ className?: string }>
 }) {
   return (
-    <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
-      <CardContent className="relative flex flex-col p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-slate-600">{title}</h3>
-          <div className="rounded-md bg-slate-100/80 p-1.5 ring-1 ring-slate-200/50">
-            <Icon className="h-4 w-4 text-slate-600" />
-          </div>
+    <div className="relative flex flex-col bg-white p-5 transition-colors hover:bg-slate-50/50">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-slate-600">{title}</h3>
+        <div className="rounded-md bg-slate-100/80 p-1.5 ring-1 ring-slate-200/50">
+          <Icon className="h-4 w-4 text-slate-600" />
         </div>
-        <div>
-          <div className="text-3xl font-bold tracking-tight text-slate-900">{value}</div>
-          <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div>
+        <div className="text-3xl font-bold tracking-tight text-slate-900">{value}</div>
+        <p className="mt-1 text-xs font-medium text-slate-500">{description}</p>
+      </div>
+    </div>
   )
 }
 
@@ -229,7 +226,7 @@ function formatMonthLabel(yearMonth: string): string {
   return date.toLocaleDateString("en-NZ", { month: "short", year: "2-digit" })
 }
 
-function FlyingMetricCard({
+function FlyingMetricItem({
   title,
   value,
   helpText,
@@ -239,24 +236,21 @@ function FlyingMetricCard({
   helpText?: string
 }) {
   return (
-    <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 to-transparent" />
-      <CardContent className="relative flex flex-col justify-center p-4 sm:p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</h3>
-          {helpText && (
-            <div className="group relative flex cursor-help items-center justify-center">
-              <IconInfoCircle className="h-3.5 w-3.5 text-slate-400" />
-              <div className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-48 -translate-x-1/2 rounded-md bg-slate-800 px-2 py-1.5 text-xs text-slate-100 opacity-0 shadow-lg group-hover:block group-hover:opacity-100">
-                {helpText}
-                <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-800" />
-              </div>
+    <div className="relative flex flex-col justify-center bg-white p-4 sm:p-5 transition-colors hover:bg-slate-50/50">
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</h3>
+        {helpText && (
+          <div className="group relative flex cursor-help items-center justify-center">
+            <IconInfoCircle className="h-3.5 w-3.5 text-slate-400" />
+            <div className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-48 -translate-x-1/2 rounded-md bg-slate-800 px-2 py-1.5 text-xs text-slate-100 opacity-0 shadow-lg group-hover:block group-hover:opacity-100">
+              {helpText}
+              <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-800" />
             </div>
-          )}
-        </div>
-        <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
-      </CardContent>
-    </Card>
+          </div>
+        )}
+      </div>
+      <p className="text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+    </div>
   )
 }
 
@@ -301,48 +295,52 @@ export function ReportsDashboard({
       {activeTab === "overview" && (
         <div className="flex flex-col gap-4">
           {/* Summary cards */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard
-              title="Total Bookings"
-              value={data.summary.totalBookings.toLocaleString()}
-              description={`${data.summary.completedBookings} completed · ${data.summary.cancelledBookings} cancelled`}
-              icon={IconCalendarEvent}
-            />
-            <SummaryCard
-              title="Flight Hours"
-              value={data.summary.totalFlightHours.toLocaleString()}
-              description="Hours from completed bookings"
-              icon={IconClock}
-            />
-            <SummaryCard
-              title="Active Aircraft"
-              value={data.summary.activeAircraft}
-              description="Currently on-line"
-              icon={IconPlane}
-            />
-            <SummaryCard
-              title="Open Observations"
-              value={data.summary.openObservations}
-              description={`${data.summary.activeStudents} active students`}
-              icon={IconAlertTriangle}
-            />
-          </div>
+          <Card className="overflow-hidden border-slate-200/60 bg-slate-200/60 shadow-sm">
+            <div className="grid grid-cols-1 gap-[1px] sm:grid-cols-2 lg:grid-cols-4">
+              <SummaryItem
+                title="Total Bookings"
+                value={data.summary.totalBookings.toLocaleString()}
+                description={`${data.summary.completedBookings} completed · ${data.summary.cancelledBookings} cancelled`}
+                icon={IconCalendarEvent}
+              />
+              <SummaryItem
+                title="Flight Hours"
+                value={data.summary.totalFlightHours.toLocaleString()}
+                description="Hours from completed bookings"
+                icon={IconClock}
+              />
+              <SummaryItem
+                title="Active Aircraft"
+                value={data.summary.activeAircraft}
+                description="Currently on-line"
+                icon={IconPlane}
+              />
+              <SummaryItem
+                title="Open Observations"
+                value={data.summary.openObservations}
+                description={`${data.summary.activeStudents} active students`}
+                icon={IconAlertTriangle}
+              />
+            </div>
+          </Card>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <FlyingMetricCard title="Total Hours" value={formatHours(flyingActivity?.total_flying_hours)} />
-            <FlyingMetricCard title="Dual Hours" value={formatHours(flyingActivity?.dual_hours)} />
-            <FlyingMetricCard title="Solo Hours" value={formatHours(flyingActivity?.solo_hours)} />
-            <FlyingMetricCard title="Trial Hours" value={formatHours(flyingActivity?.trial_flight_hours)} />
-            <FlyingMetricCard
-              title="Avg Flight Duration"
-              value={formatHours(flyingActivity?.avg_flight_duration_hours)}
-            />
-            <FlyingMetricCard 
-              title="Conversion Rate" 
-              value={formatPercent(flyingActivity?.conversion_rate)} 
-              helpText="Percentage of trial flights that resulted in a student enrollment."
-            />
-          </div>
+          <Card className="overflow-hidden border-slate-200/60 bg-slate-200/60 shadow-sm">
+            <div className="grid grid-cols-2 gap-[1px] sm:grid-cols-3 lg:grid-cols-6">
+              <FlyingMetricItem title="Total Hours" value={formatHours(flyingActivity?.total_flying_hours)} />
+              <FlyingMetricItem title="Dual Hours" value={formatHours(flyingActivity?.dual_hours)} />
+              <FlyingMetricItem title="Solo Hours" value={formatHours(flyingActivity?.solo_hours)} />
+              <FlyingMetricItem title="Trial Hours" value={formatHours(flyingActivity?.trial_flight_hours)} />
+              <FlyingMetricItem
+                title="Avg Flight Duration"
+                value={formatHours(flyingActivity?.avg_flight_duration_hours)}
+              />
+              <FlyingMetricItem 
+                title="Conversion Rate" 
+                value={formatPercent(flyingActivity?.conversion_rate)} 
+                helpText="Percentage of trial flights that resulted in a student enrollment."
+              />
+            </div>
+          </Card>
 
           {/* Timelines */}
           <div className="grid gap-4 lg:grid-cols-2">
