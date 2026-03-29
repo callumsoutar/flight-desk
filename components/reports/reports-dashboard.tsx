@@ -260,311 +260,6 @@ function FlyingMetricCard({
   )
 }
 
-function FlyingActivitySection({ flyingActivity }: { flyingActivity: FlyingActivityDashboard | null }) {
-  if (!flyingActivity) {
-    return (
-      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-        <CardHeader className="px-5 pt-5 pb-2">
-          <CardTitle className="text-base font-semibold text-slate-900">Flying Activity</CardTitle>
-          <CardDescription className="text-xs">Detailed flying metrics for the selected period.</CardDescription>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          <p className="text-sm text-muted-foreground">No flying activity data available for this period.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const totalWeekendWeekday = flyingActivity.weekend_hours + flyingActivity.weekday_hours
-  const weekendPct =
-    totalWeekendWeekday > 0 ? Math.round((flyingActivity.weekend_hours / totalWeekendWeekday) * 100) : 0
-
-  const weekendWeekdayData = [
-    { name: "Weekend", hours: flyingActivity.weekend_hours, fill: "var(--color-weekend)" },
-    { name: "Weekday", hours: flyingActivity.weekday_hours, fill: "var(--color-weekday)" },
-  ]
-
-  const totalCancellations = (flyingActivity.cancellations_by_category ?? []).reduce(
-    (sum, item) => sum + item.count,
-    0
-  )
-
-  return (
-    <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Flying Activity</h2>
-        <p className="text-sm text-slate-500">Operational flying metrics for the selected period.</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <FlyingMetricCard title="Total Hours" value={formatHours(flyingActivity.total_flying_hours)} />
-        <FlyingMetricCard title="Dual Hours" value={formatHours(flyingActivity.dual_hours)} />
-        <FlyingMetricCard title="Solo Hours" value={formatHours(flyingActivity.solo_hours)} />
-        <FlyingMetricCard title="Trial Hours" value={formatHours(flyingActivity.trial_flight_hours)} />
-        <FlyingMetricCard
-          title="Avg Flight Duration"
-          value={formatHours(flyingActivity.avg_flight_duration_hours)}
-        />
-        <FlyingMetricCard 
-          title="Conversion Rate" 
-          value={formatPercent(flyingActivity.conversion_rate)} 
-          helpText="Percentage of trial flights that resulted in a student enrollment."
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-2 transition-all hover:shadow-md">
-          <CardHeader className="px-5 pt-5 pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-900">Hours by Month</CardTitle>
-            <CardDescription className="text-xs">Completed flight hours grouped by month.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 pb-5">
-            {flyingActivity.hours_by_month.length === 0 ? (
-              <EmptyChart message="No monthly flying hours in this period" />
-            ) : (
-              <ChartContainer
-                config={flyingHoursByMonthConfig}
-                className="aspect-auto h-[280px] w-full"
-              >
-                <BarChart data={flyingActivity.hours_by_month.map((item) => ({ ...item, label: formatMonthLabel(item.month) }))}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="px-5 pt-5 pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-900">Weekend vs Weekday</CardTitle>
-            <CardDescription className="text-xs">Share of total flight hours</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 pb-5">
-            {totalWeekendWeekday === 0 ? (
-              <EmptyChart message="No flight hours in this period" />
-            ) : (
-              <ChartContainer
-                config={weekendWeekdayConfig}
-                className="mx-auto aspect-square max-h-[280px]"
-              >
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                  <Pie
-                    data={weekendWeekdayData}
-                    dataKey="hours"
-                    nameKey="name"
-                    innerRadius={60}
-                    strokeWidth={5}
-                  >
-                    <Label
-                      content={({ viewBox }) => {
-                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                          return (
-                            <text
-                              x={viewBox.cx}
-                              y={viewBox.cy}
-                              textAnchor="middle"
-                              dominantBaseline="middle"
-                            >
-                              <tspan
-                                x={viewBox.cx}
-                                y={viewBox.cy}
-                                className="fill-foreground text-3xl font-bold"
-                              >
-                                {weekendPct}%
-                              </tspan>
-                              <tspan
-                                x={viewBox.cx}
-                                y={(viewBox.cy ?? 0) + 24}
-                                className="fill-muted-foreground"
-                              >
-                                Weekend
-                              </tspan>
-                            </text>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                  </Pie>
-                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                </PieChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="px-5 pt-5 pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-900">Hours by Flight Type</CardTitle>
-            <CardDescription className="text-xs">Distribution of flight types</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 pb-5">
-            {flyingActivity.hours_by_flight_type.length === 0 ? (
-              <EmptyChart message="No flight type data in this period." />
-            ) : (
-              <ChartContainer
-                config={flightTypeConfig}
-                className="aspect-auto w-full"
-                style={{
-                  height: `${Math.max(250, flyingActivity.hours_by_flight_type.length * 44)}px`,
-                }}
-              >
-                <BarChart
-                  data={flyingActivity.hours_by_flight_type}
-                  layout="vertical"
-                  margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-                >
-                  <CartesianGrid horizontal={false} />
-                  <YAxis
-                    dataKey="flight_type"
-                    type="category"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={100}
-                  />
-                  <XAxis
-                    type="number"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value, _name, item) => [
-                          `${value} hrs`,
-                          item.payload.flight_type,
-                        ]}
-                      />
-                    }
-                  />
-                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-          <CardHeader className="px-5 pt-5 pb-0">
-            <CardTitle className="text-sm font-semibold text-slate-900">Hours by Stage</CardTitle>
-            <CardDescription className="text-xs">Distribution across training stages</CardDescription>
-          </CardHeader>
-          <CardContent className="px-3 pb-5">
-            {flyingActivity.hours_by_stage.length === 0 ? (
-              <EmptyChart message="No stage data in this period." />
-            ) : (
-              <ChartContainer
-                config={stageConfig}
-                className="aspect-auto w-full"
-                style={{
-                  height: `${Math.max(250, flyingActivity.hours_by_stage.length * 44)}px`,
-                }}
-              >
-                <BarChart
-                  data={flyingActivity.hours_by_stage}
-                  layout="vertical"
-                  margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-                >
-                  <CartesianGrid horizontal={false} />
-                  <YAxis
-                    dataKey="stage"
-                    type="category"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    width={120}
-                  />
-                  <XAxis
-                    type="number"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value, _name, item) => [
-                          `${value} hrs`,
-                          item.payload.stage,
-                        ]}
-                      />
-                    }
-                  />
-                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-        <CardHeader className="px-5 pt-5 pb-0">
-          <CardTitle className="text-sm font-semibold text-slate-900">Cancellations by Category</CardTitle>
-          <CardDescription className="text-xs">Breakdown of cancelled flights</CardDescription>
-        </CardHeader>
-        <CardContent className="px-3 pb-5">
-          {(flyingActivity.cancellations_by_category ?? []).length === 0 ? (
-            <EmptyChart message="No cancellations in this period." />
-          ) : (
-            <ChartContainer
-              config={cancellationsConfig}
-              className="aspect-auto w-full"
-              style={{
-                height: `${Math.max(250, (flyingActivity.cancellations_by_category ?? []).length * 44)}px`,
-              }}
-            >
-              <BarChart
-                data={flyingActivity.cancellations_by_category ?? []}
-                layout="vertical"
-                margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-              >
-                <CartesianGrid horizontal={false} />
-                <YAxis
-                  dataKey="category"
-                  type="category"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  width={140}
-                />
-                <XAxis
-                  type="number"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, _name, item) => {
-                        const pct = totalCancellations > 0 ? Math.round((Number(value) / totalCancellations) * 100) : 0
-                        return [
-                          `${value} (${pct}%)`,
-                          item.payload.category,
-                        ]
-                      }}
-                    />
-                  }
-                />
-                <Bar dataKey="count" fill="var(--color-count)" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Main dashboard
@@ -604,9 +299,9 @@ export function ReportsDashboard({
 
       {/* ---- OVERVIEW PANEL ---- */}
       {activeTab === "overview" && (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {/* Summary cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard
               title="Total Bookings"
               value={data.summary.totalBookings.toLocaleString()}
@@ -633,178 +328,272 @@ export function ReportsDashboard({
             />
           </div>
 
-          <FlyingActivitySection flyingActivity={flyingActivity} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <FlyingMetricCard title="Total Hours" value={formatHours(flyingActivity?.total_flying_hours)} />
+            <FlyingMetricCard title="Dual Hours" value={formatHours(flyingActivity?.dual_hours)} />
+            <FlyingMetricCard title="Solo Hours" value={formatHours(flyingActivity?.solo_hours)} />
+            <FlyingMetricCard title="Trial Hours" value={formatHours(flyingActivity?.trial_flight_hours)} />
+            <FlyingMetricCard
+              title="Avg Flight Duration"
+              value={formatHours(flyingActivity?.avg_flight_duration_hours)}
+            />
+            <FlyingMetricCard 
+              title="Conversion Rate" 
+              value={formatPercent(flyingActivity?.conversion_rate)} 
+              helpText="Percentage of trial flights that resulted in a student enrollment."
+            />
+          </div>
 
-          {/* Instructor Utilisation */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-            <CardHeader className="px-5 pt-5 pb-0">
-              <CardTitle className="text-sm font-semibold text-slate-900">Instructor Utilisation</CardTitle>
-              <CardDescription className="text-xs">
-                Hours flown per instructor (completed bookings)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-3 pb-5">
-              {data.instructorUtilisation.length === 0 ? (
-                <EmptyChart message="No completed instructor bookings in this period" />
-              ) : (
-                <ChartContainer
-                  config={instructorConfig}
-                  className="aspect-auto w-full"
-                  style={{
-                    height: `${Math.max(200, data.instructorUtilisation.length * 44)}px`,
-                  }}
-                >
-                  <BarChart
-                    data={data.instructorUtilisation}
-                    layout="vertical"
-                    margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-                  >
-                    <CartesianGrid horizontal={false} />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      width={120}
-                    />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value, _name, item) => [
-                            `${value} hrs · ${item.payload.bookings} bookings`,
-                            "Utilisation",
-                          ]}
-                        />
-                      }
-                    />
-                    <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-          {/* Booking Volume */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-            <CardHeader className="px-5 pt-5 pb-0">
-              <CardTitle className="text-sm font-semibold text-slate-900">Booking Volume</CardTitle>
-              <CardDescription className="text-xs">
-                Monthly bookings by type
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-3 pb-5">
-              {data.bookingVolume.every((m) => m.total === 0) ? (
-                <EmptyChart message="No booking data available for this period" />
-              ) : (
-                <ChartContainer
-                  config={bookingVolumeConfig}
-                  className="aspect-auto h-[300px] w-full"
-                >
-                  <BarChart
-                    data={data.bookingVolume}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      allowDecimals={false}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="flight"      stackId="a" fill="var(--color-flight)"      radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="groundwork"  stackId="a" fill="var(--color-groundwork)"  radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="maintenance" stackId="a" fill="var(--color-maintenance)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="other"       stackId="a" fill="var(--color-other)"       radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-4 lg:grid-cols-7">
-            {/* Cancellation Rate */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4 transition-all hover:shadow-md">
-              <CardHeader className="px-5 pt-5 pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-900">Cancellation Rate</CardTitle>
-                <CardDescription className="text-xs">
-                  Percentage of bookings cancelled each month
-                </CardDescription>
+          {/* Timelines */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Hours by Month</CardTitle>
+                <CardDescription className="text-xs">Completed flight hours</CardDescription>
               </CardHeader>
-              <CardContent className="px-3 pb-5">
+              <CardContent className="px-2 pb-4">
+                {(!flyingActivity || flyingActivity.hours_by_month.length === 0) ? (
+                  <EmptyChart message="No monthly flying hours in this period" />
+                ) : (
+                  <ChartContainer
+                    config={flyingHoursByMonthConfig}
+                    className="aspect-auto h-[220px] w-full"
+                  >
+                    <BarChart data={flyingActivity.hours_by_month.map((item) => ({ ...item, label: formatMonthLabel(item.month) }))}>
+                      <CartesianGrid vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="hours" fill="var(--color-hours)" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Booking Volume</CardTitle>
+                <CardDescription className="text-xs">Monthly bookings by type</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {data.bookingVolume.every((m) => m.total === 0) ? (
+                  <EmptyChart message="No booking data available for this period" />
+                ) : (
+                  <ChartContainer
+                    config={bookingVolumeConfig}
+                    className="aspect-auto h-[220px] w-full"
+                  >
+                    <BarChart
+                      data={data.bookingVolume}
+                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="flight" stackId="a" fill="var(--color-flight)" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="groundwork" stackId="a" fill="var(--color-groundwork)" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="maintenance" stackId="a" fill="var(--color-maintenance)" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="other" stackId="a" fill="var(--color-other)" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Breakdowns */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Weekend vs Weekday</CardTitle>
+                <CardDescription className="text-xs">Share of total flight hours</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {(!flyingActivity || (flyingActivity.weekend_hours + flyingActivity.weekday_hours) === 0) ? (
+                  <EmptyChart message="No flight hours in this period" />
+                ) : (
+                  <ChartContainer
+                    config={weekendWeekdayConfig}
+                    className="mx-auto aspect-square max-h-[200px]"
+                  >
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                      <Pie
+                        data={[
+                          { name: "Weekend", hours: flyingActivity.weekend_hours, fill: "var(--color-weekend)" },
+                          { name: "Weekday", hours: flyingActivity.weekday_hours, fill: "var(--color-weekday)" },
+                        ]}
+                        dataKey="hours"
+                        nameKey="name"
+                        innerRadius={50}
+                        strokeWidth={4}
+                      >
+                        <Label
+                          content={({ viewBox }) => {
+                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                              const total = flyingActivity.weekend_hours + flyingActivity.weekday_hours
+                              const pct = total > 0 ? Math.round((flyingActivity.weekend_hours / total) * 100) : 0
+                              return (
+                                <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                  <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                                    {pct}%
+                                  </tspan>
+                                  <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-xs">
+                                    Weekend
+                                  </tspan>
+                                </text>
+                              )
+                            }
+                            return null
+                          }}
+                        />
+                      </Pie>
+                      <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                    </PieChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Hours by Flight Type</CardTitle>
+                <CardDescription className="text-xs">Distribution of flight types</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {(!flyingActivity || flyingActivity.hours_by_flight_type.length === 0) ? (
+                  <EmptyChart message="No flight type data in this period." />
+                ) : (
+                  <ChartContainer
+                    config={flightTypeConfig}
+                    className="aspect-auto w-full"
+                    style={{ height: `${Math.max(180, flyingActivity.hours_by_flight_type.length * 32)}px` }}
+                  >
+                    <BarChart
+                      data={flyingActivity.hours_by_flight_type}
+                      layout="vertical"
+                      margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
+                    >
+                      <CartesianGrid horizontal={false} />
+                      <YAxis dataKey="flight_type" type="category" tickLine={false} axisLine={false} tickMargin={8} width={90} />
+                      <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(value, _name, item) => [`${value} hrs`, item.payload.flight_type]} />} />
+                      <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Hours by Stage</CardTitle>
+                <CardDescription className="text-xs">Distribution across training stages</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {(!flyingActivity || flyingActivity.hours_by_stage.length === 0) ? (
+                  <EmptyChart message="No stage data in this period." />
+                ) : (
+                  <ChartContainer
+                    config={stageConfig}
+                    className="aspect-auto w-full"
+                    style={{ height: `${Math.max(180, flyingActivity.hours_by_stage.length * 32)}px` }}
+                  >
+                    <BarChart
+                      data={flyingActivity.hours_by_stage}
+                      layout="vertical"
+                      margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
+                    >
+                      <CartesianGrid horizontal={false} />
+                      <YAxis dataKey="stage" type="category" tickLine={false} axisLine={false} tickMargin={8} width={100} />
+                      <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(value, _name, item) => [`${value} hrs`, item.payload.stage]} />} />
+                      <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Operations & Instructors */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-1 transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Instructor Utilisation</CardTitle>
+                <CardDescription className="text-xs">Hours flown per instructor</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {data.instructorUtilisation.length === 0 ? (
+                  <EmptyChart message="No instructor bookings in this period" />
+                ) : (
+                  <ChartContainer
+                    config={instructorConfig}
+                    className="aspect-auto w-full"
+                    style={{ height: `${Math.max(220, data.instructorUtilisation.length * 32)}px` }}
+                  >
+                    <BarChart
+                      data={data.instructorUtilisation}
+                      layout="vertical"
+                      margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
+                    >
+                      <CartesianGrid horizontal={false} />
+                      <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={90} />
+                      <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(value, _name, item) => [`${value} hrs · ${item.payload.bookings} bookings`, "Utilisation"]} />} />
+                      <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-2 transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Cancellation Rate</CardTitle>
+                <CardDescription className="text-xs">Percentage of bookings cancelled each month</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
                 {data.cancellationRate.every((m) => m.total === 0) ? (
                   <EmptyChart message="No booking data available for this period" />
                 ) : (
                   <ChartContainer
                     config={cancellationRateConfig}
-                    className="aspect-auto h-[250px] w-full"
+                    className="aspect-auto h-[220px] w-full"
                   >
                     <AreaChart
                       data={data.cancellationRate}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                     >
                       <CartesianGrid vertical={false} />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        unit="%"
-                        domain={[0, "auto"]}
-                      />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            formatter={(value) => [`${value}%`, "Cancellation Rate"]}
-                          />
-                        }
-                      />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} unit="%" domain={[0, "auto"]} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(value) => [`${value}%`, "Cancellation Rate"]} />} />
                       <defs>
                         <linearGradient id="fillRate" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="var(--color-rate)" stopOpacity={0.3} />
+                          <stop offset="5%" stopColor="var(--color-rate)" stopOpacity={0.3} />
                           <stop offset="95%" stopColor="var(--color-rate)" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
-                      <Area
-                        dataKey="rate"
-                        type="monotone"
-                        fill="url(#fillRate)"
-                        stroke="var(--color-rate)"
-                        strokeWidth={2}
-                      />
+                      <Area dataKey="rate" type="monotone" fill="url(#fillRate)" stroke="var(--color-rate)" strokeWidth={2} />
                     </AreaChart>
                   </ChartContainer>
                 )}
               </CardContent>
             </Card>
+          </div>
 
-            {/* Top Cancellation Reasons */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3 transition-all hover:shadow-md">
-              <CardHeader className="px-5 pt-5 pb-2">
+          {/* Cancellation Details */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-2">
                 <CardTitle className="text-sm font-semibold text-slate-900">Top Cancellation Reasons</CardTitle>
-                <CardDescription className="text-xs">
-                  Most frequent reasons in this period
-                </CardDescription>
+                <CardDescription className="text-xs">Most frequent reasons in this period</CardDescription>
               </CardHeader>
-              <CardContent className="px-5 pb-5">
+              <CardContent className="px-4 pb-4">
                 {data.cancellationReasons.length === 0 ? (
                   <EmptyChart message="No cancellations in this period" />
                 ) : (
@@ -816,24 +605,55 @@ export function ReportsDashboard({
                         <div key={reason.name} className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
                             <span className="truncate font-medium">{reason.name}</span>
-                            <span className="ml-2 shrink-0 text-muted-foreground">
-                              {reason.count} ({pct}%)
-                            </span>
+                            <span className="ml-2 shrink-0 text-muted-foreground">{reason.count} ({pct}%)</span>
                           </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: C2,
-                              opacity: 0.6,
-                            }}
-                          />
+                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: C2, opacity: 0.6 }} />
                           </div>
                         </div>
                       )
                     })}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+              <CardHeader className="px-4 pt-4 pb-0">
+                <CardTitle className="text-sm font-semibold text-slate-900">Cancellations by Category</CardTitle>
+                <CardDescription className="text-xs">Breakdown of cancelled flights</CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {(!flyingActivity || (flyingActivity.cancellations_by_category ?? []).length === 0) ? (
+                  <EmptyChart message="No cancellations in this period." />
+                ) : (
+                  <ChartContainer
+                    config={cancellationsConfig}
+                    className="aspect-auto w-full"
+                    style={{ height: `${Math.max(180, (flyingActivity.cancellations_by_category ?? []).length * 32)}px` }}
+                  >
+                    <BarChart
+                      data={flyingActivity.cancellations_by_category ?? []}
+                      layout="vertical"
+                      margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
+                    >
+                      <CartesianGrid horizontal={false} />
+                      <YAxis dataKey="category" type="category" tickLine={false} axisLine={false} tickMargin={8} width={120} />
+                      <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value, _name, item) => {
+                              const totalCancellations = (flyingActivity.cancellations_by_category ?? []).reduce((sum, i) => sum + i.count, 0)
+                              const pct = totalCancellations > 0 ? Math.round((Number(value) / totalCancellations) * 100) : 0
+                              return [`${value} (${pct}%)`, item.payload.category]
+                            }}
+                          />
+                        }
+                      />
+                      <Bar dataKey="count" fill="var(--color-count)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ChartContainer>
                 )}
               </CardContent>
             </Card>
