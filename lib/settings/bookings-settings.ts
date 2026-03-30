@@ -6,6 +6,7 @@ export type BookingsSettings = {
   minimum_booking_duration_minutes: number
   default_booking_briefing_charge_enabled: boolean
   default_booking_briefing_chargeable_id: string | null
+  aircraft_daily_available_hours: number
 }
 
 export const DEFAULT_BOOKINGS_SETTINGS: BookingsSettings = {
@@ -13,6 +14,7 @@ export const DEFAULT_BOOKINGS_SETTINGS: BookingsSettings = {
   minimum_booking_duration_minutes: 30,
   default_booking_briefing_charge_enabled: false,
   default_booking_briefing_chargeable_id: null,
+  aircraft_daily_available_hours: 10,
 }
 
 function normalizeNonNegativeNumber(value: unknown, fallback: number, max: number) {
@@ -53,5 +55,15 @@ export function resolveBookingsSettings(settings: Json | null | undefined): Book
       settings.default_booking_briefing_chargeable_id.trim().length > 0
         ? settings.default_booking_briefing_chargeable_id
         : DEFAULT_BOOKINGS_SETTINGS.default_booking_briefing_chargeable_id,
+    aircraft_daily_available_hours: roundToQuarterHour(
+      Math.max(
+        1,
+        normalizeNonNegativeNumber(
+          settings.aircraft_daily_available_hours,
+          DEFAULT_BOOKINGS_SETTINGS.aircraft_daily_available_hours,
+          24
+        )
+      )
+    ),
   }
 }

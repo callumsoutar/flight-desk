@@ -2,7 +2,9 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import type { Database } from "@/lib/types"
+import type { UserRole } from "@/lib/types/roles"
 import type { DashboardAircraftStatus, DashboardBookingLite, DashboardData } from "@/lib/types/dashboard"
 import { zonedDayRangeUtcIso, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
@@ -61,8 +63,11 @@ function safeNumber(value: unknown): number {
 
 export async function fetchDashboardPageData(
   supabase: SupabaseClient<Database>,
-  tenantId: string
+  tenantId: string,
+  viewer?: { userId: string; role: UserRole | null }
 ): Promise<{ data: DashboardData; loadErrors: string[] }> {
+  const memberScope = viewer && !isStaffRole(viewer.role)
+  const viewerUserId = viewer?.userId
   const now = new Date()
   const nowIso = now.toISOString()
 
@@ -102,7 +107,9 @@ export async function fetchDashboardPageData(
 
   let bookingRequests: DashboardBookingLite[] = []
   let flyingNowBookings: DashboardBookingLite[] = []
-  let upcomingTodayBookings: DashboardBookingLite[] = []
+  let upcomingBookings: DashboardBookingLite[] = []
+
+  let memberCompliance: { medicalDue: string | null; bfrDue: string | null } | null = null
 
   let aircraftStatus: DashboardAircraftStatus[] = []
 
@@ -115,7 +122,7 @@ export async function fetchDashboardPageData(
 
   const bookingRequestsPromise = (async () => {
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from("bookings")
         .select(DASHBOARD_BOOKING_SELECT)
         .eq("tenant_id", tenantId)
@@ -123,6 +130,8 @@ export async function fetchDashboardPageData(
         .gte("start_time", nowIso)
         .order("start_time", { ascending: true })
         .limit(10)
+      if (memberScope && viewerUserId) q = q.eq("user_id", viewerUserId)
+      const { data, error } = await q
       if (error) throw error
       bookingRequests = (data ?? []) as DashboardBookingLite[]
     } catch {
@@ -132,13 +141,15 @@ export async function fetchDashboardPageData(
 
   const flyingNowPromise = (async () => {
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from("bookings")
         .select(DASHBOARD_BOOKING_SELECT)
         .eq("tenant_id", tenantId)
         .eq("status", "flying")
         .order("start_time", { ascending: true })
         .limit(8)
+      if (memberScope && viewerUserId) q = q.eq("user_id", viewerUserId)
+      const { data, error } = await q
       if (error) throw error
       flyingNowBookings = (data ?? []) as DashboardBookingLite[]
     } catch {
@@ -146,8 +157,23 @@ export async function fetchDashboardPageData(
     }
   })()
 
-  const upcomingTodayPromise = (async () => {
+  const upcomingSchedulePromise = (async () => {
     try {
+      if (memberScope && viewerUserId) {
+        const { data, error } = await supabase
+          .from("bookings")
+          .select(DASHBOARD_BOOKING_SELECT)
+          .eq("tenant_id", tenantId)
+          .eq("user_id", viewerUserId)
+          .gte("start_time", nowIso)
+          .in("status", ["confirmed", "briefing", "flying"])
+          .order("start_time", { ascending: true })
+          .limit(25)
+        if (error) throw error
+        upcomingBookings = (data ?? []) as DashboardBookingLite[]
+        return
+      }
+
       const { data, error } = await supabase
         .from("bookings")
         .select(DASHBOARD_BOOKING_SELECT)
@@ -159,34 +185,49 @@ export async function fetchDashboardPageData(
         .order("start_time", { ascending: true })
         .limit(10)
       if (error) throw error
-      upcomingTodayBookings = (data ?? []) as DashboardBookingLite[]
+      upcomingBookings = (data ?? []) as DashboardBookingLite[]
     } catch {
-      loadErrors.push("today's schedule")
+      loadErrors.push(memberScope ? "upcoming bookings" : "today's schedule")
     }
   })()
 
   const monthlyMetricsPromise = (async () => {
     try {
-      const [flightCountResult, hoursResult, activeStudentsResult] = await Promise.all([
-        supabase
-          .from("bookings")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .eq("booking_type", "flight")
-          .neq("status", "cancelled")
-          .gte("start_time", monthStartUtcIso)
-          .lt("start_time", monthEndUtcIso)
-          .limit(5000),
-        supabase
-          .from("bookings")
-          .select("billing_hours")
-          .eq("tenant_id", tenantId)
-          .eq("booking_type", "flight")
-          .eq("status", "complete")
-          .gte("start_time", monthStartUtcIso)
-          .lt("start_time", monthEndUtcIso)
-          .limit(5000),
-        supabase
+      let flightCountQ = supabase
+        .from("bookings")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("booking_type", "flight")
+        .neq("status", "cancelled")
+        .gte("start_time", monthStartUtcIso)
+        .lt("start_time", monthEndUtcIso)
+        .limit(5000)
+      let hoursQ = supabase
+        .from("bookings")
+        .select("billing_hours")
+        .eq("tenant_id", tenantId)
+        .eq("booking_type", "flight")
+        .eq("status", "complete")
+        .gte("start_time", monthStartUtcIso)
+        .lt("start_time", monthEndUtcIso)
+        .limit(5000)
+      if (memberScope && viewerUserId) {
+        flightCountQ = flightCountQ.eq("user_id", viewerUserId)
+        hoursQ = hoursQ.eq("user_id", viewerUserId)
+      }
+
+      const [flightCountResult, hoursResult] = await Promise.all([flightCountQ, hoursQ])
+
+      if (flightCountResult.error) throw flightCountResult.error
+      if (hoursResult.error) throw hoursResult.error
+
+      flightsThisMonth = (flightCountResult.data ?? []).length
+      hoursFlownThisMonth = (hoursResult.data ?? []).reduce((sum, row) => sum + safeNumber(row.billing_hours), 0)
+
+      if (memberScope) {
+        activeStudentsThisMonth = 0
+      } else {
+        const activeStudentsQ = supabase
           .from("bookings")
           .select("user_id")
           .eq("tenant_id", tenantId)
@@ -194,27 +235,81 @@ export async function fetchDashboardPageData(
           .in("status", ["confirmed", "briefing", "flying", "complete"])
           .gte("start_time", monthStartUtcIso)
           .lt("start_time", monthEndUtcIso)
-          .limit(5000),
-      ])
+          .limit(5000)
 
-      if (flightCountResult.error) throw flightCountResult.error
-      if (hoursResult.error) throw hoursResult.error
-      if (activeStudentsResult.error) throw activeStudentsResult.error
+        const activeStudentsResult = await activeStudentsQ
+        if (activeStudentsResult.error) throw activeStudentsResult.error
 
-      flightsThisMonth = (flightCountResult.data ?? []).length
-      hoursFlownThisMonth = (hoursResult.data ?? []).reduce((sum, row) => sum + safeNumber(row.billing_hours), 0)
-
-      const studentIds = new Set<string>()
-      for (const row of activeStudentsResult.data ?? []) {
-        if (row.user_id) studentIds.add(row.user_id)
+        const studentIds = new Set<string>()
+        for (const row of activeStudentsResult.data ?? []) {
+          if (row.user_id) studentIds.add(row.user_id)
+        }
+        activeStudentsThisMonth = studentIds.size
       }
-      activeStudentsThisMonth = studentIds.size
     } catch {
       loadErrors.push("monthly metrics")
     }
   })()
 
-  await Promise.all([bookingRequestsPromise, flyingNowPromise, upcomingTodayPromise, monthlyMetricsPromise])
+  const memberCompliancePromise = (async () => {
+    if (!memberScope || !viewerUserId) return
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("medical_certificate_expiry, class_1_medical_due, class_2_medical_due, BFR_due")
+        .eq("id", viewerUserId)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) {
+        memberCompliance = { medicalDue: null, bfrDue: null }
+        return
+      }
+      const medicalDue =
+        data.medical_certificate_expiry ?? data.class_1_medical_due ?? data.class_2_medical_due ?? null
+      memberCompliance = {
+        medicalDue,
+        bfrDue: data.BFR_due ?? null,
+      }
+    } catch {
+      loadErrors.push("pilot compliance dates")
+      memberCompliance = { medicalDue: null, bfrDue: null }
+    }
+  })()
+
+  await Promise.all([
+    bookingRequestsPromise,
+    flyingNowPromise,
+    upcomingSchedulePromise,
+    monthlyMetricsPromise,
+    memberCompliancePromise,
+  ])
+
+  if (memberScope) {
+    const avgFlightsPerDayThisMonth = flightsThisMonth / daysElapsedThisMonth
+    const data: DashboardData = {
+      tenantName,
+      timeZone,
+      nowIso,
+      viewerKind: "member",
+      memberCompliance: memberCompliance ?? { medicalDue: null, bfrDue: null },
+      metrics: {
+        monthLabel,
+        hoursFlownThisMonth,
+        flightsThisMonth,
+        activeStudentsThisMonth,
+        avgFlightsPerDayThisMonth,
+        upcomingToday: upcomingBookings.length,
+        flyingNow: flyingNowBookings.length,
+        bookingRequests: bookingRequests.length,
+        fleetAttention: 0,
+      },
+      bookingRequests,
+      flyingNowBookings,
+      upcomingBookings,
+      aircraftStatus: [],
+    }
+    return { data, loadErrors }
+  }
 
   try {
     const { data: aircraftRows, error: aircraftError } = await supabase
@@ -272,20 +367,22 @@ export async function fetchDashboardPageData(
     tenantName,
     timeZone,
     nowIso,
+    viewerKind: "staff",
+    memberCompliance: null,
     metrics: {
       monthLabel,
       hoursFlownThisMonth,
       flightsThisMonth,
       activeStudentsThisMonth,
       avgFlightsPerDayThisMonth,
-      upcomingToday: upcomingTodayBookings.length,
+      upcomingToday: upcomingBookings.length,
       flyingNow: flyingNowBookings.length,
       bookingRequests: bookingRequests.length,
       fleetAttention,
     },
     bookingRequests,
     flyingNowBookings,
-    upcomingTodayBookings,
+    upcomingBookings,
     aircraftStatus,
   }
 

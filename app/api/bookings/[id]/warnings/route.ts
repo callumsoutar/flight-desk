@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server"
 
 import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { isMemberOrStudentRole } from "@/lib/auth/roles"
+import { filterBookingWarningsForMemberOrStudentView } from "@/lib/bookings/filter-booking-warnings-for-member-view"
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
 
 export const dynamic = "force-dynamic"
@@ -11,17 +13,21 @@ export async function GET(
 ) {
   const { id } = await params
 
-  const session = await getTenantScopedRouteContext()
+  const session = await getTenantScopedRouteContext({ includeRole: true })
   if (session.response) return session.response
-  const { supabase, tenantId } = session.context
+  const { supabase, tenantId, role } = session.context
 
   try {
-    const warnings = await fetchBookingCheckoutWarnings(supabase, tenantId, {
+    let warnings = await fetchBookingCheckoutWarnings(supabase, tenantId, {
       bookingId: id,
       userId: request.nextUrl.searchParams.get("user_id"),
       instructorId: request.nextUrl.searchParams.get("instructor_id"),
       aircraftId: request.nextUrl.searchParams.get("aircraft_id"),
     })
+
+    if (isMemberOrStudentRole(role)) {
+      warnings = filterBookingWarningsForMemberOrStudentView(warnings)
+    }
 
     return noStoreJson(warnings)
   } catch {

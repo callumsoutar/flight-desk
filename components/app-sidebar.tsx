@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/contexts/auth-context"
 import { getUserDisplayName } from "@/lib/auth/display-name"
+import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
 
 const data = {
   navMainSections: [
@@ -87,7 +88,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const canAccessTraining = role === "owner" || role === "admin" || role === "instructor"
   const canAccessFinancialReports = role === "owner" || role === "admin"
+  const isPrivilegedNav = isStaffRole(role)
+  const canOpenSettings = isAdminRole(role)
   const navMainSections = React.useMemo(() => {
+    if (!isPrivilegedNav) {
+      return [
+        {
+          items: [
+            { title: "Dashboard", url: "/dashboard", icon: IconDashboard },
+            { title: "Scheduler", url: "/scheduler", icon: IconCalendarEvent },
+            { title: "Bookings", url: "/bookings", icon: IconReceipt },
+          ],
+        },
+      ]
+    }
     return data.navMainSections.map((section) => ({
       ...section,
       items: section.items.filter((item) => {
@@ -96,7 +110,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return true
       }),
     }))
-  }, [canAccessFinancialReports, canAccessTraining])
+  }, [canAccessFinancialReports, canAccessTraining, isPrivilegedNav])
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -117,7 +131,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain sections={navMainSections} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary
+          items={canOpenSettings ? data.navSecondary : []}
+          className="mt-auto"
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={{ id: user?.id ?? "guest", name, email, avatar }} />

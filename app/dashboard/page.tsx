@@ -6,11 +6,19 @@ import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-ske
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchDashboardPageData } from "@/lib/dashboard/fetch-dashboard-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import type { UserRole } from "@/lib/types/roles"
 
-async function DashboardContent({ tenantId }: { tenantId: string }) {
+async function DashboardContent({
+  tenantId,
+  viewer,
+}: {
+  tenantId: string
+  viewer: { userId: string; role: UserRole | null }
+}) {
   const supabase = await createSupabaseServerClient()
 
   let data: Awaited<ReturnType<typeof fetchDashboardPageData>>["data"] | null = null
@@ -18,7 +26,7 @@ async function DashboardContent({ tenantId }: { tenantId: string }) {
   let loadFailed = false
 
   try {
-    const result = await fetchDashboardPageData(supabase, tenantId)
+    const result = await fetchDashboardPageData(supabase, tenantId, viewer)
     data = result.data
     loadErrors = result.loadErrors
   } catch {
@@ -50,7 +58,7 @@ async function DashboardContent({ tenantId }: { tenantId: string }) {
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId, role } = await getAuthSession(supabase, { includeTenant: true, includeRole: true })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -69,8 +77,10 @@ export default async function DashboardPage() {
   return (
     <AppRouteShell>
       <AppRouteListContainer>
-        <React.Suspense fallback={<DashboardPageSkeleton />}>
-          <DashboardContent tenantId={tenantId} />
+        <React.Suspense
+          fallback={<DashboardPageSkeleton variant={isStaffRole(role) ? "staff" : "member"} />}
+        >
+          <DashboardContent tenantId={tenantId} viewer={{ userId: user.id, role }} />
         </React.Suspense>
       </AppRouteListContainer>
     </AppRouteShell>

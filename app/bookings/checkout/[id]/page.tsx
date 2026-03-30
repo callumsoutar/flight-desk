@@ -7,7 +7,9 @@ import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layou
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
+import { filterBookingWarningsForMemberOrStudentView } from "@/lib/bookings/filter-booking-warnings-for-member-view"
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
+import { isMemberOrStudentRole } from "@/lib/auth/roles"
 import { fetchBookingPageData } from "@/lib/bookings/fetch-booking-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types/roles"
@@ -20,10 +22,12 @@ async function BookingCheckoutContent({
   tenantId,
   bookingId,
   role,
+  userId,
 }: {
   tenantId: string
   bookingId: string
   role: UserRole | null
+  userId: string
 }) {
   const supabase = await createSupabaseServerClient()
 
@@ -31,7 +35,7 @@ async function BookingCheckoutContent({
   let initialWarnings: Awaited<ReturnType<typeof fetchBookingCheckoutWarnings>>
   try {
     const [resolvedPageData, resolvedWarnings] = await Promise.all([
-      fetchBookingPageData(supabase, tenantId, bookingId),
+      fetchBookingPageData(supabase, tenantId, bookingId, { userId, role }),
       fetchBookingCheckoutWarnings(supabase, tenantId, { bookingId }),
     ])
     pageData = resolvedPageData
@@ -53,11 +57,14 @@ async function BookingCheckoutContent({
     notFound()
   }
 
+  const warningsForClient =
+    isMemberOrStudentRole(role) ? filterBookingWarningsForMemberOrStudentView(initialWarnings) : initialWarnings
+
   return (
     <BookingCheckoutClient
       bookingId={bookingId}
       booking={pageData.booking}
-      initialWarnings={initialWarnings}
+      initialWarnings={warningsForClient}
       options={pageData.options}
       role={role}
     />
@@ -71,6 +78,7 @@ export default async function BookingCheckoutPage({ params }: PageProps) {
   const { user, role, tenantId } = await getAuthSession(supabase, {
     includeRole: true,
     includeTenant: true,
+    authoritativeRole: true,
   })
 
   if (!user) redirect("/login")
@@ -90,7 +98,7 @@ export default async function BookingCheckoutPage({ params }: PageProps) {
   return (
     <AppRouteShell>
       <React.Suspense fallback={<BookingDetailSkeleton />}>
-        <BookingCheckoutContent tenantId={tenantId} bookingId={id} role={role} />
+        <BookingCheckoutContent tenantId={tenantId} bookingId={id} role={role} userId={user.id} />
       </React.Suspense>
     </AppRouteShell>
   )

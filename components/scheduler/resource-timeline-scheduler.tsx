@@ -259,13 +259,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max))
 }
 
-function dateToKeyFromCalendar(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, "0")
-  const d = String(date.getDate()).padStart(2, "0")
-  return `${y}-${m}-${d}`
-}
-
 function dateKeyToCalendarDate(dateKey: string) {
   const parsed = parseDateKeyParts(dateKey)
   if (!parsed) return undefined
@@ -503,7 +496,10 @@ function getResourceTitle(resource: Resource) {
   return `${resource.data.registration} (${resource.data.type})`
 }
 
-function statusBadgeVariant(status: BookingStatus) {
+function statusBadgeVariant(status: BookingStatus, isStaff: boolean) {
+  if (!isStaff && (status === "flying" || status === "complete")) {
+    return "outline"
+  }
   switch (status) {
     case "flying":
       return "secondary"
@@ -522,7 +518,10 @@ function statusBadgeVariant(status: BookingStatus) {
   }
 }
 
-function statusPillClasses(status: BookingStatus) {
+function statusPillClasses(status: BookingStatus, isStaff: boolean) {
+  if (!isStaff && (status === "flying" || status === "complete")) {
+    return "bg-slate-600 text-white"
+  }
   switch (status) {
     case "flying":
       return "bg-amber-500 text-white"
@@ -541,7 +540,10 @@ function statusPillClasses(status: BookingStatus) {
   }
 }
 
-function statusIndicatorClasses(status: BookingStatus) {
+function statusIndicatorClasses(status: BookingStatus, isStaff: boolean) {
+  if (!isStaff && (status === "flying" || status === "complete")) {
+    return "bg-slate-600"
+  }
   switch (status) {
     case "flying":
       return "bg-amber-500"
@@ -593,14 +595,9 @@ function bookingToSchedulerBooking(
   const endsAt = parseSupabaseUtcTimestamp(booking.end_time)
   if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) return null
 
-  const studentName =
-    booking.student
-      ? [booking.student.first_name, booking.student.last_name].filter(Boolean).join(" ").trim() || "Booked"
-      : ""
-  const isTrialFlight = booking.flight_type?.instruction_type === "trial"
-  const primaryLabel = studentName
-    ? `${studentName}${isTrialFlight ? " (trial flight)" : ""}`
-    : booking.purpose || "Unassigned"
+  const isOwn = Boolean(viewer.userId) && booking.user_id === viewer.userId
+  const redactPeerDetails = !viewer.isStaff && !isOwn
+
   const aircraftLabel = booking.aircraft ? `${booking.aircraft.registration} (${booking.aircraft.type})` : undefined
   const instructorLabel = booking.instructor
     ? [booking.instructor.user?.first_name ?? booking.instructor.first_name, booking.instructor.user?.last_name ?? booking.instructor.last_name]
@@ -609,10 +606,42 @@ function bookingToSchedulerBooking(
         .trim() || undefined
     : undefined
 
-  const isOwn = Boolean(viewer.userId) && booking.user_id === viewer.userId
+  const studentName =
+    booking.student
+      ? [booking.student.first_name, booking.student.last_name].filter(Boolean).join(" ").trim() || ""
+      : ""
+  const isTrialFlight = booking.flight_type?.instruction_type === "trial"
+
+  let primaryLabel: string
+  let purpose: string
+  let remarks: string | null
+
+  if (redactPeerDetails) {
+    if (booking.booking_type === "maintenance") {
+      primaryLabel = "Maintenance"
+    } else if (booking.booking_type === "groundwork") {
+      primaryLabel = "Ground"
+    } else if (booking.booking_type === "other") {
+      primaryLabel = "Booking"
+    } else {
+      primaryLabel = studentName
+        ? `${studentName}${isTrialFlight ? " (trial flight)" : ""}`
+        : "Unassigned"
+    }
+    purpose = ""
+    remarks = null
+  } else {
+    primaryLabel = studentName
+      ? `${studentName}${isTrialFlight ? " (trial flight)" : ""}`
+      : booking.purpose || "Unassigned"
+    purpose = booking.purpose ?? ""
+    remarks = booking.remarks
+  }
+
   const canOpen = viewer.isStaff || isOwn
   const canCancel = (viewer.isStaff || isOwn) && booking.status !== "complete"
-  const canViewContact = viewer.isStaff || isOwn
+  /** Contact details in the scheduler menu are staff-only; members use other flows to see their profile. */
+  const canViewContact = viewer.isStaff && Boolean(booking.user_id)
   const canConfirm = viewer.isStaff && booking.status === "unconfirmed"
 
   return {
@@ -620,8 +649,8 @@ function bookingToSchedulerBooking(
     startsAt,
     endsAt,
     primaryLabel,
-    purpose: booking.purpose,
-    remarks: booking.remarks,
+    purpose,
+    remarks,
     instructorId: booking.instructor_id,
     aircraftId: booking.aircraft_id,
     userId: booking.user_id,
@@ -1058,11 +1087,16 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
 
   const navigateDate = React.useCallback(
     (deltaDays: number) => {
+      if (deltaDays < 0 && !isStaff) {
+        const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+        const nextKey = addDaysYyyyMmDd(selectedDateKey, deltaDays)
+        if (nextKey < todayKey) return
+      }
       const nextKey = addDaysYyyyMmDd(selectedDateKey, deltaDays)
       setSelectedDateKey(nextKey)
       pushDate(nextKey)
     },
-    [pushDate, selectedDateKey]
+    [data.timeZone, isStaff, pushDate, selectedDateKey]
   )
 
   const goToToday = React.useCallback(() => {
@@ -1074,11 +1108,53 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
   const handleDateSelect = React.useCallback(
     (value: Date | undefined) => {
       if (!value) return
-      const dayKey = dateToKeyFromCalendar(value)
+      const dayKey = getZonedYyyyMmDdAndHHmm(value, data.timeZone).yyyyMmDd
+      if (!isStaff) {
+        const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+        if (dayKey < todayKey) return
+      }
       setSelectedDateKey(dayKey)
       pushDate(dayKey)
     },
-    [pushDate]
+    [data.timeZone, isStaff, pushDate]
+  )
+
+  React.useEffect(() => {
+    if (isStaff) return
+    if (!selectedDateKey) return
+    const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+    if (selectedDateKey < todayKey) {
+      setSelectedDateKey(todayKey)
+      pushDate(todayKey)
+    }
+  }, [data.timeZone, isStaff, pushDate, selectedDateKey])
+
+  const toolbarDisablePreviousDay = React.useMemo(() => {
+    if (isStaff) return false
+    const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+    return addDaysYyyyMmDd(selectedDateKey, -1) < todayKey
+  }, [data.timeZone, isStaff, selectedDateKey])
+
+  const calendarDisabledPastDays = React.useCallback(
+    (date: Date) => {
+      if (isStaff) return false
+      const dayKey = getZonedYyyyMmDdAndHHmm(date, data.timeZone).yyyyMmDd
+      return dayKey < zonedTodayYyyyMmDd(data.timeZone)
+    },
+    [data.timeZone, isStaff]
+  )
+
+  const statusBadgeVariantForViewer = React.useCallback(
+    (status: BookingStatus) => statusBadgeVariant(status, isStaff),
+    [isStaff]
+  )
+  const statusPillClassesForViewer = React.useCallback(
+    (status: BookingStatus) => statusPillClasses(status, isStaff),
+    [isStaff]
+  )
+  const statusIndicatorClassesForViewer = React.useCallback(
+    (status: BookingStatus) => statusIndicatorClasses(status, isStaff),
+    [isStaff]
   )
 
   const handleBookingClick = React.useCallback(
@@ -1088,9 +1164,6 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         return
       }
       if (!booking.canOpen) {
-        toast.message("Busy slot", {
-          description: "You can only open your own bookings.",
-        })
         return
       }
       router.push(getBookingOpenPath(booking.id, booking.status))
@@ -1257,6 +1330,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                 onBookingPointerDown={handleBookingPointerDown}
                 canDragBookings={isStaff && !isMobile}
+                canViewAircraftProfile={isStaff}
                 onBookingClick={handleBookingClick}
                 onViewContactDetails={openContactDetails}
                 onStatusUpdate={(variables) => {
@@ -1265,9 +1339,9 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 onCancelBooking={handleCancelBookingClick}
                 formatTimeRangeLabel={formatTimeRangeLabel}
                 formatTimeRangeLabel12h={formatTimeRangeLabel12h}
-                statusBadgeVariant={statusBadgeVariant}
-                statusPillClasses={statusPillClasses}
-                statusIndicatorClasses={statusIndicatorClasses}
+                statusBadgeVariant={statusBadgeVariantForViewer}
+                statusPillClasses={statusPillClassesForViewer}
+                statusIndicatorClasses={statusIndicatorClassesForViewer}
                 formatTimeLabel12h={formatTimeLabel12h}
                 getMinutesInTimeZone={getMinutesInTimeZone}
               />
@@ -1290,6 +1364,9 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       isMobile,
       isStaff,
       openContactDetails,
+      statusBadgeVariantForViewer,
+      statusIndicatorClassesForViewer,
+      statusPillClassesForViewer,
       slotCount,
       slots,
       timelineEnd,
@@ -1322,6 +1399,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                 onBookingPointerDown={handleBookingPointerDown}
                 canDragBookings={isStaff && !isMobile}
+                canViewAircraftProfile={isStaff}
                 onBookingClick={handleBookingClick}
                 onViewContactDetails={openContactDetails}
                 onStatusUpdate={(variables) => {
@@ -1330,9 +1408,9 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 onCancelBooking={handleCancelBookingClick}
                 formatTimeRangeLabel={formatTimeRangeLabel}
                 formatTimeRangeLabel12h={formatTimeRangeLabel12h}
-                statusBadgeVariant={statusBadgeVariant}
-                statusPillClasses={statusPillClasses}
-                statusIndicatorClasses={statusIndicatorClasses}
+                statusBadgeVariant={statusBadgeVariantForViewer}
+                statusPillClasses={statusPillClassesForViewer}
+                statusIndicatorClasses={statusIndicatorClassesForViewer}
                 formatTimeLabel12h={formatTimeLabel12h}
                 getMinutesInTimeZone={getMinutesInTimeZone}
               />
@@ -1354,6 +1432,9 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       isMobile,
       isStaff,
       openContactDetails,
+      statusBadgeVariantForViewer,
+      statusIndicatorClassesForViewer,
+      statusPillClassesForViewer,
       slotCount,
       slots,
       timelineEnd,
@@ -1372,6 +1453,8 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         onToday={goToToday}
         onNewBooking={handleNewBooking}
         disableNewBooking={!selectedDateKey}
+        disablePreviousDay={toolbarDisablePreviousDay}
+        calendarDisabled={isStaff ? undefined : calendarDisabledPastDays}
       />
 
       <div className="overflow-hidden rounded-lg border bg-card shadow-sm">

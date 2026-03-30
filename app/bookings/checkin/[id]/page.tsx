@@ -19,16 +19,18 @@ async function BookingCheckinContent({
   tenantId,
   bookingId,
   role,
+  userId,
 }: {
   tenantId: string
   bookingId: string
   role: UserRole | null
+  userId: string
 }) {
   const supabase = await createSupabaseServerClient()
 
   let pageData: Awaited<ReturnType<typeof fetchBookingPageData>>
   try {
-    pageData = await fetchBookingPageData(supabase, tenantId, bookingId)
+    pageData = await fetchBookingPageData(supabase, tenantId, bookingId, { userId, role })
   } catch {
     return (
       <AppRouteNarrowDetailContainer>
@@ -82,7 +84,7 @@ export default async function BookingCheckinPage({ params }: PageProps) {
   return (
     <AppRouteShell>
       <React.Suspense fallback={<BookingDetailSkeleton />}>
-        <BookingCheckinContent tenantId={tenantId} bookingId={id} role={role} />
+        <BookingCheckinContent tenantId={tenantId} bookingId={id} role={role} userId={user.id} />
       </React.Suspense>
     </AppRouteShell>
   )

@@ -25,6 +25,7 @@ import {
   getBookingTrackerStages,
 } from "@/components/bookings/booking-status-tracker"
 import { BookingCheckoutWarnings } from "@/components/bookings/booking-checkout-warnings"
+import { filterBookingWarningsForMemberOrStudentView } from "@/lib/bookings/filter-booking-warnings-for-member-view"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -220,20 +221,27 @@ export function BookingCheckoutClient({
   const warningInstructorId = bookingForm.instructor_id ?? null
   const warningAircraftId = checkoutForm.checked_out_aircraft_id ?? bookingForm.aircraft_id ?? null
 
+  const isStaff = role === "owner" || role === "admin" || role === "instructor"
+
+  const warningsForViewer = React.useMemo(
+    () => (isStaff ? warnings : filterBookingWarningsForMemberOrStudentView(warnings)),
+    [isStaff, warnings]
+  )
+
   const warningsAcknowledgementKey = React.useMemo(
     () =>
       buildWarningsFingerprint({
         userId: warningUserId,
         instructorId: warningInstructorId,
         aircraftId: warningAircraftId,
-        warnings,
+        warnings: warningsForViewer,
       }),
-    [warningAircraftId, warningInstructorId, warningUserId, warnings]
+    [warningAircraftId, warningInstructorId, warningUserId, warningsForViewer]
   )
 
   React.useEffect(() => {
-    setWarningsAcknowledged(!warnings.summary.requires_acknowledgement)
-  }, [warningsAcknowledgementKey, warnings.summary.requires_acknowledgement])
+    setWarningsAcknowledged(!warningsForViewer.summary.requires_acknowledgement)
+  }, [warningsAcknowledgementKey, warningsForViewer.summary.requires_acknowledgement])
 
   React.useEffect(() => {
     const matchesCurrentContext =
@@ -352,13 +360,12 @@ export function BookingCheckoutClient({
     })
   }, [bookingEndTimeLocal, isEtaAuto])
 
-  const isStaff = role === "owner" || role === "admin" || role === "instructor"
   const isMemberOrStudent = role === "member" || role === "student"
   const canCheckOut = isStaff && booking.status === "confirmed"
   const canCheckIn = isStaff && booking.status === "flying"
   const isReadOnly = booking.status === "complete" || booking.status === "cancelled"
-  const hasBlockingWarnings = warnings.summary.has_blockers
-  const requiresWarningsAcknowledgement = warnings.summary.requires_acknowledgement
+  const hasBlockingWarnings = warningsForViewer.summary.has_blockers
+  const requiresWarningsAcknowledgement = warningsForViewer.summary.requires_acknowledgement
   const warningGateBlocked =
     isWarningsRefreshing || Boolean(warningsRefreshError) || (requiresWarningsAcknowledgement && !warningsAcknowledged)
   const isDirty = React.useMemo(
@@ -395,8 +402,12 @@ export function BookingCheckoutClient({
   }, [booking.lesson_progress])
   const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
   const trackerStages = React.useMemo(
-    () => getBookingTrackerStages(Boolean(checkoutForm.briefing_completed), includeDebriefStage),
-    [checkoutForm.briefing_completed, includeDebriefStage]
+    () =>
+      getBookingTrackerStages(
+        isStaff ? Boolean(checkoutForm.briefing_completed) : false,
+        includeDebriefStage
+      ),
+    [checkoutForm.briefing_completed, includeDebriefStage, isStaff]
   )
   const trackerState = React.useMemo(
     () =>
@@ -593,17 +604,6 @@ export function BookingCheckoutClient({
         />
 
         <BookingPageContent>
-          {!isStaff ? (
-            <Card className="mb-6 border border-border/50">
-              <CardHeader>
-                <CardTitle className="text-lg">Checkout access required</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                Only staff users can check bookings out and in.
-              </CardContent>
-            </Card>
-          ) : null}
-
           {isStaff && !canCheckOut && !canCheckIn && !isReadOnly ? (
             <Card className="mb-6 border border-border/50">
               <CardHeader>
@@ -617,7 +617,7 @@ export function BookingCheckoutClient({
 
           <div className="mb-6">
             <BookingCheckoutWarnings
-              warnings={warnings}
+              warnings={warningsForViewer}
               isRefreshing={isWarningsRefreshing}
               refreshError={warningsRefreshError}
               acknowledgementChecked={warningsAcknowledged}
@@ -635,98 +635,106 @@ export function BookingCheckoutClient({
                 isAdminOrInstructor={isStaff}
                 isMemberOrStudent={isMemberOrStudent}
                 onFieldChange={updateBookingField}
-                aircraftValue={checkoutForm.checked_out_aircraft_id}
-                onAircraftChange={(value) => updateCheckoutField("checked_out_aircraft_id", value)}
+                aircraftValue={
+                  isStaff ? checkoutForm.checked_out_aircraft_id : undefined
+                }
+                onAircraftChange={
+                  isStaff
+                    ? (value) => updateCheckoutField("checked_out_aircraft_id", value)
+                    : undefined
+                }
                 title="Confirm Booking Details"
               />
             </div>
 
-            <div className="space-y-6">
-              <Card className="border border-border/50 shadow-sm">
-                <CardHeader className="border-b border-border/20 pb-5">
-                  <CardTitle className="text-xl font-bold">Checkout Details</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="divide-y divide-border/50">
-                    <div className="flex items-center justify-between gap-3 py-3.5">
-                      <label className="text-sm font-medium">Briefing Completed</label>
-                      <Switch
-                        checked={checkoutForm.briefing_completed}
-                        disabled={isReadOnly}
-                        onCheckedChange={(value) => updateCheckoutField("briefing_completed", Boolean(value))}
-                      />
+            <div className="space-y-6 lg:col-span-1">
+              {isStaff ? (
+                <Card className="border border-border/50 shadow-sm">
+                  <CardHeader className="border-b border-border/20 pb-5">
+                    <CardTitle className="text-xl font-bold">Checkout Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="divide-y divide-border/50">
+                      <div className="flex items-center justify-between gap-3 py-3.5">
+                        <label className="text-sm font-medium">Briefing Completed</label>
+                        <Switch
+                          checked={checkoutForm.briefing_completed}
+                          disabled={isReadOnly}
+                          onCheckedChange={(value) => updateCheckoutField("briefing_completed", Boolean(value))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3 py-3.5">
+                        <label className="text-sm font-medium">Authorization Completed</label>
+                        <Switch
+                          checked={checkoutForm.authorization_completed}
+                          disabled={isReadOnly}
+                          onCheckedChange={(value) => updateCheckoutField("authorization_completed", Boolean(value))}
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-3 py-3.5">
-                      <label className="text-sm font-medium">Authorization Completed</label>
-                      <Switch
-                        checked={checkoutForm.authorization_completed}
-                        disabled={isReadOnly}
-                        onCheckedChange={(value) => updateCheckoutField("authorization_completed", Boolean(value))}
-                      />
+
+                    <div className="mt-5 space-y-5">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">ETA</label>
+                        <Input
+                          type="datetime-local"
+                          value={checkoutForm.eta}
+                          disabled={isReadOnly}
+                          onChange={(event) => {
+                            const nextValue = event.target.value
+                            updateCheckoutField("eta", nextValue)
+                            setIsEtaAuto(!nextValue || nextValue === bookingEndTimeLocal)
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Fuel On Board</label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="0.1"
+                          value={checkoutForm.fuel_on_board}
+                          disabled={isReadOnly}
+                          onChange={(event) => updateCheckoutField("fuel_on_board", event.target.value)}
+                        />
+                        <p className="text-xs leading-snug text-muted-foreground" title={enduranceSummary.detail}>
+                          {enduranceSummary.label}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Route</label>
+                        <Input
+                          value={checkoutForm.route}
+                          disabled={isReadOnly}
+                          onChange={(event) => updateCheckoutField("route", event.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Passengers</label>
+                        <Input
+                          value={checkoutForm.passengers}
+                          disabled={isReadOnly}
+                          onChange={(event) => updateCheckoutField("passengers", event.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Flight Remarks</label>
+                        <textarea
+                          className="min-h-[112px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={checkoutForm.flight_remarks}
+                          disabled={isReadOnly}
+                          onChange={(event) => updateCheckoutField("flight_remarks", event.target.value)}
+                        />
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="mt-5 space-y-5">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">ETA</label>
-                    <Input
-                      type="datetime-local"
-                      value={checkoutForm.eta}
-                      disabled={isReadOnly}
-                      onChange={(event) => {
-                        const nextValue = event.target.value
-                        updateCheckoutField("eta", nextValue)
-                        setIsEtaAuto(!nextValue || nextValue === bookingEndTimeLocal)
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Fuel On Board</label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.1"
-                      value={checkoutForm.fuel_on_board}
-                      disabled={isReadOnly}
-                      onChange={(event) => updateCheckoutField("fuel_on_board", event.target.value)}
-                    />
-                    <p className="text-xs leading-snug text-muted-foreground" title={enduranceSummary.detail}>
-                      {enduranceSummary.label}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Route</label>
-                    <Input
-                      value={checkoutForm.route}
-                      disabled={isReadOnly}
-                      onChange={(event) => updateCheckoutField("route", event.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Passengers</label>
-                    <Input
-                      value={checkoutForm.passengers}
-                      disabled={isReadOnly}
-                      onChange={(event) => updateCheckoutField("passengers", event.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Flight Remarks</label>
-                    <textarea
-                      className="min-h-[112px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={checkoutForm.flight_remarks}
-                      disabled={isReadOnly}
-                      onChange={(event) => updateCheckoutField("flight_remarks", event.target.value)}
-                    />
-                  </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
           </div>
         </BookingPageContent>

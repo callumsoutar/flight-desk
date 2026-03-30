@@ -442,11 +442,13 @@ export function NewBookingModal({
     if (!sameDay || rosterMaxEndMinutes === null || !form?.startTime) return TIME_OPTIONS
     const startMin = parseTimeToMinutes(form.startTime)
     if (startMin === null) return TIME_OPTIONS
-    return TIME_OPTIONS.filter((time) => {
+    const filtered = TIME_OPTIONS.filter((time) => {
       const timeMin = parseTimeToMinutes(time)
       if (timeMin === null) return false
       return timeMin > startMin && timeMin <= rosterMaxEndMinutes
     })
+    // Avoid empty options (broken Select); roster window edge cases can filter everything out.
+    return filtered.length > 0 ? filtered : TIME_OPTIONS
   }, [sameDay, rosterMaxEndMinutes, form?.startTime])
 
   const computedRange = React.useMemo(() => {
@@ -924,8 +926,8 @@ export function NewBookingModal({
                     ) : null}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <div className={cn(form.isRecurring && "col-span-2 sm:col-span-1")}>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className={cn(form.isRecurring && "sm:col-span-2")}>
                       <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         START DATE <span className="text-destructive">*</span>
                       </label>
@@ -1535,29 +1537,42 @@ export function NewBookingModal({
                 Cancel
               </Button>
               <div className="flex flex-1 items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => {
-                    void submit("unconfirmed")
-                  }}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
-                >
-                  {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : bookingMode === "maintenance" ? "Save Maintenance" : "Save Booking"}
-                </Button>
-                {isStaff ? (
+                {isMemberOrStudent ? (
                   <Button
                     type="button"
-                    variant="outline"
                     disabled={submitting}
                     onClick={() => {
-                      void submit("confirmed")
+                      void submit("unconfirmed")
                     }}
                     className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-shadow hover:bg-slate-900 hover:text-white hover:shadow-xl hover:shadow-slate-900/20"
                   >
-                    Save as confirmed
+                    {submitting ? "Submitting..." : "Submit request"}
                   </Button>
-                ) : null}
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => {
+                        void submit("unconfirmed")
+                      }}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
+                    >
+                      {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : bookingMode === "maintenance" ? "Save Maintenance" : "Save Booking"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={submitting}
+                      onClick={() => {
+                        void submit("confirmed")
+                      }}
+                      className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-shadow hover:bg-slate-900 hover:text-white hover:shadow-xl hover:shadow-slate-900/20"
+                    >
+                      Save as confirmed
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

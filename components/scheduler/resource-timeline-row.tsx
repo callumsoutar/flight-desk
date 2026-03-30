@@ -77,6 +77,7 @@ export function ResourceTimelineRow({
   onEmptyClick,
   onBookingPointerDown,
   canDragBookings,
+  canViewAircraftProfile,
   onBookingClick,
   onViewContactDetails,
   onStatusUpdate,
@@ -104,6 +105,7 @@ export function ResourceTimelineRow({
   onEmptyClick: (clientX: number, container: HTMLDivElement) => void
   onBookingPointerDown: (payload: TimelineRowBookingPointerDownPayload) => void
   canDragBookings: boolean
+  canViewAircraftProfile: boolean
   onBookingClick: (booking: TimelineRowBooking) => void
   onViewContactDetails?: (memberId: string) => void
   onStatusUpdate: (variables: {
@@ -206,6 +208,7 @@ export function ResourceTimelineRow({
               previewTimeLabel={previewTimeLabel}
               range={range}
               canDragThisBooking={canDragThisBooking}
+              canViewAircraftProfile={canViewAircraftProfile}
               slotCount={slotCount}
               rowResource={rowResource}
               containerRef={containerRef}

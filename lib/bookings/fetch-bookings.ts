@@ -2,13 +2,16 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import type { Database } from "@/lib/types"
+import type { UserRole } from "@/lib/types/roles"
 import type { BookingsFilter, BookingWithRelations } from "@/lib/types/bookings"
 
 export async function fetchBookings(
   supabase: SupabaseClient<Database>,
   tenantId: string,
-  filters?: BookingsFilter
+  filters?: BookingsFilter,
+  viewer?: { userId: string; role: UserRole | null }
 ): Promise<BookingWithRelations[]> {
   let query = supabase
     .from("bookings")
@@ -34,7 +37,9 @@ export async function fetchBookings(
     query = query.eq("instructor_id", filters.instructor_id)
   }
 
-  if (filters?.user_id) {
+  if (viewer && !isStaffRole(viewer.role)) {
+    query = query.eq("user_id", viewer.userId)
+  } else if (filters?.user_id) {
     query = query.eq("user_id", filters.user_id)
   }
 

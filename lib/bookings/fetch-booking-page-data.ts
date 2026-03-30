@@ -2,9 +2,16 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import type { Database } from "@/lib/types"
+import type { UserRole } from "@/lib/types/roles"
 import type { AuditLog, AuditLookupMaps, BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
+
+function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
 
 export type BookingPageData = {
   booking: BookingWithRelations | null
@@ -31,10 +38,39 @@ async function fetchBooking(
   return (data ?? null) as BookingWithRelations | null
 }
 
+function emptyBookingOptionsPartial(): BookingOptions {
+  return {
+    aircraft: [],
+    aircraftTypes: [],
+    members: [],
+    instructors: [],
+    flightTypes: [],
+    syllabi: [],
+    lessons: [],
+    chargeables: [],
+    chargeableTypes: [],
+    landingFeeRates: [],
+  }
+}
+
 async function fetchOptions(
   supabase: SupabaseClient<Database>,
-  tenantId: string
+  tenantId: string,
+  viewerUserId: string,
+  role: UserRole | null
 ): Promise<BookingOptions> {
+  const membersPromise = isStaffRole(role)
+    ? supabase
+        .from("tenant_users")
+        .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+    : supabase
+        .from("user_directory")
+        .select("id, first_name, last_name, email")
+        .eq("id", viewerUserId)
+        .maybeSingle()
+
   const [
     aircraftResult,
     aircraftTypesResult,
@@ -58,11 +94,7 @@ async function fetchOptions(
         .select("id, name")
         .eq("tenant_id", tenantId)
         .order("name", { ascending: true }),
-      supabase
-        .from("tenant_users")
-        .select("user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)")
-        .eq("tenant_id", tenantId)
-        .eq("is_active", true),
+      membersPromise,
       supabase
         .from("instructors")
         .select("id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)")
@@ -120,12 +152,32 @@ async function fetchOptions(
   if (chargeableTypesResult.error) throw chargeableTypesResult.error
   if (landingFeeRatesResult.error) throw landingFeeRatesResult.error
 
-  const members = (membersResult.data ?? [])
-    .map((row) => row.user)
-    .filter(
-      (user): user is BookingOptions["members"][number] =>
-        Boolean(user && typeof user.id === "string" && user.id && typeof user.email === "string")
-    )
+  let members: BookingOptions["members"] = []
+
+  if (isStaffRole(role)) {
+    const rows = (membersResult.data ?? []) as Array<{
+      user:
+        | { id: string; first_name: string | null; last_name: string | null; email: string }
+        | Array<{ id: string; first_name: string | null; last_name: string | null; email: string }>
+        | null
+    }>
+    members = rows
+      .map((row) => pickMaybeOne(row.user))
+      .filter(
+        (user): user is BookingOptions["members"][number] =>
+          Boolean(user && typeof user.id === "string" && user.id && typeof user.email === "string")
+      )
+  } else {
+    const me = membersResult.data as {
+      id: string
+      first_name: string | null
+      last_name: string | null
+      email: string
+    } | null
+    if (me?.id && me.email) {
+      members = [me]
+    }
+  }
 
   return {
     aircraft: (aircraftResult.data ?? []) as BookingOptions["aircraft"],
@@ -270,11 +322,43 @@ async function fetchAuditLogs(
 export async function fetchBookingPageData(
   supabase: SupabaseClient<Database>,
   tenantId: string,
-  bookingId: string
+  bookingId: string,
+  access: { userId: string; role: UserRole | null }
 ): Promise<BookingPageData> {
-  const [booking, options, auditResult] = await Promise.all([
-    fetchBooking(supabase, tenantId, bookingId),
-    fetchOptions(supabase, tenantId),
+  const booking = await fetchBooking(supabase, tenantId, bookingId)
+
+  if (!booking) {
+    return {
+      booking: null,
+      options: emptyBookingOptionsPartial(),
+      auditLogs: [],
+      auditLookupMaps: {
+        users: {},
+        instructors: {},
+        lessons: {},
+        flightTypes: {},
+        aircraft: {},
+      },
+    }
+  }
+
+  if (!isStaffRole(access.role) && booking.user_id !== access.userId) {
+    return {
+      booking: null,
+      options: emptyBookingOptionsPartial(),
+      auditLogs: [],
+      auditLookupMaps: {
+        users: {},
+        instructors: {},
+        lessons: {},
+        flightTypes: {},
+        aircraft: {},
+      },
+    }
+  }
+
+  const [options, auditResult] = await Promise.all([
+    fetchOptions(supabase, tenantId, access.userId, access.role),
     fetchAuditLogs(supabase, tenantId, bookingId),
   ])
 

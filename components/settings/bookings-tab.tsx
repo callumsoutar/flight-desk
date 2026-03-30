@@ -32,6 +32,7 @@ function createFormState(settings: BookingsSettings | null) {
     minimum_booking_duration_minutes: settings?.minimum_booking_duration_minutes ?? 30,
     default_booking_briefing_charge_enabled: settings?.default_booking_briefing_charge_enabled ?? false,
     default_booking_briefing_chargeable_id: settings?.default_booking_briefing_chargeable_id ?? "",
+    aircraft_daily_available_hours: roundToQuarterHour(settings?.aircraft_daily_available_hours ?? 10),
   }
 }
 
@@ -90,7 +91,9 @@ export function BookingsTab({
       roundToQuarterHour(baseForm.default_booking_duration_hours) ||
     form.minimum_booking_duration_minutes !== baseForm.minimum_booking_duration_minutes ||
     form.default_booking_briefing_charge_enabled !== baseForm.default_booking_briefing_charge_enabled ||
-    form.default_booking_briefing_chargeable_id !== baseForm.default_booking_briefing_chargeable_id
+    form.default_booking_briefing_chargeable_id !== baseForm.default_booking_briefing_chargeable_id ||
+    roundToQuarterHour(form.aircraft_daily_available_hours) !==
+      roundToQuarterHour(baseForm.aircraft_daily_available_hours)
 
   const onUndo = () => setForm(baseForm)
 
@@ -108,6 +111,7 @@ export function BookingsTab({
           minimum_booking_duration_minutes: form.minimum_booking_duration_minutes,
           default_booking_briefing_charge_enabled: form.default_booking_briefing_charge_enabled,
           default_booking_briefing_chargeable_id: form.default_booking_briefing_chargeable_id || null,
+          aircraft_daily_available_hours: roundToQuarterHour(form.aircraft_daily_available_hours),
         },
       })
       setBaseSettings(result.settings)
@@ -292,6 +296,32 @@ export function BookingsTab({
                   />
                   <p className="text-[11px] font-medium text-slate-500">
                     Helps prevent very short bookings from being created accidentally.
+                  </p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="aircraft-daily-available-hours" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Aircraft Daily Available Hours
+                  </Label>
+                  <Input
+                    id="aircraft-daily-available-hours"
+                    type="number"
+                    min={1}
+                    max={24}
+                    step={0.5}
+                    value={form.aircraft_daily_available_hours}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        aircraft_daily_available_hours: Number.parseFloat(e.target.value) || 1,
+                      }))
+                    }
+                    className="h-11 rounded-xl border-slate-200 bg-white sm:max-w-xs"
+                  />
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Used to calculate aircraft utilisation rate. Represents the total hours per day each aircraft
+                    is available for flying (e.g. 10 hours/day). Utilisation = hours flown ÷ (this value ×
+                    operating days).
                   </p>
                 </div>
               </div>

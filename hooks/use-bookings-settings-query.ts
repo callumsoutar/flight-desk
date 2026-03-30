@@ -16,6 +16,7 @@ export async function updateBookingsSettings(input: {
     minimum_booking_duration_minutes: number
     default_booking_briefing_charge_enabled: boolean
     default_booking_briefing_chargeable_id: string | null
+    aircraft_daily_available_hours: number
   }
 }) {
   const response = await fetch("/api/settings/bookings", {

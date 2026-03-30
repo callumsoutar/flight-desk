@@ -57,9 +57,11 @@ const VALID_TABS = ["all", "today", "flying", "unconfirmed"] as const
 
 type Props = {
   bookings: BookingWithRelations[]
+  /** Only staff can confirm unconfirmed bookings from this list. */
+  isStaff: boolean
 }
 
-export function BookingsPageClient({ bookings }: Props) {
+export function BookingsPageClient({ bookings, isStaff }: Props) {
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get("tab")
   const initialTab =
@@ -167,7 +169,7 @@ export function BookingsPageClient({ bookings }: Props) {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       tabCounts={tabCounts}
-      onApprove={activeTab === "unconfirmed" ? handleApprove : undefined}
+      onApprove={activeTab === "unconfirmed" && isStaff ? handleApprove : undefined}
     />
   )
 }

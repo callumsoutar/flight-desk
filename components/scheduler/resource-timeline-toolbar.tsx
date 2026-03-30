@@ -16,6 +16,8 @@ export function ResourceTimelineToolbar({
   onToday,
   onNewBooking,
   disableNewBooking,
+  disablePreviousDay,
+  calendarDisabled,
 }: {
   selectedDateLabel: string
   selectedDate?: Date
@@ -25,11 +27,21 @@ export function ResourceTimelineToolbar({
   onToday: () => void
   onNewBooking: () => void
   disableNewBooking: boolean
+  /** When true, user cannot move to the previous calendar day (e.g. members/students). */
+  disablePreviousDay?: boolean
+  /** Dates for which the popover calendar day cell is not selectable. */
+  calendarDisabled?: (date: Date) => boolean
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={onPreviousDay} aria-label="Previous day">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onPreviousDay}
+          disabled={disablePreviousDay}
+          aria-label="Previous day"
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
@@ -45,7 +57,13 @@ export function ResourceTimelineToolbar({
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={selectedDate} onSelect={onSelectDate} initialFocus />
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={onSelectDate}
+              initialFocus
+              disabled={calendarDisabled}
+            />
           </PopoverContent>
         </Popover>
 

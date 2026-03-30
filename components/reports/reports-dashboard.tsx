@@ -38,8 +38,19 @@ import {
 } from "@/components/ui/chart"
 import { cn } from "@/lib/utils"
 import { DateRangeSelector } from "@/components/reports/date-range-selector"
+import { AircraftUtilisationTable } from "@/components/reports/aircraft-utilisation-table"
+import { AircraftUtilisationTrendChart } from "@/components/reports/aircraft-utilisation-trend-chart"
+import { HoursByFlightTypeChart } from "@/components/reports/hours-by-flight-type-chart"
+import { InstructorRevenueRanking } from "@/components/reports/instructor-revenue-ranking"
+import { StaffDualHoursCards } from "@/components/reports/staff-dual-hours-cards"
+import { StudentsPerInstructor } from "@/components/reports/students-per-instructor"
 import type { ReportData, DateRange } from "@/lib/reports/fetch-report-data"
-import type { FlyingActivityDashboard } from "@/lib/types/reports"
+import type {
+  AircraftUtilisationDashboard,
+  FlyingActivityDashboard,
+  HoursByFlightTypeRow,
+  StaffDashboard,
+} from "@/lib/types/reports"
 
 // ---------------------------------------------------------------------------
 // Soft, muted palette — stays within the navy/blue brand family but
@@ -71,31 +82,6 @@ const instructorConfig = {
   hours: { label: "Hours", color: C1 },
 } satisfies ChartConfig
 
-const aircraftConfig = {
-  hours: { label: "Hours Flown", color: C1 },
-} satisfies ChartConfig
-
-const trainingConfig = {
-  pass:             { label: "Pass",              color: C1 },
-  notYetCompetent:  { label: "Not Yet Competent", color: C4 },
-} satisfies ChartConfig
-
-const syllabusConfig = {
-  inProgress: { label: "In Progress", color: C1 },
-  completed:  { label: "Completed",   color: C3 },
-} satisfies ChartConfig
-
-const observationTrendsConfig = {
-  count: { label: "Observations", color: C2 },
-} satisfies ChartConfig
-
-const observationStageConfig = {
-  open:          { label: "Open",          color: C1 },
-  investigation: { label: "Investigation", color: C2 },
-  resolution:    { label: "Resolution",    color: C3 },
-  closed:        { label: "Closed",        color: C5 },
-} satisfies ChartConfig
-
 const flyingHoursByMonthConfig = {
   hours: { label: "Hours", color: C1 },
 } satisfies ChartConfig
@@ -103,10 +89,6 @@ const flyingHoursByMonthConfig = {
 const weekendWeekdayConfig = {
   weekend: { label: "Weekend", color: C1 },
   weekday: { label: "Weekday", color: C3 },
-} satisfies ChartConfig
-
-const flightTypeConfig = {
-  hours: { label: "Hours", color: C2 },
 } satisfies ChartConfig
 
 const stageConfig = {
@@ -168,10 +150,9 @@ function EmptyChart({ message }: { message: string }) {
 // ---------------------------------------------------------------------------
 
 const TABS = [
-  { id: "overview",   label: "Overview"   },
-  { id: "aircraft",   label: "Aircraft"   },
-  { id: "training",   label: "Training"   },
-  { id: "operations", label: "Operations" },
+  { id: "flying-activity", label: "Flying Activity" },
+  { id: "staff", label: "Staff" },
+  { id: "aircraft", label: "Aircraft" },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
@@ -179,14 +160,18 @@ type TabId = (typeof TABS)[number]["id"]
 function TabBar({
   active,
   onChange,
+  canViewStaffAndAircraft,
 }: {
   active: TabId
   onChange: (id: TabId) => void
+  canViewStaffAndAircraft: boolean
 }) {
+  const visibleTabs = canViewStaffAndAircraft ? TABS : TABS.filter((tab) => tab.id === "flying-activity")
+
   return (
     <div className="relative -mx-4 px-4 md:mx-0 md:px-0">
       <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto border-b border-slate-200">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = active === tab.id
           return (
             <button
@@ -266,17 +251,27 @@ export function ReportsDashboard({
   data,
   dateRange,
   flyingActivity,
+  staffDashboard,
+  aircraftUtilisation,
+  hoursByFlightType,
+  role,
 }: {
   data: ReportData
   dateRange: DateRange
   flyingActivity: FlyingActivityDashboard | null
+  staffDashboard: StaffDashboard | null
+  aircraftUtilisation: AircraftUtilisationDashboard | null
+  hoursByFlightType: HoursByFlightTypeRow[]
+  role: string | null
 }) {
-  const [activeTab, setActiveTab] = React.useState<TabId>("overview")
+  const [activeTab, setActiveTab] = React.useState<TabId>("flying-activity")
+  const canViewStaffAndAircraft = role === "owner" || role === "admin" || role === "instructor"
 
-  const totalObservations = data.observationsByStage.reduce(
-    (sum, s) => sum + s.count,
-    0
-  )
+  React.useEffect(() => {
+    if (!canViewStaffAndAircraft && activeTab !== "flying-activity") {
+      setActiveTab("flying-activity")
+    }
+  }, [activeTab, canViewStaffAndAircraft])
 
   return (
     <div className="flex flex-col gap-6">
@@ -292,10 +287,14 @@ export function ReportsDashboard({
       </div>
 
       {/* Bookings-style tab bar */}
-      <TabBar active={activeTab} onChange={setActiveTab} />
+      <TabBar
+        active={activeTab}
+        onChange={setActiveTab}
+        canViewStaffAndAircraft={canViewStaffAndAircraft}
+      />
 
       {/* ---- OVERVIEW PANEL ---- */}
-      {activeTab === "overview" && (
+      {activeTab === "flying-activity" && (
         <div className="flex flex-col gap-4">
           {/* Summary cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -461,35 +460,7 @@ export function ReportsDashboard({
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-              <CardHeader className="px-4 pt-4 pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-900">Hours by Flight Type</CardTitle>
-                <CardDescription className="text-xs">Distribution of flight types</CardDescription>
-              </CardHeader>
-              <CardContent className="px-2 pb-4">
-                {(!flyingActivity || flyingActivity.hours_by_flight_type.length === 0) ? (
-                  <EmptyChart message="No flight type data in this period." />
-                ) : (
-                  <ChartContainer
-                    config={flightTypeConfig}
-                    className="aspect-auto w-full"
-                    style={{ height: `${Math.max(180, flyingActivity.hours_by_flight_type.length * 32)}px` }}
-                  >
-                    <BarChart
-                      data={flyingActivity.hours_by_flight_type}
-                      layout="vertical"
-                      margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
-                    >
-                      <CartesianGrid horizontal={false} />
-                      <YAxis dataKey="flight_type" type="category" tickLine={false} axisLine={false} tickMargin={8} width={90} />
-                      <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
-                      <ChartTooltip content={<ChartTooltipContent formatter={(value, _name, item) => [`${value} hrs`, item.payload.flight_type]} />} />
-                      <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
+            <HoursByFlightTypeChart rows={hoursByFlightType} />
 
             <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
               <CardHeader className="px-4 pt-4 pb-0">
@@ -664,284 +635,29 @@ export function ReportsDashboard({
         </div>
       )}
 
+      {/* ---- STAFF PANEL ---- */}
+      {activeTab === "staff" && canViewStaffAndAircraft && (
+        <div className="flex flex-col gap-4">
+          <StaffDualHoursCards
+            dualHoursSalary={staffDashboard?.dual_hours_salary ?? 0}
+            dualHoursContractor={staffDashboard?.dual_hours_contractor ?? 0}
+          />
+          <InstructorRevenueRanking instructors={staffDashboard?.instructors ?? []} />
+          <StudentsPerInstructor rows={staffDashboard?.students_per_instructor ?? []} />
+        </div>
+      )}
+
       {/* ---- AIRCRAFT PANEL ---- */}
-      {activeTab === "aircraft" && (
+      {activeTab === "aircraft" && canViewStaffAndAircraft && (
         <div className="flex flex-col gap-4">
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-            <CardHeader className="px-5 pt-5 pb-0">
-              <CardTitle className="text-sm font-semibold text-slate-900">Hours Flown per Aircraft</CardTitle>
-              <CardDescription className="text-xs">
-                Total hours from completed bookings in this period
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-3 pb-5">
-              {data.aircraftHours.every((a) => a.hours === 0) ? (
-                <EmptyChart message="No completed flights for this period" />
-              ) : (
-                <ChartContainer
-                  config={aircraftConfig}
-                  className="aspect-auto w-full"
-                  style={{
-                    height: `${Math.max(250, data.aircraftHours.length * 44)}px`,
-                  }}
-                >
-                  <BarChart
-                    data={data.aircraftHours}
-                    layout="vertical"
-                    margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-                  >
-                    <CartesianGrid horizontal={false} />
-                    <YAxis
-                      dataKey="registration"
-                      type="category"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      width={100}
-                    />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value, _name, item) => [
-                            `${value} hrs · ${item.payload.bookings} flights`,
-                            item.payload.type,
-                          ]}
-                        />
-                      }
-                    />
-                    <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
+          <AircraftUtilisationTable
+            rows={aircraftUtilisation?.aircraft ?? []}
+            dailyAvailableHours={aircraftUtilisation?.daily_available_hours ?? 10}
+          />
+          <AircraftUtilisationTrendChart rows={aircraftUtilisation?.monthly_by_aircraft ?? []} />
         </div>
       )}
 
-      {/* ---- TRAINING PANEL ---- */}
-      {activeTab === "training" && (
-        <div className="flex flex-col gap-4">
-          {/* Training Activity */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-            <CardHeader className="px-5 pt-5 pb-0">
-              <CardTitle className="text-sm font-semibold text-slate-900">Training Activity</CardTitle>
-              <CardDescription className="text-xs">Monthly lesson sessions and outcomes</CardDescription>
-            </CardHeader>
-            <CardContent className="px-3 pb-5">
-              {data.trainingActivity.every((m) => m.sessions === 0) ? (
-                <EmptyChart message="No training sessions in this period" />
-              ) : (
-                <ChartContainer
-                  config={trainingConfig}
-                  className="aspect-auto h-[300px] w-full"
-                >
-                  <BarChart
-                    data={data.trainingActivity}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      allowDecimals={false}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="pass"            stackId="a" fill="var(--color-pass)"            radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="notYetCompetent" stackId="a" fill="var(--color-notYetCompetent)" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Syllabus Progress */}
-          <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-            <CardHeader className="px-5 pt-5 pb-0">
-              <CardTitle className="text-sm font-semibold text-slate-900">Syllabus Progress</CardTitle>
-              <CardDescription className="text-xs">
-                Student enrollment and completion by syllabus
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-3 pb-5">
-              {data.syllabusProgress.length === 0 ? (
-                <EmptyChart message="No syllabus enrollment data" />
-              ) : (
-                <ChartContainer
-                  config={syllabusConfig}
-                  className="aspect-auto w-full"
-                  style={{
-                    height: `${Math.max(200, data.syllabusProgress.length * 52)}px`,
-                  }}
-                >
-                  <BarChart
-                    data={data.syllabusProgress}
-                    layout="vertical"
-                    margin={{ top: 8, right: 48, left: 8, bottom: 0 }}
-                  >
-                    <CartesianGrid horizontal={false} />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      width={140}
-                    />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      allowDecimals={false}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="inProgress" stackId="a" fill="var(--color-inProgress)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="completed"  stackId="a" fill="var(--color-completed)"  radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* ---- OPERATIONS PANEL ---- */}
-      {activeTab === "operations" && (
-        <div className="flex flex-col gap-4">
-          <div className="grid gap-4 lg:grid-cols-7">
-            {/* Observation Trends */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-4 transition-all hover:shadow-md">
-              <CardHeader className="px-5 pt-5 pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-900">Observation Trends</CardTitle>
-                <CardDescription className="text-xs">
-                  Monthly observations reported
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-3 pb-5">
-                {data.observationTrends.every((m) => m.count === 0) ? (
-                  <EmptyChart message="No observations in this period" />
-                ) : (
-                  <ChartContainer
-                    config={observationTrendsConfig}
-                    className="aspect-auto h-[250px] w-full"
-                  >
-                    <AreaChart
-                      data={data.observationTrends}
-                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid vertical={false} />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        allowDecimals={false}
-                      />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <defs>
-                        <linearGradient id="fillObservations" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="var(--color-count)" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="var(--color-count)" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <Area
-                        dataKey="count"
-                        type="monotone"
-                        fill="url(#fillObservations)"
-                        stroke="var(--color-count)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Observations by Stage */}
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm lg:col-span-3 transition-all hover:shadow-md">
-              <CardHeader className="px-5 pt-5 pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-900">Observations by Stage</CardTitle>
-                <CardDescription className="text-xs">
-                  Current breakdown across all observations
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-3 pb-5">
-                {data.observationsByStage.length === 0 ? (
-                  <EmptyChart message="No observations recorded" />
-                ) : (
-                  <ChartContainer
-                    config={observationStageConfig}
-                    className="mx-auto aspect-square max-h-[250px]"
-                  >
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                      <Pie
-                        data={data.observationsByStage}
-                        dataKey="count"
-                        nameKey="stage"
-                        innerRadius={60}
-                        strokeWidth={5}
-                      >
-                        <Label
-                          content={({ viewBox }) => {
-                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                              return (
-                                <text
-                                  x={viewBox.cx}
-                                  y={viewBox.cy}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                >
-                                  <tspan
-                                    x={viewBox.cx}
-                                    y={viewBox.cy}
-                                    className="fill-foreground text-3xl font-bold"
-                                  >
-                                    {totalObservations}
-                                  </tspan>
-                                  <tspan
-                                    x={viewBox.cx}
-                                    y={(viewBox.cy ?? 0) + 24}
-                                    className="fill-muted-foreground"
-                                  >
-                                    Total
-                                  </tspan>
-                                </text>
-                              )
-                            }
-                            return null
-                          }}
-                        />
-                      </Pie>
-                      <ChartLegend content={<ChartLegendContent nameKey="stage" />} />
-                    </PieChart>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -25,6 +25,8 @@ interface BookingHeaderProps {
   className?: string
   actions?: React.ReactNode
   extra?: React.ReactNode
+  /** When false, member and aircraft names are plain text (no links to records). */
+  showRecordLinks?: boolean
 }
 
 type FlightInstructionType = NonNullable<BookingWithRelations["flight_type"]>["instruction_type"]
@@ -105,6 +107,7 @@ export function BookingHeader({
   className,
   actions,
   extra,
+  showRecordLinks = true,
 }: BookingHeaderProps) {
   const { timeZone } = useTimezone()
   const status = booking.status
@@ -176,15 +179,19 @@ export function BookingHeader({
                 <div className="flex items-center gap-1.5">
                   <IconUser className="h-4 w-4" />
                   <span className="font-medium text-foreground/70">Member:</span>
-                  <Link
-                    href={`/members/${booking.user_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-foreground transition-colors hover:text-primary"
-                  >
-                    {studentName}
-                    <IconExternalLink className="h-3 w-3 opacity-40" />
-                  </Link>
+                  {showRecordLinks ? (
+                    <Link
+                      href={`/members/${booking.user_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-foreground transition-colors hover:text-primary"
+                    >
+                      {studentName}
+                      <IconExternalLink className="h-3 w-3 opacity-40" />
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-foreground">{studentName}</span>
+                  )}
                 </div>
               ) : null}
 
@@ -199,7 +206,7 @@ export function BookingHeader({
               <div className="flex items-center gap-1.5">
                 <IconPlane className="h-4 w-4" />
                 <span className="font-medium text-foreground/70">Aircraft:</span>
-                {booking.aircraft_id ? (
+                {booking.aircraft_id && showRecordLinks ? (
                   <Link
                     href={`/aircraft/${booking.aircraft_id}`}
                     target="_blank"

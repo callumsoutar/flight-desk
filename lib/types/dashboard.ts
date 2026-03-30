@@ -59,14 +59,26 @@ export type DashboardMetrics = {
   fleetAttention: number
 }
 
+/** Staff: remainder of today; member/student: future confirmed schedule (excludes unconfirmed). */
+export type DashboardViewerKind = "staff" | "member"
+
+export type DashboardMemberCompliance = {
+  /** Earliest relevant medical due date (certificate or class due dates). */
+  medicalDue: string | null
+  bfrDue: string | null
+}
+
 export type DashboardData = {
   tenantName: string
   timeZone: string
   nowIso: string
+  viewerKind: DashboardViewerKind
+  /** Pilot currency — only populated for member/student viewers. */
+  memberCompliance: DashboardMemberCompliance | null
   metrics: DashboardMetrics
   bookingRequests: DashboardBookingLite[]
   flyingNowBookings: DashboardBookingLite[]
-  upcomingTodayBookings: DashboardBookingLite[]
+  upcomingBookings: DashboardBookingLite[]
   aircraftStatus: DashboardAircraftStatus[]
 }
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
+import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
 import {
@@ -207,9 +208,28 @@ export async function cancelBookingAction(
     return { ok: false as const, error: "Invalid cancellation payload" }
   }
 
-  const { supabase, user, tenantId } = await getTenantContext()
+  const { supabase, user, tenantId, role } = await getTenantContextWithRole()
   if (!user) return { ok: false, error: "Unauthorized" }
   if (!tenantId) return { ok: false, error: "Missing tenant context" }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("bookings")
+    .select("id, user_id, status")
+    .eq("tenant_id", tenantId)
+    .eq("id", bookingId)
+    .maybeSingle()
+
+  if (existingError || !existing) {
+    return { ok: false as const, error: "Booking not found" }
+  }
+  if (existing.status === "cancelled" || existing.status === "complete") {
+    return { ok: false as const, error: "This booking cannot be cancelled" }
+  }
+  const staff = isStaffRole(role)
+  const isOwn = existing.user_id === user.id
+  if (!staff && !isOwn) {
+    return { ok: false as const, error: "You can only cancel your own bookings" }
+  }
 
   const { data: category, error: categoryError } = await supabase
     .from("cancellation_categories")

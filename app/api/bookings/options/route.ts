@@ -1,4 +1,4 @@
-import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
 
 export const dynamic = "force-dynamic"
@@ -9,7 +9,10 @@ function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
 }
 
 export async function GET() {
-  const session = await getTenantStaffRouteContext()
+  const session = await getTenantScopedRouteContext({
+    includeRole: true,
+    authoritativeRole: true,
+  })
   if (session.response) return session.response
   const { supabase, user, role, tenantId } = session.context
 

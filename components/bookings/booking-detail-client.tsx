@@ -53,7 +53,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
-import { useAuth } from "@/contexts/auth-context"
 import { bookingQueryKey, useBookingQuery } from "@/hooks/use-booking-query"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -89,7 +88,6 @@ export function BookingDetailClient({
   const queryClient = useQueryClient()
   const { data: liveBooking } = useBookingQuery(bookingId, initialBooking)
   const booking = liveBooking ?? initialBooking
-  const { user } = useAuth()
   const isMobile = useIsMobile()
   const serverInitialForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
   const [form, setForm] = React.useState<BookingEditFormState>(() => serverInitialForm)
@@ -123,7 +121,6 @@ export function BookingDetailClient({
   const isAdminOrInstructor = role === "owner" || role === "admin" || role === "instructor"
   const isMemberOrStudent = role === "member" || role === "student"
   const isReadOnly = booking.status === "complete" || booking.status === "cancelled"
-  const canViewContact = isAdminOrInstructor || (Boolean(user?.id) && booking.user_id === user?.id)
 
   const openContactDetails = React.useCallback(
     (memberId: string) => {
@@ -347,6 +344,7 @@ export function BookingDetailClient({
         title={studentName}
         backHref="/bookings"
         actions={headerActions}
+        showRecordLinks={!isMemberOrStudent}
       />
 
       <div className="w-full max-w-none flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
@@ -385,7 +383,7 @@ export function BookingDetailClient({
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <span className="text-sm font-medium">Member</span>
                         <div className="flex items-center gap-1.5">
-                          {canViewContact && studentMemberId ? (
+                          {isAdminOrInstructor && studentMemberId ? (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -439,23 +437,25 @@ export function BookingDetailClient({
             </div>
           </div>
 
-          <Card className="rounded-xl border border-border/50 shadow-md">
-            <CardHeader className="border-b border-border/20 p-0">
-              <Button
-                variant="ghost"
-                className="h-auto w-full justify-start gap-2 rounded-none px-6 py-4 text-left"
-                onClick={() => setAuditOpen((prev) => !prev)}
-              >
-                <IconChevronDown className={cn("h-4 w-4 transition-transform", !auditOpen && "-rotate-90")} />
-                <CardTitle className="text-base sm:text-lg">Booking History</CardTitle>
-              </Button>
-            </CardHeader>
-            {auditOpen ? (
-              <CardContent className="px-0 pt-4 pb-2">
-                <BookingAuditTimeline logs={auditLogs} maps={auditLookupMaps} />
-              </CardContent>
-            ) : null}
-          </Card>
+          {!isMemberOrStudent ? (
+            <Card className="rounded-xl border border-border/50 shadow-md">
+              <CardHeader className="border-b border-border/20 p-0">
+                <Button
+                  variant="ghost"
+                  className="h-auto w-full justify-start gap-2 rounded-none px-6 py-4 text-left"
+                  onClick={() => setAuditOpen((prev) => !prev)}
+                >
+                  <IconChevronDown className={cn("h-4 w-4 transition-transform", !auditOpen && "-rotate-90")} />
+                  <CardTitle className="text-base sm:text-lg">Booking History</CardTitle>
+                </Button>
+              </CardHeader>
+              {auditOpen ? (
+                <CardContent className="px-0 pt-4 pb-2">
+                  <BookingAuditTimeline logs={auditLogs} maps={auditLookupMaps} />
+                </CardContent>
+              ) : null}
+            </Card>
+          ) : null}
         </BookingPageContent>
       </div>
 

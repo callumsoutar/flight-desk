@@ -20,7 +20,7 @@ const ROUTE_PERMISSIONS: RoutePermission[] = [
   { prefix: "/equipment", allowedRoles: STAFF_ROLES },
   { prefix: "/rosters", allowedRoles: STAFF_ROLES },
   { prefix: "/settings", allowedRoles: ADMIN_ROLES },
-  { prefix: "/aircraft", allowedRoles: ALL_ROLES },
+  { prefix: "/aircraft", allowedRoles: STAFF_ROLES },
   { prefix: "/bookings", allowedRoles: ALL_ROLES },
   { prefix: "/scheduler", allowedRoles: ALL_ROLES },
   { prefix: "/dashboard", allowedRoles: ALL_ROLES },

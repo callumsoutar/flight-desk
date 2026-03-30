@@ -20,6 +20,7 @@ const bookingsPatchSchema = z.strictObject({
   minimum_booking_duration_minutes: z.number().int().min(0).max(1440).optional(),
   default_booking_briefing_charge_enabled: z.boolean().optional(),
   default_booking_briefing_chargeable_id: z.string().uuid().nullable().optional(),
+  aircraft_daily_available_hours: z.number().min(1).max(24).optional(),
 })
 
 const patchSchema = z.strictObject({
@@ -73,6 +74,14 @@ export async function PATCH(request: Request) {
 
   if (patch.default_booking_briefing_chargeable_id !== undefined) {
     normalized.default_booking_briefing_chargeable_id = patch.default_booking_briefing_chargeable_id
+  }
+
+  if (patch.aircraft_daily_available_hours !== undefined) {
+    normalized.aircraft_daily_available_hours = clampNonNegativeHours(
+      patch.aircraft_daily_available_hours,
+      DEFAULT_BOOKINGS_SETTINGS.aircraft_daily_available_hours,
+      24
+    )
   }
 
   if (Object.keys(normalized).length === 0) {

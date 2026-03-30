@@ -23,7 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { DashboardMetrics } from "@/lib/types/dashboard"
+import type { DashboardMetrics, DashboardViewerKind } from "@/lib/types/dashboard"
 
 function formatHours(value: number) {
   if (!Number.isFinite(value)) return "0.0h"
@@ -49,41 +49,83 @@ type StatCard = {
   iconColor: string
 }
 
-export function DashboardStatCards({ metrics }: { metrics: DashboardMetrics }) {
-  const cards: StatCard[] = [
-    {
-      title: `Hours flown (${metrics.monthLabel})`,
-      value: formatHours(metrics.hoursFlownThisMonth),
-      sub: `${formatNumber(metrics.flightsThisMonth)} flights • ${formatRate(metrics.avgFlightsPerDayThisMonth)}/day`,
-      description: "Logged flight time and cycle totals for this month.",
-      icon: IconPlane,
-      iconColor: "text-indigo-500",
-    },
-    {
-      title: "Active students",
-      value: formatNumber(metrics.activeStudentsThisMonth),
-      sub: `Bookings in ${metrics.monthLabel}`,
-      description: "Students with at least one flight booking in the current month.",
-      icon: IconUsers,
-      iconColor: "text-emerald-500",
-    },
-    {
-      title: "Today",
-      value: formatNumber(metrics.upcomingToday),
-      sub: "Scheduled remaining today",
-      description: "Confirmed or awaiting bookings left on today’s roster.",
-      icon: IconClock,
-      iconColor: "text-slate-500",
-    },
-    {
-      title: "Needs attention",
-      value: formatNumber(metrics.fleetAttention + metrics.bookingRequests),
-      sub: `${formatNumber(metrics.bookingRequests)} requests • ${formatNumber(metrics.fleetAttention)} aircraft`,
-      description: "New booking requests or aircraft with active observations.",
-      icon: metrics.fleetAttention + metrics.bookingRequests > 0 ? IconAlertTriangle : IconReceipt,
-      iconColor: metrics.fleetAttention + metrics.bookingRequests > 0 ? "text-amber-500" : "text-slate-500",
-    },
-  ]
+export function DashboardStatCards({
+  metrics,
+  viewerKind,
+}: {
+  metrics: DashboardMetrics
+  viewerKind: DashboardViewerKind
+}) {
+  const cards: StatCard[] =
+    viewerKind === "member"
+      ? [
+          {
+            title: `Hours flown (${metrics.monthLabel})`,
+            value: formatHours(metrics.hoursFlownThisMonth),
+            sub: `${formatNumber(metrics.flightsThisMonth)} flights • ${formatRate(metrics.avgFlightsPerDayThisMonth)}/day`,
+            description: "Your logged flight time and flights booked for this month.",
+            icon: IconPlane,
+            iconColor: "text-indigo-500",
+          },
+          {
+            title: "Upcoming",
+            value: formatNumber(metrics.upcomingToday),
+            sub: "Confirmed bookings ahead",
+            description: "Number of upcoming confirmed or in-progress bookings on your schedule.",
+            icon: IconClock,
+            iconColor: "text-slate-500",
+          },
+          {
+            title: "Pending requests",
+            value: formatNumber(metrics.bookingRequests),
+            sub: "Awaiting confirmation",
+            description: "Booking requests that still need to be confirmed by the school.",
+            icon: metrics.bookingRequests > 0 ? IconAlertTriangle : IconReceipt,
+            iconColor: metrics.bookingRequests > 0 ? "text-amber-500" : "text-slate-500",
+          },
+          {
+            title: "In the air",
+            value: formatNumber(metrics.flyingNow),
+            sub: "Your flights marked flying",
+            description: "Bookings currently in the flying state (e.g. airborne lesson).",
+            icon: IconPlane,
+            iconColor: "text-emerald-500",
+          },
+        ]
+      : [
+          {
+            title: `Hours flown (${metrics.monthLabel})`,
+            value: formatHours(metrics.hoursFlownThisMonth),
+            sub: `${formatNumber(metrics.flightsThisMonth)} flights • ${formatRate(metrics.avgFlightsPerDayThisMonth)}/day`,
+            description: "Logged flight time and cycle totals for this month.",
+            icon: IconPlane,
+            iconColor: "text-indigo-500",
+          },
+          {
+            title: "Active students",
+            value: formatNumber(metrics.activeStudentsThisMonth),
+            sub: `Bookings in ${metrics.monthLabel}`,
+            description: "Students with at least one flight booking in the current month.",
+            icon: IconUsers,
+            iconColor: "text-emerald-500",
+          },
+          {
+            title: "Today",
+            value: formatNumber(metrics.upcomingToday),
+            sub: "Scheduled remaining today",
+            description: "Confirmed or awaiting bookings left on today’s roster.",
+            icon: IconClock,
+            iconColor: "text-slate-500",
+          },
+          {
+            title: "Needs attention",
+            value: formatNumber(metrics.fleetAttention + metrics.bookingRequests),
+            sub: `${formatNumber(metrics.bookingRequests)} requests • ${formatNumber(metrics.fleetAttention)} aircraft`,
+            description: "New booking requests or aircraft with active observations.",
+            icon: metrics.fleetAttention + metrics.bookingRequests > 0 ? IconAlertTriangle : IconReceipt,
+            iconColor: metrics.fleetAttention + metrics.bookingRequests > 0 ? "text-amber-500" : "text-slate-500",
+          },
+        ]
 
   return (
     <TooltipProvider delayDuration={0}>

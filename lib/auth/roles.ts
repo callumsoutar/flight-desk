@@ -28,6 +28,10 @@ export function isStaffRole(role: string | null | undefined): role is UserRole {
   return role === "owner" || role === "admin" || role === "instructor"
 }
 
+export function isMemberOrStudentRole(role: string | null | undefined): boolean {
+  return role === "member" || role === "student"
+}
+
 export function isAdminRole(role: string | null | undefined): role is UserRole {
   return role === "owner" || role === "admin"
 }

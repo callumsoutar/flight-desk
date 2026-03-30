@@ -8,12 +8,24 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { getBookingOpenPath } from "@/lib/bookings/navigation"
-import type { DashboardBookingLite } from "@/lib/types/dashboard"
+import type { DashboardBookingLite, DashboardViewerKind } from "@/lib/types/dashboard"
 
 function formatUser(user: DashboardBookingLite["student"]) {
   if (!user) return "—"
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim()
   return name || user.email || "—"
+}
+
+function formatInstructor(instructor: DashboardBookingLite["instructor"]) {
+  if (!instructor) return "—"
+  const name = [instructor.first_name, instructor.last_name].filter(Boolean).join(" ").trim()
+  if (name) return name
+  if (instructor.user) {
+    const u = [instructor.user.first_name, instructor.user.last_name].filter(Boolean).join(" ").trim()
+    if (u) return u
+    return instructor.user.email
+  }
+  return "—"
 }
 
 function formatTime(value: string, timeZone: string) {
@@ -58,11 +70,15 @@ export function FlyingNowCard({
   bookings,
   timeZone,
   nowIso,
+  viewerKind,
 }: {
   bookings: DashboardBookingLite[]
   timeZone: string
   nowIso: string
+  viewerKind: DashboardViewerKind
 }) {
+  const isMember = viewerKind === "member"
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -76,11 +92,13 @@ export function FlyingNowCard({
               </span>
             )}
           </CardTitle>
-          <CardDescription className="text-xs">Aircraft currently in the air</CardDescription>
+          <CardDescription className="text-xs">
+            {isMember ? "Your booking is marked in flight" : "Aircraft currently in the air"}
+          </CardDescription>
         </div>
         <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-          <Link href="/bookings?tab=flying">
-            Bookings <IconChevronRight className="h-3.5 w-3.5" />
+          <Link href={isMember ? "/bookings" : "/bookings?tab=flying"}>
+            {isMember ? "My bookings" : "Bookings"} <IconChevronRight className="h-3.5 w-3.5" />
           </Link>
         </Button>
       </CardHeader>
@@ -92,7 +110,9 @@ export function FlyingNowCard({
               <IconNavigation className="h-5 w-5 text-muted-foreground" />
             </div>
             <p className="mt-4 text-sm font-medium">No active flights</p>
-            <p className="mt-1 text-sm text-muted-foreground">Nothing is marked as flying right now.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isMember ? "You don’t have a flight in progress." : "Nothing is marked as flying right now."}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -100,6 +120,7 @@ export function FlyingNowCard({
               const href = getBookingOpenPath(booking.id, booking.status)
               const studentName = formatUser(booking.student)
               const aircraft = booking.aircraft?.registration ?? "No aircraft"
+              const instructor = formatInstructor(booking.instructor)
               const status = formatStatus({ endIso: booking.end_time, nowIso })
 
               return (
@@ -108,15 +129,22 @@ export function FlyingNowCard({
                   href={href}
                   className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
                       <IconPlane className="h-5 w-5 text-emerald-600" />
                     </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">{studentName}</span>
-                        <span className="text-xs text-muted-foreground">{aircraft}</span>
-                      </div>
+                    <div className="flex flex-col min-w-0">
+                      {isMember ? (
+                        <>
+                          <span className="text-sm font-medium text-foreground truncate">{aircraft}</span>
+                          <span className="text-xs text-muted-foreground truncate">{instructor}</span>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-foreground">{studentName}</span>
+                          <span className="text-xs text-muted-foreground">{aircraft}</span>
+                        </div>
+                      )}
                       <span className="text-xs tabular-nums text-muted-foreground mt-0.5">
                         {formatTime(booking.start_time, timeZone)} – {formatTime(booking.end_time, timeZone)}
                       </span>
