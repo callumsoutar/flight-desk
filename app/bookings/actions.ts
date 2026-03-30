@@ -111,7 +111,7 @@ export async function updateBookingAction(bookingId: string, input: unknown) {
     return { ok: false, error: "Invalid booking data" }
   }
 
-  const { supabase, user, tenantId } = await getTenantContext()
+  const { supabase, user, role, tenantId } = await getTenantContextWithRole()
   if (!user) return { ok: false, error: "Unauthorized" }
   if (!tenantId) return { ok: false, error: "Missing tenant context" }
 
@@ -123,6 +123,10 @@ export async function updateBookingAction(bookingId: string, input: unknown) {
     .maybeSingle()
 
   if (existingError || !existing) return { ok: false, error: "Failed to load booking" }
+
+  if (!isStaffRole(role) && existing.user_id !== user.id) {
+    return { ok: false, error: "Forbidden" }
+  }
 
   const { data: updated, error } = await supabase
     .from("bookings")
