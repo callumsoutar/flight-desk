@@ -333,9 +333,16 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-border/60 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
-          No syllabus enrollments found for this member.
-        </div>
+        <TrainingStudentProgrammeTab
+          userId={memberId}
+          syllabi={syllabi}
+          enrollments={enrollments}
+          timeZone={timeZone}
+          embedded
+          onRefresh={async () => {
+            await refetch()
+          }}
+        />
       )}
     </div>
   )

@@ -293,12 +293,14 @@ export function TrainingStudentProgrammeTab({
   enrollments,
   timeZone,
   onRefresh,
+  embedded = false,
 }: {
   userId: string
   syllabi: MemberTrainingSyllabusLite[]
   enrollments: MemberTrainingEnrollment[]
   timeZone: string
   onRefresh: () => Promise<void>
+  embedded?: boolean
 }) {
   const { role } = useAuth()
   const { timeZone: contextTimeZone } = useTimezone()
@@ -355,6 +357,8 @@ export function TrainingStudentProgrammeTab({
   const historicalEnrollments = enrollments.filter(
     (e) => !((e.status || "").toLowerCase() === "active" && !e.completion_date)
   )
+  const hasAnyEnrollments = enrollments.length > 0
+  const showEmbeddedStarter = embedded && !hasAnyEnrollments
 
   const activeSyllabusIds = new Set(activeEnrollments.map((e) => e.syllabus_id))
   const availableSyllabi = syllabi.filter((s) => !activeSyllabusIds.has(s.id))
@@ -385,30 +389,61 @@ export function TrainingStudentProgrammeTab({
   }
 
   return (
-    <div className="px-4 py-5 sm:p-6 space-y-8">
+    <div className={cn(embedded ? "space-y-4" : "px-4 py-5 sm:p-6 space-y-8")}>
       {/* Page header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">Syllabus</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Manage syllabus enrollments, primary instructor and aircraft type.
-          </p>
+      {showEmbeddedStarter ? (
+        <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-white via-slate-50/70 to-slate-100/40 px-6 py-7 sm:px-8 sm:py-8 min-h-[170px] flex items-center">
+          <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold text-slate-900">No training programme yet</h3>
+              <p className="max-w-[680px] text-sm text-muted-foreground">
+                Enroll this member in a syllabus to start tracking lessons, debriefs, and theory progress.
+              </p>
+              <div className="inline-flex items-center rounded-full border border-border/60 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                0 active enrollments
+              </div>
+            </div>
+            {staff ? (
+              <Button
+                size="sm"
+                onClick={() => setEnrollOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-10 px-5 text-sm font-semibold shadow-sm shrink-0"
+                disabled={availableSyllabi.length === 0}
+                title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                Enroll Member
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">Only staff can create enrollments.</p>
+            )}
+          </div>
         </div>
-        {staff ? (
-          <Button
-            size="sm"
-            onClick={() => setEnrollOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-xs font-semibold shadow-sm shrink-0"
-            disabled={availableSyllabi.length === 0}
-            title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
-          >
-            <Plus className="w-3.5 h-3.5 mr-1.5" />
-            Enroll
-          </Button>
-        ) : null}
-      </div>
+      ) : (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Syllabus</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage syllabus enrollments, primary instructor and aircraft type.
+            </p>
+          </div>
+          {staff ? (
+            <Button
+              size="sm"
+              onClick={() => setEnrollOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-xs font-semibold shadow-sm shrink-0"
+              disabled={availableSyllabi.length === 0}
+              title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Enroll
+            </Button>
+          ) : null}
+        </div>
+      )}
 
       {/* Active Enrollments */}
+      {!showEmbeddedStarter ? (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Enrollments</h4>
@@ -442,8 +477,10 @@ export function TrainingStudentProgrammeTab({
           </div>
         )}
       </div>
+      ) : null}
 
       {/* Syllabus History */}
+      {!showEmbeddedStarter ? (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Syllabus History</h4>
@@ -579,6 +616,7 @@ export function TrainingStudentProgrammeTab({
           </>
         )}
       </div>
+      ) : null}
 
       <Dialog open={enrollOpen} onOpenChange={setEnrollOpen}>
         <DialogContent
