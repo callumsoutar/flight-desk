@@ -29,12 +29,13 @@ type TimelineRowBooking = {
   purpose: string
   remarks: string | null
   instructorId: string | null
-  aircraftId: string
+  aircraftId: string | null
   aircraftLabel?: string
   instructorLabel?: string
   userId: string | null
   status: BookingStatus
   bookingType: string | null
+  instructionType: string | null
   canOpen: boolean
   canCancel: boolean
   canViewContact: boolean

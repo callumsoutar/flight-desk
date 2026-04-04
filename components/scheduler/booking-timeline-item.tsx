@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CheckCircle, Clock, Eye, Plane, User, UserCircle, X } from "lucide-react"
+import { BookOpen, CheckCircle, Clock, Eye, Plane, User, UserCircle, Users, Wrench, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
@@ -45,12 +45,13 @@ export function BookingTimelineItem({
     primaryLabel: string
     purpose: string
     remarks: string | null
-    aircraftId: string
+    aircraftId: string | null
     aircraftLabel?: string
     instructorLabel?: string
     userId: string | null
     status: BookingStatus
     bookingType: string | null
+    instructionType: string | null
     canOpen: boolean
     canCancel: boolean
     canViewContact: boolean
@@ -76,10 +77,11 @@ export function BookingTimelineItem({
       purpose: string
       remarks: string | null
       instructorId: string | null
-      aircraftId: string
+      aircraftId: string | null
       userId: string | null
       status: BookingStatus
       bookingType: string | null
+      instructionType: string | null
       aircraftLabel?: string
       instructorLabel?: string
       canOpen: boolean
@@ -107,11 +109,31 @@ export function BookingTimelineItem({
   const router = useRouter()
   const interactive = booking.canOpen || canDragThisBooking
 
+  const canViewAircraft = canViewAircraftProfile && Boolean(booking.aircraftId)
+
   const hasContextMenuItems =
-    canViewAircraftProfile ||
+    canViewAircraft ||
     (Boolean(booking.userId) && booking.canViewContact) ||
     booking.canCancel ||
     booking.canConfirm
+
+  const bookingTypeIndicator = (() => {
+    if (booking.bookingType === "maintenance") {
+      return { icon: Wrench, label: "Maintenance booking" }
+    }
+    if (booking.bookingType === "groundwork") {
+      return { icon: BookOpen, label: "Groundwork booking" }
+    }
+    if (booking.instructionType === "solo") {
+      return { icon: User, label: "Solo flight" }
+    }
+    if (booking.instructionType === "dual" || booking.instructionType === "trial") {
+      return { icon: Users, label: "Dual flight" }
+    }
+    return { icon: Plane, label: "Flight booking" }
+  })()
+
+  const BookingTypeIcon = bookingTypeIndicator.icon
 
   return (
     <div
@@ -178,7 +200,7 @@ export function BookingTimelineItem({
                 onBookingClick()
               }}
               className={cn(
-                "group h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all",
+                "group relative h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all",
                 interactive ? "focus:ring-2 focus:ring-blue-500/40 focus:outline-none" : "focus:outline-none",
                 booking.canOpen || canDragThisBooking
                   ? "hover:brightness-[1.02] hover:shadow-md"
@@ -196,6 +218,13 @@ export function BookingTimelineItem({
                   : ""
               )}
             >
+              <span
+                className="pointer-events-none absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-sm bg-slate-500/85 text-white/95"
+                aria-label={bookingTypeIndicator.label}
+                title={bookingTypeIndicator.label}
+              >
+                <BookingTypeIcon className="h-2.5 w-2.5" />
+              </span>
               <div className="flex h-full flex-col justify-center">
                 <div className="truncate text-xs font-semibold leading-tight">{booking.primaryLabel}</div>
                 {isPreview && previewTimeLabel ? (
@@ -302,8 +331,13 @@ export function BookingTimelineItem({
               </Tooltip>
 
               <ContextMenuContent>
-                {canViewAircraftProfile ? (
-                  <ContextMenuItem onClick={() => router.push(`/aircraft/${booking.aircraftId}`)}>
+                {canViewAircraft ? (
+                  <ContextMenuItem
+                    onClick={() => {
+                      if (!booking.aircraftId) return
+                      router.push(`/aircraft/${booking.aircraftId}`)
+                    }}
+                  >
                     <Eye className="h-4 w-4" />
                     View Aircraft
                   </ContextMenuItem>

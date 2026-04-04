@@ -85,10 +85,11 @@ type SchedulerBooking = {
   purpose: string
   remarks: string | null
   instructorId: string | null
-  aircraftId: string
+  aircraftId: string | null
   userId: string | null
   status: BookingStatus
   bookingType: string | null
+  instructionType: string | null
   aircraftLabel?: string
   instructorLabel?: string
   canOpen: boolean
@@ -572,7 +573,7 @@ function buildTimeSlots(start: Date, end: Date, intervalMinutes: number) {
 
 function bookingMatchesResource(booking: SchedulerBooking, resource: Resource) {
   if (resource.kind === "instructor") return booking.instructorId === resource.data.id
-  return booking.aircraftId === resource.data.id
+  return booking.aircraftId != null && booking.aircraftId === resource.data.id
 }
 
 function getResourceId(resource: SchedulerDragResource) {
@@ -588,7 +589,7 @@ function bookingToSchedulerBooking(
   booking: BookingWithRelations,
   viewer: { userId: string | null; isStaff: boolean }
 ): SchedulerBooking | null {
-  if (!booking.start_time || !booking.end_time || !booking.aircraft_id) return null
+  if (!booking.start_time || !booking.end_time) return null
   if (booking.status === "cancelled" || booking.cancelled_at) return null
 
   const startsAt = parseSupabaseUtcTimestamp(booking.start_time)
@@ -656,6 +657,7 @@ function bookingToSchedulerBooking(
     userId: booking.user_id,
     status: booking.status,
     bookingType: booking.booking_type ?? null,
+    instructionType: booking.flight_type?.instruction_type ?? null,
     aircraftLabel,
     instructorLabel,
     canOpen,
