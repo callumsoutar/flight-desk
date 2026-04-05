@@ -33,52 +33,65 @@ export function ResourceTimelineToolbar({
   calendarDisabled?: (date: Date) => boolean
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="inline-flex h-11 items-stretch rounded-md border border-border/70 bg-background shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-full w-11 rounded-none rounded-l-md border-r border-border/70 text-muted-foreground hover:bg-slate-50 hover:text-foreground"
+            onClick={onPreviousDay}
+            disabled={disablePreviousDay}
+            aria-label="Previous day"
+          >
+          <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-full min-w-[240px] justify-start gap-3 rounded-none border-0 px-4 font-semibold text-foreground hover:bg-slate-50 sm:min-w-[260px]"
+                aria-label="Select date"
+              >
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">{selectedDateLabel}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto rounded-md border-border/70 p-0 shadow-lg" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={onSelectDate}
+                initialFocus
+                disabled={calendarDisabled}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-full w-11 rounded-none rounded-r-md border-l border-border/70 text-muted-foreground hover:bg-slate-50 hover:text-foreground"
+            onClick={onNextDay}
+            aria-label="Next day"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
         <Button
           variant="outline"
-          size="icon"
-          onClick={onPreviousDay}
-          disabled={disablePreviousDay}
-          aria-label="Previous day"
+          onClick={onToday}
+          className="h-11 rounded-md border-border/70 bg-background px-5 font-semibold shadow-sm hover:bg-slate-50"
         >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-10 flex-1 justify-start gap-2 px-3 font-semibold sm:flex-initial"
-              aria-label="Select date"
-            >
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">{selectedDateLabel}</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={onSelectDate}
-              initialFocus
-              disabled={calendarDisabled}
-            />
-          </PopoverContent>
-        </Popover>
-
-        <Button variant="outline" size="icon" onClick={onNextDay} aria-label="Next day">
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-
-        <Button variant="ghost" onClick={onToday} className="hidden sm:inline-flex">
           Today
         </Button>
       </div>
 
-      <div className="hidden items-center gap-2 sm:flex">
+      <div className="flex items-center gap-2">
         <Button
-          className="h-10 bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800"
+          className="h-11 rounded-md bg-slate-900 px-5 font-semibold text-white shadow-sm hover:bg-slate-800"
           onClick={onNewBooking}
           disabled={disableNewBooking}
         >

@@ -7,7 +7,7 @@ export function ResourceTimelineSection<T>({
   renderRow,
 }: {
   items: T[]
-  renderRow: (item: T) => React.ReactNode
+  renderRow: (item: T, index: number) => React.ReactNode
 }) {
-  return <>{items.map((item) => renderRow(item))}</>
+  return <>{items.map((item, index) => renderRow(item, index))}</>
 }

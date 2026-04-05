@@ -73,6 +73,7 @@ export function ResourceTimelineRow({
   bookings,
   dragPreview,
   dragInProgress,
+  isStriped,
   resourceTitle,
   isSlotAvailable,
   onEmptyClick,
@@ -88,9 +89,7 @@ export function ResourceTimelineRow({
   formatTimeRangeLabel12h,
   statusBadgeVariant,
   statusPillClasses,
-  statusIndicatorClasses,
   formatTimeLabel12h,
-  getMinutesInTimeZone,
 }: {
   rowResource: TimelineRowResource
   height: number
@@ -101,6 +100,7 @@ export function ResourceTimelineRow({
   bookings: TimelineRowBooking[]
   dragPreview: TimelineRowDragPreview | null
   dragInProgress: boolean
+  isStriped?: boolean
   resourceTitle?: string
   isSlotAvailable?: (slot: Date) => boolean
   onEmptyClick: (clientX: number, container: HTMLDivElement) => void
@@ -124,9 +124,7 @@ export function ResourceTimelineRow({
     status: BookingStatus
   ) => "link" | "default" | "destructive" | "outline" | "secondary" | "ghost" | null | undefined
   statusPillClasses: (status: BookingStatus) => string
-  statusIndicatorClasses: (status: BookingStatus) => string
   formatTimeLabel12h: (value: Date, timeZone: string) => string
-  getMinutesInTimeZone: (value: Date, timeZone: string) => number
 }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const [hoveredSlotIdx, setHoveredSlotIdx] = React.useState<number | null>(null)
@@ -171,6 +169,7 @@ export function ResourceTimelineRow({
         slots={slots}
         timeZone={timeZone}
         dragInProgress={dragInProgress}
+        isStriped={Boolean(isStriped)}
         isActiveDragTarget={Boolean(activeDragPreview && rowResource.data.id === activeDragPreview.targetResourceId)}
         activeDragPreviewValid={activeDragPreview?.valid ?? false}
         resourceTitle={resourceTitle}
@@ -179,7 +178,6 @@ export function ResourceTimelineRow({
         hoveredSlotIdx={hoveredSlotIdx}
         onHoveredSlotIdxChange={setHoveredSlotIdx}
         formatTimeLabel12h={formatTimeLabel12h}
-        getMinutesInTimeZone={getMinutesInTimeZone}
       />
 
       <div className="pointer-events-none absolute inset-0">
@@ -222,7 +220,6 @@ export function ResourceTimelineRow({
               onCancelBooking={() => onCancelBooking(booking)}
               statusBadgeVariant={statusBadgeVariant}
               statusPillClasses={statusPillClasses}
-              statusIndicatorClasses={statusIndicatorClasses}
             />
           )
         })}

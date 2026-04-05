@@ -12,7 +12,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { BookingStatus } from "@/lib/types/bookings"
 import { cn } from "@/lib/utils"
@@ -38,7 +37,6 @@ export function BookingTimelineItem({
   canViewAircraftProfile,
   statusBadgeVariant,
   statusPillClasses,
-  statusIndicatorClasses,
 }: {
   booking: {
     id: string
@@ -104,7 +102,6 @@ export function BookingTimelineItem({
   canViewAircraftProfile: boolean
   statusBadgeVariant: (status: BookingStatus) => React.ComponentProps<typeof Badge>["variant"]
   statusPillClasses: (status: BookingStatus) => string
-  statusIndicatorClasses: (status: BookingStatus) => string
 }) {
   const router = useRouter()
   const interactive = booking.canOpen || canDragThisBooking
@@ -200,12 +197,12 @@ export function BookingTimelineItem({
                 onBookingClick()
               }}
               className={cn(
-                "group relative h-full w-full rounded-md px-2 text-left shadow-sm ring-1 ring-black/5 transition-all",
-                interactive ? "focus:ring-2 focus:ring-blue-500/40 focus:outline-none" : "focus:outline-none",
-                booking.canOpen || canDragThisBooking
-                  ? "hover:brightness-[1.02] hover:shadow-md"
-                  : "hover:brightness-100",
-                booking.bookingType === "maintenance" ? "bg-slate-300 text-slate-700" : statusPillClasses(booking.status),
+                "group relative h-full w-full overflow-hidden rounded-md border px-2.5 py-1.5 text-left shadow-sm transition-all",
+                interactive ? "focus:ring-2 focus:ring-sky-500/35 focus:outline-none" : "focus:outline-none",
+                booking.canOpen || canDragThisBooking ? "hover:shadow-md" : "hover:shadow-sm",
+                booking.bookingType === "maintenance"
+                  ? "border-slate-300 bg-slate-100"
+                  : statusPillClasses(booking.status),
                 canDragThisBooking
                   ? "cursor-grab active:cursor-grabbing"
                   : booking.canOpen
@@ -213,25 +210,25 @@ export function BookingTimelineItem({
                     : "cursor-default",
                 isPreview
                   ? previewValid
-                    ? "cursor-grabbing ring-2 ring-emerald-300/80 shadow-lg"
-                    : "cursor-not-allowed opacity-70 ring-2 ring-destructive/70"
+                    ? "cursor-grabbing border-emerald-300 ring-2 ring-emerald-300/70 shadow-lg"
+                    : "cursor-not-allowed border-destructive/70 opacity-70 ring-2 ring-destructive/60"
                   : ""
               )}
             >
               <span
-                className="pointer-events-none absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-sm bg-slate-500/85 text-white/95"
+                className="pointer-events-none absolute right-1.5 top-1.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm bg-white text-slate-600 shadow-sm ring-1 ring-black/5"
                 aria-label={bookingTypeIndicator.label}
                 title={bookingTypeIndicator.label}
               >
                 <BookingTypeIcon className="h-2.5 w-2.5" />
               </span>
-              <div className="flex h-full flex-col justify-center">
-                <div className="truncate text-xs font-semibold leading-tight">{booking.primaryLabel}</div>
-                {isPreview && previewTimeLabel ? (
-                  <div className="mt-0.5 truncate text-[10px] font-medium leading-tight opacity-90">
-                    {previewTimeLabel}
-                  </div>
-                ) : null}
+              <div className="flex h-full min-w-0 flex-col justify-center">
+                <div className="truncate pr-5 text-[11px] font-semibold leading-[1.15] text-slate-900 sm:text-xs">
+                  {booking.primaryLabel}
+                </div>
+                <div className="mt-0.5 truncate pr-5 text-[10px] font-medium leading-[1.1] text-slate-600">
+                  {isPreview && previewTimeLabel ? previewTimeLabel : range}
+                </div>
               </div>
             </button>
           )
@@ -241,84 +238,96 @@ export function BookingTimelineItem({
           }
 
           const tooltipContent = (
-                <TooltipContent variant="card" side="top" sideOffset={8} className="max-w-[360px]">
-                  <div className="relative">
-                    <div
-                      className={cn(
-                        "absolute left-0 top-0 h-full w-1.5",
-                        booking.bookingType === "maintenance" ? "bg-slate-400" : statusIndicatorClasses(booking.status)
-                      )}
-                      aria-hidden="true"
-                    />
-                    <div className="space-y-2 p-3 pl-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold leading-tight">{booking.primaryLabel}</div>
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span className="font-medium text-foreground/90">{range}</span>
-                          </div>
-                        </div>
-                        <Badge variant={statusBadgeVariant(booking.status)} className="capitalize">
-                          {booking.status}
-                        </Badge>
-                      </div>
-
-                      <Separator className="bg-border/60" />
-
-                      <div className="grid gap-1.5 text-xs">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <User className="h-3.5 w-3.5" />
-                            <span>Instructor</span>
-                          </div>
-                          <span className="min-w-0 truncate font-medium text-foreground">
-                            {booking.instructorLabel ?? "-"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Plane className="h-3.5 w-3.5" />
-                            <span>Aircraft</span>
-                          </div>
-                          <span className="min-w-0 truncate font-medium text-foreground">
-                            {booking.aircraftLabel ?? "-"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {booking.canOpen ? (
-                        <>
-                          <Separator className="bg-border/60" />
-                          <div className="space-y-2">
-                            <div className="space-y-1">
-                              <div className="text-[11px] font-semibold text-muted-foreground">Description</div>
-                              <div className="text-xs leading-snug text-foreground/90 break-words line-clamp-4">
-                                {booking.purpose}
-                              </div>
-                            </div>
-                            {booking.remarks ? (
-                              <div className="space-y-1">
-                                <div className="text-[11px] font-semibold text-muted-foreground">Remarks</div>
-                                <div className="text-xs leading-snug text-foreground/80 break-words line-clamp-3">
-                                  {booking.remarks}
-                                </div>
-                              </div>
-                            ) : null}
-                          </div>
-                        </>
-                      ) : null}
-
-                      <div className="pt-0.5 text-[11px] text-muted-foreground">
-                        {booking.canOpen
-                          ? canDragThisBooking
-                            ? "Click to open, or drag to move"
-                            : "Click to open booking"
-                          : "Busy slot"}
+            <TooltipContent
+              variant="card"
+              side="top"
+              sideOffset={8}
+              className="max-w-[360px] rounded-md border border-border/70 bg-background p-0 shadow-lg"
+            >
+              <div className="space-y-3 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-border/70 bg-white text-slate-600",
+                          booking.bookingType === "maintenance" ? "text-slate-500" : ""
+                        )}
+                        aria-label={bookingTypeIndicator.label}
+                        title={bookingTypeIndicator.label}
+                      >
+                        <BookingTypeIcon className="h-3 w-3" />
+                      </span>
+                      <div className="truncate text-sm font-semibold leading-tight text-foreground">
+                        {booking.primaryLabel}
                       </div>
                     </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span className="font-medium">{range}</span>
+                    </div>
                   </div>
-                </TooltipContent>
+                  <Badge
+                    variant={statusBadgeVariant(booking.status)}
+                    className="rounded-sm border-border/70 px-2 py-0.5 capitalize shadow-none"
+                  >
+                    {booking.status}
+                  </Badge>
+                </div>
+
+                <div className="grid gap-2 rounded-sm border border-border/70 bg-slate-50/70 p-2 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <User className="h-3.5 w-3.5" />
+                      <span>Instructor</span>
+                    </div>
+                    <span className="min-w-0 truncate font-medium text-slate-900">
+                      {booking.instructorLabel ?? "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-slate-500">
+                      <Plane className="h-3.5 w-3.5" />
+                      <span>Aircraft</span>
+                    </div>
+                    <span className="min-w-0 truncate font-medium text-slate-900">
+                      {booking.aircraftLabel ?? "-"}
+                    </span>
+                  </div>
+                </div>
+
+                {booking.canOpen ? (
+                  <div className="space-y-2 border-t border-border/70 pt-3">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        Description
+                      </div>
+                      <div className="text-xs leading-relaxed text-slate-700 break-words line-clamp-4">
+                        {booking.purpose}
+                      </div>
+                    </div>
+                    {booking.remarks ? (
+                      <div className="space-y-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                          Remarks
+                        </div>
+                        <div className="text-xs leading-relaxed text-slate-600 break-words line-clamp-3">
+                          {booking.remarks}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="border-t border-border/70 pt-2 text-[11px] text-slate-500">
+                  {booking.canOpen
+                    ? canDragThisBooking
+                      ? "Click to open or drag to move"
+                      : "Click to open booking"
+                    : "Busy slot"}
+                </div>
+              </div>
+            </TooltipContent>
           )
 
           const triggerWithContext = hasContextMenuItems ? (

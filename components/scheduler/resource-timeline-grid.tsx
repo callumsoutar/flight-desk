@@ -20,9 +20,9 @@ export function ResourceTimelineGrid({
   slots: Date[]
 }) {
   return (
-    <div className="min-w-0 flex-1 overflow-x-auto">
+    <div className="min-w-0 flex-1 overflow-x-auto bg-background">
       <div style={timelineMinWidth ? { minWidth: timelineMinWidth } : undefined}>
-        <div className="sticky top-0 z-30 h-10 border-b border-border/60 bg-card/95 backdrop-blur sm:h-12">
+        <div className="sticky top-0 z-30 h-11 border-b border-border/70 bg-background sm:h-12">
           <div
             className="grid h-full"
             style={{
@@ -33,27 +33,27 @@ export function ResourceTimelineGrid({
           </div>
         </div>
 
-        <div className="divide-y">
-          <div className="bg-muted/20" style={{ height: groupHeight }} aria-hidden="true">
+        <div className="divide-y divide-border/60">
+          <div className="bg-slate-100" style={{ height: groupHeight }} aria-hidden="true">
             <div
               className="grid h-full"
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
               {slots.map((slot) => (
-                <div key={`instructors-${slot.toISOString()}`} className="last:border-r-0 border-r" />
+                <div key={`instructors-${slot.toISOString()}`} className="border-r border-border/50 last:border-r-0" />
               ))}
             </div>
           </div>
 
           {instructorRows}
 
-          <div className="bg-muted/20" style={{ height: groupHeight }} aria-hidden="true">
+          <div className="bg-slate-100" style={{ height: groupHeight }} aria-hidden="true">
             <div
               className="grid h-full"
               style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
             >
               {slots.map((slot) => (
-                <div key={`aircraft-${slot.toISOString()}`} className="last:border-r-0 border-r" />
+                <div key={`aircraft-${slot.toISOString()}`} className="border-r border-border/50 last:border-r-0" />
               ))}
             </div>
           </div>

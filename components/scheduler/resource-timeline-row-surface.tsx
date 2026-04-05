@@ -10,6 +10,7 @@ export function ResourceTimelineRowSurface({
   slots,
   timeZone,
   dragInProgress,
+  isStriped,
   isActiveDragTarget,
   activeDragPreviewValid,
   resourceTitle,
@@ -18,13 +19,13 @@ export function ResourceTimelineRowSurface({
   hoveredSlotIdx,
   onHoveredSlotIdxChange,
   formatTimeLabel12h,
-  getMinutesInTimeZone,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>
   slotCount: number
   slots: Date[]
   timeZone: string
   dragInProgress: boolean
+  isStriped: boolean
   isActiveDragTarget: boolean
   activeDragPreviewValid: boolean
   resourceTitle?: string
@@ -33,7 +34,6 @@ export function ResourceTimelineRowSurface({
   hoveredSlotIdx: number | null
   onHoveredSlotIdxChange: (value: number | null) => void
   formatTimeLabel12h: (value: Date, timeZone: string) => string
-  getMinutesInTimeZone: (value: Date, timeZone: string) => number
 }) {
   const hoveredSlot = hoveredSlotIdx === null ? null : (slots[hoveredSlotIdx] ?? null)
   const hoveredAvailable = hoveredSlot && isSlotAvailable ? isSlotAvailable(hoveredSlot) : true
@@ -45,7 +45,8 @@ export function ResourceTimelineRowSurface({
         ref={containerRef}
         className={cn(
           "absolute inset-0 cursor-default",
-          isActiveDragTarget ? (activeDragPreviewValid ? "bg-emerald-500/5" : "bg-destructive/5") : ""
+          isStriped ? "bg-slate-50/80" : "bg-white",
+          isActiveDragTarget ? (activeDragPreviewValid ? "bg-emerald-500/8" : "bg-destructive/8") : ""
         )}
         onMouseMove={(event) => {
           if (!containerRef.current) return
@@ -75,18 +76,20 @@ export function ResourceTimelineRowSurface({
       >
         <div className="grid h-full" style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}>
           {slots.map((slot, idx) => {
-            const isHour = getMinutesInTimeZone(slot, timeZone) % 60 === 0
             const available = isSlotAvailable ? isSlotAvailable(slot) : true
+            const isHovered = hoveredSlotIdx === idx
             return (
               <div
                 key={slot.toISOString()}
                 className={cn(
-                  "last:border-r-0 border-r transition-colors",
-                  available ? "cursor-pointer hover:bg-sky-500/10" : "cursor-not-allowed bg-muted/90",
-                  available && idx % 2 === 1 ? "bg-muted/[0.03]" : "",
-                  available && isHour ? "bg-muted/[0.05]" : "",
-                  !available && idx % 2 === 1 ? "bg-muted/95" : "",
-                  !available && isHour ? "bg-muted" : ""
+                  "border-r border-border/50 transition-colors last:border-r-0",
+                  available
+                    ? "cursor-pointer bg-transparent hover:bg-sky-500/8"
+                    : "cursor-not-allowed bg-slate-100/85",
+                  isHovered && available ? "bg-sky-100/80 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.18)]" : "",
+                  isHovered && !available
+                    ? "bg-slate-300/70 shadow-[inset_0_0_0_1px_rgba(100,116,139,0.18)]"
+                    : ""
                 )}
               />
             )
@@ -106,11 +109,11 @@ export function ResourceTimelineRowSurface({
           >
             <div
               className={cn(
-                "relative rounded-md px-2 py-1 text-[11px] font-medium tabular-nums shadow-lg ring-1 backdrop-blur",
+                "relative rounded-md px-2.5 py-1 text-[11px] font-medium tabular-nums shadow-md ring-1 backdrop-blur",
                 "after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-[6px] after:border-transparent",
                 hoveredAvailable
-                  ? "bg-slate-900/90 text-white ring-white/10 after:border-t-slate-900/90"
-                  : "bg-muted-foreground/90 text-white ring-white/10 after:border-t-muted-foreground/90"
+                  ? "bg-slate-900/92 text-white ring-white/10 after:border-t-slate-900/92"
+                  : "bg-slate-700/92 text-white ring-white/10 after:border-t-slate-700/92"
               )}
             >
               {hoveredAvailable ? "Create booking from " : "Unavailable at "}

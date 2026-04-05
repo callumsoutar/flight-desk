@@ -146,8 +146,8 @@ type MinutesWindow = { startMin: number; endMin: number }
 type TimelineConfig = { startMin: number; endMin: number; intervalMinutes: number }
 
 const INTERVAL_MINUTES = 30
-const ROW_HEIGHT = 34
-const GROUP_HEIGHT = 28
+const ROW_HEIGHT = 42
+const GROUP_HEIGHT = 32
 const timeFormatterCache = new Map<string, Intl.DateTimeFormat>()
 const time12FormatterCache = new Map<string, Intl.DateTimeFormat>()
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -521,45 +521,23 @@ function statusBadgeVariant(status: BookingStatus, isStaff: boolean) {
 
 function statusPillClasses(status: BookingStatus, isStaff: boolean) {
   if (!isStaff && (status === "flying" || status === "complete")) {
-    return "bg-slate-600 text-white"
+    return "border-slate-300 bg-slate-100"
   }
   switch (status) {
     case "flying":
-      return "bg-amber-500 text-white"
+      return "border-amber-200 bg-amber-50"
     case "complete":
-      return "bg-emerald-600 text-white"
+      return "border-emerald-200 bg-emerald-50"
     case "cancelled":
-      return "bg-muted text-muted-foreground"
+      return "border-slate-200 bg-slate-100"
     case "briefing":
-      return "bg-sky-600 text-white"
+      return "border-sky-200 bg-sky-50"
     case "confirmed":
-      return "bg-indigo-600 text-white"
+      return "border-indigo-200 bg-indigo-50"
     case "unconfirmed":
-      return "bg-slate-600 text-white"
+      return "border-slate-300 bg-slate-100"
     default:
-      return "bg-indigo-600 text-white"
-  }
-}
-
-function statusIndicatorClasses(status: BookingStatus, isStaff: boolean) {
-  if (!isStaff && (status === "flying" || status === "complete")) {
-    return "bg-slate-600"
-  }
-  switch (status) {
-    case "flying":
-      return "bg-amber-500"
-    case "complete":
-      return "bg-emerald-600"
-    case "cancelled":
-      return "bg-muted-foreground/40"
-    case "briefing":
-      return "bg-sky-600"
-    case "confirmed":
-      return "bg-indigo-600"
-    case "unconfirmed":
-      return "bg-slate-600"
-    default:
-      return "bg-indigo-600"
+      return "border-indigo-200 bg-indigo-50"
   }
 }
 
@@ -774,7 +752,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
     [timelineConfig.intervalMinutes, timelineEnd, timelineStart]
   )
   const slotCount = slots.length
-  const slotMinWidthPx = 42
+  const slotMinWidthPx = 48
   const timelineMinWidth = slotCount > 0 ? slotCount * slotMinWidthPx : undefined
 
   const instructorAvailabilityById = React.useMemo(() => {
@@ -1154,11 +1132,6 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
     (status: BookingStatus) => statusPillClasses(status, isStaff),
     [isStaff]
   )
-  const statusIndicatorClassesForViewer = React.useCallback(
-    (status: BookingStatus) => statusIndicatorClasses(status, isStaff),
-    [isStaff]
-  )
-
   const handleBookingClick = React.useCallback(
     (booking: SchedulerBooking) => {
       if (suppressBookingOpenRef.current) {
@@ -1280,21 +1253,14 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
   const timelineHeaderCells = React.useMemo(
     () =>
       slots.map((slot) => {
-        const minutes = getMinutesInTimeZone(slot, data.timeZone) % 60
-        const showLabel = minutes === 0
         return (
           <div
             key={slot.toISOString()}
             className={cn(
-              "last:border-r-0 flex items-center justify-center border-r border-border/60 px-0.5 text-[8px] text-muted-foreground sm:px-1 sm:text-[9px]"
+              "flex items-center justify-center border-r border-border/60 px-0.5 text-[9px] text-slate-500 last:border-r-0 sm:px-1 sm:text-[10px]"
             )}
           >
-            <div
-              className={cn(
-                "select-none whitespace-nowrap font-medium tabular-nums",
-                showLabel ? "" : "opacity-40"
-              )}
-            >
+            <div className="select-none whitespace-nowrap px-1 py-1 font-medium tabular-nums text-slate-500">
               {formatTimeLabel(slot, data.timeZone)}
             </div>
           </div>
@@ -1307,7 +1273,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       (
         <ResourceTimelineSection
           items={instructorResources}
-          renderRow={(inst) => {
+          renderRow={(inst, index) => {
             const resource: Resource = { kind: "instructor", data: inst }
             const rowBookings = bookings.filter((booking) => bookingMatchesResource(booking, resource))
             const windows = instructorAvailabilityById.get(inst.id) ?? []
@@ -1325,6 +1291,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 bookings={rowBookings}
                 dragPreview={dragPreview}
                 dragInProgress={dragInProgress}
+                isStriped={index % 2 === 1}
                 resourceTitle={getResourceTitle(resource)}
                 isSlotAvailable={(slot) =>
                   isMinutesWithinAnyWindow(getMinutesInTimeZone(slot, data.timeZone), windows)
@@ -1343,9 +1310,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 formatTimeRangeLabel12h={formatTimeRangeLabel12h}
                 statusBadgeVariant={statusBadgeVariantForViewer}
                 statusPillClasses={statusPillClassesForViewer}
-                statusIndicatorClasses={statusIndicatorClassesForViewer}
                 formatTimeLabel12h={formatTimeLabel12h}
-                getMinutesInTimeZone={getMinutesInTimeZone}
               />
             )
           }}
@@ -1367,7 +1332,6 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       isStaff,
       openContactDetails,
       statusBadgeVariantForViewer,
-      statusIndicatorClassesForViewer,
       statusPillClassesForViewer,
       slotCount,
       slots,
@@ -1380,7 +1344,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       (
         <ResourceTimelineSection
           items={aircraftResources}
-          renderRow={(ac) => {
+          renderRow={(ac, index) => {
             const resource: Resource = { kind: "aircraft", data: ac }
             const rowBookings = bookings.filter((booking) => bookingMatchesResource(booking, resource))
 
@@ -1397,6 +1361,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 bookings={rowBookings}
                 dragPreview={dragPreview}
                 dragInProgress={dragInProgress}
+                isStriped={index % 2 === 1}
                 resourceTitle={getResourceTitle(resource)}
                 onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                 onBookingPointerDown={handleBookingPointerDown}
@@ -1412,9 +1377,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 formatTimeRangeLabel12h={formatTimeRangeLabel12h}
                 statusBadgeVariant={statusBadgeVariantForViewer}
                 statusPillClasses={statusPillClassesForViewer}
-                statusIndicatorClasses={statusIndicatorClassesForViewer}
                 formatTimeLabel12h={formatTimeLabel12h}
-                getMinutesInTimeZone={getMinutesInTimeZone}
               />
             )
           }}
@@ -1435,7 +1398,6 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       isStaff,
       openContactDetails,
       statusBadgeVariantForViewer,
-      statusIndicatorClassesForViewer,
       statusPillClassesForViewer,
       slotCount,
       slots,
@@ -1459,14 +1421,14 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         calendarDisabled={isStaff ? undefined : calendarDisabledPastDays}
       />
 
-      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-32">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Loading scheduler data...</p>
           </div>
         ) : (
-          <div className="flex">
+          <div className="flex bg-background">
             <ResourceTimelineSidebar
               rowHeight={ROW_HEIGHT}
               groupHeight={GROUP_HEIGHT}
