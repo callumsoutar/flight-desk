@@ -18,6 +18,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -210,9 +211,9 @@ export function RenewMembershipModal({
               <RefreshCw className="h-5 w-5 text-blue-600" />
               Renew Membership
             </DialogTitle>
-            <p className="text-sm text-slate-600">
+            <DialogDescription className="text-sm text-slate-600">
               Renew this member&apos;s membership and optionally create an invoice.
-            </p>
+            </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">

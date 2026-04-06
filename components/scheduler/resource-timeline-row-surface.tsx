@@ -35,9 +35,59 @@ export function ResourceTimelineRowSurface({
   onHoveredSlotIdxChange: (value: number | null) => void
   formatTimeLabel12h: (value: Date, timeZone: string) => string
 }) {
+  const tooltipRef = React.useRef<HTMLDivElement | null>(null)
+  const [containerWidth, setContainerWidth] = React.useState(0)
+  const [tooltipWidth, setTooltipWidth] = React.useState(0)
   const hoveredSlot = hoveredSlotIdx === null ? null : (slots[hoveredSlotIdx] ?? null)
   const hoveredAvailable = hoveredSlot && isSlotAvailable ? isSlotAvailable(hoveredSlot) : true
   const hoveredTimeLabel = hoveredSlot ? formatTimeLabel12h(hoveredSlot, timeZone) : null
+  const slotCenterPct = ((hoveredSlotIdx ?? 0) + 0.5) * (100 / Math.max(1, slotCount))
+
+  React.useLayoutEffect(() => {
+    if (!hoveredSlot || dragInProgress) {
+      setTooltipWidth(0)
+      return
+    }
+
+    const measure = () => {
+      setContainerWidth(containerRef.current?.clientWidth ?? 0)
+      setTooltipWidth(tooltipRef.current?.offsetWidth ?? 0)
+    }
+
+    measure()
+
+    if (typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver(() => {
+      measure()
+    })
+
+    if (containerRef.current) observer.observe(containerRef.current)
+    if (tooltipRef.current) observer.observe(tooltipRef.current)
+    return () => observer.disconnect()
+  }, [containerRef, dragInProgress, hoveredSlot, hoveredTimeLabel])
+
+  const tooltipStyle = React.useMemo<React.CSSProperties>(() => {
+    if (!containerWidth || !tooltipWidth) {
+      return {
+        left: `${slotCenterPct}%`,
+        top: -6,
+        transform: "translate(-50%, -100%)",
+      }
+    }
+
+    const edgePadding = 8
+    const rawLeft = (((hoveredSlotIdx ?? 0) + 0.5) / Math.max(1, slotCount)) * containerWidth
+    const minLeft = Math.min(containerWidth / 2, tooltipWidth / 2 + edgePadding)
+    const maxLeft = Math.max(minLeft, containerWidth - tooltipWidth / 2 - edgePadding)
+    const clampedLeft = Math.min(Math.max(rawLeft, minLeft), maxLeft)
+
+    return {
+      left: clampedLeft,
+      top: -6,
+      transform: "translate(-50%, -100%)",
+    }
+  }, [containerWidth, hoveredSlotIdx, slotCenterPct, slotCount, tooltipWidth])
 
   return (
     <>
@@ -101,15 +151,12 @@ export function ResourceTimelineRowSurface({
         {!dragInProgress && hoveredSlot && hoveredTimeLabel ? (
           <div
             className="absolute z-10"
-            style={{
-              left: `${((hoveredSlotIdx ?? 0) + 0.5) * (100 / Math.max(1, slotCount))}%`,
-              top: -6,
-              transform: "translate(-50%, -100%)",
-            }}
+            style={tooltipStyle}
           >
             <div
+              ref={tooltipRef}
               className={cn(
-                "relative rounded-md px-2.5 py-1 text-[11px] font-medium tabular-nums shadow-md ring-1 backdrop-blur",
+                "relative max-w-[calc(100vw-2rem)] whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium tabular-nums shadow-md ring-1 backdrop-blur",
                 "after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-[6px] after:border-transparent",
                 hoveredAvailable
                   ? "bg-slate-900/92 text-white ring-white/10 after:border-t-slate-900/92"

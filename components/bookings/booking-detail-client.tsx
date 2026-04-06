@@ -34,6 +34,7 @@ import {
 } from "@/components/bookings/booking-status-tracker"
 import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import { ContactDetailsModal } from "@/components/members/contact-details-modal"
+import { runAsyncProgressToast } from "@/components/ui/async-progress-toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,7 +54,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
-import { bookingQueryKey, useBookingQuery } from "@/hooks/use-booking-query"
+import { bookingQueryKey, sendBookingConfirmationEmailMutation, useBookingQuery } from "@/hooks/use-booking-query"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import type { AuditLog, AuditLookupMaps, BookingOptions, BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
@@ -172,19 +173,20 @@ export function BookingDetailClient({
   const handleSendConfirmationEmail = React.useCallback(async () => {
     setSendingConfirmation(true)
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/send-confirmation-email`, {
-        method: "POST",
+      await runAsyncProgressToast({
+        promise: () => sendBookingConfirmationEmailMutation(bookingId),
+        loading: "Sending confirmation email",
+        loadingDescription: "Preparing the booking confirmation for the member.",
+        success: "Confirmation email sent",
+        successDescription: booking.student?.email?.trim() || undefined,
+        error: (error) => error instanceof Error ? error.message : "Failed to send confirmation email",
       })
-      const json = (await response.json().catch(() => ({}))) as { error?: string }
-      if (!response.ok) {
-        toast.error(json.error || "Failed to send confirmation email")
-        return
-      }
-      toast.success("Confirmation email sent")
+    } catch {
+      return
     } finally {
       setSendingConfirmation(false)
     }
-  }, [bookingId])
+  }, [booking.student?.email, bookingId])
 
   const handleCancel = (payload: CancelBookingPayload) => {
     startTransition(async () => {
@@ -214,8 +216,11 @@ export function BookingDetailClient({
   const canSendConfirmationEmail =
     Boolean(booking.student?.email?.trim()) && booking.status !== "cancelled"
 
+  const isFlightBooking = booking.booking_type === "flight"
   const studentName = booking.student ? formatUser(booking.student) : "—"
   const studentMemberId = booking.user_id
+  const isGroundwork = booking.booking_type === "groundwork"
+  const headerTitle = isGroundwork ? "Groundwork Session" : studentName
   const instructorName = booking.instructor
     ? formatUser({
         first_name: booking.instructor.user?.first_name ?? booking.instructor.first_name,
@@ -227,7 +232,7 @@ export function BookingDetailClient({
     if (!booking.lesson_progress) return false
     return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
   }, [booking.lesson_progress])
-  const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
+  const includeDebriefStage = isFlightBooking && booking.flight_type?.instruction_type !== "solo"
   const trackerStages = React.useMemo(
     () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),
     [booking.briefing_completed, includeDebriefStage]
@@ -256,10 +261,13 @@ export function BookingDetailClient({
     ]
   )
 
+  const showDebriefAction = isFlightBooking && lessonProgressExists
+  const showStatusActions = isFlightBooking && isAdminOrInstructor
+
   const headerActions =
-    lessonProgressExists || isAdminOrInstructor ? (
+    showDebriefAction || showStatusActions ? (
       <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-        {lessonProgressExists ? (
+        {showDebriefAction ? (
           <Button
             size="sm"
             variant="outline"
@@ -272,7 +280,7 @@ export function BookingDetailClient({
             </Link>
           </Button>
         ) : null}
-        {isAdminOrInstructor && (
+        {showStatusActions && (
           <>
             {booking.status === "unconfirmed" ? (
               <Button
@@ -341,19 +349,21 @@ export function BookingDetailClient({
     <div className="flex flex-1 flex-col bg-muted/30">
       <BookingHeader
         booking={booking}
-        title={studentName}
+        title={headerTitle}
         backHref="/bookings"
         actions={headerActions}
         showRecordLinks={!isMemberOrStudent}
       />
 
       <div className="w-full max-w-none flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8">
-        <BookingStatusTracker
-          stages={trackerStages}
-          activeStageId={trackerState.activeStageId}
-          completedStageIds={trackerState.completedStageIds}
-          className="mb-6"
-        />
+        {isFlightBooking ? (
+          <BookingStatusTracker
+            stages={trackerStages}
+            activeStageId={trackerState.activeStageId}
+            completedStageIds={trackerState.completedStageIds}
+            className="mb-6"
+          />
+        ) : null}
 
         <BookingPageContent className="space-y-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
@@ -417,10 +427,12 @@ export function BookingDetailClient({
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
                       <IconPlane className="h-4 w-4" />
-                      <h3 className="text-sm font-bold uppercase tracking-wider">Aircraft</h3>
+                      <h3 className="text-sm font-bold uppercase tracking-wider">{isGroundwork ? "Session" : "Aircraft"}</h3>
                     </div>
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900/50">
-                      {booking.aircraft ? (
+                      {isGroundwork ? (
+                        <div className="text-sm text-muted-foreground">Groundwork sessions do not use an aircraft.</div>
+                      ) : booking.aircraft ? (
                         <>
                           <div className="font-bold">{booking.aircraft.registration} ({booking.aircraft.type})</div>
                           <div className="text-sm text-muted-foreground">

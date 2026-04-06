@@ -11,7 +11,6 @@ import {
   IconUser,
 } from "@tabler/icons-react"
 
-import { Badge } from "@/components/ui/badge"
 import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
 import { cn } from "@/lib/utils"
@@ -31,22 +30,57 @@ interface BookingHeaderProps {
 
 type FlightInstructionType = NonNullable<BookingWithRelations["flight_type"]>["instruction_type"]
 
-function getStatusBadgeStyles(status: BookingStatus): string {
+type BookingHeaderIndicatorTone = "blue" | "green" | "amber" | "orange" | "rose" | "slate" | "violet"
+
+function getIndicatorToneClasses(tone: BookingHeaderIndicatorTone) {
+  switch (tone) {
+    case "blue":
+      return {
+        dot: "bg-blue-500",
+      }
+    case "green":
+      return {
+        dot: "bg-emerald-500",
+      }
+    case "amber":
+      return {
+        dot: "bg-amber-500",
+      }
+    case "orange":
+      return {
+        dot: "bg-orange-500",
+      }
+    case "rose":
+      return {
+        dot: "bg-rose-500",
+      }
+    case "violet":
+      return {
+        dot: "bg-violet-500",
+      }
+    default:
+      return {
+        dot: "bg-slate-400",
+      }
+  }
+}
+
+function getStatusIndicatorTone(status: BookingStatus): BookingHeaderIndicatorTone {
   switch (status) {
     case "flying":
-      return "bg-orange-500 text-white border-orange-600 hover:bg-orange-600 shadow-sm"
+      return "orange"
     case "confirmed":
-      return "bg-blue-600 text-white border-blue-700 hover:bg-blue-700 shadow-sm"
+      return "blue"
     case "unconfirmed":
-      return "bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-sm"
+      return "amber"
     case "briefing":
-      return "bg-violet-600 text-white border-violet-700 hover:bg-violet-700 shadow-sm"
+      return "violet"
     case "complete":
-      return "bg-green-600 text-white border-green-700 hover:bg-green-700 shadow-sm"
+      return "green"
     case "cancelled":
-      return "bg-red-600 text-white border-red-700 hover:bg-red-700 shadow-sm"
+      return "rose"
     default:
-      return "bg-slate-500 text-white border-slate-600 shadow-sm"
+      return "slate"
   }
 }
 
@@ -85,18 +119,70 @@ function getInstructionTypeLabel(instructionType: FlightInstructionType) {
 function getInstructionBadgeStyles(instructionType: FlightInstructionType) {
   switch (instructionType) {
     case "solo":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+      return "green"
     case "dual":
-      return "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200"
+      return "blue"
     case "trial":
-      return "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-200"
+      return "violet"
     default:
-      return "border-border bg-muted text-foreground"
+      return "slate"
   }
 }
 
 function formatDisplayName(user: { first_name: string | null; last_name: string | null; email: string | null }) {
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email
+}
+
+export function BookingHeaderIndicator({
+  label,
+  value,
+  tone = "slate",
+  variant = "inline",
+  className,
+}: {
+  label: string
+  value: string
+  tone?: BookingHeaderIndicatorTone
+  variant?: "inline" | "status"
+  className?: string
+}) {
+  const toneClasses = getIndicatorToneClasses(tone)
+
+  return (
+    <div
+      className={cn(
+        "inline-flex min-h-0 w-auto items-center gap-2.5 rounded-none border-0 bg-transparent px-0 py-0 shadow-none",
+        className
+      )}
+    >
+      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-sm font-medium text-foreground",
+          variant === "status" ? "border-border/60 bg-background" : "border-border/50 bg-muted/20"
+        )}
+      >
+        <span className={cn("h-2 w-2 rounded-full", toneClasses.dot)} />
+        <span className="truncate">{value}</span>
+      </span>
+    </div>
+  )
+}
+
+export function BookingHeaderIndicators({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto sm:justify-end", className)}>
+      {children}
+    </div>
+  )
 }
 
 export function BookingHeader({
@@ -111,11 +197,12 @@ export function BookingHeader({
 }: BookingHeaderProps) {
   const { timeZone } = useTimezone()
   const status = booking.status
+  const isGroundwork = booking.booking_type === "groundwork"
   const badgeLabel = getStatusLabel(status)
-  const badgeStyles = getStatusBadgeStyles(status)
+  const statusTone = getStatusIndicatorTone(status)
   const instructionType = booking.booking_type === "flight" ? booking.flight_type?.instruction_type ?? null : null
   const instructionLabel = instructionType ? getInstructionTypeLabel(instructionType) : null
-  const instructionBadgeStyles = instructionType ? getInstructionBadgeStyles(instructionType) : null
+  const instructionTone = instructionType ? getInstructionBadgeStyles(instructionType) : null
 
   const studentName = booking.student ? formatDisplayName(booking.student) : null
 
@@ -127,56 +214,40 @@ export function BookingHeader({
       })
     : null
 
-  const aircraftLabel = booking.aircraft?.registration || "TBD"
+  const assetLabel = isGroundwork ? "Groundwork session" : booking.aircraft?.registration || "TBD"
 
   const dateLabel = formatDate(booking.start_time, timeZone) || "TBD"
 
   return (
-    <div className={cn("border-b border-border/40 bg-background py-4 sm:py-6", className)}>
+    <div className={cn("border-b border-border/40 bg-background py-3 sm:py-4", className)}>
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+        <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href={backHref}
-            className="group inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="group inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <IconArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
             {backLabel}
           </Link>
 
-          <div className="flex items-center gap-2">
+          <BookingHeaderIndicators className="sm:justify-end">
             {extra}
-            {instructionType && instructionLabel && instructionBadgeStyles ? (
-              <Badge
-                variant="outline"
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide sm:px-3",
-                  instructionBadgeStyles
-                )}
-              >
-                <IconSchool className="mr-1.5 inline h-3.5 w-3.5" />
-                {instructionLabel}
-              </Badge>
+            {instructionType && instructionLabel && instructionTone ? (
+              <BookingHeaderIndicator label="Type" value={instructionLabel} tone={instructionTone} />
             ) : null}
-            <Badge
-              className={cn(
-                "rounded-full border-none px-2.5 py-1 text-xs font-bold uppercase tracking-wider shadow-sm sm:px-3",
-                badgeStyles,
-                status === "flying" && "animate-pulse"
-              )}
-            >
-              {status === "flying" ? <IconPlane className="mr-1.5 inline h-3 w-3 sm:h-3.5 sm:w-3.5" /> : null}
-              {badgeLabel}
-            </Badge>
-          </div>
+            <BookingHeaderIndicator label="Status" value={badgeLabel} tone={statusTone} variant="status" />
+          </BookingHeaderIndicators>
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h1>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-5">
+          <div className="min-w-0 flex-1 space-y-2">
+            <h1 className="max-w-4xl text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-[1.7rem]">
+              {title}
+            </h1>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+            <div className="grid gap-x-5 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
               {studentName && booking.user_id ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex min-w-0 items-center gap-1.5">
                   <IconUser className="h-4 w-4" />
                   <span className="font-medium text-foreground/70">Member:</span>
                   {showRecordLinks ? (
@@ -196,32 +267,32 @@ export function BookingHeader({
               ) : null}
 
               {instructorName ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex min-w-0 items-center gap-1.5">
                   <IconSchool className="h-4 w-4" />
                   <span className="font-medium text-foreground/70">Instructor:</span>
                   <span className="font-semibold text-foreground">{instructorName}</span>
                 </div>
               ) : null}
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <IconPlane className="h-4 w-4" />
-                <span className="font-medium text-foreground/70">Aircraft:</span>
-                {booking.aircraft_id && showRecordLinks ? (
+                <span className="font-medium text-foreground/70">{isGroundwork ? "Session:" : "Aircraft:"}</span>
+                {!isGroundwork && booking.aircraft_id && showRecordLinks ? (
                   <Link
                     href={`/aircraft/${booking.aircraft_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 font-semibold text-foreground transition-colors hover:text-primary"
                   >
-                    {aircraftLabel}
+                    {assetLabel}
                     <IconExternalLink className="h-3 w-3 opacity-40" />
                   </Link>
                 ) : (
-                  <span className="font-semibold text-foreground">{aircraftLabel}</span>
+                  <span className="font-semibold text-foreground">{assetLabel}</span>
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <IconCalendar className="h-4 w-4" />
                 <span className="font-medium text-foreground/70">Date:</span>
                 <span className="font-semibold text-foreground">{dateLabel}</span>
@@ -230,7 +301,7 @@ export function BookingHeader({
           </div>
 
           {actions ? (
-            <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end sm:pl-4">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end lg:self-start lg:pl-4">
               {actions}
             </div>
           ) : null}

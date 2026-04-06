@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner"
 
 import { useTimezone } from "@/contexts/timezone-context"
+import { runAsyncProgressToast } from "@/components/ui/async-progress-toast"
 import { Button } from "@/components/ui/button"
 import {
   exportInvoicesToXeroMutation,
@@ -189,10 +190,16 @@ export default function InvoiceViewActions({
     if (!canEmail) return
     setIsEmailing(true)
     try {
-      await sendInvoiceEmailMutation(invoiceId)
-      toast.success(`Invoice sent to ${billToEmail}`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to send invoice email")
+      await runAsyncProgressToast({
+        promise: () => sendInvoiceEmailMutation(invoiceId),
+        loading: "Sending invoice",
+        loadingDescription: "Preparing the invoice email and attachments.",
+        success: "Invoice sent to member",
+        successDescription: billToEmail ?? undefined,
+        error: (error) => error instanceof Error ? error.message : "Failed to send invoice email",
+      })
+    } catch {
+      return
     } finally {
       setIsEmailing(false)
     }

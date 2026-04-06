@@ -4,8 +4,13 @@ import type { DocumentProps } from "@react-pdf/renderer"
 import * as React from "react"
 import { z } from "zod"
 
-import DebriefReportPDF, { formatAttemptLabel } from "@/components/debrief/debrief-report-pdf"
+import DebriefReportPDF from "@/components/debrief/debrief-report-pdf"
 import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import {
+  buildDebriefPdfFilename,
+  buildDebriefReportPdfProps,
+  formatAttemptLabel,
+} from "@/lib/debrief/build-debrief-report-pdf"
 import { fetchDebriefData } from "@/lib/debrief/fetch-debrief-data"
 import { htmlToPlainText } from "@/lib/email/html-to-plain-text"
 import { getTriggerConfig } from "@/lib/email/get-trigger-config"
@@ -13,8 +18,6 @@ import { interpolateSubject } from "@/lib/email/interpolate-subject"
 import { sendEmail } from "@/lib/email/send-email"
 import { DebriefEmail } from "@/lib/email/templates/debrief-email"
 import { EMAIL_TRIGGER_KEYS } from "@/lib/email/trigger-keys"
-import type { BookingWithRelations } from "@/lib/types/bookings"
-import type { FlightExperienceEntryWithType, LessonProgressWithInstructor } from "@/lib/types/debrief"
 import { logError } from "@/lib/security/logger"
 import { enforceRateLimit } from "@/lib/security/rate-limit"
 import { formatDate } from "@/lib/utils/date-format"
@@ -24,66 +27,6 @@ export const dynamic = "force-dynamic"
 const payloadSchema = z.strictObject({
   booking_id: z.string().uuid(),
 }).strict()
-
-function resolveFlightTimeHours(booking: BookingWithRelations): number | null {
-  const candidates = [
-    booking.billing_hours,
-    booking.flight_time_hobbs,
-    booking.flight_time_tach,
-    booking.flight_time_airswitch,
-    booking.dual_time,
-    booking.solo_time,
-  ]
-  for (const value of candidates) {
-    if (typeof value === "number" && Number.isFinite(value)) return value
-  }
-  return null
-}
-
-function formatExperienceValue(unit: FlightExperienceEntryWithType["unit"], value: number) {
-  if (!Number.isFinite(value)) return "—"
-  if (unit === "hours") return `${value.toFixed(1)}h`
-  if (unit === "landings") return value === 1 ? "1 landing" : `${value} landings`
-  return String(value)
-}
-
-function formatDirectoryName(user: {
-  first_name: string | null
-  last_name: string | null
-  email?: string | null
-} | null | undefined) {
-  if (!user) return "—"
-  return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || "—"
-}
-
-function instructorDisplayName(
-  lessonProgress: LessonProgressWithInstructor | null,
-  booking: BookingWithRelations
-): string {
-  const lp = lessonProgress?.instructor
-  if (lp) {
-    return formatDirectoryName({
-      first_name: lp.user?.first_name ?? lp.first_name,
-      last_name: lp.user?.last_name ?? lp.last_name,
-      email: lp.user?.email ?? null,
-    })
-  }
-  const bi = booking.instructor
-  if (bi) {
-    return formatDirectoryName({
-      first_name: bi.user?.first_name ?? bi.first_name,
-      last_name: bi.user?.last_name ?? bi.last_name,
-      email: bi.user?.email ?? null,
-    })
-  }
-  return "—"
-}
-
-function outcomeLabelFromStatus(status: LessonProgressWithInstructor["status"] | null | undefined) {
-  if (status === "pass") return "Pass"
-  if (status === "not yet competent") return "Not Yet Competent"
-  return "—"
-}
 
 function truncatePreview(text: string, max = 320) {
   const t = text.trim()
@@ -161,45 +104,25 @@ export async function POST(request: Request) {
   const lessonName = booking.lesson?.name ?? "Training Flight"
   const sessionDateLong = formatDate(booking.start_time ?? null, timeZone, "long") || "—"
   const sessionDateMedium = formatDate(booking.start_time ?? null, timeZone, "medium") || "—"
-  const instructorName = instructorDisplayName(lessonProgress, booking)
-  const studentName = formatDirectoryName(student)
-  const aircraftReg =
-    booking.checked_out_aircraft?.registration || booking.aircraft?.registration || "—"
-  const flightHours = resolveFlightTimeHours(booking)
-  const flightTimeLabel = flightHours != null ? `${flightHours.toFixed(1)}h` : "—"
-  const outcomeLabel = outcomeLabelFromStatus(lessonProgress.status)
+  const pdfProps = await buildDebriefReportPdfProps({
+    tenantName,
+    logoUrl: tenant?.logo_url,
+    timeZone,
+    booking,
+    lessonProgress,
+    flightExperiences: data.flightExperiences,
+  })
+
+  const instructorName = pdfProps.instructorName
+  const aircraftReg = pdfProps.aircraftRegistration
+  const flightTimeLabel = pdfProps.flightTimeLabel
+  const outcomeLabel = pdfProps.outcomeLabel
   const attemptLabel = formatAttemptLabel(lessonProgress.attempt)
 
   const focusPlain = htmlToPlainText(lessonProgress.focus_next_lesson ?? "")
   const focusPreview = focusPlain ? truncatePreview(focusPlain) : null
 
-  const pdfProps = {
-    tenantName,
-    logoUrl: tenant?.logo_url,
-    lessonName,
-    sessionDate: sessionDateLong,
-    studentName,
-    instructorName,
-    aircraftRegistration: aircraftReg,
-    flightTimeLabel,
-    outcomeLabel,
-    attemptLabel,
-    instructorComments: htmlToPlainText(lessonProgress.instructor_comments ?? ""),
-    lessonHighlights: htmlToPlainText(lessonProgress.lesson_highlights ?? ""),
-    airmanship: htmlToPlainText(lessonProgress.airmanship ?? ""),
-    areasForImprovement: htmlToPlainText(lessonProgress.areas_for_improvement ?? ""),
-    focusNextLesson: htmlToPlainText(lessonProgress.focus_next_lesson ?? ""),
-    weatherConditions: htmlToPlainText(lessonProgress.weather_conditions ?? ""),
-    safetyConcerns: htmlToPlainText(lessonProgress.safety_concerns ?? ""),
-    flightExperiences: data.flightExperiences.map((entry) => ({
-      name: entry.experience_type?.name ?? "Experience",
-      detail: [entry.notes, entry.conditions].filter(Boolean).join(" · "),
-      valueLabel: formatExperienceValue(entry.unit, entry.value),
-    })),
-  }
-
-  const safeLessonSlug = lessonName.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 48) || "debrief"
-  const pdfFilename = `flight-debrief-${safeLessonSlug}.pdf`
+  const pdfFilename = buildDebriefPdfFilename(lessonName)
 
   try {
     const pdfDocument = React.createElement(DebriefReportPDF, pdfProps)

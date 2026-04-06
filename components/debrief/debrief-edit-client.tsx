@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { BookingHeader } from "@/components/bookings/booking-header"
+import { BookingHeader, BookingHeaderIndicator } from "@/components/bookings/booking-header"
 import { BookingPageContent } from "@/components/bookings/booking-page-content"
 import {
   BookingStatusTracker,
@@ -10,7 +10,6 @@ import {
   getBookingTrackerStages,
 } from "@/components/bookings/booking-status-tracker"
 import { CheckinDebriefEditor } from "@/components/debrief/checkin-debrief-editor"
-import { Badge } from "@/components/ui/badge"
 import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { LessonProgressWithInstructor } from "@/lib/types/debrief"
@@ -105,16 +104,11 @@ export function DebriefEditClient({
         actions={headerActions}
         extra={
           effectiveLessonProgress?.status ? (
-            <Badge
-              variant={effectiveLessonProgress.status === "pass" ? "default" : "secondary"}
-              className={
-                effectiveLessonProgress.status === "pass"
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                  : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
-              }
-            >
-              {effectiveLessonProgress.status === "pass" ? "Pass" : "Not Yet Competent"}
-            </Badge>
+            <BookingHeaderIndicator
+              label="Outcome"
+              value={effectiveLessonProgress.status === "pass" ? "Pass" : "Not Yet Competent"}
+              tone={effectiveLessonProgress.status === "pass" ? "green" : "rose"}
+            />
           ) : null
         }
       />

@@ -35,16 +35,16 @@ export function ResourceTimelineToolbar({
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="inline-flex h-11 items-stretch rounded-md border border-border/70 bg-background shadow-sm">
+        <div className="inline-flex h-11 items-stretch overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
           <Button
             variant="ghost"
             size="icon"
-            className="h-full w-11 rounded-none rounded-l-md border-r border-border/70 text-muted-foreground hover:bg-slate-50 hover:text-foreground"
+            className="h-full w-11 rounded-none rounded-l-md border-r border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             onClick={onPreviousDay}
             disabled={disablePreviousDay}
             aria-label="Previous day"
           >
-          <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" />
           </Button>
 
           <Popover>
@@ -72,7 +72,7 @@ export function ResourceTimelineToolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-full w-11 rounded-none rounded-r-md border-l border-border/70 text-muted-foreground hover:bg-slate-50 hover:text-foreground"
+            className="h-full w-11 rounded-none rounded-r-md border-l border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             onClick={onNextDay}
             aria-label="Next day"
           >

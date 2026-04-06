@@ -7,6 +7,8 @@ export type MembershipYear = {
   start_day: number
   end_day: number
   description: string
+  /** If the first aligned expiry is within this many days of the start date, roll to the next year's end (new memberships). Default 90 when unset. */
+  early_join_grace_days: number
 }
 
 export type MembershipsSettings = {
@@ -19,6 +21,7 @@ export const DEFAULT_MEMBERSHIP_YEAR: MembershipYear = {
   start_day: 1,
   end_day: 31,
   description: "Membership year runs from April 1st to March 31st",
+  early_join_grace_days: 90,
 }
 
 export const DEFAULT_MEMBERSHIPS_SETTINGS: MembershipsSettings = {
@@ -68,6 +71,12 @@ export function resolveMembershipsSettings(settings: Json | null | undefined): M
       ? year.description.trim()
       : fallback.membership_year.description
 
+  const rawGrace = year?.early_join_grace_days
+  const early_join_grace_days =
+    typeof rawGrace === "number" && Number.isFinite(rawGrace)
+      ? normalizeIntInRange(rawGrace, fallback.membership_year.early_join_grace_days, 0, 365)
+      : fallback.membership_year.early_join_grace_days
+
   return {
     membership_year: {
       start_month,
@@ -75,6 +84,7 @@ export function resolveMembershipsSettings(settings: Json | null | undefined): M
       end_month,
       end_day,
       description,
+      early_join_grace_days,
     },
   }
 }

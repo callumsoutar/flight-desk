@@ -39,6 +39,7 @@ export async function updateMembershipsSettings(input: {
       start_month: number
       start_day: number
       description: string
+      early_join_grace_days?: number
     }
   }
 }) {

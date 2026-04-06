@@ -3,18 +3,21 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDown, FileText, Link2, Mail, Pencil, Plane, Printer } from "lucide-react"
+import { ChevronDown, Download, FileText, Link2, Loader2, Mail, Pencil, Plane, Printer } from "lucide-react"
 import { toast } from "sonner"
 
 import { BookingHeader } from "@/components/bookings/booking-header"
 import { BookingPageContent } from "@/components/bookings/booking-page-content"
-import { Badge } from "@/components/ui/badge"
+import { runAsyncProgressToast } from "@/components/ui/async-progress-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useTimezone } from "@/contexts/timezone-context"
@@ -47,6 +50,21 @@ function isLikelyHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value)
 }
 
+function extractFilenameFromDisposition(header: string | null) {
+  if (!header) return null
+
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1])
+    } catch {
+      return utf8Match[1]
+    }
+  }
+
+  const basicMatch = header.match(/filename="?([^"]+)"?/i)
+  return basicMatch?.[1] ?? null
+}
 
 function resolveFlightTimeHours(booking: BookingWithRelations): number | null {
   const candidates = [
@@ -119,6 +137,7 @@ export function DebriefViewClient({
 }: DebriefViewClientProps) {
   const router = useRouter()
   const { timeZone } = useTimezone()
+  const [isDownloadingPdf, setIsDownloadingPdf] = React.useState(false)
   const [isEmailingDebrief, setIsEmailingDebrief] = React.useState(false)
   const studentName = booking.student ? formatName(booking.student) : "Student"
 
@@ -140,9 +159,6 @@ export function DebriefViewClient({
   const sessionDateLong = formatDate(booking.start_time ?? null, timeZone, "long") || "Date not set"
   const sessionDateShort = formatDate(booking.start_time ?? null, timeZone, "medium") || "—"
 
-  const outcomeStatus = lessonProgress?.status ?? null
-  const statusLabel = outcomeStatus === "pass" ? "Pass" : "Not Yet Competent"
-
   const flightTimeHours = resolveFlightTimeHours(booking)
   const flightTimeLabel = flightTimeHours != null ? `${flightTimeHours.toFixed(1)}h` : "—"
 
@@ -159,6 +175,40 @@ export function DebriefViewClient({
     }
   }, [])
 
+  const handleDownloadPdf = React.useCallback(async () => {
+    setIsDownloadingPdf(true)
+
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/debrief/pdf`, {
+        method: "GET",
+      })
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(json.error || "Failed to generate debrief PDF")
+      }
+
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      const filename =
+        extractFilenameFromDisposition(response.headers.get("content-disposition")) ||
+        `flight-debrief-${bookingId.slice(0, 8)}.pdf`
+
+      link.href = objectUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to generate debrief PDF"
+      toast.error(message)
+    } finally {
+      setIsDownloadingPdf(false)
+    }
+  }, [bookingId])
+
   const handleEmailDebrief = React.useCallback(async () => {
     if (!booking.student?.email?.trim()) {
       toast.error("Student email not found")
@@ -167,74 +217,140 @@ export function DebriefViewClient({
 
     setIsEmailingDebrief(true)
     try {
-      await sendDebriefEmailMutation(bookingId)
-      toast.success("Debrief emailed to the member")
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to send debrief email"
-      toast.error(message)
+      await runAsyncProgressToast({
+        promise: () => sendDebriefEmailMutation(bookingId),
+        loading: "Sending debrief",
+        loadingDescription: "Preparing the email and attaching the debrief.",
+        success: "Debrief sent to member",
+        successDescription: booking.student.email.trim(),
+        error: (error) => error instanceof Error ? error.message : "Failed to send debrief email",
+      })
+    } catch {
+      return
     } finally {
       setIsEmailingDebrief(false)
     }
   }, [booking.student?.email, bookingId])
 
   const invoiceId = booking.checkin_invoice_id ?? null
+  const canEmailDebrief = Boolean(booking.student?.email?.trim())
+  const primaryButtonClassName =
+    "bg-slate-700 font-medium text-white shadow-sm transition-colors hover:bg-slate-800"
+
+  const primaryAction = lessonProgress
+    ? invoiceId
+      ? {
+          href: `/invoices/${invoiceId}`,
+          label: "View Invoice",
+          icon: FileText,
+        }
+      : {
+          href: `/bookings/${bookingId}/debrief/write`,
+          label: "Edit Debrief",
+          icon: Pencil,
+        }
+    : {
+        href: `/bookings/${bookingId}/debrief/write`,
+        label: "Write Debrief",
+        icon: Pencil,
+      }
+  const PrimaryActionIcon = primaryAction.icon
 
   const headerActions = (
     <div className="flex w-full flex-wrap items-center gap-2 print:hidden sm:w-auto sm:justify-end">
-      {invoiceId ? (
-        <Button size="sm" className="h-9 w-full gap-2 shadow-sm sm:w-auto" asChild>
-          <Link href={`/invoices/${invoiceId}`}>
-            <FileText className="h-3.5 w-3.5" />
-            View Invoice
-          </Link>
-        </Button>
-      ) : null}
-      {lessonProgress ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 w-full gap-2 sm:w-auto"
-          disabled={isEmailingDebrief}
-          onClick={() => void handleEmailDebrief()}
-        >
-          <Mail className="h-3.5 w-3.5" />
-          {isEmailingDebrief ? "Sending…" : "Email debrief"}
-        </Button>
-      ) : (
-        <Button variant="outline" size="sm" className="h-9 w-full gap-2 sm:w-auto" asChild>
-          <Link href={`/bookings/${bookingId}/debrief/write`}>
-            <Pencil className="h-3.5 w-3.5" />
-            Write
-          </Link>
-        </Button>
-      )}
+      <Button size="sm" className={`h-9 gap-2 rounded-md px-3 sm:w-auto ${primaryButtonClassName}`} asChild>
+        <Link href={primaryAction.href}>
+          <PrimaryActionIcon className="h-3.5 w-3.5" />
+          {primaryAction.label}
+        </Link>
+      </Button>
       {lessonProgress ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 w-full gap-1.5 sm:w-auto">
-              Options
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 rounded-md border-border/70 px-3"
+            >
+              More
               <ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onSelect={() => router.push(`/bookings/${bookingId}/debrief/write`)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit debrief
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(event) => {
-              event.preventDefault()
-              void handleCopyLink()
-            }}>
-              <Link2 className="mr-2 h-4 w-4" />
-              Copy link
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(event) => {
-              event.preventDefault()
-              handlePrint()
-            }}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-56">
+            {invoiceId ? (
+              <>
+                <DropdownMenuLabel className="px-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  Manage
+                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onSelect={() => router.push(`/bookings/${bookingId}/debrief/write`)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit debrief
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+
+            <DropdownMenuLabel className="px-2 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Share
+            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                disabled={!canEmailDebrief || isEmailingDebrief}
+                onSelect={(event) => {
+                  event.preventDefault()
+                  void handleEmailDebrief()
+                }}
+              >
+                {isEmailingDebrief ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="mr-2 h-4 w-4" />
+                )}
+                {isEmailingDebrief ? "Sending debrief" : "Email debrief"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault()
+                  void handleCopyLink()
+                }}
+              >
+                <Link2 className="mr-2 h-4 w-4" />
+                Copy link
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuLabel className="px-2 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Export
+            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                disabled={isDownloadingPdf}
+                onSelect={(event) => {
+                  event.preventDefault()
+                  void handleDownloadPdf()
+                }}
+              >
+                {isDownloadingPdf ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Download PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault()
+                  handlePrint()
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
@@ -250,20 +366,6 @@ export function DebriefViewClient({
         backHref={`/bookings/${bookingId}`}
         backLabel="Back to Booking"
         actions={headerActions}
-        extra={
-          outcomeStatus ? (
-            <Badge
-              variant={outcomeStatus === "pass" ? "default" : "secondary"}
-              className={
-                outcomeStatus === "pass"
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                  : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
-              }
-            >
-              {statusLabel}
-            </Badge>
-          ) : null
-        }
       />
 
       <div className="w-full max-w-none flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:pt-0 print:pb-0">
@@ -285,7 +387,7 @@ export function DebriefViewClient({
                   </div>
 
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    <Button className="w-full gap-2 sm:w-auto" asChild>
+                    <Button className={`w-full gap-2 sm:w-auto ${primaryButtonClassName}`} asChild>
                       <Link href={`/bookings/${bookingId}/debrief/write`}>
                         <Pencil className="h-4 w-4" />
                         Write Debrief

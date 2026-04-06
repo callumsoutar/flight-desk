@@ -153,6 +153,8 @@ export function CheckinDebriefEditor({
 
   const hasExisting = Boolean(initial?.id)
   const showViewButton = hasExisting && Boolean(viewHref) && viewHref !== continueHref
+  const primaryButtonClassName =
+    "bg-slate-700 font-semibold text-white shadow-lg transition-all hover:bg-slate-800 hover:shadow-xl"
   const [isOpen, setIsOpen] = React.useState(() => {
     if (!collapsible) return true
     if (defaultOpen != null) return defaultOpen
@@ -650,7 +652,7 @@ export function CheckinDebriefEditor({
                 <Button
                   type="button"
                   size="lg"
-                  className="h-11 w-full gap-2 shadow-sm sm:w-auto"
+                  className={`h-11 w-full gap-2 sm:w-auto ${primaryButtonClassName}`}
                   onClick={() => {
                     if (hasExisting && !isDirty) {
                       router.push(continueHref)
@@ -678,7 +680,7 @@ export function CheckinDebriefEditor({
                 <Button
                   type="button"
                   size="lg"
-                  className="h-11 w-full gap-2 shadow-sm sm:w-auto"
+                  className={`h-11 w-full gap-2 sm:w-auto ${primaryButtonClassName}`}
                   onClick={() => void handleSave()}
                   disabled={isSaving || (hasExisting && !isDirty)}
                 >

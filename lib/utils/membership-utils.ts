@@ -3,7 +3,7 @@ import type {
   MembershipRecord,
   MembershipStatus,
 } from "@/lib/types/memberships"
-import { addMonths, subDays } from "date-fns"
+import { addMonths, subDays, differenceInCalendarDays, addYears } from "date-fns"
 import {
   addDaysYyyyMmDd,
   isValidDateKey,
@@ -158,6 +158,23 @@ export function calculateMembershipFee(
   return currency
 }
 
+/**
+ * First calendar occurrence of (end_month, end_day) that is on or after `startDate`
+ * (e.g. start 6 Apr 2026 with end 31 Mar → 31 Mar 2027, not 31 Mar 2028).
+ */
+export function firstMembershipYearEndOnOrAfter(
+  startDate: Date,
+  endMonth: number,
+  endDay: number
+): Date {
+  const y = startDate.getFullYear()
+  let candidate = new Date(y, endMonth - 1, endDay)
+  if (candidate < startDate) {
+    candidate = new Date(y + 1, endMonth - 1, endDay)
+  }
+  return candidate
+}
+
 export function computeMembershipExpiryDefault(
   startDate: Date,
   durationMonths: number,
@@ -167,22 +184,27 @@ export function computeMembershipExpiryDefault(
     return subDays(addMonths(startDate, durationMonths), 1)
   }
 
-  const earliestExpiry = addMonths(startDate, durationMonths)
-  let candidate = new Date(
-    earliestExpiry.getFullYear(),
-    membershipYear.end_month - 1,
+  const graceDays = membershipYear.early_join_grace_days ?? 90
+
+  let expiry = firstMembershipYearEndOnOrAfter(
+    startDate,
+    membershipYear.end_month,
     membershipYear.end_day
   )
 
-  if (candidate < earliestExpiry) {
-    candidate = new Date(
-      earliestExpiry.getFullYear() + 1,
-      membershipYear.end_month - 1,
-      membershipYear.end_day
-    )
+  if (graceDays > 0) {
+    const daysUntilFirstEnd = differenceInCalendarDays(expiry, startDate)
+    if (daysUntilFirstEnd <= graceDays) {
+      expiry = addYears(expiry, 1)
+    }
   }
 
-  return candidate
+  const membershipYearCount = Math.max(1, Math.ceil(durationMonths / 12))
+  if (membershipYearCount > 1) {
+    expiry = addYears(expiry, membershipYearCount - 1)
+  }
+
+  return expiry
 }
 
 export function parseMembershipDateKey(value: string | null | undefined): Date | null {

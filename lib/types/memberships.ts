@@ -52,4 +52,6 @@ export type MembershipYearSettings = {
   end_day: number
   end_month: number
   description?: string
+  /** Days from start to first aligned expiry; if within this window, roll expiry one year forward. Omitted means 90 in computeMembershipExpiryDefault. */
+  early_join_grace_days?: number
 }

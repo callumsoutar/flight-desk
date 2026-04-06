@@ -17,6 +17,7 @@ const membershipYearSchema = z.strictObject({
   end_month: z.number().int().min(1).max(12).optional(),
   end_day: z.number().int().min(1).max(31).optional(),
   description: z.string().trim().max(500).optional(),
+  early_join_grace_days: z.number().int().min(0).max(365).optional(),
 })
 
 const patchSchema = z.strictObject({
@@ -51,16 +52,6 @@ export async function PATCH(request: Request) {
   const patch = parsed.data.memberships
   const normalized: Record<string, Json> = {}
 
-  const membershipYearSettings = resolveMembershipsSettings({
-    membership_year: {
-      start_month: patch.membership_year.start_month,
-      start_day: patch.membership_year.start_day,
-      description: patch.membership_year.description ?? DEFAULT_MEMBERSHIP_YEAR.description,
-    } satisfies Record<string, Json>,
-  } satisfies Record<string, Json>).membership_year
-
-  normalized.membership_year = membershipYearSettings as unknown as Json
-
   const { data: existingRow, error: existingError } = await supabase
     .from("tenant_settings")
     .select("settings")
@@ -72,6 +63,24 @@ export async function PATCH(request: Request) {
   }
 
   const existing = isJsonObject(existingRow?.settings) ? existingRow?.settings : {}
+  const existingMembershipYear = isJsonObject(existing.membership_year) ? existing.membership_year : {}
+
+  const mergedMembershipYear: Record<string, Json> = {
+    ...existingMembershipYear,
+    start_month: patch.membership_year.start_month,
+    start_day: patch.membership_year.start_day,
+    description: patch.membership_year.description ?? DEFAULT_MEMBERSHIP_YEAR.description,
+  }
+  if (patch.membership_year.early_join_grace_days !== undefined) {
+    mergedMembershipYear.early_join_grace_days = patch.membership_year.early_join_grace_days
+  }
+
+  const membershipYearSettings = resolveMembershipsSettings({
+    membership_year: mergedMembershipYear,
+  } satisfies Record<string, Json>).membership_year
+
+  normalized.membership_year = membershipYearSettings as unknown as Json
+
   const nextSettings = { ...existing, ...normalized } satisfies Record<string, Json>
 
   if (existingRow) {

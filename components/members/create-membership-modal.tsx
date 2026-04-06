@@ -10,6 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -187,9 +188,9 @@ export function CreateMembershipModal({
               <UserPlus className="h-5 w-5 text-indigo-600" />
               Create Membership
             </DialogTitle>
-            <p className="text-sm text-slate-600">
+            <DialogDescription className="text-sm text-slate-600">
               Assign a new membership for this member.
-            </p>
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 px-6 py-5">

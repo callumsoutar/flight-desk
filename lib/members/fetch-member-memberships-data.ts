@@ -131,6 +131,15 @@ export async function fetchMemberMembershipsData(
         endDay >= 1 &&
         endDay <= 31
       ) {
+        const rawGrace = rawMembershipYear.early_join_grace_days
+        const early_join_grace_days =
+          typeof rawGrace === "number" &&
+          Number.isInteger(rawGrace) &&
+          rawGrace >= 0 &&
+          rawGrace <= 365
+            ? rawGrace
+            : undefined
+
         membershipYear = {
           end_month: endMonth,
           end_day: endDay,
@@ -138,6 +147,7 @@ export async function fetchMemberMembershipsData(
             typeof rawMembershipYear.description === "string"
               ? rawMembershipYear.description
               : undefined,
+          ...(early_join_grace_days !== undefined ? { early_join_grace_days } : {}),
         }
       }
     }

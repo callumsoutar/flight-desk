@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
+import {
+  DEFAULT_MEMBERSHIP_YEAR,
+  type MembershipsSettings,
+} from "@/lib/settings/memberships-settings"
 
 const months = [
   { value: "1", label: "January" },
@@ -82,12 +85,16 @@ function createFormState(settings: MembershipsSettings | null) {
       ? settings.membership_year.description.trim()
       : formatRangeDescription(startMonth, startDay)
 
+  const grace =
+    settings?.membership_year.early_join_grace_days ?? DEFAULT_MEMBERSHIP_YEAR.early_join_grace_days
+
   return {
     start_month: String(startMonth),
     start_day: String(startDay),
     end_month,
     end_day,
     description,
+    early_join_grace_days: String(grace),
   }
 }
 
@@ -110,7 +117,10 @@ export function MembershipYearConfig({
   }, [initialLoadError, initialSettings])
 
   const baseForm = React.useMemo(() => createFormState(baseSettings), [baseSettings])
-  const dirty = form.start_month !== baseForm.start_month || form.start_day !== baseForm.start_day
+  const dirty =
+    form.start_month !== baseForm.start_month ||
+    form.start_day !== baseForm.start_day ||
+    form.early_join_grace_days !== baseForm.early_join_grace_days
 
   const handleStartMonthChange = (value: string) => {
     const monthNum = Number.parseInt(value, 10)
@@ -166,6 +176,10 @@ export function MembershipYearConfig({
   const onSave = async () => {
     const startMonth = Number.parseInt(form.start_month, 10) || 4
     const startDay = clampStartDay(startMonth, Number.parseInt(form.start_day, 10) || 1)
+    const parsedGrace = Number.parseInt(form.early_join_grace_days, 10)
+    const early_join_grace_days = Number.isFinite(parsedGrace)
+      ? Math.min(365, Math.max(0, parsedGrace))
+      : DEFAULT_MEMBERSHIP_YEAR.early_join_grace_days
 
     setIsSaving(true)
     try {
@@ -175,6 +189,7 @@ export function MembershipYearConfig({
             start_month: startMonth,
             start_day: startDay,
             description: formatRangeDescription(startMonth, startDay),
+            early_join_grace_days,
           },
         },
       })
@@ -264,6 +279,30 @@ export function MembershipYearConfig({
             )} → ${endMonthName} ${form.end_day}${getOrdinalSuffix(form.end_day)}.`}
           </p>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label
+          htmlFor="membership-early-join-grace"
+          className="text-xs font-bold uppercase tracking-wider text-slate-500"
+        >
+          Early join grace (days)
+        </Label>
+        <Input
+          id="membership-early-join-grace"
+          type="number"
+          min={0}
+          max={365}
+          value={form.early_join_grace_days}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, early_join_grace_days: e.target.value }))
+          }
+          className="h-11 rounded-xl border-slate-200 bg-white"
+        />
+        <p className="text-[11px] font-medium text-slate-500">
+          If a new membership starts within this many days of the next aligned expiry date, expiry moves one year
+          forward (so short &ldquo;tail&rdquo; periods roll into the full year). Use 0 to disable.
+        </p>
       </div>
 
       <div className="space-y-2">
