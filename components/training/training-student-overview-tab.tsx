@@ -3,29 +3,30 @@
 import * as React from "react"
 import Link from "next/link"
 import {
-  IconBook,
   IconCalendar,
-  IconCalendarOff,
-  IconDotsVertical,
+  IconChartBar,
+  IconCheck,
+  IconClock,
+  IconExternalLink,
   IconPlane,
   IconRefresh,
   IconSchool,
-  IconUser,
+  IconShield,
 } from "@tabler/icons-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
+import { cn, getUserInitials } from "@/lib/utils"
 import type { TrainingOverviewRow } from "@/lib/types/training-overview"
 import type { TrainingStudentOverviewResponse } from "@/lib/types/training-student-overview"
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-NZ", {
   day: "numeric",
+  month: "short",
+  year: "numeric",
+})
+
+const KEY_DATE_FORMATTER = new Intl.DateTimeFormat("en-NZ", {
+  day: "2-digit",
   month: "short",
   year: "numeric",
 })
@@ -42,6 +43,14 @@ const overviewCache = new Map<
   { data: TrainingStudentOverviewResponse; fetchedAt: number }
 >()
 
+const overviewCardClass =
+  "rounded-xl border border-border/80 bg-card shadow-sm dark:border-border/60"
+
+const labelUpper =
+  "text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+
+const sectionHeading = cn(labelUpper, "mb-2.5")
+
 function safeFormatDate(value: string | null | undefined) {
   if (!value) return "—"
   try {
@@ -51,7 +60,15 @@ function safeFormatDate(value: string | null | undefined) {
   }
 }
 
-/** Calendar-day distance from today (local); for past or same-day events only. */
+function safeFormatKeyDate(value: string | null | undefined) {
+  if (!value) return "—"
+  try {
+    return KEY_DATE_FORMATTER.format(new Date(value))
+  } catch {
+    return "—"
+  }
+}
+
 function formatDaysAgoLabel(iso: string | null | undefined): string | null {
   if (!iso) return null
   const then = new Date(iso)
@@ -66,7 +83,7 @@ function formatDaysAgoLabel(iso: string | null | undefined): string | null {
   return `${diffDays} days ago`
 }
 
-function formatTimelineDate(value: string | null | undefined) {
+function formatTimelineDateUpper(value: string | null | undefined) {
   if (!value) return "—"
   try {
     return TIMELINE_DATE_FORMATTER.format(new Date(value)).toUpperCase()
@@ -80,42 +97,35 @@ function formatName(user: { first_name: string | null; last_name: string | null;
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email || "—"
 }
 
-function progressTrack(percent: number | null, className?: string) {
-  const pct = percent ?? 0
-  return (
-    <div className={cn("h-2 w-full overflow-hidden rounded-full bg-muted", className)}>
-      <div
-        className="h-full rounded-full bg-foreground/70 transition-all duration-500 dark:bg-foreground/60"
-        style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
-      />
-    </div>
-  )
-}
-
-const overviewCardClass =
-  "rounded-xl border border-border/80 bg-card shadow-sm dark:border-border/60"
-
-const labelClass =
-  "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-
-/** Outline icons: no background, aligned with label caps */
-const overviewIconClass = "size-4 shrink-0 text-muted-foreground stroke-[1.75] opacity-90"
-const overviewHeaderIconClass = "size-[18px] shrink-0 text-muted-foreground stroke-[1.75] opacity-90"
-
-type TimelineEvent = {
-  id: string
-  date: string
-  title: string
-  detail?: string
-  href?: string
-  chip?: string
+function formatBookingDurationHours(start: string, end: string): string | null {
+  const startMs = new Date(start).getTime()
+  const endMs = new Date(end).getTime()
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null
+  const hrs = (endMs - startMs) / (1000 * 60 * 60)
+  if (hrs <= 0) return null
+  const rounded = Math.round(hrs * 10) / 10
+  if (rounded <= 1 && rounded > 0.9) return "1 hour"
+  if (rounded % 1 === 0) return `${rounded.toFixed(0)} hours`
+  return `${rounded} hours`
 }
 
 function enrollmentDisplayLabel(statusLabel: string | null | undefined) {
   const s = (statusLabel ?? "").trim()
-  if (!s) return "IN PROGRESS"
-  return s.toUpperCase()
+  if (!s) return "In progress"
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
 }
+
+type TimelineEvent = {
+  id: string
+  date: string
+  isUpcoming: boolean
+  dateLine: string
+  title: string
+  detail?: string
+  href?: string
+}
+
+const overviewIcon = "size-3 shrink-0 opacity-70 stroke-[1.75] text-muted-foreground"
 
 export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }) {
   const [data, setData] = React.useState<TrainingStudentOverviewResponse | null>(null)
@@ -187,17 +197,25 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
   const progress = data?.progress ?? row.progress
   const nextBooking = data?.next_booking ?? null
   const hasNextBooking = Boolean(nextBooking?.start_time)
-  /** Syllabus “up next” — shown even when there is no booking yet. */
   const nextLessonTitle = hasNextBooking
     ? (nextBooking?.lesson?.name ?? data?.next_lesson?.name ?? "Scheduled lesson")
-    : (data?.next_lesson?.name ?? "—")
+    : (data?.next_lesson?.name ?? null)
   const lastFlightDate = data?.last_activity?.date ?? row.last_flight_at ?? null
   const lastFlightDaysAgo = formatDaysAgoLabel(lastFlightDate)
   const enrolledDaysAgo = formatDaysAgoLabel(enrolledAt)
   const enrollmentStatus = data?.enrollment_status ?? row.enrollment_status
-  const instructor = row.primaryInstructor
-    ? formatName({ first_name: row.primaryInstructor.first_name, last_name: row.primaryInstructor.last_name })
+  const enrollmentLabel = enrollmentDisplayLabel(enrollmentStatus)
+
+  const instructorName = row.primaryInstructor
+    ? formatName({
+        first_name: row.primaryInstructor.first_name,
+        last_name: row.primaryInstructor.last_name,
+      })
     : "Unassigned"
+
+  const instructorInitials = row.primaryInstructor
+    ? getUserInitials(row.primaryInstructor.first_name, row.primaryInstructor.last_name, null)
+    : "—"
 
   const theory = data?.theory ?? { passed: 0, required: 0 }
   const theoryPercent =
@@ -206,310 +224,447 @@ export function TrainingStudentOverviewTab({ row }: { row: TrainingOverviewRow }
   const flightPercent =
     progress.percent ?? (progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : null)
 
-  const bookingDurationHours = React.useMemo(() => {
+  const bookingDurationLabel = React.useMemo(() => {
     if (!nextBooking?.start_time || !nextBooking?.end_time) return null
-    const start = new Date(nextBooking.start_time).getTime()
-    const end = new Date(nextBooking.end_time).getTime()
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null
-    const hrs = (end - start) / (1000 * 60 * 60)
-    if (hrs <= 0) return null
-    const rounded = Math.round(hrs * 10) / 10
-    return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)} HOURS`
+    return formatBookingDurationHours(nextBooking.start_time, nextBooking.end_time)
   }, [nextBooking?.end_time, nextBooking?.start_time])
 
+  const nextLessonDateLabel = hasNextBooking && nextBooking?.start_time ? safeFormatDate(nextBooking.start_time) : null
+  const nextLessonMeta = [
+    nextLessonDateLabel,
+    bookingDurationLabel,
+    nextBooking?.aircraft?.registration ?? null,
+  ].filter((value): value is string => Boolean(value))
+
+  const remainingLessons = Math.max(0, progress.total - progress.completed)
+
   const timeline = React.useMemo(() => {
-    const events: TimelineEvent[] = []
+    const upcoming: TimelineEvent[] = []
+    const past: TimelineEvent[] = []
 
     if (nextBooking?.start_time) {
       const lessonName = nextBooking.lesson?.name ?? "Booking"
+      const instructorFormatted = nextBooking.instructor
+        ? formatName({
+            first_name: nextBooking.instructor.user?.first_name ?? nextBooking.instructor.first_name,
+            last_name: nextBooking.instructor.user?.last_name ?? nextBooking.instructor.last_name,
+            email: nextBooking.instructor.user?.email ?? null,
+          })
+        : null
       const detailBits = [
-        nextBooking.instructor
-          ? formatName({
-              first_name: nextBooking.instructor.user?.first_name ?? nextBooking.instructor.first_name,
-              last_name: nextBooking.instructor.user?.last_name ?? nextBooking.instructor.last_name,
-              email: nextBooking.instructor.user?.email ?? null,
-            })
-          : null,
+        instructorFormatted ? `With ${instructorFormatted}` : null,
         nextBooking.aircraft?.registration ?? null,
+        bookingDurationLabel,
       ].filter(Boolean)
 
-      events.push({
+      upcoming.push({
         id: "next-booking",
         date: nextBooking.start_time,
-        title: "Next booking",
-        detail: detailBits.length ? `${lessonName} · ${detailBits.join(" · ")}` : lessonName,
+        isUpcoming: true,
+        dateLine: `${formatTimelineDateUpper(nextBooking.start_time)} · UPCOMING`,
+        title: lessonName,
+        detail: detailBits.length ? detailBits.join(" · ") : undefined,
         href: `/bookings/${nextBooking.id}`,
-        chip: bookingDurationHours ?? undefined,
       })
     }
 
     if (data?.last_activity?.date) {
-      events.push({
+      past.push({
         id: "last-activity",
         date: data.last_activity.date,
-        title: "Last lesson complete",
+        isUpcoming: false,
+        dateLine: formatTimelineDateUpper(data.last_activity.date),
+        title: "Lesson complete",
         detail: data.last_activity.lesson?.name ?? undefined,
       })
     } else if (row.last_flight_at) {
-      events.push({
+      past.push({
         id: "last-flight",
         date: row.last_flight_at,
-        title: "Last lesson complete",
+        isUpcoming: false,
+        dateLine: formatTimelineDateUpper(row.last_flight_at),
+        title: "Lesson complete",
       })
     }
 
     if (enrolledAt) {
-      events.push({
+      past.push({
         id: "enrolled",
         date: enrolledAt,
-        title: `Enrolled in ${row.syllabus.name}`,
-        detail: data?.enrollment_status ?? row.enrollment_status,
+        isUpcoming: false,
+        dateLine: formatTimelineDateUpper(enrolledAt),
+        title: "Enrolled in training",
+        detail: `${row.syllabus.name} · ${enrollmentLabel}`,
       })
     }
 
-    const withDate = events
-      .map((e) => ({ e, t: new Date(e.date).getTime() }))
-      .filter((x) => Number.isFinite(x.t))
-      .sort((a, b) => b.t - a.t)
-      .map((x) => x.e)
+    past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-    return withDate
+    return [...upcoming, ...past]
   }, [
-    bookingDurationHours,
-    data?.enrollment_status,
+    bookingDurationLabel,
     data?.last_activity,
+    enrollmentLabel,
     enrolledAt,
     nextBooking,
-    row.enrollment_status,
     row.last_flight_at,
     row.syllabus.name,
   ])
 
   const fullRecordHref = `/members/${row.user_id}?tab=training&syllabus_id=${row.syllabus_id}`
+  const instructorProfileHref = row.primaryInstructor ? `/instructors/${row.primaryInstructor.id}` : null
+
+  const theoryStatusSub =
+    theory.required <= 0
+      ? "No exams configured"
+      : theory.passed === 0
+        ? "Not yet started"
+        : `${theoryPercent}% passed`
 
   if (loading && !data) {
     return (
-      <div className="min-w-0 px-5 py-5 sm:px-6 sm:py-6">
-        <div className="@container/overview min-w-0 space-y-6">
-          <div className="grid grid-cols-1 gap-5 @[36rem]/overview:grid-cols-3 @[36rem]/overview:gap-5">
-            <div className={cn(overviewCardClass, "h-28")} />
-            <div className={cn(overviewCardClass, "h-28")} />
-            <div className={cn(overviewCardClass, "h-28")} />
+      <div className="min-w-0 px-4 py-5 sm:px-6">
+        <div className="mx-auto max-w-[1100px] space-y-8 animate-pulse">
+          <div className={cn(overviewCardClass, "h-28")} />
+          <div className={cn(overviewCardClass, "h-32")} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className={cn(overviewCardClass, "h-36")} />
+            <div className={cn(overviewCardClass, "h-36")} />
           </div>
-          <div className={cn(overviewCardClass, "h-36")} />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-w-0 px-5 py-5 sm:px-6 sm:py-6">
+    <div className="min-w-0 px-4 py-5 sm:px-6 text-foreground">
       {error ? <div className="mb-4 text-sm text-destructive">{error}</div> : null}
-      {refreshing ? (
-        <div className="mb-3 text-xs text-muted-foreground">Updating…</div>
-      ) : null}
+      {refreshing ? <div className="mb-2 text-xs text-muted-foreground">Updating…</div> : null}
 
-      <div className="@container/overview min-w-0">
-        <div className="grid min-w-0 grid-cols-1 gap-6 @[42rem]/overview:grid-cols-[minmax(0,1fr)_min(288px,34%)] @[42rem]/overview:gap-7 @[42rem]/overview:items-start">
+      <div className="mx-auto max-w-[1100px]">
+        <div className="grid min-w-0 grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start xl:gap-8">
           {/* Main column */}
-          <div className="min-w-0 space-y-6">
-            {/* Quick stats */}
-            <div className="grid min-w-0 grid-cols-1 gap-5 @[36rem]/overview:grid-cols-3 @[36rem]/overview:gap-5">
-              <div className={cn(overviewCardClass, "min-w-0 p-5 sm:p-6")}>
-                <div className="flex items-center gap-2">
-                  <IconUser className={overviewIconClass} aria-hidden />
-                  <span className={labelClass}>Instructor</span>
+          <div className="min-w-0 space-y-7">
+            {/* Status row */}
+            <div
+              className={cn(
+                overviewCardClass,
+                "grid overflow-hidden p-0",
+                "grid-cols-1 sm:grid-cols-3",
+                "[&>div]:border-b [&>div]:border-border/60 [&>div:last-child]:border-b-0 sm:[&>div]:min-h-[108px] sm:[&>div]:border-b-0 sm:[&>div]:border-r sm:[&>div:last-child]:border-r-0"
+              )}
+            >
+              <div className="px-5 py-4 sm:px-6">
+                <div className={cn("mb-1.5 flex items-center gap-1.5", labelUpper)}>
+                  <IconCalendar className={overviewIcon} aria-hidden />
+                  Last flight
                 </div>
-                <div className="mt-2 break-words text-base font-semibold leading-snug text-foreground" title={instructor}>
-                  {instructor}
+                <div className="text-base font-semibold leading-snug">{safeFormatDate(lastFlightDate)}</div>
+                {lastFlightDaysAgo ? (
+                  <div className="mt-0.5 text-xs text-muted-foreground">{lastFlightDaysAgo}</div>
+                ) : null}
+              </div>
+              <div className="px-5 py-4 sm:px-6">
+                <div className={cn("mb-1.5 flex items-center gap-1.5", labelUpper)}>
+                  <IconPlane className={overviewIcon} aria-hidden />
+                  Flight progress
+                </div>
+                <div className="text-base font-semibold leading-snug">
+                  {progress.total > 0 ? (
+                    <>
+                      {progress.completed} of {progress.total} lessons
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {flightPercent != null ? `${flightPercent}% complete` : "No lessons yet"}
                 </div>
               </div>
-              <div className={cn(overviewCardClass, "min-w-0 p-5 sm:p-6")}>
-                <div className="flex items-center gap-2">
-                  <IconCalendar className={overviewIconClass} aria-hidden />
-                  <span className={labelClass}>Last flight</span>
+              <div className="px-5 py-4 sm:px-6">
+                <div className={cn("mb-1.5 flex items-center gap-1.5", labelUpper)}>
+                  <IconChartBar className={overviewIcon} aria-hidden />
+                  Theory exams
                 </div>
-                <div className="mt-2 space-y-1">
-                  <div className="text-base font-semibold tabular-nums leading-snug text-foreground">
-                    {safeFormatDate(lastFlightDate)}
-                  </div>
-                  {lastFlightDaysAgo ? (
-                    <p className="text-xs font-medium leading-snug text-muted-foreground">{lastFlightDaysAgo}</p>
-                  ) : null}
+                <div className="text-base font-semibold leading-snug">
+                  {theory.required > 0 ? (
+                    <>
+                      {theory.passed} of {theory.required} passed
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{theoryStatusSub}</div>
               </div>
-              <div className={cn(overviewCardClass, "min-w-0 p-5 sm:p-6")}>
-                <div className="flex items-baseline gap-2">
-                  <IconPlane className={cn(overviewIconClass, "translate-y-[3px]")} aria-hidden />
-                  <span className={labelClass}>Next lesson</span>
-                </div>
-                <div className="mt-2 min-w-0 space-y-2">
-                  <p
-                    className="line-clamp-2 text-base font-semibold leading-snug text-foreground"
-                    title={nextLessonTitle !== "—" ? nextLessonTitle : undefined}
-                  >
-                    {nextLessonTitle}
-                  </p>
-                  {!hasNextBooking ? (
-                    <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/85">
-                      <IconCalendarOff className="size-3 shrink-0 opacity-70 stroke-[1.75]" aria-hidden />
-                      Not booked
+            </div>
+
+            {/* Up next */}
+            <div className={cn(overviewCardClass, "overflow-hidden")}>
+              <div className="border-l-2 border-l-primary/60 px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+                  <div className="min-w-0 flex-1">
+                    <p className={cn(labelUpper, "inline-flex items-center gap-1.5")}>
+                      <IconCalendar className={overviewIcon} aria-hidden />
+                      Up next
                     </p>
+                    <p className="mt-1.5 text-base font-semibold leading-tight text-foreground sm:text-lg">
+                      {nextLessonTitle ?? "No lesson scheduled"}
+                    </p>
+                    {nextLessonMeta.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {nextLessonMeta.map((item) => (
+                          <span
+                            key={item}
+                            className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Book a lesson to keep progress moving.
+                      </p>
+                    )}
+                  </div>
+                  {hasNextBooking && nextBooking ? (
+                    <Link
+                      href={`/bookings/${nextBooking.id}`}
+                      className="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline sm:pt-0.5"
+                    >
+                      View booking
+                    </Link>
                   ) : null}
                 </div>
               </div>
             </div>
 
-            {/* Enrolled syllabus */}
-            <section className={cn(overviewCardClass, "p-6 sm:p-7")}>
-              <header className="border-b border-border/60 pb-6">
-                <div className="flex items-start gap-2.5">
-                  <IconSchool className={cn(overviewHeaderIconClass, "mt-0.5")} aria-hidden />
-                  <div className="min-w-0">
-                    <h3 className="text-base font-semibold tracking-tight text-foreground">Enrolled syllabus</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">Primary certification track</p>
+            {/* Training progress */}
+            <section>
+              <h3 className={sectionHeading}>Training progress</h3>
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className={cn(overviewCardClass, "h-full p-5")}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className={cn("flex items-center gap-1.5", labelUpper)}>
+                      <IconPlane className="size-3.5 stroke-[1.75]" aria-hidden />
+                      Flight lessons
+                    </span>
                   </div>
+                  <div className="mb-2.5 text-3xl font-semibold tabular-nums text-foreground">
+                    {flightPercent != null ? `${flightPercent}%` : "—"}
+                  </div>
+                  <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${Math.max(0, Math.min(100, flightPercent ?? 0))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    <span className="font-semibold text-foreground">{progress.completed}</span> completed ·{" "}
+                    <span className="font-semibold text-foreground">{remainingLessons}</span> remaining
+                  </p>
                 </div>
-              </header>
 
-              <div className="mt-7 grid min-w-0 grid-cols-1 gap-8 @[36rem]/overview:grid-cols-3 @[36rem]/overview:gap-6 @[42rem]/overview:gap-10">
-                <div className="min-w-0">
-                  <div className={labelClass}>Course name</div>
-                  <div className="mt-2.5 text-base font-semibold leading-snug text-foreground">{row.syllabus.name}</div>
+                <div className={cn(overviewCardClass, "h-full p-5")}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className={cn("flex items-center gap-1.5", labelUpper)}>
+                      <IconSchool className="size-3.5 stroke-[1.75]" aria-hidden />
+                      Theory exams
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "mb-2.5 text-3xl font-semibold tabular-nums",
+                      theoryPercent === 0 || theoryPercent == null ? "text-muted-foreground" : "text-foreground"
+                    )}
+                  >
+                    {theoryPercent != null ? `${theoryPercent}%` : "—"}
+                  </div>
+                  <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-emerald-600 transition-all duration-500 dark:bg-emerald-500"
+                      style={{ width: `${Math.max(0, Math.min(100, theoryPercent ?? 0))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    <span className="font-semibold text-foreground">{theory.passed}</span> passed ·{" "}
+                    <span className="font-semibold text-foreground">{theory.required}</span> total
+                  </p>
                 </div>
-                <div className="min-w-0">
-                  <div className={labelClass}>Enrolled on</div>
-                  <div className="mt-2.5 space-y-1">
-                    <div className="text-base font-semibold tabular-nums text-foreground">
-                      {safeFormatDate(enrolledAt)}
-                    </div>
-                    {enrolledDaysAgo ? (
-                      <p className="text-xs font-medium leading-snug text-muted-foreground">{enrolledDaysAgo}</p>
-                    ) : null}
+              </div>
+            </section>
+
+            {/* Enrolled syllabus */}
+            <section>
+              <h3 className={sectionHeading}>Enrolled syllabus</h3>
+              <div className={cn(overviewCardClass, "overflow-hidden")}>
+                <div className="flex flex-col gap-3 border-b border-border/60 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-foreground">{row.syllabus.name}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">Primary certification track</div>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <IconCalendar className="size-3 shrink-0 stroke-[1.75]" aria-hidden />
+                      Enrolled {safeFormatDate(enrolledAt)}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1",
+                        enrollmentLabel.toLowerCase() === "active"
+                          ? "text-emerald-700 dark:text-emerald-300"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <IconCheck className="size-3 shrink-0 stroke-[1.75]" aria-hidden />
+                      {enrollmentLabel}
+                    </span>
                   </div>
                 </div>
-                <div className="min-w-0">
-                  <div className={labelClass}>Status</div>
-                  <div className="mt-2.5">
-                    <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-primary">
-                      {enrollmentDisplayLabel(enrollmentStatus)}
+                <div className="flex items-start gap-2.5 px-5 py-4 text-xs text-muted-foreground">
+                  <IconShield className="mt-0.5 size-[13px] shrink-0 stroke-[1.75] opacity-80" aria-hidden />
+                  <span>
+                    {enrolledDaysAgo ? (
+                      <>
+                        Enrolled {enrolledDaysAgo} · status is{" "}
+                        <strong className="font-semibold text-foreground">{enrollmentLabel.toLowerCase()}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Status is <strong className="font-semibold text-foreground">{enrollmentLabel.toLowerCase()}</strong>
+                      </>
+                    )}{" "}
+                    ·{" "}
+                    <Link
+                      href={fullRecordHref}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      View full syllabus →
+                    </Link>
+                  </span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Sidebar */}
+          <aside className="min-w-0 space-y-6">
+            <section>
+              <div className={cn(overviewCardClass, "p-4 sm:p-5")}>
+                <h3 className={cn(labelUpper, "mb-3")}>Instructor</h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                    {instructorInitials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-foreground">{instructorName}</div>
+                    <div className="text-xs text-muted-foreground">Flight instructor</div>
+                  </div>
+                  {instructorProfileHref ? (
+                    <Link
+                      href={instructorProfileHref}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-primary"
+                      aria-label="Open instructor profile"
+                    >
+                      <IconExternalLink className="size-3.5 stroke-[1.75]" />
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className={sectionHeading}>Key dates</h3>
+              <div className={cn(overviewCardClass, "overflow-hidden")}>
+                <div className="divide-y divide-border/60">
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs sm:text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <IconCalendar className="size-3 shrink-0 stroke-[1.75]" aria-hidden />
+                      Enrolled
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                      {safeFormatKeyDate(enrolledAt)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs sm:text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <IconPlane className="size-3 shrink-0 stroke-[1.75]" aria-hidden />
+                      Last flight
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                      {safeFormatKeyDate(lastFlightDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs sm:text-sm">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <IconClock className="size-3 shrink-0 stroke-[1.75]" aria-hidden />
+                      Next lesson
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold tabular-nums text-foreground sm:text-xs">
+                      {hasNextBooking && nextBooking?.start_time ? safeFormatKeyDate(nextBooking.start_time) : "—"}
                     </span>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Flight + theory */}
-            <div className="grid min-w-0 grid-cols-1 gap-5 @[36rem]/overview:grid-cols-2 @[36rem]/overview:gap-5">
-              <div className={cn(overviewCardClass, "p-6 sm:p-6")}>
-                <div className="flex items-center gap-2">
-                  <IconPlane className={overviewIconClass} aria-hidden />
-                  <span className={labelClass}>Flight progress</span>
-                </div>
-                <div className="mt-3 flex items-center gap-4">
-                  <span className="text-3xl font-semibold tabular-nums text-foreground">
-                    {flightPercent != null ? `${flightPercent}%` : "—"}
-                  </span>
-                  <div className="min-w-0 flex-1">{progressTrack(flightPercent)}</div>
-                </div>
-                <div className="mt-5 text-xs leading-relaxed text-muted-foreground">
-                  <span className="font-semibold text-foreground">{progress.completed}</span> lessons completed
-                  <span className="mx-1">·</span>
-                  <span className="font-semibold text-foreground">{progress.total}</span> total
-                </div>
-              </div>
-
-              <div className={cn(overviewCardClass, "p-6 sm:p-6")}>
-                <div className="flex items-center gap-2">
-                  <IconBook className={overviewIconClass} aria-hidden />
-                  <span className={labelClass}>Theory exams</span>
-                </div>
-                <div className="mt-3 flex items-center gap-4">
-                  <span className="text-3xl font-semibold tabular-nums text-foreground">
-                    {theoryPercent != null ? `${theoryPercent}%` : "—"}
-                  </span>
-                  <div className="min-w-0 flex-1">{progressTrack(theoryPercent)}</div>
-                </div>
-                <div className="mt-5 text-xs leading-relaxed text-muted-foreground">
-                  <span className="font-semibold text-foreground">{theory.passed}</span> exams passed
-                  <span className="mx-1">·</span>
-                  <span className="font-semibold text-foreground">{theory.required}</span> total
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Activity */}
-          <aside className={cn(overviewCardClass, "min-w-0 p-6 sm:p-6 pt-8 @[42rem]/overview:pt-6")}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-base font-semibold tracking-tight text-foreground">Activity</h3>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground">
-                    <IconDotsVertical className="h-4 w-4 stroke-[1.5]" />
-                    <span className="sr-only">Activity menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      reload()
-                    }}
+            <section>
+              <div className={cn(overviewCardClass, "p-4 sm:p-5")}>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className={cn(labelUpper, "mb-0")}>Activity</h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => reload()}
+                    aria-label="Refresh overview"
                   >
-                    <IconRefresh className="h-4 w-4 stroke-[1.5]" />
-                    Refresh overview
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href={fullRecordHref}>Open full record</Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                    <IconRefresh className={cn("size-4 stroke-[1.5]", refreshing && "animate-spin")} />
+                  </Button>
+                </div>
 
-            <div className="relative mt-7">
-              <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border/80" aria-hidden />
-              <ul className="space-y-6">
-                {timeline.map((event) => {
-                  return (
-                    <li key={event.id} className="relative pl-8">
+                <div className="flex flex-col">
+                  {timeline.map((event, index) => (
+                    <div key={event.id} className="relative flex gap-3.5 pb-5 last:pb-0">
+                      {index < timeline.length - 1 ? (
+                        <div className="absolute left-[6px] top-3.5 bottom-0 w-px bg-border" aria-hidden />
+                      ) : null}
                       <div
-                        className="absolute left-0 top-2 h-3 w-3 shrink-0 rounded-full border-2 border-background bg-primary/55 ring-1 ring-border/60"
+                        className={cn(
+                          "relative z-[1] mt-0.5 size-[13px] shrink-0 rounded-full border-2",
+                          event.isUpcoming
+                            ? "border-primary bg-primary"
+                            : "border-border bg-background"
+                        )}
                         aria-hidden
                       />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium leading-snug text-foreground">
-                          {event.title}{" "}
-                          <span className="font-medium uppercase tracking-wide text-muted-foreground tabular-nums">
-                            ({formatTimelineDate(event.date)})
-                          </span>
-                        </p>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <div className={cn(labelUpper, "mb-0.5 tracking-[0.05em]")}>{event.dateLine}</div>
+                        <div className="text-sm font-semibold leading-snug text-foreground">{event.title}</div>
                         {event.detail ? (
-                          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{event.detail}</p>
+                          <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{event.detail}</div>
                         ) : null}
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                          {event.chip ? (
-                            <span className="inline-flex rounded-md bg-muted/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {event.chip}
-                            </span>
-                          ) : null}
-                          {event.href ? (
-                            <Link
-                              href={event.href}
-                              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
-                            >
-                              View booking
-                            </Link>
-                          ) : null}
-                        </div>
+                        {event.href ? (
+                          <Link
+                            href={event.href}
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15"
+                          >
+                            <IconCalendar className="size-2.5 stroke-[1.75]" aria-hidden />
+                            View booking
+                          </Link>
+                        ) : null}
                       </div>
-                    </li>
-                  )
-                })}
-              </ul>
-              {!timeline.length ? (
-                <p className="pl-1 text-sm leading-relaxed text-muted-foreground">No activity yet.</p>
-              ) : null}
-            </div>
+                    </div>
+                  ))}
+                  {!timeline.length ? (
+                    <p className="text-sm leading-relaxed text-muted-foreground">No activity yet.</p>
+                  ) : null}
+                </div>
+              </div>
+            </section>
           </aside>
         </div>
       </div>

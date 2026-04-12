@@ -325,7 +325,7 @@ export function DebriefWriteSkeleton() {
 
 export function MemberDetailSkeleton() {
   return (
-    <div className="w-full py-8" aria-busy="true" aria-live="polite">
+    <div className="w-full" aria-busy="true" aria-live="polite">
       <SkeletonBlock className="mb-6 h-4 w-32" />
 
       <Card className="mb-6 border border-border/50 bg-card py-0 shadow-sm">

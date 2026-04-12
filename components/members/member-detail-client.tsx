@@ -243,7 +243,7 @@ export function MemberDetailClient({
   }
 
   return (
-    <div className="w-full py-8">
+    <div className="w-full">
       <Link
         href="/members"
         className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
