@@ -7,7 +7,7 @@ import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-r
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { isStaffRole } from "@/lib/auth/roles"
-import { getAuthSession } from "@/lib/auth/session"
+import { getRootLayoutAuthSession } from "@/lib/auth/session"
 import { fetchDashboardPageData } from "@/lib/dashboard/fetch-dashboard-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types/roles"
@@ -57,8 +57,7 @@ async function DashboardContent({
 }
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient()
-  const { user, tenantId, role } = await getAuthSession(supabase, { includeTenant: true, includeRole: true })
+  const { user, tenantId, role } = await getRootLayoutAuthSession()
 
   if (!user) redirect("/login")
   if (!tenantId) {

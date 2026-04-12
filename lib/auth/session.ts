@@ -1,6 +1,8 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js"
+import { cache } from "react"
 
 import { claimsRoleToUserRole, isUserRole } from "@/lib/auth/roles"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { logWarn } from "@/lib/security/logger"
 import { getUserTenantId } from "@/lib/auth/tenant"
 import type { Database } from "@/lib/types"
@@ -192,3 +194,19 @@ export async function getAuthSession(
 
   return { user, claims, role, tenantId }
 }
+
+/**
+ * Cached per request: same Supabase session resolution as `app/layout.tsx`.
+ * Use this from route segments that need the same session shape so work is not duplicated
+ * (e.g. layout + `/login` + `/dashboard` on first load).
+ */
+export const getRootLayoutAuthSession = cache(async () => {
+  const supabase = await createSupabaseServerClient()
+  return getAuthSession(supabase, {
+    requireUser: true,
+    includeRole: true,
+    includeTenant: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
+})

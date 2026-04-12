@@ -1,12 +1,10 @@
 import { redirect } from "next/navigation"
 
 import { SignupForm } from "@/components/signup-form"
-import { getAuthSession } from "@/lib/auth/session"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getRootLayoutAuthSession } from "@/lib/auth/session"
 
 export default async function SignupPage() {
-  const supabase = await createSupabaseServerClient()
-  const { user } = await getAuthSession(supabase, { requireUser: true })
+  const { user } = await getRootLayoutAuthSession()
 
   if (user) redirect("/dashboard")
 

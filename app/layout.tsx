@@ -6,7 +6,7 @@ import { ReactQueryProvider } from "@/components/providers/react-query-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { fetchUserProfile } from "@/lib/auth/user-profile"
 import { TimezoneProvider } from "@/contexts/timezone-context"
-import { getAuthSession } from "@/lib/auth/session"
+import { getRootLayoutAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
@@ -21,13 +21,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createSupabaseServerClient()
-  const { user, role, tenantId } = await getAuthSession(supabase, {
-    requireUser: true,
-    includeRole: true,
-    includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
-  })
+  const { user, role, tenantId } = await getRootLayoutAuthSession()
 
   const [profile, tenantTimezone] = await Promise.all([
     user ? fetchUserProfile(supabase, user) : Promise.resolve(null),

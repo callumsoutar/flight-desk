@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import {
@@ -126,13 +127,19 @@ export function LoginForm({ nextUrl }: { nextUrl?: string }) {
             <div
               key={slide.title}
               className={cn(
-                "absolute inset-0 bg-cover bg-center transition-opacity duration-1000",
+                "absolute inset-0 transition-opacity duration-1000",
                 currentSlide === index ? "opacity-100" : "opacity-0"
               )}
-              style={{
-                backgroundImage: `url(${slide.image})`,
-              }}
             >
+              <Image
+                src={slide.image}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="(max-width: 1023px) 0px, 50vw"
+                priority={index === 0}
+                {...(index > 0 ? { loading: "lazy" as const } : {})}
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0B1527]/90 via-[#0B1527]/40 to-[#0B1527]/20" />
             </div>
           ))}
