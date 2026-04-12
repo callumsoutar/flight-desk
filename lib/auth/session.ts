@@ -1,5 +1,4 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js"
-import { cache } from "react"
 
 import { claimsRoleToUserRole, isUserRole } from "@/lib/auth/roles"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -119,7 +118,7 @@ function userToAuthUser(user: User): AuthUser {
   }
 }
 
-export async function getAuthSession(
+async function resolveAuthSession(
   supabase: SupabaseClient<Database>,
   options: GetAuthSessionOptions = {}
 ): Promise<AuthSession> {
@@ -195,12 +194,25 @@ export async function getAuthSession(
   return { user, claims, role, tenantId }
 }
 
+export async function getAuthSession(
+  supabase: SupabaseClient<Database>,
+  options: GetAuthSessionOptions = {}
+): Promise<AuthSession> {
+  try {
+    return await resolveAuthSession(supabase, options)
+  } catch (error) {
+    logWarn("[auth] Session resolution failed", {
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return { user: null, claims: null, role: null, tenantId: null }
+  }
+}
+
 /**
- * Cached per request: same Supabase session resolution as `app/layout.tsx`.
- * Use this from route segments that need the same session shape so work is not duplicated
- * (e.g. layout + `/login` + `/dashboard` on first load).
+ * Session shape used by `app/layout.tsx` (authoritative role + tenant, validated user).
+ * Do not wrap in `cache()` — it can interact badly with streaming and auth timing on navigation.
  */
-export const getRootLayoutAuthSession = cache(async () => {
+export async function loadRootLayoutAuthSession(): Promise<AuthSession> {
   const supabase = await createSupabaseServerClient()
   return getAuthSession(supabase, {
     requireUser: true,
@@ -209,4 +221,4 @@ export const getRootLayoutAuthSession = cache(async () => {
     authoritativeRole: true,
     authoritativeTenant: true,
   })
-})
+}

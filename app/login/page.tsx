@@ -2,16 +2,18 @@ import { redirect } from "next/navigation"
 
 import { sanitizeNextPath } from "@/lib/auth/redirect"
 import { LoginForm } from "@/components/login-form"
-import { getRootLayoutAuthSession } from "@/lib/auth/session"
+import { getAuthSession } from "@/lib/auth/session"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams?: Promise<{ next?: string }>
 }) {
+  const supabase = await createSupabaseServerClient()
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    getRootLayoutAuthSession(),
+    getAuthSession(supabase, { requireUser: true }),
   ])
   const next = sanitizeNextPath(resolvedSearchParams?.next)
   const { user } = session
