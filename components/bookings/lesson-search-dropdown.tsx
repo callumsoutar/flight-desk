@@ -29,6 +29,7 @@ export function LessonSearchDropdown({
   nextLessonId = null,
   nextLessonName = null,
   nextLessonLoading = false,
+  nextLessonAlreadyBooked = false,
   triggerClassName,
 }: {
   lessons: LessonLite[]
@@ -40,6 +41,8 @@ export function LessonSearchDropdown({
   nextLessonId?: string | null
   nextLessonName?: string | null
   nextLessonLoading?: boolean
+  /** True when the syllabus next lesson already has a future booking (from training peek). */
+  nextLessonAlreadyBooked?: boolean
   triggerClassName?: string
 }) {
   const [open, setOpen] = React.useState(false)
@@ -153,7 +156,9 @@ export function LessonSearchDropdown({
               : nextLessonLoading
                 ? "Loading next lesson..."
                 : nextLessonDisplayName
-                  ? `Next lesson: ${nextLessonDisplayName}`
+                  ? nextLessonAlreadyBooked
+                    ? `Next lesson: ${nextLessonDisplayName} (booked)`
+                    : `Next lesson: ${nextLessonDisplayName}`
                   : placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
@@ -171,37 +176,40 @@ export function LessonSearchDropdown({
         />
 
         {nextLessonLoading ? (
-          <div className="mb-2 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-medium text-slate-600">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Finding next lesson...
+          <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            Finding next lesson…
           </div>
         ) : nextLessonDisplayName ? (
-          <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50/70 p-1">
-            <div className="px-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-              Training advisor
-            </div>
-            <button
-              type="button"
-              disabled={!nextLesson}
-              className={cn(
-                "flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1.5 text-left text-sm",
-                nextLesson ? "hover:bg-emerald-100/70" : "cursor-not-allowed opacity-70"
-              )}
-              onClick={() => {
-                if (!nextLesson) return
-                onSelect(nextLesson.id)
-                setOpen(false)
-              }}
-            >
-              <span className="truncate">Next lesson: {nextLessonDisplayName}</span>
-              {selectedLesson?.id === nextLessonId ? (
-                <Check className="h-4 w-4 shrink-0 text-emerald-700" />
-              ) : (
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-                  {nextLesson ? "Use this" : "Unavailable"}
+          <div className="mb-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-medium text-muted-foreground">Next in syllabus</p>
+                <p className="truncate text-sm font-medium leading-snug">{nextLessonDisplayName}</p>
+              </div>
+              {nextLessonAlreadyBooked ? (
+                <span className="shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  Booked
                 </span>
+              ) : selectedLesson?.id === nextLessonId && nextLesson ? (
+                <span className="inline-flex h-7 shrink-0 items-center text-primary" title="Selected">
+                  <Check className="h-4 w-4" />
+                </span>
+              ) : nextLesson ? (
+                <button
+                  type="button"
+                  className="inline-flex h-7 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground shadow-xs transition-colors hover:bg-muted"
+                  onClick={() => {
+                    onSelect(nextLesson.id)
+                    setOpen(false)
+                  }}
+                >
+                  Select
+                </button>
+              ) : (
+                <span className="shrink-0 text-[11px] text-muted-foreground">Unavailable</span>
               )}
-            </button>
+            </div>
           </div>
         ) : null}
 
@@ -270,9 +278,15 @@ export function LessonSearchDropdown({
                               <span className="truncate">{lesson.name}</span>
                               <span className="ml-2 flex shrink-0 items-center gap-1.5">
                                 {isNextLesson ? (
-                                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-                                    Next
-                                  </span>
+                                  nextLessonAlreadyBooked ? (
+                                    <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      Booked
+                                    </span>
+                                  ) : (
+                                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                                      Next
+                                    </span>
+                                  )
                                 ) : null}
                                 {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
                               </span>
@@ -307,9 +321,15 @@ export function LessonSearchDropdown({
                   <span className="truncate">{lesson.name}</span>
                   <span className="ml-2 flex shrink-0 items-center gap-1.5">
                     {isNextLesson ? (
-                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-                        Next
-                      </span>
+                      nextLessonAlreadyBooked ? (
+                        <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Booked
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                          Next
+                        </span>
+                      )
                     ) : null}
                     {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
                   </span>

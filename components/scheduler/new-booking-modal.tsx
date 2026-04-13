@@ -3,8 +3,6 @@
 import * as React from "react"
 import {
   CalendarIcon,
-  CircleAlert,
-  CircleCheck,
   ChevronDown,
   Clock,
   HelpCircle,
@@ -282,59 +280,14 @@ export function NewBookingModal({
     data: memberTrainingPeek,
     isLoading: memberTrainingPeekLoading,
     isFetching: memberTrainingPeekFetching,
-    error: memberTrainingPeekErrorState,
   } = useMemberTrainingPeekQuery(memberId, open)
   const memberEnrollment = memberTrainingPeek?.enrollment ?? null
-  const memberTrainingPeekError =
-    memberTrainingPeekErrorState instanceof Error ? memberTrainingPeekErrorState.message : null
   const optionsError = optionsErrorState instanceof Error ? optionsErrorState.message : null
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
     if (!memberId) return null
     return members.find((member) => member.id === memberId) ?? null
   }, [memberId, members])
-
-  const trainingAdvisorStatus = React.useMemo(() => {
-    if (!memberId) return null
-
-    if (memberTrainingPeekLoading || memberTrainingPeekFetching) {
-      return {
-        tone: "loading" as const,
-        title: "Loading training advisor",
-        detail: "Fetching enrolment, instructor, and next lesson guidance.",
-      }
-    }
-
-    if (memberTrainingPeekError) {
-      return {
-        tone: "error" as const,
-        title: "Training advisor unavailable",
-        detail: "Could not load training guidance right now.",
-      }
-    }
-
-    const nextLesson = memberTrainingPeek?.next_lesson?.name ?? null
-    if (nextLesson) {
-      return {
-        tone: "ready" as const,
-        title: "Training advisor ready",
-        detail: `Next lesson: ${nextLesson}`,
-      }
-    }
-
-    return {
-      tone: "ready" as const,
-      title: "Training advisor ready",
-      detail: memberTrainingPeek?.enrollment ? "All required lessons complete." : "Member is not enrolled in training.",
-    }
-  }, [
-    memberId,
-    memberTrainingPeek?.enrollment,
-    memberTrainingPeek?.next_lesson?.name,
-    memberTrainingPeekError,
-    memberTrainingPeekFetching,
-    memberTrainingPeekLoading,
-  ])
 
   React.useEffect(() => {
     if (!open || !isMemberOrStudent) return
@@ -1243,32 +1196,6 @@ export function NewBookingModal({
                       </div>
                     ) : null}
 
-                    {bookingMode === "regular" && trainingAdvisorStatus ? (
-                      <div className="sm:col-span-2" aria-live="polite">
-                        <div
-                          className={cn(
-                            "flex items-start gap-2.5 rounded-xl border px-3 py-2.5",
-                            trainingAdvisorStatus.tone === "loading" && "border-slate-200 bg-slate-50 text-slate-700",
-                            trainingAdvisorStatus.tone === "ready" && "border-emerald-200 bg-emerald-50/70 text-emerald-800",
-                            trainingAdvisorStatus.tone === "error" && "border-amber-200 bg-amber-50 text-amber-900"
-                          )}
-                        >
-                          {trainingAdvisorStatus.tone === "loading" ? (
-                            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
-                          ) : trainingAdvisorStatus.tone === "error" ? (
-                            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                          ) : (
-                            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider">Training advisor</p>
-                            <p className="mt-0.5 text-xs font-semibold">{trainingAdvisorStatus.title}</p>
-                            <p className="mt-0.5 text-[11px]">{trainingAdvisorStatus.detail}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
                     <div>
                       <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         AIRCRAFT {(form.bookingType === "flight" || form.bookingType === "maintenance") ? <span className="text-destructive">*</span> : null}
@@ -1473,6 +1400,7 @@ export function NewBookingModal({
                           nextLessonId={memberTrainingPeek?.next_lesson?.id ?? null}
                           nextLessonName={memberTrainingPeek?.next_lesson?.name ?? null}
                           nextLessonLoading={Boolean(memberId) && (memberTrainingPeekLoading || memberTrainingPeekFetching)}
+                          nextLessonAlreadyBooked={Boolean(memberTrainingPeek?.next_lesson_booking)}
                           triggerClassName="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                         />
                       </div>
