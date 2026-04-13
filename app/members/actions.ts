@@ -13,7 +13,7 @@ import {
   computeMembershipRenewalExpiry,
   parseMembershipDateKey,
 } from "@/lib/utils/membership-utils"
-import { getZonedYyyyMmDdAndHHmm, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
+import { getZonedYyyyMmDdAndHHmm, isValidDateKey, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 async function fetchTenantTimezone(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -83,11 +83,24 @@ const createMembershipSchema = z.object({
   create_invoice: z.boolean().optional(),
 })
 
+const dateKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format")
+
+const updateActiveMembershipSchema = z.object({
+  memberId: z.string().uuid(),
+  membershipId: z.string().uuid(),
+  start_date: dateKeySchema,
+  expiry_date: dateKeySchema,
+  notes: z.string().max(4000).nullable().optional(),
+})
+
 export type UpdateMemberPilotInput = z.infer<typeof updatePilotSchema>
 export type AddMemberEndorsementInput = z.infer<typeof addEndorsementSchema>
 export type RemoveMemberEndorsementInput = z.infer<typeof removeEndorsementSchema>
 export type RenewMemberMembershipInput = z.infer<typeof renewMembershipSchema>
 export type CreateMemberMembershipInput = z.infer<typeof createMembershipSchema>
+export type UpdateActiveMemberMembershipInput = z.infer<typeof updateActiveMembershipSchema>
 
 async function requireTenantContext() {
   const supabase = await createSupabaseServerClient()
@@ -412,6 +425,68 @@ export async function createMemberMembershipAction(input: CreateMemberMembership
   revalidatePath(`/members/${memberId}`)
   revalidatePath("/members")
 
+  const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone)
+  return { ok: true as const, summary: updated.summary }
+}
+
+export async function updateActiveMemberMembershipAction(input: UpdateActiveMemberMembershipInput) {
+  const parsed = updateActiveMembershipSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false as const, error: "Invalid membership update" }
+  }
+
+  const { supabase, user, tenantId } = await requireTenantContext()
+  if (!user) return { ok: false as const, error: "Unauthorized" }
+  if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
+
+  const { memberId, membershipId, start_date, expiry_date, notes } = parsed.data
+
+  if (!isValidDateKey(start_date) || !isValidDateKey(expiry_date)) {
+    return { ok: false as const, error: "One or more dates are invalid" }
+  }
+  if (start_date > expiry_date) {
+    return { ok: false as const, error: "Start date must be on or before the expiry date" }
+  }
+
+  const hasAccess = await verifyMemberInTenant(memberId, tenantId)
+  if (!hasAccess) return { ok: false as const, error: "Member not found" }
+
+  const { data: row, error: fetchError } = await supabase
+    .from("memberships")
+    .select("id, is_active")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", memberId)
+    .eq("id", membershipId)
+    .maybeSingle()
+
+  if (fetchError || !row) {
+    return { ok: false as const, error: "Membership not found" }
+  }
+  if (!row.is_active) {
+    return { ok: false as const, error: "Only an active membership can be edited this way" }
+  }
+
+  const { error: updateError } = await supabase
+    .from("memberships")
+    .update({
+      start_date,
+      expiry_date,
+      notes: notes ?? null,
+      updated_by: user.id,
+    })
+    .eq("tenant_id", tenantId)
+    .eq("user_id", memberId)
+    .eq("id", membershipId)
+    .eq("is_active", true)
+
+  if (updateError) {
+    return { ok: false as const, error: "Failed to update membership" }
+  }
+
+  revalidatePath(`/members/${memberId}`)
+  revalidatePath("/members")
+
+  const timeZone = await fetchTenantTimezone(supabase, tenantId)
   const updated = await fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone)
   return { ok: true as const, summary: updated.summary }
 }
