@@ -6,11 +6,13 @@ import {
   AlertTriangle,
   CalendarCheck2,
   CheckCircle,
+  Pencil,
   RefreshCw,
   Users,
   XCircle,
 } from "lucide-react"
 import { CreateMembershipModal } from "@/components/members/create-membership-modal"
+import { EditActiveMembershipModal } from "@/components/members/edit-active-membership-modal"
 import { RenewMembershipModal } from "@/components/members/renew-membership-modal"
 import { memberMembershipsQueryKey, useMemberMembershipsQuery } from "@/hooks/use-member-memberships-query"
 import { Badge } from "@/components/ui/badge"
@@ -63,6 +65,7 @@ export function MemberMemberships({
   const currentMembershipYear = membershipsData.membershipYear
   const [showRenewalModal, setShowRenewalModal] = React.useState(false)
   const [showCreateModal, setShowCreateModal] = React.useState(false)
+  const [showEditModal, setShowEditModal] = React.useState(false)
 
   const currentMembership = membershipSummary?.current_membership
   const status = membershipSummary?.status ?? "none"
@@ -170,30 +173,33 @@ export function MemberMemberships({
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row">
-              {canRenewMembership ? (
-                <Button
-                  onClick={() => setShowRenewalModal(true)}
-                  className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto"
-                  size="sm"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  {status === "unpaid" ? "Pay / Renew Membership" : "Renew Membership"}
-                </Button>
-              ) : null}
-              {currentMembership.invoice_id ? (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    window.open(`/invoices/${currentMembership.invoice_id}`, "_blank")
-                  }
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  View Invoice
-                </Button>
-              ) : null}
-            </div>
+            {currentMembership.is_active || canRenewMembership ? (
+              <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:flex-wrap">
+                {currentMembership.is_active ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowEditModal(true)}
+                    className="w-full sm:w-auto"
+                    size="sm"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit membership
+                  </Button>
+                ) : null}
+                {canRenewMembership ? (
+                  <Button
+                    type="button"
+                    onClick={() => setShowRenewalModal(true)}
+                    className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto"
+                    size="sm"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Renew Membership
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : (
@@ -233,7 +239,6 @@ export function MemberMemberships({
                     <th className="py-3 pr-4 text-left font-medium text-slate-900">Status</th>
                     <th className="py-3 pr-4 text-left font-medium text-slate-900">Period</th>
                     <th className="py-3 pr-4 text-left font-medium text-slate-900">Fee</th>
-                    <th className="py-3 pr-4 text-left font-medium text-slate-900">Payment</th>
                     <th className="py-3 text-left font-medium text-slate-900">Notes</th>
                   </tr>
                 </thead>
@@ -268,14 +273,6 @@ export function MemberMemberships({
                             currentDefaultTaxRate?.rate,
                             currentDefaultTaxRate?.tax_name
                           )}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <Badge
-                            variant={membership.invoices?.status === "paid" ? "default" : "secondary"}
-                            className="text-xs"
-                          >
-                            {membership.invoices?.status === "paid" ? "Paid" : "Unpaid"}
-                          </Badge>
                         </td>
                         <td className="max-w-xs py-3 text-sm text-slate-600">
                           {membership.notes ? (
@@ -319,12 +316,6 @@ export function MemberMemberships({
                             currentDefaultTaxRate?.tax_name
                           )}
                         </p>
-                        <Badge
-                          variant={membership.invoices?.status === "paid" ? "default" : "secondary"}
-                          className="mt-1 text-xs"
-                        >
-                          {membership.invoices?.status === "paid" ? "Paid" : "Unpaid"}
-                        </Badge>
                       </div>
                     </div>
                     <div className="space-y-1 text-sm">
@@ -347,6 +338,19 @@ export function MemberMemberships({
             </div>
           </CardContent>
         </Card>
+      ) : null}
+
+      {currentMembership?.is_active ? (
+        <EditActiveMembershipModal
+          open={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={async () => {
+            await queryClient.invalidateQueries({ queryKey: memberMembershipsQueryKey(memberId) })
+          }}
+          memberId={memberId}
+          membership={currentMembership}
+          defaultTaxRate={currentDefaultTaxRate}
+        />
       ) : null}
 
       {currentMembership ? (

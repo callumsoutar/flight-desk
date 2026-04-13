@@ -35,11 +35,6 @@ export function calculateMembershipStatus(
 ): MembershipStatus {
   if (!membership) return "none"
 
-  const invoiceStatus = membership.invoices?.status
-  if (invoiceStatus && invoiceStatus !== "paid") {
-    return "unpaid"
-  }
-
   const expiryKey = membership.expiry_date
   if (!expiryKey || !isValidDateKey(expiryKey)) return "expired"
 
@@ -85,7 +80,6 @@ export function getGracePeriodRemaining(
 export function getStatusBadgeClasses(status: MembershipStatus): string {
   if (status === "active") return "bg-green-100 text-green-700 border-none"
   if (status === "grace") return "bg-amber-100 text-amber-700 border-none"
-  if (status === "unpaid") return "bg-red-100 text-red-700 border-none"
   if (status === "expired") return "bg-zinc-200 text-zinc-700 border-none"
   return "bg-slate-100 text-slate-700 border-none"
 }
@@ -93,7 +87,6 @@ export function getStatusBadgeClasses(status: MembershipStatus): string {
 export function getStatusText(status: MembershipStatus): string {
   if (status === "active") return "Active"
   if (status === "grace") return "Grace Period"
-  if (status === "unpaid") return "Unpaid"
   if (status === "expired") return "Expired"
   return "No Membership"
 }
@@ -131,7 +124,6 @@ export function isMembershipEligibleForRenewal(
 export function getMembershipCardBorderClass(status: MembershipStatus): string {
   if (status === "active") return "border-l-green-500"
   if (status === "grace") return "border-l-amber-500"
-  if (status === "unpaid") return "border-l-red-500"
   if (status === "expired") return "border-l-zinc-400"
   return "border-l-slate-300"
 }
@@ -212,6 +204,22 @@ export function parseMembershipDateKey(value: string | null | undefined): Date |
   const [year, month, day] = value.split("-").map(Number)
   if (!year || !month || !day) return null
   return new Date(year, month - 1, day)
+}
+
+/**
+ * Parses membership date fields from the API for forms and pickers. Accepts Postgres `date`
+ * strings (`yyyy-MM-dd`) and ISO-8601 timestamps (e.g. `start_date` saved via `Date#toISOString()`).
+ */
+export function parseMembershipDateField(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  const keyMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (keyMatch?.[1] && isValidDateKey(keyMatch[1])) {
+    return parseMembershipDateKey(keyMatch[1])
+  }
+  const parsed = new Date(trimmed)
+  if (Number.isNaN(parsed.getTime())) return null
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
 }
 
 export function computeMembershipRenewalExpiry(
