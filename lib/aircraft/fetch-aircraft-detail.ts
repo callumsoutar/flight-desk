@@ -2,6 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { fetchBookings } from "@/lib/bookings/fetch-bookings"
 import type { Database } from "@/lib/types"
 import type { AircraftWithType } from "@/lib/types/aircraft"
 import type {
@@ -10,25 +11,34 @@ import type {
   MaintenanceVisitWithUser,
   ObservationWithUsers,
 } from "@/lib/types/aircraft-detail"
+import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
 
-const BOOKING_DETAIL_SELECT = `
-  id,
-  user_id,
-  instructor_id,
-  checked_out_aircraft_id,
-  checked_out_instructor_id,
-  start_time,
-  end_time,
-  status,
-  purpose,
-  hobbs_start,
-  hobbs_end,
-  tach_start,
-  tach_end,
-  billing_hours,
-  created_at
-` as const
+function mapBookingsToFlightEntries(bookings: BookingWithRelations[]): FlightEntry[] {
+  return bookings
+    .filter((b) => b.status === "complete")
+    .map((b) => ({
+    id: b.id,
+    user_id: b.user_id,
+    instructor_id: b.instructor_id,
+    checked_out_aircraft_id: b.checked_out_aircraft_id,
+    checked_out_instructor_id: b.checked_out_instructor_id,
+    start_time: b.start_time,
+    end_time: b.end_time,
+    status: b.status,
+    purpose: b.purpose,
+    hobbs_start: b.hobbs_start,
+    hobbs_end: b.hobbs_end,
+    tach_start: b.tach_start,
+    tach_end: b.tach_end,
+    billing_hours: b.billing_hours,
+    created_at: b.created_at,
+    student: b.student,
+    instructor: b.instructor,
+    flight_type: b.flight_type ? { id: b.flight_type.id, name: b.flight_type.name } : null,
+    lesson: b.lesson ? { id: b.lesson.id, name: b.lesson.name } : null,
+  }))
+}
 
 export async function fetchAircraftDetail(
   supabase: SupabaseClient<Database>,
@@ -45,15 +55,16 @@ export async function fetchAircraftDetail(
   if (aircraftError) throw aircraftError
   if (!aircraftRow) return { data: null, loadErrors: [] }
 
-  const [flightsResult, maintenanceResult, observationsResult, componentsResult] =
+  const [bookingsResult, maintenanceResult, observationsResult, componentsResult] =
     await Promise.all([
-      supabase
-        .from("bookings")
-        .select(BOOKING_DETAIL_SELECT)
-        .eq("tenant_id", tenantId)
-        .eq("aircraft_id", aircraftId)
-        .order("start_time", { ascending: false })
-        .limit(100),
+      fetchBookings(supabase, tenantId, {
+        aircraft_id: aircraftId,
+        status: ["complete"],
+        start_time_order: "desc",
+        limit: 100,
+      })
+        .then((bookings) => ({ ok: true as const, bookings }))
+        .catch(() => ({ ok: false as const, bookings: [] as BookingWithRelations[] })),
       supabase
         .from("maintenance_visits")
         .select(
@@ -82,32 +93,14 @@ export async function fetchAircraftDetail(
     ])
 
   const loadErrors: string[] = []
-  if (flightsResult.error) loadErrors.push("flight history")
+  if (!bookingsResult.ok) loadErrors.push("flight history")
   if (maintenanceResult.error) loadErrors.push("maintenance history")
   if (observationsResult.error) loadErrors.push("observations")
   if (componentsResult.error) loadErrors.push("maintenance items")
 
-  const flights: FlightEntry[] = (flightsResult.data ?? []).map((row) => ({
-    id: row.id,
-    user_id: row.user_id,
-    instructor_id: row.instructor_id,
-    checked_out_aircraft_id: row.checked_out_aircraft_id,
-    checked_out_instructor_id: row.checked_out_instructor_id,
-    start_time: row.start_time,
-    end_time: row.end_time,
-    status: row.status,
-    purpose: row.purpose,
-    hobbs_start: row.hobbs_start,
-    hobbs_end: row.hobbs_end,
-    tach_start: row.tach_start,
-    tach_end: row.tach_end,
-    billing_hours: row.billing_hours,
-    created_at: row.created_at,
-    student: null,
-    instructor: null,
-    flight_type: null,
-    lesson: null,
-  }))
+  const flights: FlightEntry[] = bookingsResult.ok
+    ? mapBookingsToFlightEntries(bookingsResult.bookings)
+    : []
 
   const data: AircraftDetailData = {
     aircraft: aircraftRow as AircraftWithType,

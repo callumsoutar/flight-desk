@@ -78,6 +78,9 @@ export type BookingsFilter = {
   user_id?: string
   start_date?: string
   end_date?: string
+  /** Defaults to ascending when omitted (existing list views). */
+  start_time_order?: "asc" | "desc"
+  limit?: number
 }
 
 export type BookingOptions = {

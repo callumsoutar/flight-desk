@@ -667,6 +667,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
   const [contactMemberId, setContactMemberId] = React.useState<string | null>(null)
   const [dragPreview, setDragPreview] = React.useState<SchedulerBookingDragPreview | null>(null)
   const [pendingMove, setPendingMove] = React.useState<PendingSchedulerBookingMove | null>(null)
+  const [nowTimestamp, setNowTimestamp] = React.useState(() => Date.now())
   const [isNavigating, startNavigation] = React.useTransition()
   const openModalTimerRef = React.useRef<number | null>(null)
   const dragCandidateRef = React.useRef<SchedulerBookingDragCandidate | null>(null)
@@ -685,6 +686,16 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       }
       document.body.style.removeProperty("user-select")
       document.body.style.removeProperty("cursor")
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowTimestamp(Date.now())
+    }, 30_000)
+
+    return () => {
+      window.clearInterval(intervalId)
     }
   }, [])
 
@@ -754,6 +765,23 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
   const slotCount = slots.length
   const slotMinWidthPx = 48
   const timelineMinWidth = slotCount > 0 ? slotCount * slotMinWidthPx : undefined
+  const currentTimeLineLeftPct = React.useMemo(() => {
+    const todayDateKey = zonedTodayYyyyMmDd(data.timeZone)
+    if (selectedDateKey !== todayDateKey) return null
+
+    const nowMinutes = getMinutesInTimeZone(new Date(nowTimestamp), data.timeZone)
+    if (nowMinutes < timelineConfig.startMin || nowMinutes > timelineConfig.endMin) return null
+
+    const timelineDurationMinutes = Math.max(1, timelineConfig.endMin - timelineConfig.startMin)
+    const minutesIntoTimeline = nowMinutes - timelineConfig.startMin
+    return clamp((minutesIntoTimeline / timelineDurationMinutes) * 100, 0, 100)
+  }, [
+    data.timeZone,
+    nowTimestamp,
+    selectedDateKey,
+    timelineConfig.endMin,
+    timelineConfig.startMin,
+  ])
 
   const instructorAvailabilityById = React.useMemo(() => {
     const map = new Map<string, MinutesWindow[]>()
@@ -1452,6 +1480,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
             />
             <ResourceTimelineGrid
               timelineMinWidth={timelineMinWidth}
+              currentTimeLineLeftPct={currentTimeLineLeftPct}
               headerCells={timelineHeaderCells}
               instructorRows={instructorTimelineRows}
               aircraftRows={aircraftTimelineRows}

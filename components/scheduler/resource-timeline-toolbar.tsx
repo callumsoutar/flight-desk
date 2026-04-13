@@ -33,29 +33,29 @@ export function ResourceTimelineToolbar({
   calendarDisabled?: (date: Date) => boolean
 }) {
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="inline-flex h-11 items-stretch overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+    <div className="flex max-w-full flex-col gap-2 sm:gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+        <div className="inline-flex h-11 w-full min-w-0 max-w-full items-stretch overflow-hidden rounded-md border border-border/70 bg-background shadow-sm sm:w-fit">
           <Button
             variant="ghost"
             size="icon"
-            className="h-full w-11 rounded-none rounded-l-md border-r border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            className="group h-full w-11 shrink-0 cursor-pointer rounded-none rounded-l-md border-r border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed"
             onClick={onPreviousDay}
             disabled={disablePreviousDay}
             aria-label="Previous day"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
           </Button>
 
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-full min-w-[240px] justify-start gap-3 rounded-none border-0 px-4 font-semibold text-foreground hover:bg-slate-50 sm:min-w-[260px]"
+                className="h-full min-w-0 flex-1 justify-center gap-2 rounded-none border-0 px-2 font-semibold text-foreground hover:bg-slate-50 sm:min-w-[240px] sm:flex-none sm:justify-start sm:gap-3 sm:px-4 md:min-w-[260px]"
                 aria-label="Select date"
               >
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{selectedDateLabel}</span>
+                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate text-center sm:text-left">{selectedDateLabel}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto rounded-md border-border/70 p-0 shadow-lg" align="start">
@@ -72,24 +72,24 @@ export function ResourceTimelineToolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-full w-11 rounded-none rounded-r-md border-l border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            className="group h-full w-11 shrink-0 cursor-pointer rounded-none rounded-r-md border-l border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             onClick={onNextDay}
             aria-label="Next day"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
           </Button>
         </div>
 
         <Button
           variant="outline"
           onClick={onToday}
-          className="h-11 rounded-md border-border/70 bg-background px-5 font-semibold shadow-sm hover:bg-slate-50"
+          className="h-11 w-full shrink-0 whitespace-nowrap rounded-md border-border/70 bg-background px-4 font-semibold shadow-sm hover:bg-slate-50 sm:w-auto sm:px-5"
         >
           Today
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="hidden items-center gap-2 sm:flex">
         <Button
           className="h-11 rounded-md bg-slate-900 px-5 font-semibold text-white shadow-sm hover:bg-slate-800"
           onClick={onNewBooking}

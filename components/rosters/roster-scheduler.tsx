@@ -282,8 +282,14 @@ export function RosterScheduler({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => handleDateChange(-1)} aria-label="Previous day">
-            <ChevronLeft className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="icon"
+            className="group cursor-pointer"
+            onClick={() => handleDateChange(-1)}
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
           </Button>
           <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3">
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -300,8 +306,14 @@ export function RosterScheduler({
               aria-label="Select date"
             />
           </div>
-          <Button variant="outline" size="icon" onClick={() => handleDateChange(1)} aria-label="Next day">
-            <ChevronRight className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="icon"
+            className="group cursor-pointer"
+            onClick={() => handleDateChange(1)}
+            aria-label="Next day"
+          >
+            <ChevronRight className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
           </Button>
           <Button variant="ghost" onClick={goToToday} className="hidden sm:inline-flex">
             Today

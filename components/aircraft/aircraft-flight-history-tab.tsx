@@ -95,9 +95,9 @@ export function AircraftFlightHistoryTab({ flights }: Props) {
 
   const filteredFlights = React.useMemo(() => {
     return flights.filter((flight) => {
-      const dateToCheck = flight.end_time || flight.created_at
-      if (!dateToCheck) return false
-      const flightDate = new Date(dateToCheck)
+      if (flight.status !== "complete") return false
+      if (!flight.end_time) return false
+      const flightDate = new Date(flight.end_time)
       if (Number.isNaN(flightDate.getTime())) return false
       return flightDate >= dateFrom && flightDate <= dateTo
     })
@@ -215,7 +215,7 @@ export function AircraftFlightHistoryTab({ flights }: Props) {
               </tr>
             ) : (
               filteredFlights.map((flight) => {
-                const flightDate = flight.end_time || flight.created_at
+                const flightDate = flight.end_time
                 const description =
                   flight.lesson?.name || flight.flight_type?.name || flight.purpose || "Flight"
                 const isSolo = !flight.instructor
@@ -311,7 +311,7 @@ export function AircraftFlightHistoryTab({ flights }: Props) {
           </div>
         ) : (
           filteredFlights.map((flight) => {
-            const flightDate = flight.end_time || flight.created_at
+            const flightDate = flight.end_time
             const description =
               flight.lesson?.name || flight.flight_type?.name || flight.purpose || "Flight"
             const isSolo = !flight.instructor

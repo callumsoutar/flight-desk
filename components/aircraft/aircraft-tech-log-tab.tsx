@@ -95,17 +95,7 @@ export function AircraftTechLogTab({
     <Card className="overflow-hidden border border-slate-200/80 bg-white shadow-sm">
       <CardContent className="p-0">
         <div className="border-b border-slate-200/80 bg-white px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold tracking-tight text-slate-900">Tech Log</h3>
-            </div>
-            <Badge
-              variant="outline"
-              className="w-fit rounded-full border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600"
-            >
-              {payload?.totalRows ?? 0} recorded day{(payload?.totalRows ?? 0) === 1 ? "" : "s"}
-            </Badge>
-          </div>
+          <h3 className="text-base font-semibold tracking-tight text-slate-900">Tech Log</h3>
         </div>
 
         {query.isLoading ? (
@@ -183,14 +173,9 @@ export function AircraftTechLogTab({
             </Table>
 
             <div className="flex flex-col gap-3 border-t border-slate-200/80 bg-slate-50/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-700">
-                  Page {page} of {Math.max(totalPages, 1)}
-                </p>
-                <p className="text-xs text-slate-500">
-                  Running TTIS stays accurate when historical corrections are applied.
-                </p>
-              </div>
+              <p className="text-sm font-medium text-slate-700">
+                Page {page} of {Math.max(totalPages, 1)}
+              </p>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
