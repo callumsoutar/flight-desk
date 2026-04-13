@@ -38,13 +38,11 @@ function formatReading(value: number | null | undefined): string {
   return value.toFixed(1)
 }
 
-function formatTechLogDate(value: string, timeZone: string): string {
+/** `tech_log_date` is already a civil calendar day in the tenant zone; avoid interpreting YYYY-MM-DD as a UTC instant then re-formatting in a zone (that shifts the day for ahead-of-UTC regions). */
+function formatTechLogDate(value: string): string {
   const [year, month, day] = value.split("-").map(Number)
   if (!year || !month || !day) return value
-  return (
-    formatDate(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)), timeZone, "medium") ||
-    value
-  )
+  return formatDate(new Date(Date.UTC(year, month - 1, day)), "UTC", "medium") || value
 }
 
 function DailyDeltaCell({ row }: { row: AircraftTechLogRow }) {
@@ -156,7 +154,7 @@ export function AircraftTechLogTab({
                   <TableRow key={row.tech_log_date} className="border-b border-slate-100">
                     <TableCell className="px-4 py-4 sm:px-6">
                       <div className="font-semibold text-slate-900">
-                        {formatTechLogDate(row.tech_log_date, payload?.timeZone ?? timeZone)}
+                        {formatTechLogDate(row.tech_log_date)}
                       </div>
                     </TableCell>
                     <TableCell className="py-4">
