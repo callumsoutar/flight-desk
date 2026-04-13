@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowUpRight, BookOpen, ChevronRight, GraduationCap, Plane, UserRound } from "lucide-react"
+import { ArrowUpRight, BookOpen, ChevronRight, GraduationCap, Loader2, Plane, UserRound } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { formatDateTime } from "@/lib/utils/date-format"
@@ -35,8 +35,11 @@ export function MemberTrainingPeek({
     data,
     error,
     isLoading: loading,
+    isFetching,
     refetch,
   } = useMemberTrainingPeekQuery(memberId)
+
+  const trainingPeekLoading = loading || isFetching
 
   const [hoverOpen, setHoverOpen] = React.useState(false)
   const hoverCloseRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -62,7 +65,7 @@ export function MemberTrainingPeek({
   const nextLesson = data?.next_lesson ?? null
   const nextLessonBooking = data?.next_lesson_booking ?? null
 
-  const nextLessonLabel = loading
+  const nextLessonLabel = trainingPeekLoading
     ? "Loading training…"
     : error
       ? "Training unavailable"
@@ -103,7 +106,7 @@ export function MemberTrainingPeek({
         <div className="min-w-0">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Training</div>
           <div className="mt-1 truncate text-sm font-semibold text-slate-900">
-            {syllabusName ?? (loading ? "Loading…" : enrollment ? "Syllabus" : "Not Enrolled")}
+            {syllabusName ?? (trainingPeekLoading ? "Loading…" : enrollment ? "Syllabus" : "Not Enrolled")}
           </div>
         </div>
         <Link
@@ -123,7 +126,7 @@ export function MemberTrainingPeek({
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Next Lesson</div>
             <div className="truncate text-xs font-semibold text-slate-900">
-              {loading
+              {trainingPeekLoading
                 ? "Loading…"
                 : error
                   ? "Couldn't load next lesson"
@@ -133,7 +136,7 @@ export function MemberTrainingPeek({
                       ? "All required lessons complete"
                       : "—"}
             </div>
-            {!loading && !error && nextLessonBooking?.start_time ? (
+            {!trainingPeekLoading && !error && nextLessonBooking?.start_time ? (
               <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
                 Booked: {formatBookingTime(nextLessonBooking.start_time) ?? "Scheduled"}
               </div>
@@ -141,7 +144,7 @@ export function MemberTrainingPeek({
           </div>
         </div>
 
-        {!loading &&
+        {!trainingPeekLoading &&
         !error &&
         suggestedLesson?.id &&
         nextLesson?.id &&
@@ -163,7 +166,7 @@ export function MemberTrainingPeek({
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Primary Instructor</div>
             <div className="truncate text-xs font-semibold text-slate-900">
-              {loading ? "Loading…" : error ? "—" : formatPerson(enrollment?.primary_instructor ?? null)}
+              {trainingPeekLoading ? "Loading…" : error ? "—" : formatPerson(enrollment?.primary_instructor ?? null)}
             </div>
           </div>
         </div>
@@ -173,7 +176,7 @@ export function MemberTrainingPeek({
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Primary Aircraft Type</div>
             <div className="truncate text-xs font-semibold text-slate-900">
-              {loading
+              {trainingPeekLoading
                 ? "Loading…"
                 : error
                   ? "—"
@@ -219,7 +222,11 @@ export function MemberTrainingPeek({
               )}
               aria-label="Show training info"
             >
-              <GraduationCap className={cn("h-4 w-4", loading ? "animate-pulse text-slate-300" : "text-slate-500")} />
+              {trainingPeekLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+              ) : (
+                <GraduationCap className="h-4 w-4 text-slate-500" />
+              )}
             </button>
           </PopoverTrigger>
           <PopoverContent

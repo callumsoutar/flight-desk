@@ -3,9 +3,12 @@
 import * as React from "react"
 import {
   CalendarIcon,
+  CircleAlert,
+  CircleCheck,
   ChevronDown,
   Clock,
   HelpCircle,
+  Loader2,
   Plane,
   Plus,
   User,
@@ -255,6 +258,7 @@ export function NewBookingModal({
   const [errors, setErrors] = React.useState<ErrorState>({})
   const [moreOptionsOpen, setMoreOptionsOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
+  const [submitAction, setSubmitAction] = React.useState<"unconfirmed" | "confirmed" | null>(null)
 
   const {
     data: options,
@@ -268,18 +272,69 @@ export function NewBookingModal({
     setBookingMode("regular")
     setErrors({})
     setMoreOptionsOpen(false)
+    setSubmitting(false)
+    setSubmitAction(null)
   }, [open, draft, isStaff, currentUserId])
 
   const memberId = form?.memberId ?? null
   const members = React.useMemo(() => options?.members ?? [], [options?.members])
-  const { data: memberTrainingPeek } = useMemberTrainingPeekQuery(memberId, open)
+  const {
+    data: memberTrainingPeek,
+    isLoading: memberTrainingPeekLoading,
+    isFetching: memberTrainingPeekFetching,
+    error: memberTrainingPeekErrorState,
+  } = useMemberTrainingPeekQuery(memberId, open)
   const memberEnrollment = memberTrainingPeek?.enrollment ?? null
+  const memberTrainingPeekError =
+    memberTrainingPeekErrorState instanceof Error ? memberTrainingPeekErrorState.message : null
   const optionsError = optionsErrorState instanceof Error ? optionsErrorState.message : null
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
     if (!memberId) return null
     return members.find((member) => member.id === memberId) ?? null
   }, [memberId, members])
+
+  const trainingAdvisorStatus = React.useMemo(() => {
+    if (!memberId) return null
+
+    if (memberTrainingPeekLoading || memberTrainingPeekFetching) {
+      return {
+        tone: "loading" as const,
+        title: "Loading training advisor",
+        detail: "Fetching enrolment, instructor, and next lesson guidance.",
+      }
+    }
+
+    if (memberTrainingPeekError) {
+      return {
+        tone: "error" as const,
+        title: "Training advisor unavailable",
+        detail: "Could not load training guidance right now.",
+      }
+    }
+
+    const nextLesson = memberTrainingPeek?.next_lesson?.name ?? null
+    if (nextLesson) {
+      return {
+        tone: "ready" as const,
+        title: "Training advisor ready",
+        detail: `Next lesson: ${nextLesson}`,
+      }
+    }
+
+    return {
+      tone: "ready" as const,
+      title: "Training advisor ready",
+      detail: memberTrainingPeek?.enrollment ? "All required lessons complete." : "Member is not enrolled in training.",
+    }
+  }, [
+    memberId,
+    memberTrainingPeek?.enrollment,
+    memberTrainingPeek?.next_lesson?.name,
+    memberTrainingPeekError,
+    memberTrainingPeekFetching,
+    memberTrainingPeekLoading,
+  ])
 
   React.useEffect(() => {
     if (!open || !isMemberOrStudent) return
@@ -713,6 +768,7 @@ export function NewBookingModal({
       }
 
       setSubmitting(true)
+      setSubmitAction(status)
       try {
         if (bookingMode === "trial") {
           const startIso = combineSchoolDateAndTimeToIso({
@@ -809,6 +865,7 @@ export function NewBookingModal({
         toast.error(error instanceof Error ? error.message : "Failed to create booking")
       } finally {
         setSubmitting(false)
+        setSubmitAction(null)
       }
     },
     [
@@ -826,6 +883,9 @@ export function NewBookingModal({
       validate,
     ]
   )
+
+  const isSavingUnconfirmed = submitting && submitAction === "unconfirmed"
+  const isSavingConfirmed = submitting && submitAction === "confirmed"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -872,6 +932,7 @@ export function NewBookingModal({
                 event.preventDefault()
                 void submit("unconfirmed")
               }}
+              aria-busy={submitting}
               className="flex-1 overflow-y-auto px-6 pb-6"
             >
               <div className="space-y-6">
@@ -1182,6 +1243,32 @@ export function NewBookingModal({
                       </div>
                     ) : null}
 
+                    {bookingMode === "regular" && trainingAdvisorStatus ? (
+                      <div className="sm:col-span-2" aria-live="polite">
+                        <div
+                          className={cn(
+                            "flex items-start gap-2.5 rounded-xl border px-3 py-2.5",
+                            trainingAdvisorStatus.tone === "loading" && "border-slate-200 bg-slate-50 text-slate-700",
+                            trainingAdvisorStatus.tone === "ready" && "border-emerald-200 bg-emerald-50/70 text-emerald-800",
+                            trainingAdvisorStatus.tone === "error" && "border-amber-200 bg-amber-50 text-amber-900"
+                          )}
+                        >
+                          {trainingAdvisorStatus.tone === "loading" ? (
+                            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                          ) : trainingAdvisorStatus.tone === "error" ? (
+                            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                          ) : (
+                            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider">Training advisor</p>
+                            <p className="mt-0.5 text-xs font-semibold">{trainingAdvisorStatus.title}</p>
+                            <p className="mt-0.5 text-[11px]">{trainingAdvisorStatus.detail}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div>
                       <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         AIRCRAFT {(form.bookingType === "flight" || form.bookingType === "maintenance") ? <span className="text-destructive">*</span> : null}
@@ -1383,6 +1470,9 @@ export function NewBookingModal({
                           onSelect={(lessonId) => updateForm("lessonId", lessonId)}
                           disabled={optionsLoading}
                           placeholder={optionsLoading ? "Loading..." : "Select lesson"}
+                          nextLessonId={memberTrainingPeek?.next_lesson?.id ?? null}
+                          nextLessonName={memberTrainingPeek?.next_lesson?.name ?? null}
+                          nextLessonLoading={Boolean(memberId) && (memberTrainingPeekLoading || memberTrainingPeekFetching)}
                           triggerClassName="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                         />
                       </div>
@@ -1546,7 +1636,14 @@ export function NewBookingModal({
                     }}
                     className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-shadow hover:bg-slate-900 hover:text-white hover:shadow-xl hover:shadow-slate-900/20"
                   >
-                    {submitting ? "Submitting..." : "Submit request"}
+                    {isSavingUnconfirmed ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit request"
+                    )}
                   </Button>
                 ) : (
                   <>
@@ -1558,7 +1655,14 @@ export function NewBookingModal({
                       }}
                       className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm shadow-slate-200/60 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 hover:shadow-md hover:shadow-slate-300/40"
                     >
-                      {submitting ? "Saving..." : bookingMode === "trial" ? "Save Trial Flight" : bookingMode === "maintenance" ? "Save Maintenance" : "Save Booking"}
+                      {isSavingUnconfirmed ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        bookingMode === "trial" ? "Save Trial Flight" : bookingMode === "maintenance" ? "Save Maintenance" : "Save Booking"
+                      )}
                     </Button>
                     <Button
                       type="button"
@@ -1569,7 +1673,14 @@ export function NewBookingModal({
                       }}
                       className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-shadow hover:bg-slate-900 hover:text-white hover:shadow-xl hover:shadow-slate-900/20"
                     >
-                      Save as confirmed
+                      {isSavingConfirmed ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save as confirmed"
+                      )}
                     </Button>
                   </>
                 )}

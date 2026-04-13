@@ -7,7 +7,7 @@ import {
   IconDashboard,
   IconFileInvoice,
   IconPlane,
-  IconInnerShadowTop,
+  IconPlaneDeparture,
   IconReceipt,
   IconReport,
   IconRosetteDiscountCheck,
@@ -122,7 +122,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <Link href="/dashboard">
-                <IconInnerShadowTop className="!size-5" />
+                <IconPlaneDeparture className="!size-5" aria-hidden />
                 <span className="text-base font-semibold">FlightDesk</span>
               </Link>
             </SidebarMenuButton>

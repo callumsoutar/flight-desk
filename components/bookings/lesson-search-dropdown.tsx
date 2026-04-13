@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronDown, ChevronRight, ChevronsUpDown, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +26,9 @@ export function LessonSearchDropdown({
   onSelect,
   disabled,
   placeholder = "Select lesson...",
+  nextLessonId = null,
+  nextLessonName = null,
+  nextLessonLoading = false,
   triggerClassName,
 }: {
   lessons: LessonLite[]
@@ -34,6 +37,9 @@ export function LessonSearchDropdown({
   onSelect: (lessonId: string | null) => void
   disabled?: boolean
   placeholder?: string
+  nextLessonId?: string | null
+  nextLessonName?: string | null
+  nextLessonLoading?: boolean
   triggerClassName?: string
 }) {
   const [open, setOpen] = React.useState(false)
@@ -44,6 +50,13 @@ export function LessonSearchDropdown({
     if (!value) return null
     return lessons.find((lesson) => lesson.id === value) ?? null
   }, [lessons, value])
+
+  const nextLesson = React.useMemo(() => {
+    if (!nextLessonId) return null
+    return lessons.find((lesson) => lesson.id === nextLessonId) ?? null
+  }, [lessons, nextLessonId])
+
+  const nextLessonDisplayName = nextLesson?.name ?? nextLessonName ?? null
 
   const groups = React.useMemo(() => {
     const syllabusNameById = new Map(syllabi.map((syllabus) => [syllabus.id, syllabus.name] as const))
@@ -101,6 +114,15 @@ export function LessonSearchDropdown({
     setExpanded(new Set(filteredGroups.map((g) => g.key)))
   }, [filteredGroups, search, useGrouping])
 
+  React.useEffect(() => {
+    if (!open || !useGrouping || search.trim()) return
+
+    const nextExpanded = new Set<string>()
+    if (selectedLesson) nextExpanded.add(selectedLesson.syllabus_id ?? "__unassigned__")
+    if (nextLesson) nextExpanded.add(nextLesson.syllabus_id ?? "__unassigned__")
+    if (nextExpanded.size > 0) setExpanded(nextExpanded)
+  }, [nextLesson, open, search, selectedLesson, useGrouping])
+
   return (
     <Popover
       open={open}
@@ -121,11 +143,19 @@ export function LessonSearchDropdown({
           disabled={disabled}
           className={cn(
             "justify-between px-3 font-normal",
-            !selectedLesson && "text-muted-foreground",
+            !selectedLesson && !nextLessonDisplayName && !nextLessonLoading && "text-muted-foreground",
             triggerClassName
           )}
         >
-          <span className="truncate">{selectedLesson?.name ?? placeholder}</span>
+          <span className="truncate">
+            {selectedLesson?.name
+              ? selectedLesson.name
+              : nextLessonLoading
+                ? "Loading next lesson..."
+                : nextLessonDisplayName
+                  ? `Next lesson: ${nextLessonDisplayName}`
+                  : placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -139,6 +169,41 @@ export function LessonSearchDropdown({
           placeholder="Search lessons..."
           className="mb-2 h-8"
         />
+
+        {nextLessonLoading ? (
+          <div className="mb-2 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-medium text-slate-600">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Finding next lesson...
+          </div>
+        ) : nextLessonDisplayName ? (
+          <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50/70 p-1">
+            <div className="px-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+              Training advisor
+            </div>
+            <button
+              type="button"
+              disabled={!nextLesson}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1.5 text-left text-sm",
+                nextLesson ? "hover:bg-emerald-100/70" : "cursor-not-allowed opacity-70"
+              )}
+              onClick={() => {
+                if (!nextLesson) return
+                onSelect(nextLesson.id)
+                setOpen(false)
+              }}
+            >
+              <span className="truncate">Next lesson: {nextLessonDisplayName}</span>
+              {selectedLesson?.id === nextLessonId ? (
+                <Check className="h-4 w-4 shrink-0 text-emerald-700" />
+              ) : (
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                  {nextLesson ? "Use this" : "Unavailable"}
+                </span>
+              )}
+            </button>
+          </div>
+        ) : null}
 
         <div className="max-h-64 overflow-y-auto">
           <button
@@ -188,6 +253,7 @@ export function LessonSearchDropdown({
                       <div className="mt-1 space-y-1 pl-2">
                         {group.lessons.map((lesson) => {
                           const isSelected = selectedLesson?.id === lesson.id
+                          const isNextLesson = lesson.id === nextLessonId
                           return (
                             <button
                               type="button"
@@ -202,7 +268,14 @@ export function LessonSearchDropdown({
                               }}
                             >
                               <span className="truncate">{lesson.name}</span>
-                              {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+                              <span className="ml-2 flex shrink-0 items-center gap-1.5">
+                                {isNextLesson ? (
+                                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                                    Next
+                                  </span>
+                                ) : null}
+                                {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+                              </span>
                             </button>
                           )
                         })}
@@ -217,6 +290,7 @@ export function LessonSearchDropdown({
           ) : (
             filteredLessons.map((lesson) => {
               const isSelected = selectedLesson?.id === lesson.id
+              const isNextLesson = lesson.id === nextLessonId
               return (
                 <button
                   type="button"
@@ -231,7 +305,14 @@ export function LessonSearchDropdown({
                   }}
                 >
                   <span className="truncate">{lesson.name}</span>
-                  {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+                  <span className="ml-2 flex shrink-0 items-center gap-1.5">
+                    {isNextLesson ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                        Next
+                      </span>
+                    ) : null}
+                    {isSelected ? <Check className="h-4 w-4 text-primary" /> : null}
+                  </span>
                 </button>
               )
             })
