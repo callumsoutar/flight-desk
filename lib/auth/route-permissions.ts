@@ -38,7 +38,13 @@ export function getAllowedRolesForPath(pathname: string): UserRole[] | null {
 export function isRoleAllowedForPath(pathname: string, role: UserRole | null): boolean {
   const allowedRoles = getAllowedRolesForPath(pathname)
   if (!allowedRoles) return true
-  if (!role) return false
+  if (!role) {
+    // Middleware only has JWT claims (`getClaims`). Without custom claims (e.g. `app_role`),
+    // role is null on many self-hosted setups. We cannot evaluate staff vs member here—allow
+    // the request through and enforce route-level access in Server Components / APIs, which
+    // resolve role from Postgres (`authoritativeRole` / `getRequiredApiSession`).
+    return true
+  }
   return allowedRoles.includes(role)
 }
 

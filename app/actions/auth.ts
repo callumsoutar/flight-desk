@@ -80,6 +80,33 @@ export async function signUpWithEmail(
   if (!data.user) return { error: "Failed to create account" }
 
   const adminClient = createSupabaseAdminClient()
+  const normalizedEmail = email.trim().toLowerCase()
+
+  // `create_tenant_for_new_user` expects a `public.users` row for this auth user.
+  // Cloud Supabase often creates this via an auth trigger; self-hosted DBs may not,
+  // so we ensure the profile exists before the RPC runs.
+  const { error: profileError } = await adminClient.from("users").upsert(
+    {
+      id: data.user.id,
+      email: data.user.email?.trim().toLowerCase() ?? normalizedEmail,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      is_active: true,
+    },
+    { onConflict: "id" }
+  )
+
+  if (profileError) {
+    await adminClient.auth.admin.deleteUser(data.user.id)
+    await supabase.auth.signOut()
+    logError("[auth] Public user profile upsert failed after sign-up", {
+      email,
+      organization,
+      userId: data.user.id,
+      error: profileError,
+    })
+    return { error: "We couldn't finish setting up your account. Please try again or contact support." }
+  }
 
   const { error: rpcError } = await adminClient.rpc(
     "create_tenant_for_new_user",
@@ -90,6 +117,7 @@ export async function signUpWithEmail(
   )
 
   if (rpcError) {
+    await adminClient.from("users").delete().eq("id", data.user.id)
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(data.user.id)
     await supabase.auth.signOut()
 

@@ -7,8 +7,7 @@ import { getUserTenantId } from "@/lib/auth/tenant"
 import type { Database } from "@/lib/types"
 import type { UserRole } from "@/lib/types/roles"
 
-// Default to strict claims mode; allow explicit opt-out for emergency rollback.
-const STRICT_CLAIMS_MODE = process.env.AUTH_CLAIMS_STRICT !== "false"
+// When JWT custom claims omit tenant/role (e.g. no access-token hook yet), resolve from DB.
 const LOG_CLAIMS_FALLBACKS = process.env.AUTH_LOG_CLAIMS_FALLBACKS === "true"
 
 export type JwtClaims = {
@@ -163,7 +162,7 @@ async function resolveAuthSession(
       rolePromise = resolveRoleFromDatabase(supabase, claimedUserId)
     } else {
       role = resolveRoleFromClaims(claims)
-      if (!role && !STRICT_CLAIMS_MODE) {
+      if (!role) {
         logClaimsFallback("role", claimedUserId)
         rolePromise = resolveRoleFromDatabase(supabase, claimedUserId)
       }
@@ -175,7 +174,7 @@ async function resolveAuthSession(
       tenantPromise = resolveTenantFromDatabase(supabase, claimedUserId)
     } else {
       tenantId = resolveTenantFromClaims(claims)
-      if (!tenantId && !STRICT_CLAIMS_MODE) {
+      if (!tenantId) {
         logClaimsFallback("tenant", claimedUserId)
         tenantPromise = resolveTenantFromDatabase(supabase, claimedUserId)
       }
