@@ -15,6 +15,7 @@ export async function fetchInstructors(
       "id, user_id, first_name, last_name, status, is_actively_instructing, employment_type, hire_date, expires_at, rating, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email), instructor_category:instructor_categories!instructors_rating_fkey(id, name)"
     )
     .eq("tenant_id", tenantId)
+    .is("voided_at", null)
     .order("is_actively_instructing", { ascending: false })
     .order("last_name", { ascending: true })
     .order("first_name", { ascending: true })

@@ -140,3 +140,88 @@
     display: none;
   }
 }
+
+/* Screen: hide portal shell (print sheet still in DOM for window.print). */
+#checkout-sheet-print-root {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media print {
+  /*
+    Lock the document to a single A4 landscape page. Without this, the rest of the app
+    (sticky form bar, header, cards, sidebar) keeps its layout height even when masked
+    with visibility: hidden, which causes blank trailing pages.
+  */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    min-height: 0 !important;
+    max-height: 210mm !important;
+    overflow: hidden !important;
+    background: white !important;
+  }
+
+  /* Remove every body child from flow except the print root. */
+  body > *:not(#checkout-sheet-print-root) {
+    display: none !important;
+  }
+
+  /*
+    Checkout sheet is authored at 680×480px. Stretching only the outer box left inner
+    panels fixed-width, so the sheet looked tiny on A4 landscape. Scale the design as a unit
+    to fill the printable area (~297mm × 210mm).
+  */
+  #checkout-sheet-print-root {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+    overflow: hidden !important;
+    pointer-events: auto !important;
+    background: white !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid-page !important;
+    break-inside: avoid-page !important;
+  }
+
+  #checkout-sheet-print-root .checkout-sheet {
+    flex-shrink: 0 !important;
+    width: 680px !important;
+    height: 480px !important;
+    max-width: none !important;
+    border: none !important;
+    box-sizing: border-box !important;
+    /* Uniform scale-to-fit A4 landscape (~1122×794px @ 96dpi vs 680×480 design): min ratio ≈ 1.651 */
+    transform: scale(1.651) !important;
+    transform-origin: center center !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+}
+

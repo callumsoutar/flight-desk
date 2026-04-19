@@ -1,13 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { Plane } from "lucide-react"
+import { HelpCircle, Plane } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { z } from "zod"
 
 import { createAircraft } from "@/hooks/use-aircraft-query"
-import { useAircraftTypesQuery } from "@/hooks/use-aircraft-types-query"
+import {
+  createAircraftType,
+  useAircraftTypesCache,
+  useAircraftTypesQuery,
+} from "@/hooks/use-aircraft-types-query"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -18,9 +22,24 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+  Dialog as AddTypeDialog,
+  DialogContent as AddTypeDialogContent,
+  DialogDescription as AddTypeDialogDescription,
+  DialogFooter as AddTypeDialogFooter,
+  DialogHeader as AddTypeDialogHeader,
+  DialogTitle as AddTypeDialogTitle,
+} from "@/components/ui/dialog"
 
 const totalTimeMethods = [
   "hobbs",
@@ -32,6 +51,8 @@ const totalTimeMethods = [
   "tacho less 10%",
 ] as const
 
+const ADD_AIRCRAFT_TYPE_SELECT_VALUE = "__add_aircraft_type__"
+
 const formSchema = z.object({
   registration: z.string().trim().min(1, "Registration is required").max(20, "Registration too long"),
   type: z.string().trim().min(1, "Type is required").max(100, "Type too long"),
@@ -40,6 +61,9 @@ const formSchema = z.object({
   year_manufactured: z.number().int().min(1900, "Invalid year").max(2100, "Invalid year").optional(),
   aircraft_type_id: z.string().uuid("Invalid aircraft type").optional(),
   total_time_method: z.enum(totalTimeMethods, { message: "Total time method is required" }),
+  initial_total_time_in_service: z
+    .number({ message: "Initial TTIS is required" })
+    .min(0, "Must be >= 0"),
   current_hobbs: z.number({ message: "Current hobbs is required" }).min(0, "Must be >= 0"),
   current_tach: z.number({ message: "Current tacho is required" }).min(0, "Must be >= 0"),
   on_line: z.boolean().optional(),
@@ -60,6 +84,7 @@ const initialValues: FormValues = {
   year_manufactured: undefined,
   aircraft_type_id: undefined,
   total_time_method: "hobbs",
+  initial_total_time_in_service: 0,
   current_hobbs: 0,
   current_tach: 0,
   on_line: true,
@@ -89,13 +114,26 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
   const {
     data: aircraftTypes = [],
     error: aircraftTypesError,
+    isLoading: isLoadingAircraftTypes,
   } = useAircraftTypesQuery(open)
+  const { mergeAircraftType } = useAircraftTypesCache()
+  const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = React.useState(false)
+  const [isAircraftTypeSelectOpen, setIsAircraftTypeSelectOpen] = React.useState(false)
+  const [newTypeName, setNewTypeName] = React.useState("")
+  const [newTypeCategory, setNewTypeCategory] = React.useState("")
+  const [newTypeDescription, setNewTypeDescription] = React.useState("")
+  const [isCreatingType, setIsCreatingType] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
     setValues(initialValues)
     setErrors({})
     setSubmitting(false)
+    setIsAddTypeDialogOpen(false)
+    setIsAircraftTypeSelectOpen(false)
+    setNewTypeName("")
+    setNewTypeCategory("")
+    setNewTypeDescription("")
   }, [open])
 
   React.useEffect(() => {
@@ -103,9 +141,40 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
     toast.error("Failed to load aircraft types")
   }, [aircraftTypesError, open])
 
+  React.useEffect(() => {
+    if (!open || aircraftTypes.length !== 1) return
+    setValues((prev) => ({ ...prev, aircraft_type_id: aircraftTypes[0].id }))
+  }, [open, aircraftTypes])
+
   const update = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }))
     setErrors((prev) => ({ ...prev, [key]: undefined }))
+  }
+
+  const handleCreateAircraftType = async () => {
+    if (!newTypeName.trim()) {
+      toast.error("Aircraft type name is required")
+      return
+    }
+    setIsCreatingType(true)
+    try {
+      const created = await createAircraftType({
+        name: newTypeName.trim(),
+        category: newTypeCategory.trim() || null,
+        description: newTypeDescription.trim() || null,
+      })
+      mergeAircraftType(created)
+      update("aircraft_type_id", created.id)
+      setIsAddTypeDialogOpen(false)
+      setNewTypeName("")
+      setNewTypeCategory("")
+      setNewTypeDescription("")
+      toast.success("Aircraft type created")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create aircraft type")
+    } finally {
+      setIsCreatingType(false)
+    }
   }
 
   async function submit() {
@@ -132,6 +201,7 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
         year_manufactured: values.year_manufactured ?? null,
         aircraft_type_id: values.aircraft_type_id ?? null,
         total_time_method: values.total_time_method,
+        initial_total_time_in_service: values.initial_total_time_in_service,
         current_hobbs: values.current_hobbs,
         current_tach: values.current_tach,
         on_line: values.on_line ?? true,
@@ -151,6 +221,7 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
   }
 
   return (
+    <TooltipProvider delayDuration={200}>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
@@ -269,18 +340,49 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
                       AIRCRAFT CATEGORY (OPTIONAL)
                     </label>
                     <Select
-                      value={values.aircraft_type_id || ""}
-                      onValueChange={(v) => update("aircraft_type_id", v || undefined)}
+                      open={isAircraftTypeSelectOpen}
+                      onOpenChange={setIsAircraftTypeSelectOpen}
+                      value={values.aircraft_type_id || undefined}
+                      onValueChange={(v) => {
+                        if (v === ADD_AIRCRAFT_TYPE_SELECT_VALUE) {
+                          setIsAircraftTypeSelectOpen(false)
+                          setIsAddTypeDialogOpen(true)
+                          return
+                        }
+                        update("aircraft_type_id", v)
+                      }}
                     >
-                      <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                        <SelectValue placeholder="Select aircraft type..." />
+                      <SelectTrigger
+                        aria-label="Aircraft category"
+                        className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0 dark:border-slate-600 dark:bg-slate-900/40 dark:hover:bg-slate-800/80"
+                      >
+                        <SelectValue
+                          placeholder={isLoadingAircraftTypes ? "Loading aircraft types..." : "Select aircraft type..."}
+                        />
                       </SelectTrigger>
                       <SelectContent>
+                        {isLoadingAircraftTypes ? (
+                          <SelectItem value="__loading_aircraft_types" disabled>
+                            Loading aircraft types...
+                          </SelectItem>
+                        ) : null}
+                        {!isLoadingAircraftTypes && aircraftTypes.length === 0 ? (
+                          <SelectItem value="__no_aircraft_types" disabled>
+                            No aircraft types found.
+                          </SelectItem>
+                        ) : null}
                         {aircraftTypes.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             {t.name}
                           </SelectItem>
                         ))}
+                        <SelectSeparator />
+                        <SelectItem
+                          value={ADD_AIRCRAFT_TYPE_SELECT_VALUE}
+                          className="font-medium text-indigo-600 focus:text-indigo-700 dark:text-indigo-400 dark:focus:text-indigo-300"
+                        >
+                          Add aircraft type
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     {errors.aircraft_type_id ? (
@@ -288,6 +390,16 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
                     ) : null}
                   </div>
 
+                </div>
+              </section>
+
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span className="text-xs font-semibold tracking-tight text-slate-900">Operational</span>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-[9px] font-bold tracking-wider text-slate-400 uppercase">
                       TOTAL TIME METHOD <span className="text-destructive">*</span>
@@ -313,16 +425,46 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
                       <p className="mt-1 text-[10px] text-destructive">{errors.total_time_method}</p>
                     ) : null}
                   </div>
-                </div>
-              </section>
 
-              <section>
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span className="text-xs font-semibold tracking-tight text-slate-900">Operational</span>
-                </div>
+                  <div>
+                    <div className="mb-1.5 flex items-center gap-1.5">
+                      <label className="block text-[9px] font-bold tracking-wider text-slate-400 uppercase">
+                        INITIAL TOTAL TIME IN SERVICE (TTIS) <span className="text-destructive">*</span>
+                      </label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="rounded-full text-slate-400 outline-none ring-offset-2 hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-500 dark:hover:text-slate-300"
+                            aria-label="About initial TTIS"
+                          >
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs">
+                          Airframe hours at onboarding. This becomes the baseline for TTIS; it must match the
+                          persisted total at creation. Default is 0 for a new airframe.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min={0}
+                      className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0 dark:border-slate-600 dark:bg-slate-900/40"
+                      placeholder="0"
+                      value={getNumberInputValue(values.initial_total_time_in_service)}
+                      onChange={(e) =>
+                        update("initial_total_time_in_service", parseNumberInput(e.target.value) ?? 0)
+                      }
+                    />
+                    {errors.initial_total_time_in_service ? (
+                      <p className="mt-1 text-[10px] text-destructive">
+                        {errors.initial_total_time_in_service}
+                      </p>
+                    ) : null}
+                  </div>
 
-                <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-[9px] font-bold tracking-wider text-slate-400 uppercase">
                       CURRENT HOBBS <span className="text-destructive">*</span>
@@ -357,76 +499,122 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
                     ) : null}
                   </div>
 
+                  <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/40 p-3.5">
+                    <p className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                      Time Readings To Track
+                    </p>
+                    <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
+                      <div
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors",
+                          values.record_hobbs
+                            ? "border-indigo-200 bg-indigo-50/50"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        )}
+                      >
+                        <Checkbox
+                          id="record_hobbs"
+                          className="h-4.5 w-4.5 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-600"
+                          checked={!!values.record_hobbs}
+                          onCheckedChange={(v) => update("record_hobbs", !!v)}
+                        />
+                        <Label htmlFor="record_hobbs" className="cursor-pointer text-sm font-semibold text-slate-900">
+                          Record Hobbs
+                        </Label>
+                      </div>
+                      <div
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors",
+                          values.record_tacho
+                            ? "border-indigo-200 bg-indigo-50/50"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        )}
+                      >
+                        <Checkbox
+                          id="record_tacho"
+                          className="h-4.5 w-4.5 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-600"
+                          checked={!!values.record_tacho}
+                          onCheckedChange={(v) => update("record_tacho", !!v)}
+                        />
+                        <Label htmlFor="record_tacho" className="cursor-pointer text-sm font-semibold text-slate-900">
+                          Record Tacho
+                        </Label>
+                      </div>
+                      <div
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors",
+                          values.record_airswitch
+                            ? "border-indigo-200 bg-indigo-50/50"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        )}
+                      >
+                        <Checkbox
+                          id="record_airswitch"
+                          className="h-4.5 w-4.5 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-600"
+                          checked={!!values.record_airswitch}
+                          onCheckedChange={(v) => update("record_airswitch", !!v)}
+                        />
+                        <Label htmlFor="record_airswitch" className="cursor-pointer text-sm font-semibold text-slate-900">
+                          Record Airswitch
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="sm:col-span-2">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="flex h-full min-h-[92px] items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                    <p className="mb-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                      Booking Behaviour
+                    </p>
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border px-3.5 py-3 transition-colors",
+                          values.on_line
+                            ? "border-slate-300 bg-slate-50"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        )}
+                      >
                         <Checkbox
                           id="on_line"
-                          className="mt-0.5"
+                          className="mt-0.5 h-4.5 w-4.5 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-600"
                           checked={!!values.on_line}
                           onCheckedChange={(v) => update("on_line", !!v)}
                         />
                         <div className="min-w-0">
-                          <Label htmlFor="on_line" className="text-xs leading-none font-semibold text-slate-900">
+                          <Label htmlFor="on_line" className="cursor-pointer text-sm leading-none font-semibold text-slate-900">
                             Available for bookings
                           </Label>
-                          <p className="mt-1 text-[11px] leading-snug text-slate-600">
-                            This aircraft can be booked and is available for operations.
+                          <p className="mt-1 text-xs leading-snug text-slate-600">
+                            Allow this aircraft to be booked.
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex h-full min-h-[92px] items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                      <div
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border px-3.5 py-3 transition-colors",
+                          values.prioritise_scheduling
+                            ? "border-slate-300 bg-slate-50"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        )}
+                      >
                         <Checkbox
                           id="prioritise_scheduling"
-                          className="mt-0.5"
+                          className="mt-0.5 h-4.5 w-4.5 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-600"
                           checked={!!values.prioritise_scheduling}
                           onCheckedChange={(v) => update("prioritise_scheduling", !!v)}
                         />
                         <div className="min-w-0">
                           <Label
                             htmlFor="prioritise_scheduling"
-                            className="text-xs leading-none font-semibold text-slate-900"
+                            className="cursor-pointer text-sm leading-none font-semibold text-slate-900"
                           >
                             Prioritise scheduling
                           </Label>
-                          <p className="mt-1 text-[11px] leading-snug text-slate-600">
-                            Give this aircraft priority in scheduling.
+                          <p className="mt-1 text-xs leading-snug text-slate-600">
+                            Prefer this aircraft during scheduling.
                           </p>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                      <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
-                        <Checkbox
-                          id="record_hobbs"
-                          checked={!!values.record_hobbs}
-                          onCheckedChange={(v) => update("record_hobbs", !!v)}
-                        />
-                        <Label htmlFor="record_hobbs" className="text-xs font-semibold text-slate-900">
-                          Record Hobbs
-                        </Label>
-                      </div>
-                      <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
-                        <Checkbox
-                          id="record_tacho"
-                          checked={!!values.record_tacho}
-                          onCheckedChange={(v) => update("record_tacho", !!v)}
-                        />
-                        <Label htmlFor="record_tacho" className="text-xs font-semibold text-slate-900">
-                          Record Tacho
-                        </Label>
-                      </div>
-                      <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
-                        <Checkbox
-                          id="record_airswitch"
-                          checked={!!values.record_airswitch}
-                          onCheckedChange={(v) => update("record_airswitch", !!v)}
-                        />
-                        <Label htmlFor="record_airswitch" className="text-xs font-semibold text-slate-900">
-                          Record Airswitch
-                        </Label>
                       </div>
                     </div>
                   </div>
@@ -459,5 +647,46 @@ export function AddAircraftModal(props: { open: boolean; onOpenChange: (open: bo
         </div>
       </DialogContent>
     </Dialog>
+
+    <AddTypeDialog open={isAddTypeDialogOpen} onOpenChange={setIsAddTypeDialogOpen}>
+      <AddTypeDialogContent>
+        <AddTypeDialogHeader>
+          <AddTypeDialogTitle>Add aircraft type</AddTypeDialogTitle>
+          <AddTypeDialogDescription>Create a new aircraft type for this organisation.</AddTypeDialogDescription>
+        </AddTypeDialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label className="mb-1 block text-sm font-medium">Name *</Label>
+            <Input value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} />
+          </div>
+          <div>
+            <Label className="mb-1 block text-sm font-medium">Category</Label>
+            <Input value={newTypeCategory} onChange={(e) => setNewTypeCategory(e.target.value)} />
+          </div>
+          <div>
+            <Label className="mb-1 block text-sm font-medium">Description</Label>
+            <Input value={newTypeDescription} onChange={(e) => setNewTypeDescription(e.target.value)} />
+          </div>
+        </div>
+        <AddTypeDialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsAddTypeDialogOpen(false)}
+            disabled={isCreatingType}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleCreateAircraftType()}
+            disabled={isCreatingType || !newTypeName.trim()}
+          >
+            {isCreatingType ? "Creating..." : "Create"}
+          </Button>
+        </AddTypeDialogFooter>
+      </AddTypeDialogContent>
+    </AddTypeDialog>
+    </TooltipProvider>
   )
 }

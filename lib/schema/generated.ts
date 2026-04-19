@@ -268,6 +268,7 @@ export const publicAircraftRowSchema = z.object({
   total_time_method: publicTotalTimeMethodSchema.nullable(),
   type: z.string(),
   updated_at: z.string(),
+  voided_at: z.string().nullable(),
   year_manufactured: z.number().nullable(),
 });
 
@@ -297,6 +298,7 @@ export const publicAircraftInsertSchema = z.object({
   total_time_method: publicTotalTimeMethodSchema.optional().nullable(),
   type: z.string(),
   updated_at: z.string().optional(),
+  voided_at: z.string().optional().nullable(),
   year_manufactured: z.number().optional().nullable(),
 });
 
@@ -326,6 +328,7 @@ export const publicAircraftUpdateSchema = z.object({
   total_time_method: publicTotalTimeMethodSchema.optional().nullable(),
   type: z.string().optional(),
   updated_at: z.string().optional(),
+  voided_at: z.string().optional().nullable(),
   year_manufactured: z.number().optional().nullable(),
 });
 
@@ -392,13 +395,6 @@ export const publicAircraftChargeRatesRelationshipsSchema = z.tuple([
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("aircraft"),
     referencedColumns: z.tuple([z.literal("id")]),
-  }),
-  z.object({
-    foreignKeyName: z.literal("aircraft_charge_rates_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
   }),
   z.object({
     foreignKeyName: z.literal("aircraft_charge_rates_flight_type_id_fkey"),
@@ -494,13 +490,6 @@ export const publicAircraftComponentsRelationshipsSchema = z.tuple([
     referencedColumns: z.tuple([z.literal("id")]),
   }),
   z.object({
-    foreignKeyName: z.literal("aircraft_components_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
-  }),
-  z.object({
     foreignKeyName: z.literal("aircraft_components_tenant_id_fkey"),
     columns: z.tuple([z.literal("tenant_id")]),
     isOneToOne: z.literal(false),
@@ -564,13 +553,6 @@ export const publicAircraftTtisAuditRelationshipsSchema = z.tuple([
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("aircraft"),
     referencedColumns: z.tuple([z.literal("id")]),
-  }),
-  z.object({
-    foreignKeyName: z.literal("aircraft_ttis_audit_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
   }),
 ]);
 
@@ -861,13 +843,6 @@ export const publicBookingsRelationshipsSchema = z.tuple([
     referencedColumns: z.tuple([z.literal("id")]),
   }),
   z.object({
-    foreignKeyName: z.literal("bookings_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
-  }),
-  z.object({
     foreignKeyName: z.literal("bookings_cancellation_category_id_fkey"),
     columns: z.tuple([z.literal("cancellation_category_id")]),
     isOneToOne: z.literal(false),
@@ -894,13 +869,6 @@ export const publicBookingsRelationshipsSchema = z.tuple([
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("aircraft"),
     referencedColumns: z.tuple([z.literal("id")]),
-  }),
-  z.object({
-    foreignKeyName: z.literal("bookings_checked_out_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("checked_out_aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
   }),
   z.object({
     foreignKeyName: z.literal("bookings_checked_out_instructor_id_fkey"),
@@ -2776,13 +2744,6 @@ export const publicMaintenanceVisitsRelationshipsSchema = z.tuple([
     referencedColumns: z.tuple([z.literal("id")]),
   }),
   z.object({
-    foreignKeyName: z.literal("maintenance_visits_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
-  }),
-  z.object({
     foreignKeyName: z.literal("maintenance_visits_performed_by_fkey"),
     columns: z.tuple([z.literal("performed_by")]),
     isOneToOne: z.literal(false),
@@ -3023,13 +2984,6 @@ export const publicObservationsRelationshipsSchema = z.tuple([
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("aircraft"),
     referencedColumns: z.tuple([z.literal("id")]),
-  }),
-  z.object({
-    foreignKeyName: z.literal("observations_aircraft_id_fkey"),
-    columns: z.tuple([z.literal("aircraft_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("aircraft_ttis_rollup"),
-    referencedColumns: z.tuple([z.literal("aircraft_id")]),
   }),
   z.object({
     foreignKeyName: z.literal("observations_assigned_to_fkey"),
@@ -4185,31 +4139,6 @@ export const publicXeroInvoicesRelationshipsSchema = z.tuple([
   }),
 ]);
 
-export const publicAircraftTtisRollupRowSchema = z.object({
-  aircraft_id: z.string().nullable(),
-  computed_ttis: z.number().nullable(),
-  current_hobbs: z.number().nullable(),
-  current_tach: z.number().nullable(),
-  discrepancy: z.number().nullable(),
-  flight_count: z.number().nullable(),
-  initial_ttis: z.number().nullable(),
-  ledger_delta_sum: z.number().nullable(),
-  registration: z.string().nullable(),
-  stored_ttis: z.number().nullable(),
-  tenant_id: z.string().nullable(),
-  total_time_method: publicTotalTimeMethodSchema.nullable(),
-});
-
-export const publicAircraftTtisRollupRelationshipsSchema = z.tuple([
-  z.object({
-    foreignKeyName: z.literal("aircraft_tenant_id_fkey"),
-    columns: z.tuple([z.literal("tenant_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("tenants"),
-    referencedColumns: z.tuple([z.literal("id")]),
-  }),
-]);
-
 export const publicUserDirectoryRowSchema = z.object({
   created_at: z.string().nullable(),
   email: z.string().nullable(),
@@ -4417,6 +4346,7 @@ export const publicFindAircraftWithSuspiciousTtisReturnsSchema = z.array(
     aircraft_id: z.string(),
     discrepancy: z.number(),
     flights_count: z.number(),
+    initial_ttis: z.number(),
     ledger_sum: z.number(),
     registration: z.string(),
     total_time_in_service: z.number(),
@@ -4455,6 +4385,27 @@ export const publicGetAccountBalanceArgsSchema = z.object({
 
 export const publicGetAccountBalanceReturnsSchema = z.number();
 
+export const publicGetAircraftMaintenanceCostReportArgsSchema = z.object({
+  p_aircraft_id: z.string().optional(),
+  p_end_date: z.string().optional(),
+  p_start_date: z.string().optional(),
+});
+
+export const publicGetAircraftMaintenanceCostReportReturnsSchema = z.array(
+  z.object({
+    aircraft_id: z.string(),
+    aircraft_type: z.string(),
+    avg_cost_per_visit: z.number(),
+    cost_by_type: jsonSchema,
+    cost_per_hour: z.number(),
+    last_maintenance_date: z.string(),
+    registration: z.string(),
+    total_maintenance_cost: z.number(),
+    total_time_in_service: z.number(),
+    visit_count: z.number(),
+  }),
+);
+
 export const publicGetAircraftTechLogArgsSchema = z.object({
   p_aircraft_id: z.string(),
   p_limit: z.number().optional(),
@@ -4474,6 +4425,43 @@ export const publicGetAircraftTechLogReturnsSchema = z.array(
     tech_log_date: z.string(),
     total_rows: z.number(),
     total_time_method: publicTotalTimeMethodSchema.nullable(),
+  }),
+);
+
+export const publicGetFinancialDailySummaryReportArgsSchema = z.object({
+  p_end: z.string(),
+  p_start: z.string(),
+});
+
+export const publicGetFinancialDailySummaryReportReturnsSchema = z.array(
+  z.object({
+    difference: z.number(),
+    payment_breakdown: jsonSchema,
+    period_end: z.string(),
+    period_start: z.string(),
+    total_received: z.number(),
+    total_sales: z.number(),
+  }),
+);
+
+export const publicGetFinancialTransactionListReportArgsSchema = z.object({
+  p_end: z.string(),
+  p_limit: z.number().optional(),
+  p_offset: z.number().optional(),
+  p_start: z.string(),
+});
+
+export const publicGetFinancialTransactionListReportReturnsSchema = z.array(
+  z.object({
+    amount: z.number(),
+    created_at: z.string(),
+    description: z.string(),
+    payment_method: z.string().nullable(),
+    reference: z.string(),
+    related_invoice_id: z.string().nullable(),
+    transaction_id: z.string(),
+    transaction_subtype: z.string(),
+    transaction_type: z.string(),
   }),
 );
 
@@ -4661,11 +4649,18 @@ export const publicRecomputeAircraftTtisFromLedgerReturnsSchema = z.array(
     aircraft_id: z.string(),
     discrepancy: z.number(),
     flights_count: z.number(),
+    initial_ttis: z.number(),
     ledger_sum: z.number(),
     registration: z.string(),
     stored_ttis: z.number(),
   }),
 );
+
+export const publicRecordAircraftInitialTtisAuditArgsSchema = z.object({
+  p_aircraft_id: z.string(),
+});
+
+export const publicRecordAircraftInitialTtisAuditReturnsSchema = z.null();
 
 export const publicRecordInvoicePaymentAtomicArgsSchema = z.object({
   p_amount: z.number(),
@@ -5364,12 +5359,6 @@ export type PublicXeroInvoicesUpdate = z.infer<
 export type PublicXeroInvoicesRelationships = z.infer<
   typeof publicXeroInvoicesRelationshipsSchema
 >;
-export type PublicAircraftTtisRollupRow = z.infer<
-  typeof publicAircraftTtisRollupRowSchema
->;
-export type PublicAircraftTtisRollupRelationships = z.infer<
-  typeof publicAircraftTtisRollupRelationshipsSchema
->;
 export type PublicUserDirectoryRow = z.infer<
   typeof publicUserDirectoryRowSchema
 >;
@@ -5511,11 +5500,29 @@ export type PublicGetAccountBalanceArgs = z.infer<
 export type PublicGetAccountBalanceReturns = z.infer<
   typeof publicGetAccountBalanceReturnsSchema
 >;
+export type PublicGetAircraftMaintenanceCostReportArgs = z.infer<
+  typeof publicGetAircraftMaintenanceCostReportArgsSchema
+>;
+export type PublicGetAircraftMaintenanceCostReportReturns = z.infer<
+  typeof publicGetAircraftMaintenanceCostReportReturnsSchema
+>;
 export type PublicGetAircraftTechLogArgs = z.infer<
   typeof publicGetAircraftTechLogArgsSchema
 >;
 export type PublicGetAircraftTechLogReturns = z.infer<
   typeof publicGetAircraftTechLogReturnsSchema
+>;
+export type PublicGetFinancialDailySummaryReportArgs = z.infer<
+  typeof publicGetFinancialDailySummaryReportArgsSchema
+>;
+export type PublicGetFinancialDailySummaryReportReturns = z.infer<
+  typeof publicGetFinancialDailySummaryReportReturnsSchema
+>;
+export type PublicGetFinancialTransactionListReportArgs = z.infer<
+  typeof publicGetFinancialTransactionListReportArgsSchema
+>;
+export type PublicGetFinancialTransactionListReportReturns = z.infer<
+  typeof publicGetFinancialTransactionListReportReturnsSchema
 >;
 export type PublicGetAuthUserDetailsArgs = z.infer<
   typeof publicGetAuthUserDetailsArgsSchema
@@ -5614,6 +5621,12 @@ export type PublicRecomputeAircraftTtisFromLedgerArgs = z.infer<
 >;
 export type PublicRecomputeAircraftTtisFromLedgerReturns = z.infer<
   typeof publicRecomputeAircraftTtisFromLedgerReturnsSchema
+>;
+export type PublicRecordAircraftInitialTtisAuditArgs = z.infer<
+  typeof publicRecordAircraftInitialTtisAuditArgsSchema
+>;
+export type PublicRecordAircraftInitialTtisAuditReturns = z.infer<
+  typeof publicRecordAircraftInitialTtisAuditReturnsSchema
 >;
 export type PublicRecordInvoicePaymentAtomicArgs = z.infer<
   typeof publicRecordInvoicePaymentAtomicArgsSchema

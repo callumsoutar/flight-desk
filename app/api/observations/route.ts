@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("id", parsed.data.aircraft_id)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (aircraftError || !aircraft) {

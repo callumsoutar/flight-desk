@@ -22,6 +22,7 @@ export async function fetchInstructorDetail(
     )
     .eq("tenant_id", tenantId)
     .eq("user_id", userId)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (error) throw error

@@ -45,10 +45,22 @@ const checkRosterRuleConflictsSchema = z.strictObject({
   exclude_rule_id: z.string().uuid().optional(),
 })
 
+const createRosterRulesBatchSchema = z.strictObject({
+  instructor_id: z.string().uuid(),
+  days_of_week: z.array(z.number().int().min(0).max(6)).min(1),
+  start_time: timeSchema,
+  end_time: timeSchema,
+  effective_from: dateSchema,
+  effective_until: dateSchema.nullable(),
+  notes: z.string().max(2000).nullable(),
+  exclude_rule_id: z.string().uuid().optional(),
+})
+
 export type CreateRosterRuleInput = z.infer<typeof createRosterRuleSchema>
 export type UpdateRosterRuleInput = z.infer<typeof updateRosterRuleSchema>
 export type VoidRosterRuleInput = z.infer<typeof voidRosterRuleSchema>
 export type CheckRosterRuleConflictsInput = z.infer<typeof checkRosterRuleConflictsSchema>
+export type CreateRosterRulesBatchInput = z.infer<typeof createRosterRulesBatchSchema>
 
 function canManageRosters(role: string | null) {
   return role === "owner" || role === "admin" || role === "instructor"
@@ -181,6 +193,7 @@ async function verifyInstructorInTenant(
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("id", instructorId)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (error || !data) return false
@@ -451,61 +464,14 @@ export async function checkRosterRuleConflictsAction(input: unknown) {
   }
 }
 
-export async function createRosterRuleAction(input: unknown) {
-  const parsed = createRosterRuleSchema.safeParse(input)
-  if (!parsed.success) return { ok: false as const, error: "Invalid roster entry" }
-
-  const { supabase, user, role, tenantId } = await requireTenantContext()
-  if (!user) return { ok: false as const, error: "Unauthorized" }
-  if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
-  if (!canManageRosters(role)) return { ok: false as const, error: "Forbidden" }
-
-  const payload = parsed.data
-
-  const timeError = validateTimes(payload.start_time, payload.end_time)
-  if (timeError) return { ok: false as const, error: timeError }
-
-  const rangeError = validateEffectiveRange(payload.effective_from, payload.effective_until)
-  if (rangeError) return { ok: false as const, error: rangeError }
-
-  const hasInstructor = await verifyInstructorInTenant(supabase, tenantId, payload.instructor_id)
-  if (!hasInstructor) return { ok: false as const, error: "Instructor not found" }
-
-  const startTime = normalizeTimeToSql(payload.start_time)
-  const endTime = normalizeTimeToSql(payload.end_time)
-
-  if (!startTime || !endTime) {
-    return { ok: false as const, error: "Invalid start or end time" }
-  }
-
-  try {
-    const conflict = await findRosterRuleConflict({
-      supabase,
-      tenantId,
-      instructorId: payload.instructor_id,
-      dayOfWeek: payload.day_of_week,
-      startTime,
-      endTime,
-      effectiveFrom: payload.effective_from,
-      effectiveUntil: payload.effective_until,
-    })
-
-    if (conflict) {
-      return {
-        ok: false as const,
-        error: buildConflictMessage([payload.day_of_week]),
-      }
-    }
-  } catch (error) {
-    logError("[rosters] create conflict check failed", {
-      tenantId,
-      userId: user.id,
-      payload,
-      error,
-    })
-    return { ok: false as const, error: "Failed to validate roster conflicts" }
-  }
-
+async function persistNewRosterRule(
+  supabase: SupabaseServerClient,
+  tenantId: string,
+  userId: string,
+  payload: CreateRosterRuleInput,
+  startTime: string,
+  endTime: string
+): Promise<{ ok: true; rule: RosterRule } | { ok: false; error: string }> {
   const insertPayload: RosterInsertPayload = {
     tenant_id: tenantId,
     instructor_id: payload.instructor_id,
@@ -577,7 +543,7 @@ export async function createRosterRuleAction(input: unknown) {
   if (error || !data) {
     logError("[rosters] create failed", {
       tenantId,
-      userId: user.id,
+      userId,
       payload,
       error,
     })
@@ -587,9 +553,148 @@ export async function createRosterRuleAction(input: unknown) {
     }
   }
 
+  return { ok: true as const, rule: data as RosterRule }
+}
+
+export async function createRosterRuleAction(input: unknown) {
+  const parsed = createRosterRuleSchema.safeParse(input)
+  if (!parsed.success) return { ok: false as const, error: "Invalid roster entry" }
+
+  const { supabase, user, role, tenantId } = await requireTenantContext()
+  if (!user) return { ok: false as const, error: "Unauthorized" }
+  if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
+  if (!canManageRosters(role)) return { ok: false as const, error: "Forbidden" }
+
+  const payload = parsed.data
+
+  const timeError = validateTimes(payload.start_time, payload.end_time)
+  if (timeError) return { ok: false as const, error: timeError }
+
+  const rangeError = validateEffectiveRange(payload.effective_from, payload.effective_until)
+  if (rangeError) return { ok: false as const, error: rangeError }
+
+  const hasInstructor = await verifyInstructorInTenant(supabase, tenantId, payload.instructor_id)
+  if (!hasInstructor) return { ok: false as const, error: "Instructor not found" }
+
+  const startTime = normalizeTimeToSql(payload.start_time)
+  const endTime = normalizeTimeToSql(payload.end_time)
+
+  if (!startTime || !endTime) {
+    return { ok: false as const, error: "Invalid start or end time" }
+  }
+
+  try {
+    const conflict = await findRosterRuleConflict({
+      supabase,
+      tenantId,
+      instructorId: payload.instructor_id,
+      dayOfWeek: payload.day_of_week,
+      startTime,
+      endTime,
+      effectiveFrom: payload.effective_from,
+      effectiveUntil: payload.effective_until,
+    })
+
+    if (conflict) {
+      return {
+        ok: false as const,
+        error: buildConflictMessage([payload.day_of_week]),
+      }
+    }
+  } catch (error) {
+    logError("[rosters] create conflict check failed", {
+      tenantId,
+      userId: user.id,
+      payload,
+      error,
+    })
+    return { ok: false as const, error: "Failed to validate roster conflicts" }
+  }
+
+  const result = await persistNewRosterRule(supabase, tenantId, user.id, payload, startTime, endTime)
+  if (!result.ok) return result
+
   revalidatePath("/rosters")
 
-  return { ok: true as const, rule: data as RosterRule }
+  return { ok: true as const, rule: result.rule }
+}
+
+export async function createRosterRulesBatchAction(input: unknown) {
+  const parsed = createRosterRulesBatchSchema.safeParse(input)
+  if (!parsed.success) return { ok: false as const, error: "Invalid roster entry" }
+
+  const { supabase, user, role, tenantId } = await requireTenantContext()
+  if (!user) return { ok: false as const, error: "Unauthorized" }
+  if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
+  if (!canManageRosters(role)) return { ok: false as const, error: "Forbidden" }
+
+  const payload = parsed.data
+  const days = uniqueSortedDays(payload.days_of_week)
+  if (!days.length) return { ok: false as const, error: "Select at least one day" }
+
+  const timeError = validateTimes(payload.start_time, payload.end_time)
+  if (timeError) return { ok: false as const, error: timeError }
+
+  const rangeError = validateEffectiveRange(payload.effective_from, payload.effective_until)
+  if (rangeError) return { ok: false as const, error: rangeError }
+
+  const hasInstructor = await verifyInstructorInTenant(supabase, tenantId, payload.instructor_id)
+  if (!hasInstructor) return { ok: false as const, error: "Instructor not found" }
+
+  const startTime = normalizeTimeToSql(payload.start_time)
+  const endTime = normalizeTimeToSql(payload.end_time)
+
+  if (!startTime || !endTime) {
+    return { ok: false as const, error: "Invalid start or end time" }
+  }
+
+  try {
+    const conflictDays = await findConflictDays({
+      supabase,
+      tenantId,
+      instructorId: payload.instructor_id,
+      daysOfWeek: days,
+      startTime,
+      endTime,
+      effectiveFrom: payload.effective_from,
+      effectiveUntil: payload.effective_until,
+      excludeRuleId: payload.exclude_rule_id,
+    })
+
+    if (conflictDays.length) {
+      return { ok: false as const, error: buildConflictMessage(conflictDays) }
+    }
+  } catch (error) {
+    logError("[rosters] batch create conflict check failed", {
+      tenantId,
+      userId: user.id,
+      payload,
+      error,
+    })
+    return { ok: false as const, error: "Failed to validate roster conflicts" }
+  }
+
+  const rules: RosterRule[] = []
+
+  for (const dayOfWeek of days) {
+    const singlePayload: CreateRosterRuleInput = {
+      instructor_id: payload.instructor_id,
+      day_of_week: dayOfWeek,
+      start_time: payload.start_time,
+      end_time: payload.end_time,
+      effective_from: payload.effective_from,
+      effective_until: payload.effective_until,
+      notes: payload.notes,
+    }
+
+    const result = await persistNewRosterRule(supabase, tenantId, user.id, singlePayload, startTime, endTime)
+    if (!result.ok) return result
+    rules.push(result.rule)
+  }
+
+  revalidatePath("/rosters")
+
+  return { ok: true as const, rules }
 }
 
 export async function updateRosterRuleAction(input: unknown) {

@@ -35,6 +35,8 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
+import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
+import { useXeroStatusQuery } from "@/hooks/use-xero-status-query"
 import { cn } from "@/lib/utils"
 
 type InstructionType = "dual" | "solo" | "trial"
@@ -87,11 +89,13 @@ function FlightTypeFormBody({
   setFormData,
   showNameRequired = false,
   descriptionPlaceholder,
+  showChartOfAccounts,
 }: {
   formData: FlightTypeFormData
   setFormData: React.Dispatch<React.SetStateAction<FlightTypeFormData>>
   showNameRequired?: boolean
   descriptionPlaceholder?: string
+  showChartOfAccounts: boolean
 }) {
   return (
     <div className="space-y-5">
@@ -162,44 +166,46 @@ function FlightTypeFormBody({
         </div>
       </FormSection>
 
-      <FormSection title="Chart of accounts">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-slate-600">Aircraft GL code</Label>
-            <XeroAccountSelect
-              value={formData.aircraft_gl_code}
-              onChange={(code) =>
-                setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
-              }
-              accountTypes={["REVENUE"]}
-              placeholder="Select aircraft account…"
-              className="h-10 rounded-lg"
-            />
+      {showChartOfAccounts ? (
+        <FormSection title="Chart of accounts">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-600">Aircraft GL code</Label>
+              <XeroAccountSelect
+                value={formData.aircraft_gl_code}
+                onChange={(code) =>
+                  setFormData((prev) => ({ ...prev, aircraft_gl_code: code }))
+                }
+                accountTypes={["REVENUE"]}
+                placeholder="Select aircraft account…"
+                className="h-10 rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-600">Instructor GL code</Label>
+              <XeroAccountSelect
+                value={formData.instructor_gl_code}
+                onChange={(code) =>
+                  setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
+                }
+                accountTypes={["REVENUE"]}
+                placeholder={
+                  formData.instruction_type === "solo"
+                    ? "Not required for solo"
+                    : "Select instructor account…"
+                }
+                disabled={formData.instruction_type === "solo"}
+                className="h-10 rounded-lg"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-slate-600">Instructor GL code</Label>
-            <XeroAccountSelect
-              value={formData.instructor_gl_code}
-              onChange={(code) =>
-                setFormData((prev) => ({ ...prev, instructor_gl_code: code }))
-              }
-              accountTypes={["REVENUE"]}
-              placeholder={
-                formData.instruction_type === "solo"
-                  ? "Not required for solo"
-                  : "Select instructor account…"
-              }
-              disabled={formData.instruction_type === "solo"}
-              className="h-10 rounded-lg"
-            />
-          </div>
-        </div>
-      </FormSection>
+        </FormSection>
+      ) : null}
     </div>
   )
 }
 
-export function FlightTypesConfig() {
+export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: XeroStatusQueryData }) {
   const queryClient = useQueryClient()
   const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -212,6 +218,9 @@ export function FlightTypesConfig() {
     isLoading,
     error: flightTypesQueryError,
   } = useFlightTypesQuery({ includeInactive: true })
+  const { data: xeroStatus } = useXeroStatusQuery(initialXeroStatus)
+  const showChartOfAccounts = Boolean(xeroStatus?.connected)
+
   const [formData, setFormData] = React.useState<FlightTypeFormData>({
     name: "",
     description: "",
@@ -220,6 +229,9 @@ export function FlightTypesConfig() {
     instructor_gl_code: "",
     is_active: true,
   })
+
+  const requiresInstructorGlCode =
+    showChartOfAccounts && formData.instruction_type !== "solo"
 
   const error = mutationError ?? (flightTypesQueryError ? getErrorMessage(flightTypesQueryError) : null)
 
@@ -397,6 +409,7 @@ export function FlightTypesConfig() {
                 setFormData={setFormData}
                 showNameRequired
                 descriptionPlaceholder="Optional notes shown to staff."
+                showChartOfAccounts={showChartOfAccounts}
               />
             </div>
 
@@ -416,7 +429,7 @@ export function FlightTypesConfig() {
                   disabled={
                     saving ||
                     !formData.name.trim() ||
-                    (formData.instruction_type !== "solo" && !formData.instructor_gl_code.trim())
+                    (requiresInstructorGlCode && !formData.instructor_gl_code.trim())
                   }
                   className="h-10 rounded-xl bg-slate-900 font-semibold text-white hover:bg-slate-800"
                 >
@@ -448,8 +461,12 @@ export function FlightTypesConfig() {
               <TableRow className="bg-slate-50 hover:bg-slate-50">
                 <TableHead className="font-semibold text-slate-700">Name</TableHead>
                 <TableHead className="font-semibold text-slate-700">Instruction type</TableHead>
-                <TableHead className="font-semibold text-slate-700">Aircraft GL</TableHead>
-                <TableHead className="font-semibold text-slate-700">Instructor GL</TableHead>
+                {showChartOfAccounts ? (
+                  <>
+                    <TableHead className="font-semibold text-slate-700">Aircraft GL</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Instructor GL</TableHead>
+                  </>
+                ) : null}
                 <TableHead className="font-semibold text-slate-700">Status</TableHead>
                 <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
               </TableRow>
@@ -477,12 +494,16 @@ export function FlightTypesConfig() {
                       {formatInstructionType(flightType.instruction_type)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-slate-600">{flightType.aircraft_gl_code || "—"}</TableCell>
-                  <TableCell className="text-slate-600">
-                    {flightType.instruction_type === "solo"
-                      ? "N/A"
-                      : flightType.instructor_gl_code || "—"}
-                  </TableCell>
+                  {showChartOfAccounts ? (
+                    <>
+                      <TableCell className="text-slate-600">{flightType.aircraft_gl_code || "—"}</TableCell>
+                      <TableCell className="text-slate-600">
+                        {flightType.instruction_type === "solo"
+                          ? "N/A"
+                          : flightType.instructor_gl_code || "—"}
+                      </TableCell>
+                    </>
+                  ) : null}
                   <TableCell>
                     <span
                       className={cn(
@@ -528,6 +549,7 @@ export function FlightTypesConfig() {
                               formData={formData}
                               setFormData={setFormData}
                               showNameRequired
+                              showChartOfAccounts={showChartOfAccounts}
                             />
                           </div>
 
@@ -551,8 +573,7 @@ export function FlightTypesConfig() {
                                 disabled={
                                   saving ||
                                   !formData.name.trim() ||
-                                  (formData.instruction_type !== "solo" &&
-                                    !formData.instructor_gl_code.trim())
+                                  (requiresInstructorGlCode && !formData.instructor_gl_code.trim())
                                 }
                                 className="h-10 rounded-xl bg-slate-900 font-semibold text-white hover:bg-slate-800"
                               >

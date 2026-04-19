@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
+    if (error.code === "23505") {
+      return noStoreJson(
+        { error: "An aircraft type with this name already exists for your organisation." },
+        { status: 409 }
+      )
+    }
     return noStoreJson({ error: "Failed to create aircraft type" }, { status: 500 })
   }
 

@@ -25,6 +25,8 @@ import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
+import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
+import { useXeroStatusQuery } from "@/hooks/use-xero-status-query"
 import { cn } from "@/lib/utils"
 import type { ChargeableTypesRow } from "@/lib/types/tables"
 
@@ -45,7 +47,10 @@ function blankForm(): FormState {
   return { code: "", name: "", description: "", gl_code: "", is_active: true }
 }
 
-export function ChargeableTypesConfig() {
+export function ChargeableTypesConfig({ initialXeroStatus }: { initialXeroStatus: XeroStatusQueryData }) {
+  const { data: xeroStatus } = useXeroStatusQuery(initialXeroStatus)
+  const showGlCodeField = Boolean(xeroStatus?.connected)
+
   const [saving, setSaving] = React.useState(false)
   const [form, setForm] = React.useState<FormState>(blankForm())
   const [editing, setEditing] = React.useState<ChargeableType | null>(null)
@@ -167,7 +172,9 @@ export function ChargeableTypesConfig() {
                       Add Chargeable Category
                     </DialogTitle>
                     <DialogDescription className="mt-0.5 text-sm text-slate-500">
-                      Define the category and default GL code. Required fields are marked with{" "}
+                      {showGlCodeField
+                        ? "Define the category and default GL code. Required fields are marked with "
+                        : "Define the category. Required fields are marked with "}
                       <span className="text-destructive">*</span>.
                     </DialogDescription>
                   </div>
@@ -205,17 +212,19 @@ export function ChargeableTypesConfig() {
                           className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
                         />
                       </div>
-                      <div>
-                        <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                          GL CODE
-                        </label>
-                        <XeroAccountSelect
-                          value={form.gl_code}
-                          onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
-                          accountTypes={["REVENUE"]}
-                          className="h-10"
-                        />
-                      </div>
+                      {showGlCodeField ? (
+                        <div>
+                          <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                            GL CODE
+                          </label>
+                          <XeroAccountSelect
+                            value={form.gl_code}
+                            onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
+                            accountTypes={["REVENUE"]}
+                            className="h-10"
+                          />
+                        </div>
+                      ) : null}
                       <div>
                         <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                           DESCRIPTION
@@ -346,7 +355,9 @@ export function ChargeableTypesConfig() {
                                   Edit Chargeable Category
                                 </DialogTitle>
                                 <DialogDescription className="mt-0.5 text-sm text-slate-500">
-                                  Update category details and GL code mapping. Required fields are marked with{" "}
+                                  {showGlCodeField
+                                    ? "Update category details and GL code mapping. Required fields are marked with "
+                                    : "Update category details. Required fields are marked with "}
                                   <span className="text-destructive">*</span>.
                                 </DialogDescription>
                               </div>
@@ -385,17 +396,19 @@ export function ChargeableTypesConfig() {
                                       className="h-10 rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus-visible:ring-0"
                                     />
                                   </div>
-                                  <div>
-                                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                                      GL CODE
-                                    </label>
-                                    <XeroAccountSelect
-                                      value={form.gl_code}
-                                      onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
-                                      accountTypes={["REVENUE"]}
-                                      className="h-10"
-                                    />
-                                  </div>
+                                  {showGlCodeField ? (
+                                    <div>
+                                      <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                        GL CODE
+                                      </label>
+                                      <XeroAccountSelect
+                                        value={form.gl_code}
+                                        onChange={(code) => setForm((p) => ({ ...p, gl_code: code }))}
+                                        accountTypes={["REVENUE"]}
+                                        className="h-10"
+                                      />
+                                    </div>
+                                  ) : null}
                                   <div>
                                     <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                                       DESCRIPTION

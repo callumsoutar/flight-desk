@@ -7,6 +7,7 @@ import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layou
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchAircraftDetail } from "@/lib/aircraft/fetch-aircraft-detail"
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -14,7 +15,15 @@ type PageProps = {
   params: Promise<{ id: string }>
 }
 
-async function AircraftDetailContent({ tenantId, id }: { tenantId: string; id: string }) {
+async function AircraftDetailContent({
+  tenantId,
+  id,
+  canVoidAircraft,
+}: {
+  tenantId: string
+  id: string
+  canVoidAircraft: boolean
+}) {
   const supabase = await createSupabaseServerClient()
 
   let detail: Awaited<ReturnType<typeof fetchAircraftDetail>>
@@ -37,14 +46,25 @@ async function AircraftDetailContent({ tenantId, id }: { tenantId: string; id: s
     notFound()
   }
 
-  return <AircraftDetailClient aircraftId={id} data={detail.data} loadErrors={detail.loadErrors} />
+  return (
+    <AircraftDetailClient
+      aircraftId={id}
+      data={detail.data}
+      loadErrors={detail.loadErrors}
+      canVoidAircraft={canVoidAircraft}
+    />
+  )
 }
 
 export default async function AircraftDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId, role } = await getAuthSession(supabase, {
+    includeTenant: true,
+    includeRole: true,
+    authoritativeRole: true,
+  })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -63,7 +83,11 @@ export default async function AircraftDetailPage({ params }: PageProps) {
   return (
     <AppRouteShell>
       <React.Suspense fallback={<AircraftDetailSkeleton />}>
-        <AircraftDetailContent tenantId={tenantId} id={id} />
+        <AircraftDetailContent
+          tenantId={tenantId}
+          id={id}
+          canVoidAircraft={isAdminRole(role)}
+        />
       </React.Suspense>
     </AppRouteShell>
   )

@@ -8,6 +8,7 @@ import { ChargeableTypesConfig } from "@/components/settings/charges/chargeable-
 import { ChargeablesConfig } from "@/components/settings/charges/chargeables-config"
 import { FlightTypesConfig } from "@/components/settings/charges/flight-types-config"
 import { LandingFeesConfig } from "@/components/settings/charges/landing-fees-config"
+import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
 
 const chargeTabs = [
   { id: "aircraft", label: "Aircraft rates", icon: IconPlane },
@@ -18,7 +19,7 @@ const chargeTabs = [
 
 // Charges are intentionally client-owned editors. The server settings page only selects and
 // renders the shell; the collection tabs own their own query-backed list state.
-export function ChargesTab() {
+export function ChargesTab({ initialXeroStatus }: { initialXeroStatus: XeroStatusQueryData }) {
   const [activeTab, setActiveTab] = React.useState<(typeof chargeTabs)[number]["id"]>("aircraft")
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
@@ -117,7 +118,7 @@ export function ChargesTab() {
         <div className="w-full pt-6">
           <Tabs.Content value="aircraft" className="outline-none">
             <div className="w-full min-w-0">
-              <FlightTypesConfig />
+              <FlightTypesConfig initialXeroStatus={initialXeroStatus} />
             </div>
           </Tabs.Content>
 
@@ -129,7 +130,7 @@ export function ChargesTab() {
 
           <Tabs.Content value="categories" className="outline-none">
             <div className="w-full min-w-0">
-              <ChargeableTypesConfig />
+              <ChargeableTypesConfig initialXeroStatus={initialXeroStatus} />
             </div>
           </Tabs.Content>
 

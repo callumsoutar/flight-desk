@@ -1,7 +1,9 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 
 import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import type { Database } from "@/lib/types/database"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +32,17 @@ function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null
   const trimmed = value.trim()
   return trimmed.length ? trimmed : null
+}
+
+async function tenantHasXeroConnection(supabase: SupabaseClient<Database>, tenantId: string) {
+  const { data, error } = await supabase
+    .from("xero_connections")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .maybeSingle()
+
+  if (error) return false
+  return Boolean(data)
 }
 
 export async function GET(request: NextRequest) {
@@ -76,7 +89,12 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = parsed.data
-  if (payload.instruction_type !== "solo" && !normalizeNullableString(payload.instructor_gl_code)) {
+  const xeroLinked = await tenantHasXeroConnection(supabase, tenantId)
+  if (
+    xeroLinked &&
+    payload.instruction_type !== "solo" &&
+    !normalizeNullableString(payload.instructor_gl_code)
+  ) {
     return noStoreJson({ error: "Instructor GL code is required for dual/trial flight types" }, { status: 400 })
   }
 
@@ -149,7 +167,8 @@ export async function PUT(request: NextRequest) {
   const nextInstructorGlCode =
     (updateData.instructor_gl_code as string | null | undefined) ?? existing.instructor_gl_code
 
-  if (nextInstructionType !== "solo" && !nextInstructorGlCode) {
+  const xeroLinked = await tenantHasXeroConnection(supabase, tenantId)
+  if (xeroLinked && nextInstructionType !== "solo" && !nextInstructorGlCode) {
     return noStoreJson({ error: "Instructor GL code is required for dual/trial flight types" }, { status: 400 })
   }
   if (nextInstructionType === "solo") {

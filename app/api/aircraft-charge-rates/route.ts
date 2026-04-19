@@ -40,6 +40,7 @@ async function validateReferences(
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("id", aircraftId)
+      .is("voided_at", null)
       .maybeSingle(),
     supabase
       .from("flight_types")

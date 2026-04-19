@@ -211,12 +211,14 @@ export async function fetchReportData(
     supabase
       .from("aircraft")
       .select("id, registration, type, on_line")
-      .eq("tenant_id", tenantId),
+      .eq("tenant_id", tenantId)
+      .is("voided_at", null),
 
     supabase
       .from("instructors")
       .select("id, first_name, last_name")
       .eq("tenant_id", tenantId)
+      .is("voided_at", null)
       .eq("status", "active"),
 
     supabase

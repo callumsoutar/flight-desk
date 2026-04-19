@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("id", payload.aircraft_id)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (aircraftError || !aircraft) {

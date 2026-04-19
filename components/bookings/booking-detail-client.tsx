@@ -12,6 +12,7 @@ import {
   IconFileDescription,
   IconMail,
   IconPlane,
+  IconPlaneDeparture,
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react"
@@ -266,16 +267,15 @@ export function BookingDetailClient({
 
   const headerActions =
     showDebriefAction || showStatusActions ? (
-      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+      <>
         {showDebriefAction ? (
           <Button
-            size="sm"
             variant="outline"
-            className="w-full sm:w-auto"
             asChild
+            className="h-10 gap-2 font-medium shadow-sm transition-all hover:bg-muted/60 hover:shadow"
           >
             <Link href={`/bookings/${bookingId}/debrief`}>
-              <IconFileDescription className="mr-2 h-4 w-4" />
+              <IconFileDescription className="h-4 w-4" />
               View Debrief
             </Link>
           </Button>
@@ -284,45 +284,46 @@ export function BookingDetailClient({
           <>
             {booking.status === "unconfirmed" ? (
               <Button
-                size="sm"
-                className="w-full sm:w-auto"
+                className="h-10 flex-1 gap-2 px-5 font-semibold shadow-md ring-1 ring-inset ring-primary/20 transition-all hover:shadow-lg hover:-translate-y-px active:translate-y-0 sm:flex-none"
                 onClick={() => handleStatusChange("confirmed")}
                 disabled={isPending}
               >
-                <IconCheck className="mr-2 h-4 w-4" />
+                <IconCheck className="h-4 w-4" />
                 Confirm
               </Button>
             ) : null}
             {booking.status === "confirmed" ? (
               <Button
-                size="sm"
-                className="w-full sm:w-auto"
+                className="h-10 flex-1 gap-2 px-5 font-semibold shadow-md ring-1 ring-inset ring-primary/20 transition-all hover:shadow-lg hover:-translate-y-px active:translate-y-0 sm:flex-none"
                 onClick={() => router.push(`/bookings/checkout/${bookingId}`)}
                 disabled={isPending}
               >
-                <IconPlane className="mr-2 h-4 w-4" />
+                <IconPlaneDeparture className="h-4 w-4" />
                 Check Out
               </Button>
             ) : null}
             {booking.status === "flying" ? (
               <Button
-                size="sm"
-                className="w-full sm:w-auto"
+                className="h-10 flex-1 gap-2 px-5 font-semibold shadow-md ring-1 ring-inset ring-primary/20 transition-all hover:shadow-lg hover:-translate-y-px active:translate-y-0 sm:flex-none"
                 onClick={() => router.push(`/bookings/checkin/${bookingId}`)}
                 disabled={isPending}
               >
-                <IconCheck className="mr-2 h-4 w-4" />
+                <IconCheck className="h-4 w-4" />
                 Check In
               </Button>
             ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="hidden w-full sm:inline-flex sm:w-auto">
-                  More
-                  <IconChevronDown className="ml-2 h-4 w-4" />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="More actions"
+                  className="hidden h-10 w-10 shadow-sm transition-all hover:bg-muted/60 hover:shadow sm:inline-flex"
+                >
+                  <IconDotsVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem
                   disabled={!canSendConfirmationEmail || sendingConfirmation}
                   onClick={() => void handleSendConfirmationEmail()}
@@ -342,7 +343,7 @@ export function BookingDetailClient({
             </DropdownMenu>
           </>
         )}
-      </div>
+      </>
     ) : null
 
   return (

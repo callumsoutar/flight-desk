@@ -88,6 +88,7 @@ async function fetchOptions(
         .from("aircraft")
         .select("id, registration, type, model, manufacturer, aircraft_type_id, fuel_consumption")
         .eq("tenant_id", tenantId)
+        .is("voided_at", null)
         .order("registration", { ascending: true }),
       supabase
         .from("aircraft_types")
@@ -99,6 +100,7 @@ async function fetchOptions(
         .from("instructors")
         .select("id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)")
         .eq("tenant_id", tenantId)
+        .is("voided_at", null)
         .eq("is_actively_instructing", true)
         .order("first_name", { ascending: true }),
       supabase

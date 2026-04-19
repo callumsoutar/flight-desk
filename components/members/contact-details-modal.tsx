@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Copy, Mail, MapPin, Phone } from "lucide-react"
+import { Copy, Mail, MapPin, Phone, User, X } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -10,10 +10,9 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchMemberContactDetails, type MemberContactDetailsDto } from "@/hooks/use-member-contact-details-query"
@@ -22,16 +21,6 @@ import { cn, getUserInitials } from "@/lib/utils"
 function formatFullName(details: MemberContactDetailsDto) {
   const name = [details.first_name, details.last_name].filter(Boolean).join(" ").trim()
   return name || details.email || "Member"
-}
-
-function labelOrDash(value: string | null | undefined) {
-  const trimmed = typeof value === "string" ? value.trim() : ""
-  return trimmed ? trimmed : "—"
-}
-
-function labelOrUnavailable(value: string | null | undefined) {
-  const trimmed = typeof value === "string" ? value.trim() : ""
-  return trimmed ? trimmed : "Not provided"
 }
 
 async function copyToClipboard(value: string, label: string) {
@@ -92,14 +81,13 @@ export function ContactDetailsModal({
     return () => controller.abort()
   }, [open, memberId])
 
-  const fullName = details ? formatFullName(details) : "Member"
+  const fullName = details ? formatFullName(details) : title
   const initials = details ? getUserInitials(details.first_name, details.last_name, details.email) : "?"
   const email = details?.email ?? null
   const phone = details?.phone ?? null
-  const address = details?.street_address ?? null
-  const normalizedAddress = typeof address === "string" ? address.trim() : ""
-  const hasAddress = Boolean(normalizedAddress)
-  const showAddress = loading || hasAddress
+  const rawAddress = details?.street_address ?? null
+  const address = typeof rawAddress === "string" ? rawAddress.trim() : ""
+  const hasAddress = Boolean(address)
 
   const openProfile = () => {
     if (!details?.id) return
@@ -112,173 +100,242 @@ export function ContactDetailsModal({
     const parts = [`Name: ${formatFullName(details)}`]
     if (details.email) parts.push(`Email: ${details.email}`)
     if (details.phone) parts.push(`Phone: ${details.phone}`)
-    if (hasAddress) parts.push(`Address: ${normalizedAddress}`)
+    if (hasAddress) parts.push(`Address: ${address}`)
     await copyToClipboard(parts.join("\n"), "Contact details")
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-[560px]">
-        <div className="bg-background">
-          <DialogHeader className="border-b px-6 py-5 text-left">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-start gap-4">
-                <Avatar className="h-11 w-11 rounded-full border bg-muted/20">
-                  <AvatarFallback className="bg-muted/30 text-sm font-semibold text-foreground/80">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <DialogTitle className="truncate text-lg font-bold text-foreground">
-                    {details ? fullName : title}
-                  </DialogTitle>
-                  <DialogDescription
-                    className={cn("mt-1 truncate", error ? "text-destructive" : "text-muted-foreground")}
-                  >
-                    {error
-                      ? error
-                      : loading
-                        ? "Loading contact details…"
-                        : details
-                          ? labelOrUnavailable(details.email)
-                          : "—"}
-                  </DialogDescription>
-                </div>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden flex flex-col",
+          "[&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed",
+          "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[560px]"
+        )}
+      >
+        <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-white">
+          <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-5 text-left sm:pt-6 shrink-0">
+            <div className="flex items-start gap-4">
+              <Avatar className="h-12 w-12 shrink-0 rounded-full border border-slate-200 bg-slate-50">
+                <AvatarFallback className="bg-slate-100 text-sm font-semibold text-slate-700">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="truncate text-xl font-bold tracking-tight text-slate-900">
+                  {loading ? <Skeleton className="h-6 w-40" /> : fullName}
+                </DialogTitle>
+                <DialogDescription
+                  className={cn(
+                    "mt-0.5 truncate text-sm",
+                    error ? "text-destructive" : "text-slate-500"
+                  )}
+                >
+                  {error
+                    ? error
+                    : loading
+                      ? "Loading contact details…"
+                      : email ?? "No email on file"}
+                </DialogDescription>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onOpenChange(false)}
+                aria-label="Close"
+                className="shrink-0 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                {details ? (
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Copy all contact details"
-                    onClick={copyAll}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                ) : null}
+            {!error && (loading || email || phone) ? (
+              <div className="mt-4 flex flex-wrap gap-2">
                 {email ? (
-                  <Button asChild variant="outline" size="sm">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
                     <a href={`mailto:${email}`}>
-                      <Mail className="h-4 w-4" />
+                      <Mail className="h-3.5 w-3.5" />
                       Email
                     </a>
                   </Button>
                 ) : null}
                 {phone ? (
-                  <Button asChild variant="outline" size="sm">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
                     <a href={`tel:${phone}`}>
-                      <Phone className="h-4 w-4" />
+                      <Phone className="h-3.5 w-3.5" />
                       Call
                     </a>
                   </Button>
                 ) : null}
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div className="space-y-3 px-6 py-5">
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</div>
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {loading ? <Skeleton className="mt-1 h-4 w-44" /> : labelOrDash(email)}
-                    </div>
-                  </div>
-                </div>
-                {email ? (
+                {details ? (
                   <Button
+                    type="button"
                     variant="outline"
-                    size="icon-sm"
-                    aria-label="Copy email"
-                    className="shrink-0"
-                    onClick={() => copyToClipboard(email, "Email")}
+                    size="sm"
+                    onClick={copyAll}
+                    className="h-9 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
                   >
-                    <Copy className="h-4 w-4" />
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy all
                   </Button>
                 ) : null}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone</div>
-                    <div className="truncate text-sm font-medium text-foreground">
-                      {loading ? <Skeleton className="mt-1 h-4 w-28" /> : labelOrDash(phone)}
-                    </div>
-                  </div>
-                </div>
-                {phone ? (
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Copy phone"
-                    className="shrink-0"
-                    onClick={() => copyToClipboard(phone, "Phone")}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-
-            {showAddress ? (
-              <div className="rounded-xl border border-border/60 bg-background/60 p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Address</div>
-                      <div className="text-sm font-medium text-foreground">
-                        {loading ? (
-                          <div className="space-y-2 pt-1">
-                            <Skeleton className="h-4 w-56" />
-                            <Skeleton className="h-4 w-44" />
-                          </div>
-                        ) : (
-                          <div className="whitespace-pre-wrap break-words">{normalizedAddress}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {hasAddress ? (
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Copy address"
-                      className="shrink-0"
-                      onClick={() => copyToClipboard(normalizedAddress, "Address")}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
               </div>
             ) : null}
+          </DialogHeader>
+
+          <div className="flex-1 space-y-3 overflow-y-auto px-6 pb-6">
+            <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <User className="h-4 w-4 text-slate-500" />
+              <span className="text-[13px] font-semibold text-slate-900">Contact details</span>
+            </div>
+
+            <ContactRow
+              icon={<Mail className="h-4 w-4" />}
+              label="Email"
+              value={email}
+              loading={loading}
+              copyLabel="Email"
+              loadingWidth="w-44"
+            />
+
+            <ContactRow
+              icon={<Phone className="h-4 w-4" />}
+              label="Phone"
+              value={phone}
+              loading={loading}
+              copyLabel="Phone"
+              loadingWidth="w-28"
+            />
+
+            <ContactRow
+              icon={<MapPin className="h-4 w-4" />}
+              label="Address"
+              value={hasAddress ? address : null}
+              loading={loading}
+              copyLabel="Address"
+              multiline
+              loadingWidth="w-56"
+            />
           </div>
 
-          <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            <Button onClick={openProfile} disabled={!details?.id}>
-              Open member profile
-            </Button>
-          </DialogFooter>
+          <div className="border-t border-slate-100 bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                Close
+              </Button>
+              <div className="flex flex-1 justify-end">
+                <Button
+                  type="button"
+                  onClick={openProfile}
+                  disabled={!details?.id}
+                  className="h-11 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition-shadow hover:bg-slate-900 hover:text-white hover:shadow-xl hover:shadow-slate-900/20 disabled:bg-slate-300 disabled:text-white disabled:shadow-none"
+                >
+                  Open member profile
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ContactRow({
+  icon,
+  label,
+  value,
+  loading,
+  copyLabel,
+  multiline = false,
+  loadingWidth = "w-40",
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string | null
+  loading: boolean
+  copyLabel: string
+  multiline?: boolean
+  loadingWidth?: string
+}) {
+  const hasValue = Boolean(value)
+
+  return (
+    <div
+      className={cn(
+        "group rounded-xl border border-slate-200 bg-white p-4 transition-colors",
+        hasValue && "hover:border-slate-300 hover:bg-slate-50/60"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <div
+            className={cn(
+              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+              hasValue ? "bg-slate-100 text-slate-600" : "bg-slate-50 text-slate-400"
+            )}
+          >
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {label}
+            </div>
+            <div className="mt-1 text-sm font-medium text-slate-900">
+              {loading ? (
+                multiline ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-56" />
+                    <Skeleton className="h-4 w-44" />
+                  </div>
+                ) : (
+                  <Skeleton className={cn("h-4", loadingWidth)} />
+                )
+              ) : hasValue ? (
+                <div
+                  className={cn(
+                    "text-slate-900",
+                    multiline ? "whitespace-pre-wrap break-words" : "truncate"
+                  )}
+                >
+                  {value}
+                </div>
+              ) : (
+                <span className="text-sm font-normal italic text-slate-400">Not provided</span>
+              )}
+            </div>
+          </div>
+        </div>
+        {hasValue && value ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={`Copy ${copyLabel.toLowerCase()}`}
+            onClick={() => copyToClipboard(value, copyLabel)}
+            className="shrink-0 rounded-lg border-slate-200 bg-white text-slate-500 opacity-100 transition-all hover:bg-slate-100 hover:text-slate-700 sm:opacity-60 sm:group-hover:opacity-100"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+      </div>
+    </div>
   )
 }

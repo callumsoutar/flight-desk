@@ -18,6 +18,8 @@ import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { updateInvoicingSettings } from "@/hooks/use-invoicing-settings-query"
+import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
+import { useXeroStatusQuery } from "@/hooks/use-xero-status-query"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { InvoicingSettings } from "@/lib/settings/invoicing-settings"
 
@@ -41,10 +43,15 @@ function createFormState(settings: InvoicingSettings | null) {
 export function InvoicingTab({
   initialSettings,
   loadError,
+  initialXeroStatus,
 }: {
   initialSettings: InvoicingSettings | null
   loadError: string | null
+  initialXeroStatus: XeroStatusQueryData
 }) {
+  const { data: xeroStatus } = useXeroStatusQuery(initialXeroStatus)
+  const showXeroInvoicingFields = Boolean(xeroStatus?.connected)
+
   const [form, setForm] = React.useState(() => createFormState(initialSettings))
   const [baseSettings, setBaseSettings] = React.useState<InvoicingSettings | null>(initialSettings)
   const [isSaving, setIsSaving] = React.useState(false)
@@ -159,40 +166,42 @@ export function InvoicingTab({
               </p>
             </div>
 
-            <div className="space-y-2">
-              <TooltipProvider delayDuration={0}>
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Invoice numbering
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="outline-hidden rounded-sm">
-                        <IconInfoCircle className="h-3.5 w-3.5 text-slate-300 transition-colors hover:text-slate-400" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-[260px] text-[11px] font-medium leading-tight bg-slate-900 text-white border-slate-800 shadow-xl rounded-lg px-3 py-2">
-                      When enabled, Xero allocates invoice numbers. When disabled, FlightDesk uses its own invoice
-                      sequence and sends that invoice number to Xero.
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
+            {showXeroInvoicingFields ? (
+              <div className="space-y-2">
+                <TooltipProvider delayDuration={0}>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="invoice-number-mode" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Invoice numbering
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="outline-hidden rounded-sm">
+                          <IconInfoCircle className="h-3.5 w-3.5 text-slate-300 transition-colors hover:text-slate-400" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[260px] text-[11px] font-medium leading-tight bg-slate-900 text-white border-slate-800 shadow-xl rounded-lg px-3 py-2">
+                        When enabled, Xero allocates invoice numbers. When disabled, FlightDesk uses its own invoice
+                        sequence and sends that invoice number to Xero.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
 
-              <div className="flex h-11 items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-3">
-                <p className="text-sm font-semibold text-slate-900 leading-none">Use Xero invoice number sequencing</p>
-                <Switch
-                  id="invoice-number-mode"
-                  checked={form.invoice_number_mode === "xero"}
-                  onCheckedChange={(checked) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      invoice_number_mode: checked ? "xero" : "internal",
-                    }))
-                  }
-                />
+                <div className="flex h-11 items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-3">
+                  <p className="text-sm font-semibold text-slate-900 leading-none">Use Xero invoice number sequencing</p>
+                  <Switch
+                    id="invoice-number-mode"
+                    checked={form.invoice_number_mode === "xero"}
+                    onCheckedChange={(checked) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        invoice_number_mode: checked ? "xero" : "internal",
+                      }))
+                    }
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="invoice-due-days" className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Default due (days)
@@ -239,51 +248,55 @@ export function InvoicingTab({
           </div>
         </div>
 
-        <Separator />
+        {showXeroInvoicingFields ? (
+          <>
+            <Separator />
 
-        <div className="space-y-5">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <IconFileInvoice className="h-4 w-4 text-slate-500" />
-            Fee GL defaults
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label
-                htmlFor="landing-fee-gl-code"
-                className="text-xs font-bold uppercase tracking-wider text-slate-500"
-              >
-                Landing Fee Account Code
-              </Label>
-              <XeroAccountSelect
-                value={form.landing_fee_gl_code}
-                onChange={(code) => setForm((prev) => ({ ...prev, landing_fee_gl_code: code }))}
-                accountTypes={["REVENUE"]}
-                className="h-11"
-              />
-              <p className="text-[11px] font-medium text-slate-500">
-                Applied to invoice line items where chargeable type is landing fees.
-              </p>
-            </div>
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <IconFileInvoice className="h-4 w-4 text-slate-500" />
+                Fee GL defaults
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="landing-fee-gl-code"
+                    className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                  >
+                    Landing Fee Account Code
+                  </Label>
+                  <XeroAccountSelect
+                    value={form.landing_fee_gl_code}
+                    onChange={(code) => setForm((prev) => ({ ...prev, landing_fee_gl_code: code }))}
+                    accountTypes={["REVENUE"]}
+                    className="h-11"
+                  />
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Applied to invoice line items where chargeable type is landing fees.
+                  </p>
+                </div>
 
-            <div className="space-y-2">
-              <Label
-                htmlFor="airways-fee-gl-code"
-                className="text-xs font-bold uppercase tracking-wider text-slate-500"
-              >
-                Airways Fee Account Code
-              </Label>
-              <XeroAccountSelect
-                value={form.airways_fee_gl_code}
-                onChange={(code) => setForm((prev) => ({ ...prev, airways_fee_gl_code: code }))}
-                accountTypes={["REVENUE"]}
-                className="h-11"
-              />
-              <p className="text-[11px] font-medium text-slate-500">
-                Applied to invoice line items where chargeable type is airways fees.
-              </p>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="airways-fee-gl-code"
+                    className="text-xs font-bold uppercase tracking-wider text-slate-500"
+                  >
+                    Airways Fee Account Code
+                  </Label>
+                  <XeroAccountSelect
+                    value={form.airways_fee_gl_code}
+                    onChange={(code) => setForm((prev) => ({ ...prev, airways_fee_gl_code: code }))}
+                    accountTypes={["REVENUE"]}
+                    className="h-11"
+                  />
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Applied to invoice line items where chargeable type is airways fees.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        ) : null}
 
         <Separator />
 

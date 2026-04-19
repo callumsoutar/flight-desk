@@ -231,6 +231,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
             .select("id")
             .eq("tenant_id", tenantId)
             .eq("id", nextAircraftId)
+            .is("voided_at", null)
             .eq("on_line", true)
             .maybeSingle()
         : Promise.resolve({ data: true, error: null }),
@@ -240,6 +241,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
             .select("id")
             .eq("tenant_id", tenantId)
             .eq("id", nextInstructorId)
+            .is("voided_at", null)
             .eq("is_actively_instructing", true)
             .maybeSingle()
         : Promise.resolve({ data: true, error: null }),

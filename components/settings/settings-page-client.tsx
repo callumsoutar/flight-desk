@@ -32,6 +32,7 @@ import type { InvoicingSettings } from "@/lib/settings/invoicing-settings"
 import type { BookingsSettings } from "@/lib/settings/bookings-settings"
 import type { MembershipsSettings } from "@/lib/settings/memberships-settings"
 import type { XeroSettings } from "@/lib/settings/xero-settings"
+import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
 import { cn } from "@/lib/utils"
 
 const tabs = [
@@ -92,6 +93,21 @@ export function SettingsPageClient({
   React.useEffect(() => {
     setActiveTab(initialTab)
   }, [initialTab])
+
+  const initialXeroStatusQueryData = React.useMemo<XeroStatusQueryData>(
+    () => ({
+      connected: xeroConnectionStatus.connected,
+      xero_tenant_name: xeroConnectionStatus.xero_tenant_name,
+      connected_at: xeroConnectionStatus.connected_at,
+      enabled: initialXeroSettings?.enabled ?? false,
+    }),
+    [
+      initialXeroSettings?.enabled,
+      xeroConnectionStatus.connected,
+      xeroConnectionStatus.connected_at,
+      xeroConnectionStatus.xero_tenant_name,
+    ]
+  )
 
   React.useEffect(() => {
     const activeElement = tabRefs.current[activeTab]
@@ -250,10 +266,14 @@ export function SettingsPageClient({
                 <GeneralTab initialSettings={initialGeneralSettings} loadError={generalLoadError} />
               </Tabs.Content>
               <Tabs.Content value="invoicing">
-                <InvoicingTab initialSettings={initialInvoicingSettings} loadError={invoicingLoadError} />
+                <InvoicingTab
+                  initialSettings={initialInvoicingSettings}
+                  loadError={invoicingLoadError}
+                  initialXeroStatus={initialXeroStatusQueryData}
+                />
               </Tabs.Content>
               <Tabs.Content value="charges">
-                <ChargesTab />
+                <ChargesTab initialXeroStatus={initialXeroStatusQueryData} />
               </Tabs.Content>
               <Tabs.Content value="bookings">
                 <BookingsTab

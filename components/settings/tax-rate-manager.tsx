@@ -61,6 +61,17 @@ export function TaxRateManager() {
     }
   }, [isEditing, taxRates])
 
+  const seededFirstDefaultToggle = React.useRef(false)
+  React.useEffect(() => {
+    if (!isLoading && taxRates.length === 0) {
+      setIsCreateOpen(true)
+      if (!seededFirstDefaultToggle.current) {
+        seededFirstDefaultToggle.current = true
+        setCreateForm((prev) => ({ ...prev, make_default: true }))
+      }
+    }
+  }, [isLoading, taxRates.length])
+
   const error = mutationError ?? (taxRatesQueryError instanceof Error ? taxRatesQueryError.message : null)
 
   const handleSaveDefault = async () => {
@@ -128,6 +139,7 @@ export function TaxRateManager() {
         region_code: "",
         make_default: false,
       }))
+      setIsCreateOpen(false)
       await queryClient.invalidateQueries({ queryKey: taxRatesQueryKey })
       await queryClient.invalidateQueries({ queryKey: defaultTaxRateQueryKey })
     } catch (error) {
@@ -146,19 +158,8 @@ export function TaxRateManager() {
     )
   }
 
-  if (taxRates.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-slate-200 bg-slate-50 py-16 text-center">
-        <IconCurrencyDollar className="mb-4 h-12 w-12 text-slate-300" />
-        <h3 className="mb-2 text-lg font-bold text-slate-900">No Tax Rates Found</h3>
-        <p className="max-w-md text-sm font-medium text-slate-500">
-          Contact your administrator to set up tax rates in the system.
-        </p>
-      </div>
-    )
-  }
-
   const currentDefault = taxRates.find((r) => r.is_default)
+  const hasRates = taxRates.length > 0
 
   return (
     <div className="space-y-6">
@@ -176,7 +177,29 @@ export function TaxRateManager() {
         </div>
       ) : null}
 
-      {!isEditing && currentDefault ? (
+      {!hasRates ? (
+        <div className="rounded-[20px] border border-dashed border-indigo-200 bg-indigo-50/40 px-6 py-8 text-center sm:text-left">
+          <div className="mx-auto flex max-w-xl flex-col gap-3 sm:mx-0 sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex justify-center sm:justify-start">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-indigo-100">
+                <IconCurrencyDollar className="h-7 w-7 text-indigo-600" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-slate-900">No tax rate yet</h3>
+              <p className="text-sm font-medium leading-relaxed text-slate-600">
+                Add your organization&apos;s tax rate below (for example New Zealand GST at 15%). It becomes the default
+                for invoices, booking check-in, chargeables, and memberships — you can change it anytime.
+              </p>
+              <p className="text-xs font-medium text-slate-500">
+                Tip: turn on &quot;Make this the default rate&quot; when creating your first rate.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {hasRates && !isEditing && currentDefault ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
@@ -212,7 +235,9 @@ export function TaxRateManager() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {hasRates && (isEditing || !currentDefault) ? (
         <div className="space-y-6 rounded-2xl border border-slate-200 bg-slate-50 p-6">
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -282,7 +307,7 @@ export function TaxRateManager() {
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       <Collapsible
         open={isCreateOpen}
@@ -295,9 +320,13 @@ export function TaxRateManager() {
             className="flex w-full items-start justify-between gap-4 rounded-2xl p-6 text-left"
           >
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900">Add custom tax rate</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                {hasRates ? "Add custom tax rate" : "Add your first tax rate"}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Create a tenant-specific tax rate. New rates are limited to New Zealand for now.
+                {hasRates
+                  ? "Create another tenant-specific rate. New rates are limited to New Zealand for now."
+                  : "Creates a row in tax_rates for this organization (NZ only). Set as default so invoicing and charges pick it up."}
               </p>
             </div>
             <IconChevronDown

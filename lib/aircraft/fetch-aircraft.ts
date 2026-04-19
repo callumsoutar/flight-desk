@@ -16,6 +16,7 @@ export async function fetchAircraft(
     .from("aircraft")
     .select("*, aircraft_type:aircraft_types(id, name, category)")
     .eq("tenant_id", tenantId)
+    .is("voided_at", null)
     .order("order", { ascending: true })
     .order("registration", { ascending: true })
 

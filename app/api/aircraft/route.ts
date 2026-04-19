@@ -34,6 +34,7 @@ const createSchema = z.strictObject({
   record_hobbs: z.boolean().optional(),
   record_tacho: z.boolean().optional(),
   record_airswitch: z.boolean().optional(),
+  initial_total_time_in_service: z.number().min(0, "Initial TTIS must be >= 0"),
 })
 
 export async function GET(request: Request) {
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
     .from("aircraft")
     .select("id")
     .eq("tenant_id", tenantId)
+    .is("voided_at", null)
     .ilike("registration", payload.registration)
     .maybeSingle()
 
@@ -108,11 +110,14 @@ export async function POST(request: Request) {
     .from("aircraft")
     .select("order")
     .eq("tenant_id", tenantId)
+    .is("voided_at", null)
     .order("order", { ascending: false })
     .limit(1)
     .maybeSingle()
 
   const nextOrder = (maxOrderRow?.order ?? 0) + 1
+
+  const baselineTtis = payload.initial_total_time_in_service
 
   const { data, error } = await supabase
     .from("aircraft")
@@ -128,7 +133,8 @@ export async function POST(request: Request) {
       total_time_method: payload.total_time_method ?? "hobbs",
       current_hobbs: payload.current_hobbs ?? 0,
       current_tach: payload.current_tach ?? 0,
-      total_time_in_service: 0,
+      initial_total_time_in_service: baselineTtis,
+      total_time_in_service: baselineTtis,
       on_line: payload.on_line ?? true,
       prioritise_scheduling: payload.prioritise_scheduling ?? false,
       record_hobbs: payload.record_hobbs ?? true,
@@ -141,6 +147,15 @@ export async function POST(request: Request) {
 
   if (error || !data) {
     return noStoreJson({ error: "Failed to create aircraft" }, { status: 500 })
+  }
+
+  const { error: auditError } = await supabase.rpc("record_aircraft_initial_ttis_audit", {
+    p_aircraft_id: data.id,
+  })
+
+  if (auditError) {
+    await supabase.from("aircraft").delete().eq("id", data.id).eq("tenant_id", tenantId)
+    return noStoreJson({ error: "Failed to record initial TTIS audit" }, { status: 500 })
   }
 
   return noStoreJson({ aircraft: data }, { status: 201 })

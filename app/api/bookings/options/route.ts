@@ -34,6 +34,7 @@ export async function GET() {
         .from("aircraft")
         .select("id, registration, type, aircraft_type_id, model, manufacturer")
         .eq("tenant_id", tenantId)
+        .is("voided_at", null)
         .eq("on_line", true)
         .order("order", { ascending: true })
         .order("registration", { ascending: true }),
@@ -43,6 +44,7 @@ export async function GET() {
           "id, first_name, last_name, user_id, is_actively_instructing, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)"
         )
         .eq("tenant_id", tenantId)
+        .is("voided_at", null)
         .eq("is_actively_instructing", true)
         .order("first_name", { ascending: true })
         .order("last_name", { ascending: true }),

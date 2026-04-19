@@ -99,6 +99,7 @@ export async function fetchRosterPageData(
         "id, first_name, last_name, user:user_directory!instructors_user_id_fkey(first_name, last_name, email)"
       )
       .eq("tenant_id", tenantId)
+      .is("voided_at", null)
       .order("is_actively_instructing", { ascending: false })
       .order("last_name", { ascending: true })
       .order("first_name", { ascending: true }),

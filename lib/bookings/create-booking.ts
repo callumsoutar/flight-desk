@@ -76,6 +76,7 @@ export async function createBookingInTenant({
               .select("id")
               .eq("tenant_id", tenantId)
               .eq("id", payload.aircraft_id)
+              .is("voided_at", null)
               .eq("on_line", true)
               .maybeSingle()
           : Promise.resolve({ data: true, error: null }),
@@ -85,6 +86,7 @@ export async function createBookingInTenant({
               .select("id")
               .eq("tenant_id", tenantId)
               .eq("id", payload.instructor_id)
+              .is("voided_at", null)
               .eq("is_actively_instructing", true)
               .maybeSingle()
           : Promise.resolve({ data: true, error: null }),

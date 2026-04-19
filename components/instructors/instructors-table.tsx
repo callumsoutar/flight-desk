@@ -16,6 +16,7 @@ import {
   IconCircleX,
   IconSearch,
   IconShield,
+  IconUserPlus,
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 
@@ -30,6 +31,8 @@ import type { InstructorWithRelations } from "@/lib/types/instructors"
 
 interface InstructorsTableProps {
   instructors: InstructorWithRelations[]
+  canAddInstructor?: boolean
+  onAddInstructor?: () => void
 }
 
 function formatLabel(value: string | null | undefined): string {
@@ -102,7 +105,11 @@ function getTeachingBadge(isActivelyInstructing: boolean): { label: string; clas
   }
 }
 
-export function InstructorsTable({ instructors }: InstructorsTableProps) {
+export function InstructorsTable({
+  instructors,
+  canAddInstructor = false,
+  onAddInstructor,
+}: InstructorsTableProps) {
   const { timeZone } = useTimezone()
   const [search, setSearch] = React.useState("")
   const [sorting, setSorting] = React.useState<SortingState>([])
@@ -263,14 +270,27 @@ export function InstructorsTable({ instructors }: InstructorsTableProps) {
           <p className="mt-1 text-slate-600">View and manage your training team.</p>
         </div>
 
-        <div className="relative w-full sm:w-auto">
-          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            placeholder="Search instructors..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-10 w-full border-slate-200 bg-white pl-9 focus-visible:border-slate-300 focus-visible:ring-1 focus-visible:ring-slate-900 sm:w-64"
-          />
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <div className="relative w-full sm:w-auto">
+            <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Search instructors..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 w-full border-slate-200 bg-white pl-9 focus-visible:border-slate-300 focus-visible:ring-1 focus-visible:ring-slate-900 sm:w-64"
+            />
+          </div>
+
+          {canAddInstructor && onAddInstructor ? (
+            <Button
+              type="button"
+              className="h-10 w-full bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800 sm:w-auto"
+              onClick={onAddInstructor}
+            >
+              <IconUserPlus className="mr-2 h-4 w-4" />
+              Add Instructor
+            </Button>
+          ) : null}
         </div>
       </div>
 

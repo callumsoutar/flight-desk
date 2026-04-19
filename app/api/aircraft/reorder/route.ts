@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest) {
     .from("aircraft")
     .select("id")
     .eq("tenant_id", tenantId)
+    .is("voided_at", null)
     .in("id", ids)
 
   if (existingError) {
@@ -54,6 +55,7 @@ export async function PATCH(request: NextRequest) {
         .update({ order: item.order })
         .eq("tenant_id", tenantId)
         .eq("id", item.id)
+        .is("voided_at", null)
     )
   )
 

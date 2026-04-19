@@ -316,6 +316,7 @@ export async function fetchDashboardPageData(
       .from("aircraft")
       .select("id, registration, type, model, manufacturer, order")
       .eq("tenant_id", tenantId)
+      .is("voided_at", null)
       .order("order", { ascending: true })
       .order("registration", { ascending: true })
       .limit(12)

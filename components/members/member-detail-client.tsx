@@ -12,6 +12,7 @@ import {
   IconCreditCard,
   IconHistory,
   IconMail,
+  IconPhone,
   IconReceipt,
   IconUser,
   IconUsers,
@@ -54,6 +55,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import {
   DropdownMenu,
@@ -80,7 +82,6 @@ import type {
   TenantDefaultTaxRate,
   MembershipTypeWithChargeable,
 } from "@/lib/types/memberships"
-import { getUserInitials } from "@/lib/utils"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
 
@@ -208,7 +209,6 @@ export function MemberDetailClient({
     [firstName, lastName].filter(Boolean).join(" ") ||
     currentMember.user?.email ||
     "Unknown Member"
-  const initials = getUserInitials(firstName, lastName, currentMember.user?.email)
   const isActive = currentMember.is_active
   const membershipStartDate = currentMember.membership?.start_date
     ? formatDate(currentMember.membership.start_date, timeZone)
@@ -252,49 +252,41 @@ export function MemberDetailClient({
         Back to Members
       </Link>
 
-      <Card className="mb-6 border border-border/50 bg-card shadow-sm">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-start md:justify-between">
-            <div className="flex items-start gap-4">
-              <Avatar className="h-20 w-20 rounded-full border-0 bg-gray-100">
-                <AvatarFallback className="bg-gray-100 text-xl font-bold text-gray-600">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="mb-2 flex flex-wrap items-center gap-2 sm:gap-3">
-                  <h1 className="break-words text-2xl font-bold text-gray-900">
-                    {fullName}
-                  </h1>
-                  <Badge
-                    className={
-                      isActive
-                        ? "rounded-md border-0 bg-green-100 px-2 py-1 text-xs font-medium whitespace-nowrap text-green-700"
-                        : "rounded-md border-0 bg-red-100 px-2 py-1 text-xs font-medium whitespace-nowrap text-red-700"
-                    }
-                  >
-                    {isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 sm:gap-4 sm:text-sm">
-                  {currentMember.user?.email ? <span>{currentMember.user.email}</span> : null}
-                  {currentMember.user?.phone ? <span>{currentMember.user.phone}</span> : null}
-                  {membershipStartDate ? (
-                    <span>Member since {membershipStartDate}</span>
-                  ) : null}
-                </div>
+      <Card className="mb-6 overflow-hidden border-border/60 bg-card shadow-none">
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-14 w-14 border border-border bg-muted">
+                  <AvatarFallback className="bg-muted text-muted-foreground">
+                    <IconUser className="h-6 w-6" strokeWidth={1.25} />
+                  </AvatarFallback>
+                </Avatar>
+                <span
+                  aria-hidden
+                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card ${
+                    isActive ? "bg-emerald-500" : "bg-muted-foreground/40"
+                  }`}
+                />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <h1 className="truncate text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+                  {fullName}
+                </h1>
+                <p className="truncate text-sm text-muted-foreground">
+                  {membershipStartDate
+                    ? `Member since ${membershipStartDate}`
+                    : "Member"}
+                </p>
               </div>
             </div>
 
-            <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full border-gray-300 bg-white font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
-                  >
+                  <Button variant="outline" size="sm" className="h-8">
                     Quick Actions
-                    <IconChevronDown className="ml-2 h-4 w-4" />
+                    <IconChevronDown className="ml-1.5 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -312,14 +304,55 @@ export function MemberDetailClient({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                className="w-full bg-[#6564db] font-semibold text-white shadow-sm hover:bg-[#232ed1] sm:w-auto"
-                onClick={onNewBooking}
-              >
-                <IconCalendar className="mr-2 h-4 w-4" />
+              <Button size="sm" className="h-8" onClick={onNewBooking}>
+                <IconCalendar className="mr-1.5 h-4 w-4" />
                 New Booking
               </Button>
             </div>
+          </div>
+
+          <Separator className="my-5" />
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            {currentMember.user?.email ? (
+              <a
+                href={`mailto:${currentMember.user.email}`}
+                className="group inline-flex items-center gap-2 transition-colors hover:text-foreground"
+              >
+                <IconMail className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground" />
+                <span>{currentMember.user.email}</span>
+              </a>
+            ) : null}
+            {currentMember.user?.phone ? (
+              <a
+                href={`tel:${currentMember.user.phone}`}
+                className="group inline-flex items-center gap-2 transition-colors hover:text-foreground"
+              >
+                <IconPhone className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground" />
+                <span>{currentMember.user.phone}</span>
+              </a>
+            ) : null}
+            {membershipStartDate ? (
+              <span className="inline-flex items-center gap-2">
+                <IconCalendar className="h-4 w-4 text-muted-foreground/70" />
+                <span>
+                  Joined{" "}
+                  <span className="text-foreground">{membershipStartDate}</span>
+                </span>
+              </span>
+            ) : null}
+            <Badge
+              variant="outline"
+              className="h-6 items-center gap-1.5 rounded-full px-2 font-normal text-foreground"
+            >
+              <span
+                aria-hidden
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isActive ? "bg-emerald-500" : "bg-muted-foreground/40"
+                }`}
+              />
+              {isActive ? "Active" : "Inactive"}
+            </Badge>
           </div>
         </CardContent>
       </Card>

@@ -11,6 +11,7 @@ import { filterBookingWarningsForMemberOrStudentView } from "@/lib/bookings/filt
 import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
 import { isMemberOrStudentRole } from "@/lib/auth/roles"
 import { fetchBookingPageData } from "@/lib/bookings/fetch-booking-page-data"
+import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types/roles"
 
@@ -33,13 +34,16 @@ async function BookingCheckoutContent({
 
   let pageData: Awaited<ReturnType<typeof fetchBookingPageData>>
   let initialWarnings: Awaited<ReturnType<typeof fetchBookingCheckoutWarnings>>
+  let generalSettings: Awaited<ReturnType<typeof fetchGeneralSettings>>
   try {
-    const [resolvedPageData, resolvedWarnings] = await Promise.all([
+    const [resolvedPageData, resolvedWarnings, resolvedGeneral] = await Promise.all([
       fetchBookingPageData(supabase, tenantId, bookingId, { userId, role }),
       fetchBookingCheckoutWarnings(supabase, tenantId, { bookingId }),
+      fetchGeneralSettings(supabase, tenantId),
     ])
     pageData = resolvedPageData
     initialWarnings = resolvedWarnings
+    generalSettings = resolvedGeneral
   } catch {
     return (
       <AppRouteNarrowDetailContainer>
@@ -67,6 +71,10 @@ async function BookingCheckoutContent({
       initialWarnings={warningsForClient}
       options={pageData.options}
       role={role}
+      checkoutSheetBranding={{
+        clubName: generalSettings.tenant.name,
+        logoUrl: generalSettings.tenant.logo_url,
+      }}
     />
   )
 }

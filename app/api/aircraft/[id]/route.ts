@@ -52,6 +52,7 @@ export async function GET(
     .select("*, aircraft_type:aircraft_types(id, name, category)")
     .eq("tenant_id", tenantId)
     .eq("id", id)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (error || !data) {
@@ -94,6 +95,7 @@ export async function PATCH(
     .update(updates)
     .eq("tenant_id", tenantId)
     .eq("id", id)
+    .is("voided_at", null)
     .select("*, aircraft_type:aircraft_types(id, name, category)")
     .single()
 

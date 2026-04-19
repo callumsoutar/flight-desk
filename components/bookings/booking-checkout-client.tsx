@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
-import { IconCheck, IconChevronDown, IconTrash } from "@tabler/icons-react"
+import { IconCheck, IconDotsVertical, IconPrinter, IconTrash } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import {
@@ -25,6 +25,8 @@ import {
   getBookingTrackerStages,
 } from "@/components/bookings/booking-status-tracker"
 import { BookingCheckoutWarnings } from "@/components/bookings/booking-checkout-warnings"
+import { CheckoutSheet } from "@/components/bookings/checkout-sheet"
+import { CheckoutSheetPrintPortal } from "@/components/bookings/checkout-sheet-print-portal"
 import { filterBookingWarningsForMemberOrStudentView } from "@/lib/bookings/filter-booking-warnings-for-member-view"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,6 +45,8 @@ import {
   fetchBookingWarningsQuery,
   useBookingQuery,
 } from "@/hooks/use-booking-query"
+import { useTimezone } from "@/contexts/timezone-context"
+import { buildCheckoutSheetData } from "@/lib/bookings/build-checkout-sheet-data"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { BookingWarningsResponse } from "@/lib/types/booking-warnings"
 import type { UserRole } from "@/lib/types/roles"
@@ -140,15 +144,21 @@ export function BookingCheckoutClient({
   initialWarnings,
   options,
   role,
+  checkoutSheetBranding,
 }: {
   bookingId: string
   booking: BookingWithRelations
   initialWarnings: BookingWarningsResponse
   options: BookingOptions
   role: UserRole | null
+  checkoutSheetBranding?: {
+    clubName: string
+    logoUrl: string | null
+  }
 }) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { timeZone } = useTimezone()
   const { data: liveBooking } = useBookingQuery(bookingId, initialBooking)
   const booking = liveBooking ?? initialBooking
   const [isPending, startTransition] = React.useTransition()
@@ -376,6 +386,17 @@ export function BookingCheckoutClient({
   )
 
   const studentName = booking.student ? formatUser(booking.student) : "Booking Checkout"
+
+  const checkoutSheetData = React.useMemo(() => {
+    if (booking.status !== "flying") return null
+    return buildCheckoutSheetData({
+      booking,
+      bookingWarnings: warningsForViewer,
+      timeZone,
+      clubName: checkoutSheetBranding?.clubName,
+      logoUrl: checkoutSheetBranding?.logoUrl ?? null,
+    })
+  }, [booking, checkoutSheetBranding?.clubName, checkoutSheetBranding?.logoUrl, timeZone, warningsForViewer])
   const canSubmitCheckout =
     canCheckOut &&
     checkoutForm.authorization_completed &&
@@ -556,34 +577,58 @@ export function BookingCheckoutClient({
     })
   }
 
-  const headerActions = isStaff ? (
-    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-      {canCheckIn ? (
-        <Button className="w-full sm:w-auto" onClick={handleOpenCheckIn} disabled={isPending}>
-          <IconCheck className="mr-2 h-4 w-4" />
-          Check In
-        </Button>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-            More
-            <IconChevronDown className="ml-2 h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-red-600 focus:text-red-600"
-            disabled={isReadOnly || !!booking.cancelled_at}
-            onClick={() => setCancelOpen(true)}
+  const headerActions =
+    checkoutSheetData || isStaff ? (
+      <>
+        {checkoutSheetData ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 gap-2 font-medium shadow-sm transition-all hover:bg-muted/60 hover:shadow"
+            onClick={() => window.print()}
+            disabled={isPending}
           >
-            <IconTrash className="mr-2 h-4 w-4" />
-            Cancel Booking
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  ) : null
+            <IconPrinter className="h-4 w-4" />
+            <span className="hidden sm:inline">Print checkout sheet</span>
+            <span className="sm:hidden">Print</span>
+          </Button>
+        ) : null}
+        {isStaff && canCheckIn ? (
+          <Button
+            className="h-10 flex-1 gap-2 px-5 font-semibold shadow-md ring-1 ring-inset ring-primary/20 transition-all hover:shadow-lg hover:-translate-y-px active:translate-y-0 sm:flex-none"
+            onClick={handleOpenCheckIn}
+            disabled={isPending}
+          >
+            <IconCheck className="h-4 w-4" />
+            Check In
+          </Button>
+        ) : null}
+        {isStaff ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 shadow-sm transition-all hover:bg-muted/60 hover:shadow"
+                aria-label="More actions"
+              >
+                <IconDotsVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                disabled={isReadOnly || !!booking.cancelled_at}
+                onClick={() => setCancelOpen(true)}
+              >
+                <IconTrash className="mr-2 h-4 w-4" />
+                Cancel Booking
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </>
+    ) : null
 
   return (
     <div className="flex flex-1 flex-col bg-muted/30">
@@ -761,6 +806,14 @@ export function BookingCheckoutClient({
         onConfirm={handleCancel}
         pending={isPending}
       />
+
+      {checkoutSheetData ? (
+        <CheckoutSheetPrintPortal>
+          <div id="checkout-sheet-print-root" aria-hidden>
+            <CheckoutSheet data={checkoutSheetData} />
+          </div>
+        </CheckoutSheetPrintPortal>
+      ) : null}
     </div>
   )
 }

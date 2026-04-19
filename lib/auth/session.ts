@@ -40,11 +40,15 @@ export type GetAuthSessionOptions = {
 
 async function resolveRoleFromDatabase(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  tenantId?: string | null
 ): Promise<UserRole | null> {
-  const { data, error } = await supabase.rpc("get_tenant_user_role", {
-    p_user_id: userId,
-  })
+  const args: { p_user_id: string; p_tenant_id?: string } = { p_user_id: userId }
+  if (tenantId) {
+    args.p_tenant_id = tenantId
+  }
+
+  const { data, error } = await supabase.rpc("get_tenant_user_role", args)
 
   if (error) return null
   return isUserRole(data) ? data : null
@@ -141,12 +145,15 @@ async function resolveAuthSession(
     return { user: null, claims: null, role: null, tenantId: null }
   }
 
-  let user: AuthUser | null = claimsToUser(claims, claimedUserId)
+  const userId = claimedUserId
+  const resolvedClaims = claims
+
+  let user: AuthUser | null = claimsToUser(resolvedClaims, userId)
 
   if (requireUser) {
     const { data: userData, error: userError } = await supabase.auth.getUser()
     const authUser = userData?.user ?? null
-    if (userError || !authUser || authUser.id !== claimedUserId) {
+    if (userError || !authUser || authUser.id !== userId) {
       return { user: null, claims: null, role: null, tenantId: null }
     }
     user = userToAuthUser(authUser)
@@ -154,40 +161,35 @@ async function resolveAuthSession(
 
   let role: UserRole | null = null
   let tenantId: string | null = null
-  let rolePromise: Promise<UserRole | null> | null = null
-  let tenantPromise: Promise<string | null> | null = null
+  /** Cached tenant for this request (JWT claim or DB), used to scope get_tenant_user_role. */
+  let sharedTenantId: string | null | undefined = undefined
+
+  async function tenantForSession(): Promise<string | null> {
+    if (sharedTenantId !== undefined) return sharedTenantId
+    if (authoritativeTenant) {
+      sharedTenantId = await resolveTenantFromDatabase(supabase, userId)
+    } else {
+      sharedTenantId =
+        resolveTenantFromClaims(resolvedClaims) ??
+        (await resolveTenantFromDatabase(supabase, userId))
+    }
+    return sharedTenantId
+  }
 
   if (includeRole) {
     if (authoritativeRole) {
-      rolePromise = resolveRoleFromDatabase(supabase, claimedUserId)
+      role = await resolveRoleFromDatabase(supabase, userId, await tenantForSession())
     } else {
-      role = resolveRoleFromClaims(claims)
+      role = resolveRoleFromClaims(resolvedClaims)
       if (!role) {
-        logClaimsFallback("role", claimedUserId)
-        rolePromise = resolveRoleFromDatabase(supabase, claimedUserId)
+        logClaimsFallback("role", userId)
+        role = await resolveRoleFromDatabase(supabase, userId, await tenantForSession())
       }
     }
   }
 
   if (includeTenant) {
-    if (authoritativeTenant) {
-      tenantPromise = resolveTenantFromDatabase(supabase, claimedUserId)
-    } else {
-      tenantId = resolveTenantFromClaims(claims)
-      if (!tenantId) {
-        logClaimsFallback("tenant", claimedUserId)
-        tenantPromise = resolveTenantFromDatabase(supabase, claimedUserId)
-      }
-    }
-  }
-
-  if (rolePromise || tenantPromise) {
-    const [resolvedRole, resolvedTenantId] = await Promise.all([
-      rolePromise ?? Promise.resolve(role),
-      tenantPromise ?? Promise.resolve(tenantId),
-    ])
-    role = resolvedRole
-    tenantId = resolvedTenantId
+    tenantId = await tenantForSession()
   }
 
   return { user, claims, role, tenantId }

@@ -107,6 +107,7 @@ export async function fetchMembers(
       .from("instructors")
       .select("id, user_id, status, is_actively_instructing")
       .eq("tenant_id", tenantId)
+      .is("voided_at", null)
       .in("user_id", userIds),
   ])
 

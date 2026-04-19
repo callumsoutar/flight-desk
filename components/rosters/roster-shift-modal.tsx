@@ -7,7 +7,7 @@ import { Calendar, Pencil, Plus, Repeat, User } from "lucide-react"
 
 import {
   checkRosterRuleConflictsAction,
-  createRosterRuleAction,
+  createRosterRulesBatchAction,
   updateRosterRuleAction,
   voidRosterRuleAction,
 } from "@/app/rosters/actions"
@@ -343,23 +343,21 @@ export function RosterShiftModal({
       const savedRules: RosterRule[] = []
 
       if (mode === "create") {
-        for (const dayOfWeek of targetDays) {
-          const result = await createRosterRuleAction({
-            instructor_id: values.instructor_id,
-            day_of_week: dayOfWeek,
-            start_time: values.start_time,
-            end_time: values.end_time,
-            effective_from: values.effective_from,
-            effective_until: effectiveUntil,
-            notes: values.notes ?? null,
-          })
+        const batchResult = await createRosterRulesBatchAction({
+          instructor_id: values.instructor_id,
+          days_of_week: targetDays,
+          start_time: values.start_time,
+          end_time: values.end_time,
+          effective_from: values.effective_from,
+          effective_until: effectiveUntil,
+          notes: values.notes ?? null,
+        })
 
-          if (!result.ok) {
-            throw new Error(result.error || "Failed to save roster rule")
-          }
-
-          savedRules.push(result.rule)
+        if (!batchResult.ok) {
+          throw new Error(batchResult.error || "Failed to save roster rule")
         }
+
+        savedRules.push(...batchResult.rules)
       } else {
         if (!ruleId) throw new Error("Missing roster rule id")
 
@@ -382,23 +380,22 @@ export function RosterShiftModal({
         savedRules.push(updateResult.rule)
 
         if (values.is_recurring && targetDays.length > 1) {
-          for (const dayOfWeek of targetDays.slice(1)) {
-            const createResult = await createRosterRuleAction({
-              instructor_id: values.instructor_id,
-              day_of_week: dayOfWeek,
-              start_time: values.start_time,
-              end_time: values.end_time,
-              effective_from: values.effective_from,
-              effective_until: values.effective_until,
-              notes: values.notes ?? null,
-            })
+          const batchResult = await createRosterRulesBatchAction({
+            instructor_id: values.instructor_id,
+            days_of_week: targetDays.slice(1),
+            start_time: values.start_time,
+            end_time: values.end_time,
+            effective_from: values.effective_from,
+            effective_until: values.effective_until,
+            notes: values.notes ?? null,
+            exclude_rule_id: ruleId,
+          })
 
-            if (!createResult.ok) {
-              throw new Error(createResult.error || "Failed to save roster rule")
-            }
-
-            savedRules.push(createResult.rule)
+          if (!batchResult.ok) {
+            throw new Error(batchResult.error || "Failed to save roster rule")
           }
+
+          savedRules.push(...batchResult.rules)
         }
       }
 

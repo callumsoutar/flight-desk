@@ -52,6 +52,7 @@ export async function POST(
           .select("id")
           .eq("tenant_id", tenantId)
           .eq("id", parsed.data.primary_instructor_id)
+          .is("voided_at", null)
           .maybeSingle()
       : Promise.resolve({ data: true, error: null }),
     parsed.data.aircraft_type

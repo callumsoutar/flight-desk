@@ -53,6 +53,7 @@ export async function PATCH(
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("id", parsed.data.primary_instructor_id)
+      .is("voided_at", null)
       .maybeSingle()
 
     if (!instructor) {

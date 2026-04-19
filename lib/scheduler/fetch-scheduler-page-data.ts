@@ -93,6 +93,7 @@ export async function fetchSchedulerPageData({
       .from("aircraft")
       .select("*, aircraft_type:aircraft_types(id, name, category)")
       .eq("tenant_id", tenantId)
+      .is("voided_at", null)
       .eq("on_line", true)
       .order("order", { ascending: true })
       .order("registration", { ascending: true }),

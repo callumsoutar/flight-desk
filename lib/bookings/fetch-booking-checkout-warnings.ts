@@ -340,6 +340,7 @@ export async function fetchBookingCheckoutWarnings(
           )
           .eq("tenant_id", tenantId)
           .eq("id", context.instructor_id)
+          .is("voided_at", null)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     context.aircraft_id
@@ -348,6 +349,7 @@ export async function fetchBookingCheckoutWarnings(
           .select("id, registration, on_line, total_time_in_service")
           .eq("tenant_id", tenantId)
           .eq("id", context.aircraft_id)
+          .is("voided_at", null)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     context.aircraft_id

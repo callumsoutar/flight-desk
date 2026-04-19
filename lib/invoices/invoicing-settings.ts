@@ -64,6 +64,22 @@ function addSettingsContainer(value: Json | null, target: JsonObject[]) {
   target.push(value)
 }
 
+/**
+ * Same preference order as the rest of invoice branding (nested `invoicing` / `invoice` then root).
+ * If the key was never saved, default to true so PDF/email match Settings → Invoicing (“include logo” default on).
+ */
+export function resolveIncludeLogoOnInvoiceFlag(tenantSettings: Json | null): boolean {
+  const containers: JsonObject[] = []
+  addSettingsContainer(tenantSettings, containers)
+  for (const container of containers) {
+    const val = container["include_logo_on_invoice"]
+    if (typeof val === "boolean") {
+      return val
+    }
+  }
+  return true
+}
+
 export function resolveInvoicingSettings(input: ResolveInvoicingSettingsInput): InvoicingSettings {
   const containers: JsonObject[] = []
   addSettingsContainer(input.tenantSettings, containers)
@@ -106,14 +122,7 @@ export function resolveInvoicingSettings(input: ResolveInvoicingSettingsInput): 
     readStringSetting(containers, ["invoice_footer_message", "invoice_footer", "invoiceFooter"]) ??
     DEFAULT_INVOICING_SETTINGS.invoiceFooter
 
-  let includeLogoOnInvoice = false
-  for (const container of containers) {
-    const val = container["include_logo_on_invoice"]
-    if (typeof val === "boolean") {
-      includeLogoOnInvoice = val
-      break
-    }
-  }
+  const includeLogoOnInvoice = resolveIncludeLogoOnInvoiceFlag(input.tenantSettings)
 
   const logoUrl = includeLogoOnInvoice ? (input.tenantLogoUrl ?? null) : null
 

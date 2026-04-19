@@ -3,17 +3,21 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import * as Tabs from "@radix-ui/react-tabs"
 import { toast } from "sonner"
 import {
+  IconActivity,
   IconArrowLeft,
   IconBriefcase,
+  IconCalendar,
   IconCertificate,
   IconCurrencyDollar,
   IconMail,
   IconNotes,
   IconPhone,
   IconShieldCheck,
+  IconTrash,
   IconUser,
 } from "@tabler/icons-react"
 
@@ -21,9 +25,12 @@ import {
   updateInstructorDetailsAction,
   updateInstructorNotesAction,
 } from "@/app/instructors/actions"
+import { voidInstructor } from "@/hooks/use-instructors-query"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
 import {
@@ -36,9 +43,16 @@ import {
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
-import { getUserInitials } from "@/lib/utils"
 import type {
   InstructorCategoryLite,
   InstructorDetailWithRelations,
@@ -98,6 +112,7 @@ type InstructorDetailClientProps = {
   rates: InstructorRateWithFlightType[]
   flightTypes: InstructorFlightTypeLite[]
   defaultTaxRate: number | null
+  canDeleteInstructor?: boolean
 }
 
 type CertificationFieldName =
@@ -153,11 +168,12 @@ function buildDetailsFormValues(instructor: InstructorDetailWithRelations): Deta
   }
 }
 
-function statusBadgeClass(status: string) {
-  if (status === "active") return "bg-green-100 text-green-700"
-  if (status === "inactive") return "bg-yellow-100 text-amber-700"
-  if (status === "deactivated" || status === "suspended") return "bg-red-100 text-red-700"
-  return "bg-zinc-200 text-zinc-600"
+function statusDotClass(status: string) {
+  if (status === "active") return "bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]"
+  if (status === "inactive") return "bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.15)]"
+  if (status === "deactivated" || status === "suspended")
+    return "bg-rose-500 shadow-[0_0_0_3px_rgba(244,63,94,0.15)]"
+  return "bg-zinc-400 shadow-[0_0_0_3px_rgba(161,161,170,0.15)]"
 }
 
 function isEqualDetails(a: DetailsFormValues, b: DetailsFormValues) {
@@ -170,7 +186,9 @@ export function InstructorDetailClient({
   rates,
   flightTypes,
   defaultTaxRate,
+  canDeleteInstructor = false,
 }: InstructorDetailClientProps) {
+  const router = useRouter()
   const { timeZone } = useTimezone()
   const detailsFormId = "instructor-details-form"
   const notesFormId = "instructor-notes-form"
@@ -190,6 +208,8 @@ export function InstructorDetailClient({
   const [errors, setErrors] = React.useState<FormErrors>({})
   const [isSavingDetails, setIsSavingDetails] = React.useState(false)
   const [isSavingNotes, setIsSavingNotes] = React.useState(false)
+  const [isVoidDialogOpen, setIsVoidDialogOpen] = React.useState(false)
+  const [isVoiding, setIsVoiding] = React.useState(false)
 
   React.useEffect(() => {
     setCurrentInstructor(instructor)
@@ -254,12 +274,6 @@ export function InstructorDetailClient({
   )
   const isNotesDirty = notesValue !== initialNotesValue
 
-  const initials = getUserInitials(
-    currentInstructor.user?.first_name,
-    currentInstructor.user?.last_name,
-    currentInstructor.user?.email
-  )
-
   const fullName = [currentInstructor.user?.first_name, currentInstructor.user?.last_name]
     .filter(Boolean)
     .join(" ")
@@ -312,6 +326,21 @@ export function InstructorDetailClient({
     setErrors({})
   }
 
+  const handleConfirmVoidInstructor = async () => {
+    setIsVoiding(true)
+    try {
+      await voidInstructor(currentInstructor.user_id)
+      toast.success("Instructor removed from the active list")
+      setIsVoidDialogOpen(false)
+      router.push("/instructors")
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove instructor")
+    } finally {
+      setIsVoiding(false)
+    }
+  }
+
   const handleSaveNotes = async (event: React.FormEvent) => {
     event.preventDefault()
 
@@ -333,7 +362,7 @@ export function InstructorDetailClient({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl py-8">
+    <div className="w-full">
       <Link
         href="/instructors"
         className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -342,51 +371,93 @@ export function InstructorDetailClient({
         Back to Instructors
       </Link>
 
-      <Card className="mb-6 border border-border/50 bg-card shadow-sm">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex items-start gap-4">
-              <Avatar className="h-20 w-20 rounded-full border-0 bg-gray-100">
-                <AvatarFallback className="bg-gray-100 text-xl font-bold text-gray-600">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="mb-1 flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {fullName || currentInstructor.user?.email || "Unknown Instructor"}
-                  </h1>
-                  <Badge
-                    className={`rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClass(currentInstructor.status)}`}
-                  >
-                    {currentInstructor.status.charAt(0).toUpperCase() + currentInstructor.status.slice(1)}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 sm:text-sm">
-                  {currentInstructor.user?.email ? (
-                    <span className="flex items-center gap-1">
-                      <IconMail className="h-3 w-3" />
-                      {currentInstructor.user.email}
-                    </span>
-                  ) : null}
-                  {currentInstructor.user?.phone ? (
-                    <span className="flex items-center gap-1">
-                      <IconPhone className="h-3 w-3" />
-                      {currentInstructor.user.phone}
-                    </span>
-                  ) : null}
-                  {currentInstructor.hire_date ? (
-                    <span>Hired {formatDate(currentInstructor.hire_date, timeZone)}</span>
-                  ) : null}
-                  {currentInstructor.rating_category?.name ? (
-                    <span className="flex items-center gap-1">
-                      <IconCertificate className="h-3 w-3" />
-                      Instructor category: {currentInstructor.rating_category.name}
-                    </span>
-                  ) : null}
-                </div>
+      <Card className="mb-6 overflow-hidden border-border/60 bg-card shadow-none">
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-14 w-14 border border-border bg-muted">
+                  <AvatarFallback className="bg-muted text-muted-foreground">
+                    <IconUser className="h-6 w-6" strokeWidth={1.25} />
+                  </AvatarFallback>
+                </Avatar>
+                <span
+                  aria-hidden
+                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card ${statusDotClass(currentInstructor.status)}`}
+                />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <h1 className="truncate text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+                  {fullName || currentInstructor.user?.email || "Unknown Instructor"}
+                </h1>
+                <p className="truncate text-sm text-muted-foreground">
+                  {[
+                    EMPLOYMENT_TYPES.find(
+                      (item) => item.value === currentInstructor.employment_type
+                    )?.label,
+                    currentInstructor.rating_category?.name
+                      ? `${currentInstructor.rating_category.name} Instructor`
+                      : "Instructor",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
               </div>
             </div>
+
+            <Badge
+              variant="outline"
+              className="hidden h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 font-normal text-foreground sm:inline-flex"
+            >
+              <span
+                aria-hidden
+                className={`h-1.5 w-1.5 rounded-full ${statusDotClass(currentInstructor.status)}`}
+              />
+              {STATUS_OPTIONS.find((item) => item.value === currentInstructor.status)?.label ??
+                currentInstructor.status}
+            </Badge>
+          </div>
+
+          <Separator className="my-5" />
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            {currentInstructor.user?.email ? (
+              <a
+                href={`mailto:${currentInstructor.user.email}`}
+                className="group inline-flex items-center gap-2 transition-colors hover:text-foreground"
+              >
+                <IconMail className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground" />
+                <span>{currentInstructor.user.email}</span>
+              </a>
+            ) : null}
+            {currentInstructor.user?.phone ? (
+              <a
+                href={`tel:${currentInstructor.user.phone}`}
+                className="group inline-flex items-center gap-2 transition-colors hover:text-foreground"
+              >
+                <IconPhone className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground" />
+                <span>{currentInstructor.user.phone}</span>
+              </a>
+            ) : null}
+            {currentInstructor.hire_date ? (
+              <span className="inline-flex items-center gap-2">
+                <IconCalendar className="h-4 w-4 text-muted-foreground/70" />
+                <span>
+                  Joined{" "}
+                  <span className="text-foreground">
+                    {formatDate(currentInstructor.hire_date, timeZone)}
+                  </span>
+                </span>
+              </span>
+            ) : null}
+            <span className="inline-flex items-center gap-2">
+              <IconActivity className="h-4 w-4 text-muted-foreground/70" />
+              <span>
+                {currentInstructor.is_actively_instructing
+                  ? "Currently instructing"
+                  : "Not instructing"}
+              </span>
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -477,7 +548,7 @@ export function InstructorDetailClient({
 
             <div className="w-full p-4 sm:p-6">
               <Tabs.Content value="details">
-                <form id={detailsFormId} onSubmit={handleSaveDetails} className="space-y-8 pb-32">
+                <form id={detailsFormId} onSubmit={handleSaveDetails} className="space-y-8 pb-12">
                   <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 shadow-sm">
                       <h3 className="mb-5 flex items-center gap-2 text-base font-bold tracking-tight text-gray-900">
@@ -658,6 +729,36 @@ export function InstructorDetailClient({
                       ))}
                     </div>
                   </div>
+
+                  {canDeleteInstructor ? (
+                    <>
+                      <div className="border-t border-slate-200" />
+                      <section className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-rose-600 ring-1 ring-rose-200">
+                            <IconTrash className="h-4 w-4" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <h4 className="text-sm font-semibold tracking-tight text-slate-900">
+                              Remove instructor
+                            </h4>
+                            <p className="text-sm leading-5 text-slate-600">
+                              Hide this instructor from lists and scheduling. Existing bookings and
+                              records stay in place.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="w-full shrink-0 sm:w-auto"
+                          onClick={() => setIsVoidDialogOpen(true)}
+                        >
+                          Remove instructor
+                        </Button>
+                      </section>
+                    </>
+                  ) : null}
                 </form>
               </Tabs.Content>
 
@@ -679,7 +780,7 @@ export function InstructorDetailClient({
               </Tabs.Content>
 
               <Tabs.Content value="notes">
-                <form id={notesFormId} onSubmit={handleSaveNotes} className="space-y-6 pb-32">
+                <form id={notesFormId} onSubmit={handleSaveNotes} className="space-y-6 pb-12">
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 shadow-sm">
                     <h3 className="mb-5 flex items-center gap-2 text-base font-bold tracking-tight text-gray-900">
                       <IconNotes className="h-5 w-5 text-indigo-600" />
@@ -723,6 +824,31 @@ export function InstructorDetailClient({
           saveLabel="Save notes"
         />
       ) : null}
+
+      <Dialog open={isVoidDialogOpen} onOpenChange={setIsVoidDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove this instructor?</DialogTitle>
+            <DialogDescription>
+              This sets a void date on the instructor record. They will no longer appear in instructor lists or booking
+              options. Existing bookings and records remain for audit.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsVoidDialogOpen(false)}
+              disabled={isVoiding}
+            >
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleConfirmVoidInstructor} disabled={isVoiding}>
+              {isVoiding ? "Removing…" : "Yes, remove instructor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

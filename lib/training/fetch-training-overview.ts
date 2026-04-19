@@ -56,6 +56,7 @@ export async function fetchTrainingOverview(
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("user_id", userId)
+      .is("voided_at", null)
       .maybeSingle()
 
     if (!error && data?.id) instructorId = data.id

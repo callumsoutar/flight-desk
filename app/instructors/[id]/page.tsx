@@ -6,6 +6,7 @@ import { InstructorDetailSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteDetailContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInstructorCategories } from "@/lib/instructors/fetch-instructor-categories"
 import { fetchInstructorDetail } from "@/lib/instructors/fetch-instructor-detail"
@@ -20,9 +21,11 @@ type PageProps = {
 async function InstructorDetailContent({
   tenantId,
   userId,
+  canDeleteInstructor,
 }: {
   tenantId: string
   userId: string
+  canDeleteInstructor: boolean
 }) {
   const supabase = await createSupabaseServerClient()
 
@@ -83,6 +86,7 @@ async function InstructorDetailContent({
           rates={rates}
           flightTypes={flightTypes}
           defaultTaxRate={defaultTaxRate}
+          canDeleteInstructor={canDeleteInstructor}
         />
       </div>
     </AppRouteDetailContainer>
@@ -93,7 +97,11 @@ export default async function InstructorDetailPage({ params }: PageProps) {
   const { id } = await params
 
   const supabase = await createSupabaseServerClient()
-  const { user, tenantId } = await getAuthSession(supabase, { includeTenant: true })
+  const { user, tenantId, role } = await getAuthSession(supabase, {
+    includeTenant: true,
+    includeRole: true,
+    authoritativeRole: true,
+  })
 
   if (!user) redirect("/login")
   if (!tenantId) {
@@ -118,7 +126,11 @@ export default async function InstructorDetailPage({ params }: PageProps) {
           </AppRouteDetailContainer>
         }
       >
-        <InstructorDetailContent tenantId={tenantId} userId={id} />
+        <InstructorDetailContent
+          tenantId={tenantId}
+          userId={id}
+          canDeleteInstructor={isAdminRole(role)}
+        />
       </React.Suspense>
     </AppRouteShell>
   )

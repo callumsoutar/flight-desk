@@ -4,11 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
   DEFAULT_INVOICING_SETTINGS,
+  resolveIncludeLogoOnInvoiceFlag,
   resolveInvoicingSettings,
   type InvoicingSettings,
 } from "@/lib/invoices/invoicing-settings"
 import { resolveTenantLogoSignedUrl } from "@/lib/settings/logo-storage-admin"
-import { isJsonObject } from "@/lib/settings/utils"
 import type { Database } from "@/lib/types"
 
 export async function fetchInvoicingSettings(
@@ -35,8 +35,7 @@ export async function fetchInvoicingSettings(
   if (!tenant) return DEFAULT_INVOICING_SETTINGS
 
   const rawSettings = tenantSettingsResult.data?.settings ?? null
-  const includeLogoOnInvoice =
-    isJsonObject(rawSettings) && rawSettings["include_logo_on_invoice"] === true
+  const includeLogoOnInvoice = resolveIncludeLogoOnInvoiceFlag(rawSettings)
 
   let tenantLogoUrl: string | null = null
   if (includeLogoOnInvoice && typeof tenant.logo_url === "string" && tenant.logo_url) {

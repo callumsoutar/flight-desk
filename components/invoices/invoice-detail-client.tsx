@@ -76,6 +76,15 @@ export function InvoiceDetailClient({
   const isXeroLocked = liveXeroStatus?.export_status === "exported"
   const isReadOnly = isXeroLocked
 
+  /** Logo is for PDF/email only — never pass `logoUrl` into the on-screen document or browser print. */
+  const settingsForInvoiceScreen = React.useMemo(
+    () => ({
+      ...settings,
+      logoUrl: null as string | null,
+    }),
+    [settings],
+  )
+
   const handleApprove = React.useCallback(() => {
     if (liveInvoice.status !== "draft") return
 
@@ -156,7 +165,7 @@ export function InvoiceDetailClient({
 
         <div className="mt-6 space-y-6">
           <InvoiceDocumentView
-            settings={settings}
+            settings={settingsForInvoiceScreen}
             invoice={{
               invoiceNumber: liveInvoice.invoice_number || `#${liveInvoice.id.slice(0, 8)}`,
               issueDate: liveInvoice.issue_date,

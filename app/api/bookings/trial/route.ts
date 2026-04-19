@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("id", payload.aircraft_id)
+      .is("voided_at", null)
       .eq("on_line", true)
       .maybeSingle()
 
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("id", payload.instructor_id)
+      .is("voided_at", null)
       .eq("is_actively_instructing", true)
       .maybeSingle()
 

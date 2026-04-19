@@ -10,6 +10,7 @@ import type {
   FlightEntry,
   MaintenanceVisitWithUser,
   ObservationWithUsers,
+  UpcomingBookingEntry,
 } from "@/lib/types/aircraft-detail"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
@@ -40,6 +41,24 @@ function mapBookingsToFlightEntries(bookings: BookingWithRelations[]): FlightEnt
   }))
 }
 
+function mapBookingsToUpcomingEntries(bookings: BookingWithRelations[]): UpcomingBookingEntry[] {
+  return bookings.map((b) => ({
+    id: b.id,
+    user_id: b.user_id,
+    instructor_id: b.instructor_id,
+    start_time: b.start_time,
+    end_time: b.end_time,
+    status: b.status,
+    booking_type: b.booking_type,
+    purpose: b.purpose,
+    created_at: b.created_at,
+    student: b.student,
+    instructor: b.instructor,
+    flight_type: b.flight_type ? { id: b.flight_type.id, name: b.flight_type.name } : null,
+    lesson: b.lesson ? { id: b.lesson.id, name: b.lesson.name } : null,
+  }))
+}
+
 export async function fetchAircraftDetail(
   supabase: SupabaseClient<Database>,
   tenantId: string,
@@ -50,18 +69,35 @@ export async function fetchAircraftDetail(
     .select("*, aircraft_type:aircraft_types(id, name, category)")
     .eq("tenant_id", tenantId)
     .eq("id", aircraftId)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (aircraftError) throw aircraftError
   if (!aircraftRow) return { data: null, loadErrors: [] }
 
-  const [bookingsResult, maintenanceResult, observationsResult, componentsResult] =
-    await Promise.all([
+  const nowIso = new Date().toISOString()
+
+  const [
+    bookingsResult,
+    upcomingBookingsResult,
+    maintenanceResult,
+    observationsResult,
+    componentsResult,
+  ] = await Promise.all([
       fetchBookings(supabase, tenantId, {
         aircraft_id: aircraftId,
         status: ["complete"],
         start_time_order: "desc",
         limit: 100,
+      })
+        .then((bookings) => ({ ok: true as const, bookings }))
+        .catch(() => ({ ok: false as const, bookings: [] as BookingWithRelations[] })),
+      fetchBookings(supabase, tenantId, {
+        aircraft_id: aircraftId,
+        status: ["unconfirmed", "confirmed", "briefing", "flying"],
+        start_date: nowIso,
+        start_time_order: "asc",
+        limit: 200,
       })
         .then((bookings) => ({ ok: true as const, bookings }))
         .catch(() => ({ ok: false as const, bookings: [] as BookingWithRelations[] })),
@@ -94,6 +130,7 @@ export async function fetchAircraftDetail(
 
   const loadErrors: string[] = []
   if (!bookingsResult.ok) loadErrors.push("flight history")
+  if (!upcomingBookingsResult.ok) loadErrors.push("upcoming bookings")
   if (maintenanceResult.error) loadErrors.push("maintenance history")
   if (observationsResult.error) loadErrors.push("observations")
   if (componentsResult.error) loadErrors.push("maintenance items")
@@ -102,10 +139,26 @@ export async function fetchAircraftDetail(
     ? mapBookingsToFlightEntries(bookingsResult.bookings)
     : []
 
+  const upcomingBookings: UpcomingBookingEntry[] = upcomingBookingsResult.ok
+    ? mapBookingsToUpcomingEntries(upcomingBookingsResult.bookings)
+    : []
+
+  const allMaintenance = (maintenanceResult.data ?? []) as MaintenanceVisitWithUser[]
+  const upcomingMaintenance = allMaintenance.filter((visit) => {
+    if (visit.date_out_of_maintenance) return false
+    const candidate = visit.scheduled_end ?? visit.scheduled_for ?? visit.visit_date
+    if (!candidate) return false
+    const candidateDate = new Date(candidate)
+    if (Number.isNaN(candidateDate.getTime())) return false
+    return candidateDate.getTime() >= Date.now()
+  })
+
   const data: AircraftDetailData = {
     aircraft: aircraftRow as AircraftWithType,
     flights,
-    maintenanceVisits: (maintenanceResult.data ?? []) as MaintenanceVisitWithUser[],
+    upcomingBookings,
+    upcomingMaintenance,
+    maintenanceVisits: allMaintenance,
     observations: (observationsResult.data ?? []) as ObservationWithUsers[],
     components: (componentsResult.data ?? []) as AircraftComponentsRow[],
   }

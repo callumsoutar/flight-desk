@@ -7,11 +7,13 @@ import {
   IconInfoCircle,
   IconPlus,
   IconSettings,
+  IconTrash,
 } from "@tabler/icons-react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 import type { AircraftType, AircraftWithType } from "@/lib/types/aircraft"
-import { updateAircraft } from "@/hooks/use-aircraft-query"
+import { updateAircraft, voidAircraft } from "@/hooks/use-aircraft-query"
 import { createAircraftType, useAircraftTypesCache, useAircraftTypesQuery } from "@/hooks/use-aircraft-types-query"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,6 +42,7 @@ import { cn } from "@/lib/utils"
 type Props = {
   aircraft: AircraftWithType
   aircraftId: string
+  canVoidAircraft?: boolean
   onSaved?: (aircraft: AircraftWithType) => void
 }
 
@@ -186,10 +189,13 @@ function ToggleRow({
   )
 }
 
-export function AircraftSettingsTab({ aircraft, aircraftId, onSaved }: Props) {
+export function AircraftSettingsTab({ aircraft, aircraftId, canVoidAircraft = false, onSaved }: Props) {
+  const router = useRouter()
   const [formState, setFormState] = React.useState<AircraftFormState>(() => toFormState(aircraft))
   const [isSaving, setIsSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [isVoidDialogOpen, setIsVoidDialogOpen] = React.useState(false)
+  const [isVoiding, setIsVoiding] = React.useState(false)
   const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = React.useState(false)
   const [isAircraftTypeSelectOpen, setIsAircraftTypeSelectOpen] = React.useState(false)
   const [newTypeName, setNewTypeName] = React.useState("")
@@ -318,6 +324,22 @@ export function AircraftSettingsTab({ aircraft, aircraftId, onSaved }: Props) {
       toast.error(message)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleConfirmVoid = async () => {
+    setIsVoiding(true)
+    try {
+      await voidAircraft(aircraftId)
+      toast.success("Aircraft removed from active fleet")
+      setIsVoidDialogOpen(false)
+      router.push("/aircraft")
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to remove aircraft"
+      toast.error(message)
+    } finally {
+      setIsVoiding(false)
     }
   }
 
@@ -577,6 +599,36 @@ export function AircraftSettingsTab({ aircraft, aircraftId, onSaved }: Props) {
           >
             <AircraftChargeRatesTable aircraftId={aircraftId} />
           </FieldGroup>
+
+          {canVoidAircraft ? (
+            <>
+              <div className="border-t border-slate-200" />
+              <section className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-rose-600 ring-1 ring-rose-200">
+                    <IconTrash className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-sm font-semibold tracking-tight text-slate-900">
+                      Remove from fleet
+                    </h4>
+                    <p className="text-sm leading-5 text-slate-600">
+                      Hide this aircraft from schedules and fleet lists. Past flights and
+                      maintenance history stay in place.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full shrink-0 sm:w-auto"
+                  onClick={() => setIsVoidDialogOpen(true)}
+                >
+                  Remove aircraft from fleet
+                </Button>
+              </section>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -592,6 +644,30 @@ export function AircraftSettingsTab({ aircraft, aircraftId, onSaved }: Props) {
         undoLabel="Undo Changes"
         saveLabel="Save Changes"
       />
+
+      <Dialog open={isVoidDialogOpen} onOpenChange={setIsVoidDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove this aircraft from the fleet?</DialogTitle>
+            <DialogDescription>
+              Are you sure? This records a void date on the aircraft. It will no longer appear in fleet lists or booking options. Existing flights and maintenance history stay in the database.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsVoidDialogOpen(false)}
+              disabled={isVoiding}
+            >
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleConfirmVoid} disabled={isVoiding}>
+              {isVoiding ? "Removing…" : "Yes, remove from fleet"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isAddTypeDialogOpen} onOpenChange={setIsAddTypeDialogOpen}>
         <DialogContent>

@@ -43,6 +43,7 @@ export async function fetchMemberDetail(
       .select("id, status, is_actively_instructing")
       .eq("tenant_id", tenantId)
       .eq("user_id", userId)
+      .is("voided_at", null)
       .maybeSingle(),
     supabase.rpc("is_auth_user", { user_uuid: userId }),
   ])

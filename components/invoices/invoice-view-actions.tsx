@@ -74,6 +74,26 @@ export type InvoiceViewActionsProps = {
 
 const XERO_EXPORTABLE = new Set(["authorised", "paid", "overdue"])
 
+/** react-pdf in the browser often fails to embed remote URLs; prefetch as data URI when possible. */
+async function fetchLogoAsDataUri(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return await new Promise<string | null>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const result = reader.result
+        resolve(typeof result === "string" ? result : null)
+      }
+      reader.onerror = () => reject(reader.error ?? new Error("Failed to read logo"))
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
 export default function InvoiceViewActions({
   invoiceId,
   invoice,
@@ -119,8 +139,20 @@ export default function InvoiceViewActions({
         import("@react-pdf/renderer"),
         import("@/components/invoices/invoice-report-pdf"),
       ])
+      let pdfSettings = settings
+      if (
+        settings.includeLogoOnInvoice &&
+        settings.logoUrl &&
+        (settings.logoUrl.startsWith("http://") || settings.logoUrl.startsWith("https://"))
+      ) {
+        const dataUri = await fetchLogoAsDataUri(settings.logoUrl)
+        if (dataUri) {
+          pdfSettings = { ...settings, logoUrl: dataUri }
+        }
+      }
+
       const blob = await pdf(
-        <InvoiceReportPDF invoice={invoice} items={items} settings={settings} timeZone={timeZone} />
+        <InvoiceReportPDF invoice={invoice} items={items} settings={pdfSettings} timeZone={timeZone} />
       ).toBlob()
 
       const objectUrl = URL.createObjectURL(blob)

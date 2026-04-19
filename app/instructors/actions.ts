@@ -93,6 +93,7 @@ async function verifyInstructorInTenant(
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("user_id", userId)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (error || !data) return null
@@ -109,6 +110,7 @@ async function verifyInstructorByIdInTenant(
     .select("id, user_id")
     .eq("tenant_id", tenantId)
     .eq("id", instructorId)
+    .is("voided_at", null)
     .maybeSingle()
 
   if (error || !data) return null

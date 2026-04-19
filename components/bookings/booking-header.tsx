@@ -2,14 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import {
-  IconArrowLeft,
-  IconCalendar,
-  IconExternalLink,
-  IconPlane,
-  IconSchool,
-  IconUser,
-} from "@tabler/icons-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 
 import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
@@ -30,39 +23,49 @@ interface BookingHeaderProps {
 
 type FlightInstructionType = NonNullable<BookingWithRelations["flight_type"]>["instruction_type"]
 
-type BookingHeaderIndicatorTone = "blue" | "green" | "amber" | "orange" | "rose" | "slate" | "violet"
+type BookingHeaderIndicatorTone =
+  | "blue"
+  | "green"
+  | "amber"
+  | "orange"
+  | "rose"
+  | "slate"
+  | "violet"
 
-function getIndicatorToneClasses(tone: BookingHeaderIndicatorTone) {
-  switch (tone) {
-    case "blue":
-      return {
-        dot: "bg-blue-500",
-      }
-    case "green":
-      return {
-        dot: "bg-emerald-500",
-      }
-    case "amber":
-      return {
-        dot: "bg-amber-500",
-      }
-    case "orange":
-      return {
-        dot: "bg-orange-500",
-      }
-    case "rose":
-      return {
-        dot: "bg-rose-500",
-      }
-    case "violet":
-      return {
-        dot: "bg-violet-500",
-      }
-    default:
-      return {
-        dot: "bg-slate-400",
-      }
-  }
+type ToneClasses = {
+  dot: string
+  pulse: string
+}
+
+const TONE_STYLES: Record<BookingHeaderIndicatorTone, ToneClasses> = {
+  blue: {
+    dot: "bg-blue-500",
+    pulse: "bg-blue-400",
+  },
+  green: {
+    dot: "bg-emerald-500",
+    pulse: "bg-emerald-400",
+  },
+  amber: {
+    dot: "bg-amber-500",
+    pulse: "bg-amber-400",
+  },
+  orange: {
+    dot: "bg-orange-500",
+    pulse: "bg-orange-400",
+  },
+  rose: {
+    dot: "bg-rose-500",
+    pulse: "bg-rose-400",
+  },
+  violet: {
+    dot: "bg-violet-500",
+    pulse: "bg-violet-400",
+  },
+  slate: {
+    dot: "bg-slate-400",
+    pulse: "bg-slate-300",
+  },
 }
 
 function getStatusIndicatorTone(status: BookingStatus): BookingHeaderIndicatorTone {
@@ -116,7 +119,7 @@ function getInstructionTypeLabel(instructionType: FlightInstructionType) {
   }
 }
 
-function getInstructionBadgeStyles(instructionType: FlightInstructionType) {
+function getInstructionBadgeStyles(instructionType: FlightInstructionType): BookingHeaderIndicatorTone {
   switch (instructionType) {
     case "solo":
       return "green"
@@ -133,41 +136,51 @@ function formatDisplayName(user: { first_name: string | null; last_name: string 
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email
 }
 
+const recordLinkClass =
+  "inline-flex items-center text-blue-600 underline decoration-blue-300/70 decoration-1 underline-offset-[3px] transition-colors hover:text-blue-700 hover:decoration-blue-500 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300 dark:hover:decoration-blue-400"
+
 export function BookingHeaderIndicator({
   label,
   value,
   tone = "slate",
-  variant = "inline",
+  pulse = false,
   className,
 }: {
   label: string
   value: string
   tone?: BookingHeaderIndicatorTone
+  /** Kept for backwards compatibility — has no visual effect now. */
   variant?: "inline" | "status"
+  /** Kept for backwards compatibility — icons are no longer rendered. */
+  icon?: React.ComponentType<{ className?: string }>
+  pulse?: boolean
+  /** Kept for backwards compatibility — labels are not rendered inline. */
+  showLabel?: boolean
+  /** Kept for backwards compatibility — sizing is now uniform. */
+  size?: "sm" | "md"
   className?: string
 }) {
-  const toneClasses = getIndicatorToneClasses(tone)
+  const tones = TONE_STYLES[tone]
 
   return (
-    <div
-      className={cn(
-        "inline-flex min-h-0 w-auto items-center gap-2.5 rounded-none border-0 bg-transparent px-0 py-0 shadow-none",
-        className
-      )}
+    <span
+      className={cn("inline-flex items-center gap-1.5", className)}
+      aria-label={`${label}: ${value}`}
     >
-      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
-        {label}
+      <span className="relative inline-flex h-1.5 w-1.5 items-center justify-center">
+        {pulse ? (
+          <span
+            className={cn(
+              "absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full opacity-70",
+              tones.pulse
+            )}
+            aria-hidden
+          />
+        ) : null}
+        <span className={cn("relative inline-block h-1.5 w-1.5 rounded-full", tones.dot)} />
       </span>
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-sm font-medium text-foreground",
-          variant === "status" ? "border-border/60 bg-background" : "border-border/50 bg-muted/20"
-        )}
-      >
-        <span className={cn("h-2 w-2 rounded-full", toneClasses.dot)} />
-        <span className="truncate">{value}</span>
-      </span>
-    </div>
+      <span className="text-sm font-medium text-foreground">{value}</span>
+    </span>
   )
 }
 
@@ -179,9 +192,32 @@ export function BookingHeaderIndicators({
   className?: string
 }) {
   return (
-    <div className={cn("flex w-full flex-wrap items-center gap-x-4 gap-y-2 sm:w-auto sm:justify-end", className)}>
+    <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5", className)}>
       {children}
     </div>
+  )
+}
+
+function MetadataItem({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex min-w-0 items-baseline gap-1.5">
+      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </span>
+      <div className="min-w-0 truncate text-sm font-semibold text-foreground">{children}</div>
+    </div>
+  )
+}
+
+function MetadataSeparator() {
+  return (
+    <span aria-hidden className="hidden h-3 w-px bg-border/70 sm:inline-block" />
   )
 }
 
@@ -200,7 +236,8 @@ export function BookingHeader({
   const isGroundwork = booking.booking_type === "groundwork"
   const badgeLabel = getStatusLabel(status)
   const statusTone = getStatusIndicatorTone(status)
-  const instructionType = booking.booking_type === "flight" ? booking.flight_type?.instruction_type ?? null : null
+  const instructionType =
+    booking.booking_type === "flight" ? booking.flight_type?.instruction_type ?? null : null
   const instructionLabel = instructionType ? getInstructionTypeLabel(instructionType) : null
   const instructionTone = instructionType ? getInstructionBadgeStyles(instructionType) : null
 
@@ -219,90 +256,104 @@ export function BookingHeader({
   const dateLabel = formatDate(booking.start_time, timeZone) || "TBD"
 
   return (
-    <div className={cn("border-b border-border/40 bg-background py-3 sm:py-4", className)}>
-      <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={cn(
+        "border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        className
+      )}
+    >
+      <div className="w-full px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <Link
             href={backHref}
-            className="group inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="group inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <IconArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
             {backLabel}
           </Link>
-
-          <BookingHeaderIndicators className="sm:justify-end">
-            {extra}
-            {instructionType && instructionLabel && instructionTone ? (
-              <BookingHeaderIndicator label="Type" value={instructionLabel} tone={instructionTone} />
-            ) : null}
-            <BookingHeaderIndicator label="Status" value={badgeLabel} tone={statusTone} variant="status" />
-          </BookingHeaderIndicators>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-5">
-          <div className="min-w-0 flex-1 space-y-2">
-            <h1 className="max-w-4xl text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-[1.7rem]">
-              {title}
-            </h1>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl lg:text-[1.75rem]">
+                {title}
+              </h1>
+              <BookingHeaderIndicators className="gap-x-4">
+                <BookingHeaderIndicator
+                  label="Status"
+                  value={badgeLabel}
+                  tone={statusTone}
+                  pulse={status === "flying"}
+                />
+                {instructionType && instructionLabel && instructionTone ? (
+                  <BookingHeaderIndicator
+                    label="Type"
+                    value={instructionLabel}
+                    tone={instructionTone}
+                  />
+                ) : null}
+                {extra}
+              </BookingHeaderIndicators>
+            </div>
 
-            <div className="grid gap-x-5 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               {studentName && booking.user_id ? (
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <IconUser className="h-4 w-4" />
-                  <span className="font-medium text-foreground/70">Member:</span>
-                  {showRecordLinks ? (
-                    <Link
-                      href={`/members/${booking.user_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-semibold text-foreground transition-colors hover:text-primary"
-                    >
-                      {studentName}
-                      <IconExternalLink className="h-3 w-3 opacity-40" />
-                    </Link>
-                  ) : (
-                    <span className="font-semibold text-foreground">{studentName}</span>
-                  )}
-                </div>
+                <>
+                  <MetadataItem label="Member">
+                    {showRecordLinks ? (
+                      <Link
+                        href={`/members/${booking.user_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={recordLinkClass}
+                      >
+                        <span className="truncate">{studentName}</span>
+                      </Link>
+                    ) : (
+                      <span className="truncate">{studentName}</span>
+                    )}
+                  </MetadataItem>
+                  <MetadataSeparator />
+                </>
               ) : null}
 
               {instructorName ? (
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <IconSchool className="h-4 w-4" />
-                  <span className="font-medium text-foreground/70">Instructor:</span>
-                  <span className="font-semibold text-foreground">{instructorName}</span>
-                </div>
+                <>
+                  <MetadataItem label="Instructor">
+                    <span className="truncate">{instructorName}</span>
+                  </MetadataItem>
+                  <MetadataSeparator />
+                </>
               ) : null}
 
-              <div className="flex min-w-0 items-center gap-1.5">
-                <IconPlane className="h-4 w-4" />
-                <span className="font-medium text-foreground/70">{isGroundwork ? "Session:" : "Aircraft:"}</span>
+              <MetadataItem label={isGroundwork ? "Session" : "Aircraft"}>
                 {!isGroundwork && booking.aircraft_id && showRecordLinks ? (
                   <Link
                     href={`/aircraft/${booking.aircraft_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-foreground transition-colors hover:text-primary"
+                    className={recordLinkClass}
                   >
-                    {assetLabel}
-                    <IconExternalLink className="h-3 w-3 opacity-40" />
+                    <span className="truncate">{assetLabel}</span>
                   </Link>
                 ) : (
-                  <span className="font-semibold text-foreground">{assetLabel}</span>
+                  <span className="truncate">{assetLabel}</span>
                 )}
-              </div>
+              </MetadataItem>
+              <MetadataSeparator />
 
-              <div className="flex min-w-0 items-center gap-1.5">
-                <IconCalendar className="h-4 w-4" />
-                <span className="font-medium text-foreground/70">Date:</span>
-                <span className="font-semibold text-foreground">{dateLabel}</span>
-              </div>
+              <MetadataItem label="Date">
+                <span className="truncate">{dateLabel}</span>
+              </MetadataItem>
             </div>
           </div>
 
           {actions ? (
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end lg:self-start lg:pl-4">
-              {actions}
+            <div className="flex w-full flex-shrink-0 lg:w-auto lg:items-start lg:justify-end lg:self-start">
+              <div className="flex w-full items-center gap-2 sm:gap-2.5 lg:w-auto">
+                {actions}
+              </div>
             </div>
           ) : null}
         </div>

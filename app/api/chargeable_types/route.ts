@@ -36,6 +36,9 @@ const updateSchema = z.strictObject({
   is_active: z.boolean().optional(),
 })
 
+const CHARGEABLE_TYPE_SELECT =
+  "id, code, name, description, gl_code, is_active, scope, system_key, tenant_id, updated_at" as const
+
 export async function GET(request: NextRequest) {
   const session = await getTenantScopedRouteContext()
   if (session.response) return session.response
@@ -46,28 +49,49 @@ export async function GET(request: NextRequest) {
   const excludeCode = url.searchParams.get("exclude_code")
   const excludeSystemKey = url.searchParams.get("exclude_system_key")
 
-  let query = supabase
+  /**
+   * Previously: single query with `.or(\`tenant_id.eq.${tenantId},scope.eq.system\`)` plus filters.
+   * PostgREST can return incomplete rows when OR is combined with neq/is_active filters.
+   * Fetch tenant-scoped types and system types separately, then merge (same logical result).
+   */
+  let tenantQuery = supabase
     .from("chargeable_types")
-    .select("id, code, name, description, gl_code, is_active, scope, system_key, tenant_id, updated_at")
-    .or(`tenant_id.eq.${tenantId},scope.eq.system`)
-    .order("name", { ascending: true })
+    .select(CHARGEABLE_TYPE_SELECT)
+    .eq("tenant_id", tenantId)
+
+  let systemQuery = supabase.from("chargeable_types").select(CHARGEABLE_TYPE_SELECT).eq("scope", "system")
 
   if (isActive !== undefined) {
-    query = query.eq("is_active", isActive)
+    tenantQuery = tenantQuery.eq("is_active", isActive)
+    systemQuery = systemQuery.eq("is_active", isActive)
   }
   if (excludeCode) {
-    query = query.neq("code", excludeCode)
+    tenantQuery = tenantQuery.neq("code", excludeCode)
+    systemQuery = systemQuery.neq("code", excludeCode)
   }
   if (excludeSystemKey) {
-    query = query.neq("system_key", excludeSystemKey)
+    tenantQuery = tenantQuery.neq("system_key", excludeSystemKey)
+    systemQuery = systemQuery.neq("system_key", excludeSystemKey)
   }
 
-  const { data, error } = await query
-  if (error) {
+  const [{ data: tenantRows, error: tenantError }, { data: systemRows, error: systemError }] = await Promise.all([
+    tenantQuery,
+    systemQuery,
+  ])
+
+  if (tenantError || systemError) {
     return noStoreJson({ error: "Failed to fetch chargeable types" }, { status: 500 })
   }
 
-  return noStoreJson({ chargeable_types: data ?? [] })
+  const seen = new Set<string>()
+  const merged = [...(tenantRows ?? []), ...(systemRows ?? [])].filter((row) => {
+    if (!row?.id || seen.has(row.id)) return false
+    seen.add(row.id)
+    return true
+  })
+  merged.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", undefined, { sensitivity: "base" }))
+
+  return noStoreJson({ chargeable_types: merged })
 }
 
 export async function POST(request: NextRequest) {

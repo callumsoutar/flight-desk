@@ -24,6 +24,7 @@ export async function createAircraft(input: {
   year_manufactured?: number | null
   aircraft_type_id?: string | null
   total_time_method: string
+  initial_total_time_in_service: number
   current_hobbs: number
   current_tach: number
   on_line: boolean
@@ -120,5 +121,17 @@ export async function reorderAircraft(items: { id: string; order: number }[]) {
   const payload = (await response.json().catch(() => ({}))) as { error?: string }
   if (!response.ok) {
     throw new Error(getAircraftErrorMessage(payload, "Failed to update aircraft order"))
+  }
+}
+
+export async function voidAircraft(aircraftId: string): Promise<void> {
+  const response = await fetch(`/api/aircraft/${aircraftId}/void`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  })
+
+  const payload = (await response.json().catch(() => ({}))) as { error?: string }
+  if (!response.ok) {
+    throw new Error(getAircraftErrorMessage(payload, "Failed to remove aircraft from fleet"))
   }
 }

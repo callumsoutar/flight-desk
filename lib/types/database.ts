@@ -43,6 +43,7 @@ export type Database = {
             | null
           type: string
           updated_at: string
+          voided_at: string | null
           year_manufactured: number | null
         }
         Insert: {
@@ -73,6 +74,7 @@ export type Database = {
             | null
           type: string
           updated_at?: string
+          voided_at?: string | null
           year_manufactured?: number | null
         }
         Update: {
@@ -103,6 +105,7 @@ export type Database = {
             | null
           type?: string
           updated_at?: string
+          voided_at?: string | null
           year_manufactured?: number | null
         }
         Relationships: [
@@ -166,13 +169,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aircraft"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "aircraft_charge_rates_aircraft_id_fkey"
-            columns: ["aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
           },
           {
             foreignKeyName: "aircraft_charge_rates_flight_type_id_fkey"
@@ -266,13 +262,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "aircraft_components_aircraft_id_fkey"
-            columns: ["aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
-          },
-          {
             foreignKeyName: "aircraft_components_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -334,13 +323,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aircraft"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "aircraft_ttis_audit_aircraft_id_fkey"
-            columns: ["aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
           },
         ]
       }
@@ -625,13 +607,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "bookings_aircraft_id_fkey"
-            columns: ["aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
-          },
-          {
             foreignKeyName: "bookings_cancellation_category_id_fkey"
             columns: ["cancellation_category_id"]
             isOneToOne: false
@@ -658,13 +633,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aircraft"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookings_checked_out_aircraft_id_fkey"
-            columns: ["checked_out_aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
           },
           {
             foreignKeyName: "bookings_checked_out_instructor_id_fkey"
@@ -1728,6 +1696,7 @@ export type Database = {
           termination_date: string | null
           updated_at: string
           user_id: string
+          voided_at: string | null
         }
         Insert: {
           aerobatics_removal?: boolean | null
@@ -1757,6 +1726,7 @@ export type Database = {
           termination_date?: string | null
           updated_at?: string
           user_id: string
+          voided_at?: string | null
         }
         Update: {
           aerobatics_removal?: boolean | null
@@ -1786,6 +1756,7 @@ export type Database = {
           termination_date?: string | null
           updated_at?: string
           user_id?: string
+          voided_at?: string | null
         }
         Relationships: [
           {
@@ -2492,13 +2463,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "maintenance_visits_aircraft_id_fkey"
-            columns: ["aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
-          },
-          {
             foreignKeyName: "maintenance_visits_performed_by_fkey"
             columns: ["performed_by"]
             isOneToOne: false
@@ -2733,13 +2697,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "aircraft"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "observations_aircraft_id_fkey"
-            columns: ["aircraft_id"]
-            isOneToOne: false
-            referencedRelation: "aircraft_ttis_rollup"
-            referencedColumns: ["aircraft_id"]
           },
           {
             foreignKeyName: "observations_assigned_to_fkey"
@@ -3865,33 +3822,6 @@ export type Database = {
       }
     }
     Views: {
-      aircraft_ttis_rollup: {
-        Row: {
-          aircraft_id: string | null
-          computed_ttis: number | null
-          current_hobbs: number | null
-          current_tach: number | null
-          discrepancy: number | null
-          flight_count: number | null
-          initial_ttis: number | null
-          ledger_delta_sum: number | null
-          registration: string | null
-          stored_ttis: number | null
-          tenant_id: string | null
-          total_time_method:
-            | Database["public"]["Enums"]["total_time_method"]
-            | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "aircraft_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_directory: {
         Row: {
           created_at: string | null
@@ -4071,6 +4001,7 @@ export type Database = {
           aircraft_id: string
           discrepancy: number
           flights_count: number
+          initial_ttis: number
           ledger_sum: number
           registration: string
           total_time_in_service: number
@@ -4085,45 +4016,25 @@ export type Database = {
         Returns: string
       }
       get_account_balance: { Args: { p_user_id: string }; Returns: number }
-      get_aircraft_maintenance_cost_report:
-        | {
-            Args: {
-              p_aircraft_id?: string
-              p_end_date?: string
-              p_start_date?: string
-            }
-            Returns: {
-              aircraft_id: string
-              aircraft_type: string
-              avg_cost_per_visit: number
-              cost_by_type: Json
-              cost_per_hour: number
-              last_maintenance_date: string
-              registration: string
-              total_maintenance_cost: number
-              total_time_in_service: number
-              visit_count: number
-            }[]
-          }
-        | {
-            Args: {
-              p_aircraft_id?: string
-              p_end_date?: string
-              p_start_date?: string
-            }
-            Returns: {
-              aircraft_id: string
-              aircraft_type: string
-              avg_cost_per_visit: number
-              cost_by_type: Json
-              cost_per_hour: number
-              last_maintenance_date: string
-              registration: string
-              total_hours: number
-              total_maintenance_cost: number
-              visit_count: number
-            }[]
-          }
+      get_aircraft_maintenance_cost_report: {
+        Args: {
+          p_aircraft_id?: string
+          p_end_date?: string
+          p_start_date?: string
+        }
+        Returns: {
+          aircraft_id: string
+          aircraft_type: string
+          avg_cost_per_visit: number
+          cost_by_type: Json
+          cost_per_hour: number
+          last_maintenance_date: string
+          registration: string
+          total_maintenance_cost: number
+          total_time_in_service: number
+          visit_count: number
+        }[]
+      }
       get_aircraft_tech_log: {
         Args: {
           p_aircraft_id: string
@@ -4297,11 +4208,13 @@ export type Database = {
           aircraft_id: string
           discrepancy: number
           flights_count: number
+          initial_ttis: number
           ledger_sum: number
           registration: string
           stored_ttis: number
         }[]
       }
+      record_aircraft_initial_ttis_audit: { Args: { p_aircraft_id: string }; Returns: null }
       record_invoice_payment_atomic: {
         Args: {
           p_amount: number

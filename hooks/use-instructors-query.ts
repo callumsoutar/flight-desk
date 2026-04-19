@@ -14,6 +14,18 @@ function getInstructorsError(payload: unknown, fallback: string) {
     : fallback
 }
 
+export async function voidInstructor(userId: string): Promise<void> {
+  const response = await fetch(`/api/instructors/${userId}/void`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  })
+
+  const payload = (await response.json().catch(() => ({}))) as { error?: string }
+  if (!response.ok) {
+    throw new Error(getInstructorsError(payload, "Failed to remove instructor"))
+  }
+}
+
 export async function fetchInstructorsQuery(): Promise<InstructorWithRelations[]> {
   const response = await fetch("/api/instructors", { method: "GET", cache: "no-store" })
   const payload = (await response.json().catch(() => ({}))) as {

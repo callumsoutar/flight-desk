@@ -7,9 +7,12 @@ import { Tabs } from "radix-ui"
 import {
   IconAlertTriangle,
   IconArrowLeft,
+  IconCalendarStats,
   IconChartBar,
+  IconClockHour4,
   IconGauge,
   IconHistory,
+  IconPlane,
   IconSettings,
   IconTool,
 } from "@tabler/icons-react"
@@ -25,6 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import {
+  Tabs as InnerTabs,
+  TabsContent as InnerTabsContent,
+  TabsList as InnerTabsList,
+  TabsTrigger as InnerTabsTrigger,
+} from "@/components/ui/tabs"
 import type { AircraftDetailData } from "@/lib/types/aircraft-detail"
 
 const AircraftTechLogTab = dynamic(
@@ -36,6 +46,14 @@ const AircraftFlightHistoryTab = dynamic(
   () =>
     import("@/components/aircraft/aircraft-flight-history-tab").then(
       (mod) => mod.AircraftFlightHistoryTab
+    ),
+  { ssr: false }
+)
+
+const AircraftUpcomingBookingsTab = dynamic(
+  () =>
+    import("@/components/aircraft/aircraft-upcoming-bookings-tab").then(
+      (mod) => mod.AircraftUpcomingBookingsTab
     ),
   { ssr: false }
 )
@@ -79,21 +97,27 @@ type Props = {
   aircraftId: string
   data: AircraftDetailData
   loadErrors?: string[]
+  canVoidAircraft?: boolean
 }
 
 const tabItems = [
   { id: "overview", label: "Overview", icon: IconChartBar },
+  { id: "upcoming-bookings", label: "Upcoming Bookings", icon: IconCalendarStats },
   { id: "tech-log", label: "Tech Log", icon: IconGauge },
   { id: "flight-history", label: "Flight History", icon: IconHistory },
   { id: "observations", label: "Observations", icon: IconAlertTriangle },
-  { id: "maintenance-items", label: "Maintenance Items", icon: IconTool },
-  { id: "maintenance-history", label: "Maintenance History", icon: IconHistory },
+  { id: "maintenance", label: "Maintenance", icon: IconTool },
   { id: "settings", label: "Settings", icon: IconSettings },
 ] as const
 
 type TabId = (typeof tabItems)[number]["id"]
 
-export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Props) {
+export function AircraftDetailClient({
+  aircraftId,
+  data,
+  loadErrors = [],
+  canVoidAircraft = false,
+}: Props) {
   const [activeTab, setActiveTab] = React.useState<TabId>("overview")
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
@@ -101,7 +125,14 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
   const [showScrollLeft, setShowScrollLeft] = React.useState(false)
   const [showScrollRight, setShowScrollRight] = React.useState(false)
 
-  const { flights, observations, components, maintenanceVisits } = data
+  const {
+    flights,
+    observations,
+    components,
+    maintenanceVisits,
+    upcomingBookings,
+    upcomingMaintenance,
+  } = data
   const [aircraft, setAircraft] = React.useState(data.aircraft)
 
   React.useEffect(() => {
@@ -212,38 +243,93 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
           </p>
         ) : null}
 
-        <Card className="mb-6 border border-border/50 bg-card py-0 shadow-sm">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-start md:justify-between">
-              <div className="flex items-start gap-4">
-                <Avatar className="h-20 w-20 rounded-full border-2 border-gray-200 bg-gray-100">
-                  {imageUrl ? <AvatarImage src={imageUrl} alt={registration} /> : null}
-                  <AvatarFallback className="bg-gray-100 text-xl font-bold text-gray-600">
-                    {registration ? registration.substring(0, 2).toUpperCase() : "??"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="mb-2 flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900">{registration}</h1>
-                    <Badge
-                      className={`rounded-md border-0 px-2 py-1 text-xs font-medium ${
-                        availableForBookings
-                          ? "bg-green-100 text-green-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {availableForBookings ? "Available for bookings" : "Not available"}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 sm:gap-4 sm:text-sm">
-                    {model ? <span className="font-medium">{model}</span> : null}
+        <Card className="mb-6 overflow-hidden border-border/60 bg-card py-0 shadow-none">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="relative">
+                  <Avatar className="h-14 w-14 border border-border bg-muted">
+                    {imageUrl ? <AvatarImage src={imageUrl} alt={registration} /> : null}
+                    <AvatarFallback className="bg-muted text-muted-foreground">
+                      <IconPlane className="h-6 w-6" strokeWidth={1.25} />
+                    </AvatarFallback>
+                  </Avatar>
+                  <span
+                    aria-hidden
+                    className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card ${
+                      availableForBookings ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                    <h1 className="truncate text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+                      {registration || "Unknown aircraft"}
+                    </h1>
                     {aircraft.aircraft_type?.name ? (
-                      <span>{aircraft.aircraft_type.name}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {aircraft.aircraft_type.name}
+                      </span>
                     ) : null}
-                    <span>Total Hours: {formatTotalHours(totalHours)}</span>
                   </div>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {model || "Aircraft"}
+                  </p>
                 </div>
               </div>
+
+              <Badge
+                variant="outline"
+                className="hidden h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 font-normal text-foreground sm:inline-flex"
+              >
+                <span
+                  aria-hidden
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    availableForBookings ? "bg-emerald-500" : "bg-amber-500"
+                  }`}
+                />
+                {availableForBookings ? "Available" : "Not available"}
+              </Badge>
+            </div>
+
+            <Separator className="my-5" />
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                <IconClockHour4 className="h-4 w-4 text-muted-foreground/70" />
+                <span>
+                  Total time{" "}
+                  <span className="font-mono text-foreground">
+                    {formatTotalHours(totalHours)}
+                  </span>
+                </span>
+              </span>
+              {activeObservations > 0 ? (
+                <span className="inline-flex items-center gap-2">
+                  <IconAlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span>
+                    <span className="text-foreground">{activeObservations}</span> active{" "}
+                    {activeObservations === 1 ? "observation" : "observations"}
+                  </span>
+                </span>
+              ) : null}
+              {overdueComponents > 0 ? (
+                <span className="inline-flex items-center gap-2">
+                  <IconTool className="h-4 w-4 text-rose-500" />
+                  <span>
+                    <span className="text-foreground">{overdueComponents}</span> overdue{" "}
+                    {overdueComponents === 1 ? "item" : "items"}
+                  </span>
+                </span>
+              ) : null}
+              <span className="inline-flex items-center gap-2">
+                <IconGauge className="h-4 w-4 text-muted-foreground/70" />
+                <span>
+                  {availableForBookings
+                    ? "Available for bookings"
+                    : "Not available for bookings"}
+                </span>
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -253,9 +339,9 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
             <Tabs.Root
               value={activeTab}
               onValueChange={(value: string) => setActiveTab(value as TabId)}
-              className="flex w-full flex-col"
+              className="flex w-full min-w-0 flex-col"
             >
-              <div className="relative w-full border-b border-gray-200 bg-white">
+              <div className="relative w-full min-w-0 overflow-hidden border-b border-gray-200 bg-white">
                 <div className="px-4 pt-3 pb-3 md:hidden">
                   <Select value={activeTab} onValueChange={(value) => setActiveTab(value as TabId)}>
                     <SelectTrigger className="h-11 w-full border-2 border-gray-300 hover:border-indigo-400 focus:border-indigo-500">
@@ -305,14 +391,14 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                   </Select>
                 </div>
 
-                <div className="relative hidden items-center px-6 pt-2 md:flex">
+                <div className="relative hidden min-w-0 items-center px-6 pt-2 md:flex">
                   {showScrollLeft ? (
                     <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent" />
                   ) : null}
                   {showScrollRight ? (
                     <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-8 bg-gradient-to-l from-white to-transparent" />
                   ) : null}
-                  <div className="scrollbar-hide flex w-full items-center overflow-x-auto scroll-smooth">
+                  <div className="scrollbar-hide flex w-full min-w-0 items-center overflow-x-auto scroll-smooth">
                     <Tabs.List
                       ref={tabsListRef}
                       className="relative flex min-h-[48px] min-w-max flex-row gap-1"
@@ -362,6 +448,15 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                   />
                 </Tabs.Content>
 
+                <Tabs.Content value="upcoming-bookings">
+                  <AircraftUpcomingBookingsTab
+                    aircraft={aircraft}
+                    upcomingBookings={upcomingBookings}
+                    upcomingMaintenance={upcomingMaintenance}
+                    components={components}
+                  />
+                </Tabs.Content>
+
                 <Tabs.Content value="flight-history">
                   <AircraftFlightHistoryTab flights={flights} />
                 </Tabs.Content>
@@ -374,21 +469,35 @@ export function AircraftDetailClient({ aircraftId, data, loadErrors = [] }: Prop
                   <AircraftObservationsTab aircraftId={aircraftId} observations={observations} />
                 </Tabs.Content>
 
-                <Tabs.Content value="maintenance-items">
-                  <AircraftMaintenanceItemsTab components={components} aircraft={aircraft} />
-                </Tabs.Content>
-
-                <Tabs.Content value="maintenance-history">
-                  <AircraftMaintenanceHistoryTab
-                    aircraftId={aircraftId}
-                    initialVisits={maintenanceVisits}
-                  />
+                <Tabs.Content value="maintenance">
+                  <InnerTabs defaultValue="items" className="w-full">
+                    <InnerTabsList variant="line" className="mb-4 h-9 gap-2">
+                      <InnerTabsTrigger value="items" className="px-3 text-sm">
+                        <IconTool className="h-4 w-4" />
+                        Maintenance Items
+                      </InnerTabsTrigger>
+                      <InnerTabsTrigger value="history" className="px-3 text-sm">
+                        <IconHistory className="h-4 w-4" />
+                        Maintenance History
+                      </InnerTabsTrigger>
+                    </InnerTabsList>
+                    <InnerTabsContent value="items" className="mt-2">
+                      <AircraftMaintenanceItemsTab components={components} aircraft={aircraft} />
+                    </InnerTabsContent>
+                    <InnerTabsContent value="history" className="mt-2">
+                      <AircraftMaintenanceHistoryTab
+                        aircraftId={aircraftId}
+                        initialVisits={maintenanceVisits}
+                      />
+                    </InnerTabsContent>
+                  </InnerTabs>
                 </Tabs.Content>
 
                 <Tabs.Content value="settings">
                   <AircraftSettingsTab
                     aircraft={aircraft}
                     aircraftId={aircraftId}
+                    canVoidAircraft={canVoidAircraft}
                     onSaved={(updatedAircraft) => setAircraft(updatedAircraft)}
                   />
                 </Tabs.Content>
