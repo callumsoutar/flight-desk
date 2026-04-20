@@ -6,6 +6,12 @@ import type { MemberTrainingResponse } from "@/lib/types/member-training"
 
 export const dynamic = "force-dynamic"
 
+const enrollmentSelectWithUnenrolledAt =
+  "id, status, enrolled_at, completion_date, unenrolled_at, notes, primary_instructor_id, aircraft_type, syllabus_id, syllabus:syllabus!student_syllabus_enrollment_syllabus_id_fkey(id, name, description, is_active, voided_at), aircraft_types:aircraft_types!student_syllabus_enrollment_aircraft_type_fkey(id, name)"
+
+const enrollmentSelectLegacy =
+  "id, status, enrolled_at, completion_date, notes, primary_instructor_id, aircraft_type, syllabus_id, syllabus:syllabus!student_syllabus_enrollment_syllabus_id_fkey(id, name, description, is_active, voided_at), aircraft_types:aircraft_types!student_syllabus_enrollment_aircraft_type_fkey(id, name)"
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,11 +28,7 @@ export async function GET(
   }
 
   try {
-    const [
-      tenantResult,
-      syllabiResult,
-      enrollmentsResult,
-    ] = await Promise.all([
+    const [tenantResult, syllabiResult] = await Promise.all([
       supabase.from("tenants").select("timezone").eq("id", tenantId).maybeSingle(),
       supabase
         .from("syllabus")
@@ -35,15 +37,35 @@ export async function GET(
         .eq("is_active", true)
         .is("voided_at", null)
         .order("name", { ascending: true }),
-      supabase
+    ])
+
+    let enrollmentsResult = await supabase
+      .from("student_syllabus_enrollment")
+      .select(enrollmentSelectWithUnenrolledAt)
+      .eq("tenant_id", tenantId)
+      .eq("user_id", targetUserId)
+      .order("created_at", { ascending: false })
+
+    if (enrollmentsResult.error?.code === "42703") {
+      const legacyResult = await supabase
         .from("student_syllabus_enrollment")
-        .select(
-          "id, status, enrolled_at, completion_date, notes, primary_instructor_id, aircraft_type, syllabus_id, syllabus:syllabus!student_syllabus_enrollment_syllabus_id_fkey(id, name, description, is_active, voided_at), aircraft_types:aircraft_types!student_syllabus_enrollment_aircraft_type_fkey(id, name)"
-        )
+        .select(enrollmentSelectLegacy)
         .eq("tenant_id", tenantId)
         .eq("user_id", targetUserId)
-        .order("created_at", { ascending: false }),
-    ])
+        .order("created_at", { ascending: false })
+
+      if (!legacyResult.error) {
+        enrollmentsResult = {
+          ...legacyResult,
+          data: (legacyResult.data ?? []).map((row) => ({
+            ...row,
+            unenrolled_at: null,
+          })),
+        }
+      } else {
+        enrollmentsResult = legacyResult
+      }
+    }
 
     if (tenantResult.error) throw tenantResult.error
     if (syllabiResult.error) throw syllabiResult.error

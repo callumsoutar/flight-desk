@@ -88,6 +88,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const canAccessTraining = role === "owner" || role === "admin" || role === "instructor"
   const canAccessFinancialReports = role === "owner" || role === "admin"
+  const canManageRosters = isAdminRole(role)
+  const canManageInstructors = isAdminRole(role)
   const isPrivilegedNav = isStaffRole(role)
   const canOpenSettings = isAdminRole(role)
   const navMainSections = React.useMemo(() => {
@@ -107,10 +109,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: section.items.filter((item) => {
         if (!canAccessTraining && item.url === "/training") return false
         if (!canAccessFinancialReports && item.url === "/reports/financial") return false
+        if (!canManageRosters && item.url === "/rosters") return false
+        if (!canManageInstructors && item.url === "/instructors") return false
         return true
       }),
     }))
-  }, [canAccessFinancialReports, canAccessTraining, isPrivilegedNav])
+  }, [canAccessFinancialReports, canAccessTraining, canManageInstructors, canManageRosters, isPrivilegedNav])
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

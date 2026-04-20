@@ -1,6 +1,6 @@
 "use client"
 
-import { Filter, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -11,6 +11,7 @@ type LessonsToolbarProps = {
   selectedSyllabus: string | null
   syllabi: Syllabus[]
   syllabusLoading: boolean
+  hasLessons: boolean
   onSelectSyllabus: (syllabusId: string) => void
   onAddLesson: () => void
 }
@@ -19,24 +20,24 @@ export function LessonsToolbar({
   selectedSyllabus,
   syllabi,
   syllabusLoading,
+  hasLessons,
   onSelectSyllabus,
   onAddLesson,
 }: LessonsToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="w-full max-w-md space-y-2">
-        <Label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          <Filter className="h-3.5 w-3.5" />
-          Syllabus
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex w-full max-w-md items-center gap-4">
+        <Label className="shrink-0 text-sm font-medium text-slate-700">
+          Training Program
         </Label>
         <Select
-          value={selectedSyllabus ?? undefined}
+          value={selectedSyllabus || ""}
           onValueChange={onSelectSyllabus}
           disabled={syllabusLoading || syllabi.length === 0}
         >
-          <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-left text-sm font-medium shadow-none transition-colors hover:bg-slate-50 focus-visible:ring-1 focus-visible:ring-indigo-100">
+          <SelectTrigger className="h-10 flex-1 rounded-lg border-slate-200 bg-slate-50 text-sm font-medium shadow-none transition-colors hover:bg-slate-100 focus-visible:ring-1 focus-visible:ring-indigo-500">
             <SelectValue
-              placeholder={syllabusLoading ? "Loading training programs..." : "Select a training program"}
+              placeholder={syllabusLoading ? "Loading programs..." : "Select a program"}
             />
           </SelectTrigger>
           <SelectContent>
@@ -50,14 +51,16 @@ export function LessonsToolbar({
         </Select>
       </div>
 
-      <Button
-        disabled={!selectedSyllabus}
-        onClick={onAddLesson}
-        className="h-10 rounded-xl border-none bg-indigo-600 px-4 font-semibold text-white shadow-sm shadow-indigo-100 transition-all hover:bg-indigo-700 active:scale-[0.98]"
-      >
-        <Plus className="h-4 w-4" />
-        Add Lesson
-      </Button>
+      {hasLessons && (
+        <Button
+          disabled={!selectedSyllabus}
+          onClick={onAddLesson}
+          className="h-10 shrink-0 rounded-lg bg-indigo-600 px-4 font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98]"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Lesson
+        </Button>
+      )}
     </div>
   )
 }

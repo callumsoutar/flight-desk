@@ -5,8 +5,6 @@ import Link from "next/link"
 import { IconAlertTriangle } from "@tabler/icons-react"
 
 import { ViewObservationModal } from "@/components/aircraft/view-observation-modal"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { useTimezone } from "@/contexts/timezone-context"
 import type { BookingWarningItem, BookingWarningsResponse, BookingWarningSeverity } from "@/lib/types/booking-warnings"
 import { cn } from "@/lib/utils"
@@ -16,9 +14,6 @@ type BookingCheckoutWarningsProps = {
   warnings: BookingWarningsResponse
   isRefreshing?: boolean
   refreshError?: string | null
-  acknowledgementChecked: boolean
-  onAcknowledgementChange: (value: boolean) => void
-  disabled?: boolean
 }
 
 const SEVERITY_STYLES: Record<
@@ -80,9 +75,6 @@ export function BookingCheckoutWarnings({
   warnings,
   isRefreshing = false,
   refreshError = null,
-  acknowledgementChecked,
-  onAcknowledgementChange,
-  disabled = false,
 }: BookingCheckoutWarningsProps) {
   const [selectedObservationId, setSelectedObservationId] = React.useState<string | null>(null)
   const totalCount = warnings.summary.total_count
@@ -213,19 +205,6 @@ export function BookingCheckoutWarnings({
             </details>
           ) : null}
 
-          {warnings.summary.requires_acknowledgement ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="booking-warning-acknowledgement"
-                checked={acknowledgementChecked}
-                disabled={disabled || isRefreshing}
-                onCheckedChange={(checked) => onAcknowledgementChange(Boolean(checked))}
-              />
-              <Label htmlFor="booking-warning-acknowledgement" className="cursor-pointer text-sm text-muted-foreground">
-                Acknowledge warnings to proceed.
-              </Label>
-            </div>
-          ) : null}
         </div>
       </div>
 

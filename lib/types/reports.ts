@@ -6,7 +6,7 @@ export interface FlyingActivityDashboard {
   weekend_hours: number
   weekday_hours: number
   avg_flight_duration_hours: number
-  conversion_rate: number | null
+  converted_members: number | null
   hours_by_month: { month: string; hours: number }[]
   hours_by_flight_type: { flight_type: string; hours: number }[]
   hours_by_stage: { stage: string; hours: number }[]

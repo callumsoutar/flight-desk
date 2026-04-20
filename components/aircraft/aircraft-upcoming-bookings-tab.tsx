@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   IconAlertTriangle,
+  IconArrowsLeftRight,
   IconCalendar,
   IconCalendarStats,
   IconChevronRight,
@@ -54,6 +55,14 @@ const CancelBookingModal = dynamic(
   () =>
     import("@/components/bookings/cancel-booking-modal").then(
       (mod) => mod.CancelBookingModal
+    ),
+  { ssr: false }
+)
+
+const SwitchAircraftModal = dynamic(
+  () =>
+    import("@/components/aircraft/switch-aircraft-modal").then(
+      (mod) => mod.SwitchAircraftModal
     ),
   { ssr: false }
 )
@@ -269,6 +278,9 @@ export function AircraftUpcomingBookingsTab({
     null
   )
   const [isCancelling, setIsCancelling] = React.useState(false)
+  const [switchTarget, setSwitchTarget] = React.useState<EnrichedBooking | null>(
+    null
+  )
 
   const handleNavigateToBooking = React.useCallback(
     (id: string) => {
@@ -287,6 +299,16 @@ export function AircraftUpcomingBookingsTab({
   const handleOpenCancel = React.useCallback((booking: EnrichedBooking) => {
     setCancelTarget(booking)
   }, [])
+
+  const handleOpenSwitch = React.useCallback((booking: EnrichedBooking) => {
+    setSwitchTarget(booking)
+  }, [])
+
+  const handleSwitchSuccess = React.useCallback(() => {
+    toast.success("Booking moved to new aircraft")
+    setSwitchTarget(null)
+    router.refresh()
+  }, [router])
 
   const handleConfirmCancel = React.useCallback(
     async (payload: CancelBookingPayload) => {
@@ -584,6 +606,7 @@ export function AircraftUpcomingBookingsTab({
                         onOpen={handleNavigateToBooking}
                         onEdit={handleEditBooking}
                         onCancel={handleOpenCancel}
+                        onSwitchAircraft={handleOpenSwitch}
                       />
                     ))}
                   </React.Fragment>
@@ -603,6 +626,25 @@ export function AircraftUpcomingBookingsTab({
           onConfirm={(payload) => {
             void handleConfirmCancel(payload)
           }}
+        />
+
+        <SwitchAircraftModal
+          open={switchTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setSwitchTarget(null)
+          }}
+          booking={
+            switchTarget
+              ? {
+                  id: switchTarget.id,
+                  start_time: switchTarget.start_time,
+                  end_time: switchTarget.end_time,
+                  student: switchTarget.student,
+                }
+              : null
+          }
+          currentAircraft={aircraft}
+          onSuccess={handleSwitchSuccess}
         />
 
         <div className="space-y-4 md:hidden">
@@ -636,6 +678,7 @@ export function AircraftUpcomingBookingsTab({
                     timeZone={timeZone}
                     onEdit={handleEditBooking}
                     onCancel={handleOpenCancel}
+                    onSwitchAircraft={handleOpenSwitch}
                   />
                 ))}
               </div>
@@ -775,12 +818,14 @@ function BookingRow({
   onOpen,
   onEdit,
   onCancel,
+  onSwitchAircraft,
 }: {
   booking: EnrichedBooking
   timeZone: string
   onOpen: (id: string) => void
   onEdit: (booking: EnrichedBooking) => void
   onCancel: (booking: EnrichedBooking) => void
+  onSwitchAircraft: (booking: EnrichedBooking) => void
 }) {
   const status = statusBadge(booking.status)
   const typeBadge = bookingTypeBadge(booking.booking_type)
@@ -883,6 +928,7 @@ function BookingRow({
           isMaintenance={isMaintenance}
           onEdit={onEdit}
           onCancel={onCancel}
+          onSwitchAircraft={onSwitchAircraft}
         />
       </td>
     </tr>
@@ -894,11 +940,13 @@ function BookingRowMenu({
   isMaintenance,
   onEdit,
   onCancel,
+  onSwitchAircraft,
 }: {
   booking: EnrichedBooking
   isMaintenance: boolean
   onEdit: (booking: EnrichedBooking) => void
   onCancel: (booking: EnrichedBooking) => void
+  onSwitchAircraft: (booking: EnrichedBooking) => void
 }) {
   return (
     <DropdownMenu>
@@ -913,7 +961,7 @@ function BookingRowMenu({
           <IconDotsVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault()
@@ -923,6 +971,17 @@ function BookingRowMenu({
           <IconPencil className="mr-2 h-4 w-4" />
           Edit booking
         </DropdownMenuItem>
+        {!isMaintenance ? (
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
+              onSwitchAircraft(booking)
+            }}
+          >
+            <IconArrowsLeftRight className="mr-2 h-4 w-4" />
+            Switch aircraft
+          </DropdownMenuItem>
+        ) : null}
         {!isMaintenance ? (
           <>
             <DropdownMenuSeparator />
@@ -979,11 +1038,13 @@ function BookingCard({
   timeZone,
   onEdit,
   onCancel,
+  onSwitchAircraft,
 }: {
   booking: EnrichedBooking
   timeZone: string
   onEdit: (booking: EnrichedBooking) => void
   onCancel: (booking: EnrichedBooking) => void
+  onSwitchAircraft: (booking: EnrichedBooking) => void
 }) {
   const status = statusBadge(booking.status)
   const typeBadge = bookingTypeBadge(booking.booking_type)
@@ -1012,6 +1073,7 @@ function BookingCard({
           isMaintenance={isMaintenance}
           onEdit={onEdit}
           onCancel={onCancel}
+          onSwitchAircraft={onSwitchAircraft}
         />
       </div>
       <div

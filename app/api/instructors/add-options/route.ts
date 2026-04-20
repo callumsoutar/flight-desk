@@ -1,10 +1,10 @@
-import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchAddInstructorOptions } from "@/lib/instructors/fetch-add-instructor-options"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const session = await getTenantStaffRouteContext()
+  const session = await getTenantAdminRouteContext()
   if (session.response) return session.response
   const { supabase, tenantId } = session.context
 

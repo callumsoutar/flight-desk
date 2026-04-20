@@ -1,7 +1,11 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import {
+  getTenantAdminRouteContext,
+  getTenantStaffRouteContext,
+  noStoreJson,
+} from "@/lib/api/tenant-route"
 
 export const dynamic = "force-dynamic"
 
@@ -37,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await getTenantStaffRouteContext()
+  const session = await getTenantAdminRouteContext()
   if (session.response) return session.response
   const { supabase, tenantId } = session.context
 

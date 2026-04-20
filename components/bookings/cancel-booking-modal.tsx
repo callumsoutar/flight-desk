@@ -336,31 +336,33 @@ export function CancelBookingModal({
             </div>
           </form>
 
-          <div className="border-t bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:pb-4">
-            <div className="flex items-center justify-between gap-3">
+          <div className="border-t border-slate-100 bg-white px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] sm:pb-4 shrink-0">
+            <div className="flex items-center gap-3">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={() => onOpenChange(false)}
                 disabled={pending}
-                className="h-10 flex-1 rounded-xl border-slate-200 text-xs font-bold shadow-none hover:bg-slate-50"
+                className="h-11 rounded-xl px-5 text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               >
-                Keep Booking
+                Cancel
               </Button>
-              <Button
-                type="submit"
-                form={FORM_ID}
-                variant="destructive"
-                disabled={
-                  pending ||
-                  categoriesLoading ||
-                  Boolean(categoriesError) ||
-                  categories.length === 0
-                }
-                className="h-10 flex-[1.4] rounded-xl text-xs font-bold shadow-lg shadow-rose-900/10"
-              >
-                {pending ? "Cancelling..." : "Cancel Booking"}
-              </Button>
+              <div className="flex flex-1 items-center justify-end gap-2">
+                <Button
+                  type="submit"
+                  form={FORM_ID}
+                  variant="destructive"
+                  disabled={
+                    pending ||
+                    categoriesLoading ||
+                    Boolean(categoriesError) ||
+                    categories.length === 0
+                  }
+                  className="h-11 rounded-xl px-6 text-sm font-semibold shadow-lg shadow-rose-900/10"
+                >
+                  {pending ? "Cancelling..." : "Cancel Booking"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

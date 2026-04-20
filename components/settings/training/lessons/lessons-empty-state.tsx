@@ -13,10 +13,12 @@ type LessonsEmptyStateProps = {
 export function LessonsEmptyState({ variant, syllabusName, onAddLesson }: LessonsEmptyStateProps) {
   if (variant === "no-programs") {
     return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
-        <BookOpen className="mb-3 h-5 w-5 text-slate-400" />
-        <h4 className="mb-1 text-sm font-semibold text-slate-900">Create a training program first</h4>
-        <p className="max-w-[280px] text-sm text-slate-500">
+      <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-12 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+          <BookOpen className="h-6 w-6 text-slate-400" />
+        </div>
+        <h4 className="mb-2 text-base font-semibold text-slate-900">Create a training program first</h4>
+        <p className="max-w-[300px] text-sm text-slate-500">
           Add a syllabus in the &quot;Training Programs&quot; tab before creating lessons.
         </p>
       </div>
@@ -25,9 +27,12 @@ export function LessonsEmptyState({ variant, syllabusName, onAddLesson }: Lesson
 
   if (variant === "no-syllabus") {
     return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
-        <h4 className="mb-1 text-sm font-semibold text-slate-900">Select a training program</h4>
-        <p className="max-w-[260px] text-sm text-slate-500">
+      <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-12 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+          <BookOpen className="h-6 w-6 text-slate-400" />
+        </div>
+        <h4 className="mb-2 text-base font-semibold text-slate-900">Select a training program</h4>
+        <p className="max-w-[300px] text-sm text-slate-500">
           Choose a syllabus above to start managing lessons.
         </p>
       </div>
@@ -35,16 +40,20 @@ export function LessonsEmptyState({ variant, syllabusName, onAddLesson }: Lesson
   }
 
   return (
-    <div className="flex min-h-[260px] flex-col items-center justify-center py-10 text-center">
-      <Plus className="mb-3 h-5 w-5 text-slate-400" />
-      <h4 className="mb-1 text-sm font-semibold text-slate-900">No lessons yet</h4>
-      <p className="mb-4 max-w-[260px] text-sm text-slate-500">Add the first lesson to {syllabusName}.</p>
+    <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-12 text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50">
+        <BookOpen className="h-6 w-6 text-indigo-600" />
+      </div>
+      <h4 className="mb-2 text-base font-semibold text-slate-900">No lessons yet</h4>
+      <p className="mb-6 max-w-[300px] text-sm text-slate-500">
+        Get started by adding the first lesson to <span className="font-medium text-slate-700">{syllabusName}</span>.
+      </p>
       <Button
         onClick={onAddLesson}
-        className="h-10 rounded-xl border-none bg-indigo-600 px-4 font-semibold text-white shadow-sm shadow-indigo-100 transition-all hover:bg-indigo-700 active:scale-[0.98]"
+        className="h-10 rounded-lg bg-indigo-600 px-6 font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98]"
       >
-        <Plus className="h-4 w-4" />
-        Add Lesson
+        <Plus className="mr-2 h-4 w-4" />
+        Add First Lesson
       </Button>
     </div>
   )

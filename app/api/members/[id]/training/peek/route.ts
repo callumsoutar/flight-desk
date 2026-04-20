@@ -26,11 +26,11 @@ export async function GET(
   }
 
   if (targetUserId !== user.id && role === "instructor") {
-    const { data: canManage, error } = await supabase.rpc("can_manage_user", {
+    const { data: sharesTenant, error } = await supabase.rpc("users_share_tenant", {
       p_user_id: targetUserId,
     })
 
-    if (error || !canManage) {
+    if (error || !sharesTenant) {
       return noStoreJson({ error: "Forbidden" }, { status: 403 })
     }
   }

@@ -122,6 +122,9 @@ export async function updateTrainingEnrollment(
   enrollmentId: string,
   input: {
     enrolled_at?: string | null
+    completion_date?: string | null
+    unenrolled_at?: string | null
+    status?: "active" | "completed" | "withdrawn"
     notes?: string | null
     primary_instructor_id?: string | null
     aircraft_type?: string | null
@@ -136,6 +139,19 @@ export async function updateTrainingEnrollment(
   if (!response.ok) {
     throw new Error(getMemberTrainingError(payload, "Failed to update enrollment"))
   }
+}
+
+export async function unenrollTrainingEnrollment(
+  memberId: string,
+  enrollmentId: string,
+  input?: { unenrolled_at?: string | null; notes?: string | null }
+) {
+  return updateTrainingEnrollment(memberId, enrollmentId, {
+    status: "withdrawn",
+    completion_date: null,
+    unenrolled_at: input?.unenrolled_at ?? null,
+    notes: input?.notes,
+  })
 }
 
 export function useMemberTrainingQuery(memberId: string) {

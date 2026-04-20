@@ -2,7 +2,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { isJsonObject } from "@/lib/settings/utils"
+import { resolveMembershipsSettings } from "@/lib/settings/memberships-settings"
 import type { Database } from "@/lib/types"
 import type {
   MembershipRecord,
@@ -113,43 +113,13 @@ export async function fetchMemberMembershipsData(
       }
     : null
 
-  let membershipYear: MembershipYearSettings | null = null
   const rawSettings = tenantSettingsResult.data?.settings
-  if (isJsonObject(rawSettings)) {
-    const rawMembershipYear = rawSettings.membership_year
-    if (isJsonObject(rawMembershipYear)) {
-      const endMonth = rawMembershipYear.end_month
-      const endDay = rawMembershipYear.end_day
-      if (
-        typeof endMonth === "number" &&
-        Number.isInteger(endMonth) &&
-        endMonth >= 1 &&
-        endMonth <= 12 &&
-        typeof endDay === "number" &&
-        Number.isInteger(endDay) &&
-        endDay >= 1 &&
-        endDay <= 31
-      ) {
-        const rawGrace = rawMembershipYear.early_join_grace_days
-        const early_join_grace_days =
-          typeof rawGrace === "number" &&
-          Number.isInteger(rawGrace) &&
-          rawGrace >= 0 &&
-          rawGrace <= 365
-            ? rawGrace
-            : undefined
-
-        membershipYear = {
-          end_month: endMonth,
-          end_day: endDay,
-          description:
-            typeof rawMembershipYear.description === "string"
-              ? rawMembershipYear.description
-              : undefined,
-          ...(early_join_grace_days !== undefined ? { early_join_grace_days } : {}),
-        }
-      }
-    }
+  const resolvedMembershipYear = resolveMembershipsSettings(rawSettings ?? null).membership_year
+  const membershipYear: MembershipYearSettings = {
+    end_month: resolvedMembershipYear.end_month,
+    end_day: resolvedMembershipYear.end_day,
+    description: resolvedMembershipYear.description,
+    early_join_grace_days: resolvedMembershipYear.early_join_grace_days,
   }
 
   return { summary, membershipTypes, defaultTaxRate, membershipYear }

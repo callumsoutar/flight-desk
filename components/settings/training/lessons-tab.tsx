@@ -186,6 +186,7 @@ export function LessonsTab() {
         selectedSyllabus={selectedSyllabus}
         syllabi={syllabi}
         syllabusLoading={syllabusLoading}
+        hasLessons={lessons.length > 0}
         onSelectSyllabus={setSelectedSyllabus}
         onAddLesson={() => {
           setEditingLesson(null)

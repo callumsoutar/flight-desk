@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { z } from "zod"
 
 import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 export const dynamic = "force-dynamic"
 
@@ -10,6 +11,9 @@ const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const updateEnrollmentSchema = z
   .object({
     enrolled_at: dateKeySchema.nullable().optional(),
+    completion_date: dateKeySchema.nullable().optional(),
+    unenrolled_at: dateKeySchema.nullable().optional(),
+    status: z.enum(["active", "completed", "withdrawn"]).optional(),
     notes: z.string().trim().max(2000).nullable().optional(),
     primary_instructor_id: z.string().min(1).nullable().optional(),
     aircraft_type: z.string().min(1).nullable().optional(),
@@ -47,6 +51,17 @@ export async function PATCH(
     return noStoreJson({ error: "Enrollment not found" }, { status: 404 })
   }
 
+  if (
+    parsed.data.unenrolled_at &&
+    parsed.data.status &&
+    parsed.data.status !== "withdrawn"
+  ) {
+    return noStoreJson(
+      { error: "Unenrollment date can only be set for withdrawn enrollments" },
+      { status: 400 }
+    )
+  }
+
   if (parsed.data.primary_instructor_id) {
     const { data: instructor } = await supabase
       .from("instructors")
@@ -74,10 +89,41 @@ export async function PATCH(
     }
   }
 
+  const nextStatus = parsed.data.status ?? (parsed.data.unenrolled_at ? "withdrawn" : undefined)
+
+  let unenrolledAt = parsed.data.unenrolled_at ?? undefined
+  if (nextStatus === "withdrawn" && !unenrolledAt) {
+    const { data: tenantResult, error: tenantError } = await supabase
+      .from("tenants")
+      .select("timezone")
+      .eq("id", tenantId)
+      .maybeSingle()
+
+    if (tenantError) {
+      return noStoreJson({ error: "Failed to resolve tenant timezone" }, { status: 500 })
+    }
+
+    const timeZone = tenantResult?.timezone ?? "Pacific/Auckland"
+    unenrolledAt = zonedTodayYyyyMmDd(timeZone)
+  }
+
   const { error } = await supabase
     .from("student_syllabus_enrollment")
     .update({
       enrolled_at: parsed.data.enrolled_at ?? undefined,
+      completion_date:
+        parsed.data.completion_date !== undefined
+          ? parsed.data.completion_date
+          : nextStatus === "withdrawn"
+            ? null
+            : undefined,
+      unenrolled_at:
+        parsed.data.unenrolled_at !== undefined || nextStatus === "withdrawn" || nextStatus === "active"
+          ? nextStatus === "withdrawn"
+            ? unenrolledAt ?? null
+            : null
+          : undefined,
+      status: nextStatus ?? undefined,
       notes: parsed.data.notes ?? undefined,
       primary_instructor_id: parsed.data.primary_instructor_id ?? undefined,
       aircraft_type: parsed.data.aircraft_type ?? undefined,

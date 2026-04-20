@@ -100,28 +100,6 @@ function formatDurationMinutes(totalMinutes: number): string {
   return `${hoursPart}h ${minutesPart}m`
 }
 
-function buildWarningsFingerprint(payload: {
-  userId: string | null
-  instructorId: string | null
-  aircraftId: string | null
-  warnings: BookingWarningsResponse
-}) {
-  return JSON.stringify({
-    userId: payload.userId,
-    instructorId: payload.instructorId,
-    aircraftId: payload.aircraftId,
-    summary: payload.warnings.summary,
-    groups: payload.warnings.groups.map((group) => ({
-      category: group.category,
-      warnings: group.warnings.map((warning) => ({
-        id: warning.id,
-        severity: warning.severity,
-        blocking: warning.blocking,
-      })),
-    })),
-  })
-}
-
 function createCheckoutInitialState(booking: BookingWithRelations): CheckoutFormState {
   return {
     checked_out_aircraft_id: booking.checked_out_aircraft_id ?? booking.aircraft_id ?? null,
@@ -174,9 +152,6 @@ export function BookingCheckoutClient({
   const [savedBookingForm, setSavedBookingForm] = React.useState<BookingEditFormState>(() => serverInitialBookingForm)
   const [savedCheckoutForm, setSavedCheckoutForm] = React.useState<CheckoutFormState>(() => serverInitialCheckoutForm)
   const [warnings, setWarnings] = React.useState<BookingWarningsResponse>(() => initialWarnings)
-  const [warningsAcknowledged, setWarningsAcknowledged] = React.useState(
-    () => !initialWarnings.summary.requires_acknowledgement
-  )
   const [warningsRefreshError, setWarningsRefreshError] = React.useState<string | null>(null)
   const [isWarningsRefreshing, setIsWarningsRefreshing] = React.useState(false)
   const [cancelOpen, setCancelOpen] = React.useState(false)
@@ -237,21 +212,6 @@ export function BookingCheckoutClient({
     () => (isStaff ? warnings : filterBookingWarningsForMemberOrStudentView(warnings)),
     [isStaff, warnings]
   )
-
-  const warningsAcknowledgementKey = React.useMemo(
-    () =>
-      buildWarningsFingerprint({
-        userId: warningUserId,
-        instructorId: warningInstructorId,
-        aircraftId: warningAircraftId,
-        warnings: warningsForViewer,
-      }),
-    [warningAircraftId, warningInstructorId, warningUserId, warningsForViewer]
-  )
-
-  React.useEffect(() => {
-    setWarningsAcknowledged(!warningsForViewer.summary.requires_acknowledgement)
-  }, [warningsAcknowledgementKey, warningsForViewer.summary.requires_acknowledgement])
 
   React.useEffect(() => {
     const matchesCurrentContext =
@@ -375,9 +335,7 @@ export function BookingCheckoutClient({
   const canCheckIn = isStaff && booking.status === "flying"
   const isReadOnly = booking.status === "complete" || booking.status === "cancelled"
   const hasBlockingWarnings = warningsForViewer.summary.has_blockers
-  const requiresWarningsAcknowledgement = warningsForViewer.summary.requires_acknowledgement
-  const warningGateBlocked =
-    isWarningsRefreshing || Boolean(warningsRefreshError) || (requiresWarningsAcknowledgement && !warningsAcknowledged)
+  const warningGateBlocked = isWarningsRefreshing || Boolean(warningsRefreshError)
   const isDirty = React.useMemo(
     () =>
       JSON.stringify(bookingForm) !== JSON.stringify(savedBookingForm) ||
@@ -407,15 +365,13 @@ export function BookingCheckoutClient({
       ? "Refreshing booking warnings before checkout."
       : warningsRefreshError
         ? "Warning checks could not be refreshed. Resolve the warning fetch issue before checkout."
-        : requiresWarningsAcknowledgement && !warningsAcknowledged
-          ? "Review and acknowledge the non-blocking warnings before checkout."
-          : hasBlockingWarnings
-            ? "Critical booking warnings detected. Review them before marking this booking as flying."
-            : !checkoutForm.authorization_completed
-              ? "Authorise the flight to enable checkout."
-              : isDirty
-                ? "Flight authorised. Checking out will save changes and set status to flying."
-                : "Flight authorised and ready for checkout."
+        : hasBlockingWarnings
+          ? "Critical booking warnings detected. Review them before marking this booking as flying."
+          : !checkoutForm.authorization_completed
+            ? "Authorise the flight to enable checkout."
+            : isDirty
+              ? "Flight authorised. Checking out will save changes and set status to flying."
+              : "Flight authorised and ready for checkout."
     : "You have unsaved checkout details."
   const lessonProgressExists = React.useMemo(() => {
     if (!booking.lesson_progress) return false
@@ -494,9 +450,8 @@ export function BookingCheckoutClient({
       flight_remarks: normalizeText(checkoutForm.flight_remarks),
       briefing_completed: checkoutForm.briefing_completed,
       authorization_completed: checkoutForm.authorization_completed,
-      warnings_acknowledged: requiresWarningsAcknowledgement ? warningsAcknowledged : true,
     }
-  }, [bookingEndTimeLocal, bookingForm, checkoutForm, isEtaAuto, requiresWarningsAcknowledgement, warningsAcknowledged])
+  }, [bookingEndTimeLocal, bookingForm, checkoutForm, isEtaAuto])
 
   const handleSave = () => {
     if (isReadOnly || !isDirty) return
@@ -665,9 +620,6 @@ export function BookingCheckoutClient({
               warnings={warningsForViewer}
               isRefreshing={isWarningsRefreshing}
               refreshError={warningsRefreshError}
-              acknowledgementChecked={warningsAcknowledged}
-              onAcknowledgementChange={setWarningsAcknowledged}
-              disabled={isReadOnly}
             />
           </div>
 

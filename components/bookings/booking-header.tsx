@@ -35,36 +35,44 @@ type BookingHeaderIndicatorTone =
 type ToneClasses = {
   dot: string
   pulse: string
+  badge: string
 }
 
 const TONE_STYLES: Record<BookingHeaderIndicatorTone, ToneClasses> = {
   blue: {
     dot: "bg-blue-500",
     pulse: "bg-blue-400",
+    badge: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/20",
   },
   green: {
     dot: "bg-emerald-500",
     pulse: "bg-emerald-400",
+    badge: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20",
   },
   amber: {
     dot: "bg-amber-500",
     pulse: "bg-amber-400",
+    badge: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20",
   },
   orange: {
     dot: "bg-orange-500",
     pulse: "bg-orange-400",
+    badge: "bg-orange-50 text-orange-800 ring-1 ring-inset ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-400 dark:ring-orange-500/20",
   },
   rose: {
     dot: "bg-rose-500",
     pulse: "bg-rose-400",
+    badge: "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/10 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20",
   },
   violet: {
     dot: "bg-violet-500",
     pulse: "bg-violet-400",
+    badge: "bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-700/10 dark:bg-violet-500/10 dark:text-violet-400 dark:ring-violet-500/20",
   },
   slate: {
     dot: "bg-slate-400",
     pulse: "bg-slate-300",
+    badge: "bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/10 dark:bg-slate-500/10 dark:text-slate-400 dark:ring-slate-500/20",
   },
 }
 
@@ -119,25 +127,12 @@ function getInstructionTypeLabel(instructionType: FlightInstructionType) {
   }
 }
 
-function getInstructionBadgeStyles(instructionType: FlightInstructionType): BookingHeaderIndicatorTone {
-  switch (instructionType) {
-    case "solo":
-      return "green"
-    case "dual":
-      return "blue"
-    case "trial":
-      return "violet"
-    default:
-      return "slate"
-  }
-}
-
 function formatDisplayName(user: { first_name: string | null; last_name: string | null; email: string | null }) {
   return [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email
 }
 
 const recordLinkClass =
-  "inline-flex items-center text-blue-600 underline decoration-blue-300/70 decoration-1 underline-offset-[3px] transition-colors hover:text-blue-700 hover:decoration-blue-500 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300 dark:hover:decoration-blue-400"
+  "inline-flex items-center font-medium text-blue-700 underline decoration-blue-300/70 decoration-1 underline-offset-[3px] transition-colors hover:text-blue-900 hover:decoration-blue-500 dark:text-blue-400 dark:decoration-blue-500/50 dark:hover:text-blue-300 dark:hover:decoration-blue-400"
 
 export function BookingHeaderIndicator({
   label,
@@ -164,10 +159,14 @@ export function BookingHeaderIndicator({
 
   return (
     <span
-      className={cn("inline-flex items-center gap-1.5", className)}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium transition-colors",
+        tones.badge,
+        className
+      )}
       aria-label={`${label}: ${value}`}
     >
-      <span className="relative inline-flex h-1.5 w-1.5 items-center justify-center">
+      <span className="relative flex h-1.5 w-1.5 items-center justify-center">
         {pulse ? (
           <span
             className={cn(
@@ -177,9 +176,9 @@ export function BookingHeaderIndicator({
             aria-hidden
           />
         ) : null}
-        <span className={cn("relative inline-block h-1.5 w-1.5 rounded-full", tones.dot)} />
+        <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", tones.dot)} />
       </span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span>{value}</span>
     </span>
   )
 }
@@ -217,7 +216,7 @@ function MetadataItem({
 
 function MetadataSeparator() {
   return (
-    <span aria-hidden className="hidden h-3 w-px bg-border/70 sm:inline-block" />
+    <span aria-hidden className="hidden h-3 w-px bg-slate-200 dark:bg-slate-800 sm:inline-block" />
   )
 }
 
@@ -239,7 +238,6 @@ export function BookingHeader({
   const instructionType =
     booking.booking_type === "flight" ? booking.flight_type?.instruction_type ?? null : null
   const instructionLabel = instructionType ? getInstructionTypeLabel(instructionType) : null
-  const instructionTone = instructionType ? getInstructionBadgeStyles(instructionType) : null
 
   const studentName = booking.student ? formatDisplayName(booking.student) : null
 
@@ -258,104 +256,102 @@ export function BookingHeader({
   return (
     <div
       className={cn(
-        "border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "relative border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
         className
       )}
     >
-      <div className="w-full px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="w-full px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="mb-6">
           <Link
             href={backHref}
-            className="group inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="group inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <IconArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+            <IconArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
             {backLabel}
           </Link>
         </div>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-              <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl lg:text-[1.75rem]">
+        <div className="flex flex-col gap-4 sm:gap-5">
+          <div className="flex items-start justify-between gap-4 sm:gap-6">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-3">
+              <h1 className="min-w-0 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                 {title}
               </h1>
-              <BookingHeaderIndicators className="gap-x-4">
+              <BookingHeaderIndicators className="gap-x-3">
                 <BookingHeaderIndicator
                   label="Status"
                   value={badgeLabel}
                   tone={statusTone}
                   pulse={status === "flying"}
                 />
-                {instructionType && instructionLabel && instructionTone ? (
-                  <BookingHeaderIndicator
-                    label="Type"
-                    value={instructionLabel}
-                    tone={instructionTone}
-                  />
-                ) : null}
                 {extra}
               </BookingHeaderIndicators>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              {studentName && booking.user_id ? (
-                <>
-                  <MetadataItem label="Member">
-                    {showRecordLinks ? (
-                      <Link
-                        href={`/members/${booking.user_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={recordLinkClass}
-                      >
-                        <span className="truncate">{studentName}</span>
-                      </Link>
-                    ) : (
-                      <span className="truncate">{studentName}</span>
-                    )}
-                  </MetadataItem>
-                  <MetadataSeparator />
-                </>
-              ) : null}
-
-              {instructorName ? (
-                <>
-                  <MetadataItem label="Instructor">
-                    <span className="truncate">{instructorName}</span>
-                  </MetadataItem>
-                  <MetadataSeparator />
-                </>
-              ) : null}
-
-              <MetadataItem label={isGroundwork ? "Session" : "Aircraft"}>
-                {!isGroundwork && booking.aircraft_id && showRecordLinks ? (
-                  <Link
-                    href={`/aircraft/${booking.aircraft_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={recordLinkClass}
-                  >
-                    <span className="truncate">{assetLabel}</span>
-                  </Link>
-                ) : (
-                  <span className="truncate">{assetLabel}</span>
-                )}
-              </MetadataItem>
-              <MetadataSeparator />
-
-              <MetadataItem label="Date">
-                <span className="truncate">{dateLabel}</span>
-              </MetadataItem>
-            </div>
+            {actions ? (
+              <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">{actions}</div>
+            ) : null}
           </div>
 
-          {actions ? (
-            <div className="flex w-full flex-shrink-0 lg:w-auto lg:items-start lg:justify-end lg:self-start">
-              <div className="flex w-full items-center gap-2 sm:gap-2.5 lg:w-auto">
-                {actions}
-              </div>
-            </div>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {studentName && booking.user_id ? (
+              <>
+                <MetadataItem label="Member">
+                  {showRecordLinks ? (
+                    <Link
+                      href={`/members/${booking.user_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={recordLinkClass}
+                    >
+                      <span className="truncate">{studentName}</span>
+                    </Link>
+                  ) : (
+                    <span className="truncate">{studentName}</span>
+                  )}
+                </MetadataItem>
+                <MetadataSeparator />
+              </>
+            ) : null}
+
+            {instructorName ? (
+              <>
+                <MetadataItem label="Instructor">
+                  <span className="truncate">{instructorName}</span>
+                </MetadataItem>
+                <MetadataSeparator />
+              </>
+            ) : null}
+
+            <MetadataItem label={isGroundwork ? "Session" : "Aircraft"}>
+              {!isGroundwork && booking.aircraft_id && showRecordLinks ? (
+                <Link
+                  href={`/aircraft/${booking.aircraft_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={recordLinkClass}
+                >
+                  <span className="truncate">{assetLabel}</span>
+                </Link>
+              ) : (
+                <span className="truncate">{assetLabel}</span>
+              )}
+            </MetadataItem>
+            <MetadataSeparator />
+
+            <MetadataItem label="Date">
+              <span className="truncate">{dateLabel}</span>
+            </MetadataItem>
+
+            {instructionType && instructionLabel ? (
+              <>
+                <MetadataSeparator />
+                <MetadataItem label="Type">
+                  <span className="truncate">{instructionLabel}</span>
+                </MetadataItem>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

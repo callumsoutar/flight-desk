@@ -37,6 +37,7 @@ export type MemberTrainingEnrollment = {
   status: string
   enrolled_at: string
   completion_date: string | null
+  unenrolled_at: string | null
   notes: string | null
   primary_instructor_id: string | null
   aircraft_type: string | null

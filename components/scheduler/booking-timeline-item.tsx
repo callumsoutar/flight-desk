@@ -1,7 +1,19 @@
 "use client"
 
 import * as React from "react"
-import { BookOpen, CheckCircle, Clock, Eye, Plane, User, UserCircle, Users, Wrench, X } from "lucide-react"
+import {
+  ArrowUpRight,
+  BookOpen,
+  CheckCircle,
+  Eye,
+  GripVertical,
+  Plane,
+  User,
+  UserCircle,
+  Users,
+  Wrench,
+  X,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
@@ -35,7 +47,6 @@ export function BookingTimelineItem({
   onStatusUpdate,
   onCancelBooking,
   canViewAircraftProfile,
-  statusBadgeVariant,
   statusPillClasses,
 }: {
   booking: {
@@ -131,6 +142,35 @@ export function BookingTimelineItem({
   })()
 
   const BookingTypeIcon = bookingTypeIndicator.icon
+
+  const STATUS_ACCENT: Record<BookingStatus, string> = {
+    unconfirmed: "bg-slate-300",
+    confirmed: "bg-emerald-500",
+    briefing: "bg-amber-500",
+    flying: "bg-indigo-500",
+    complete: "bg-slate-400",
+    cancelled: "bg-rose-500",
+  }
+
+  const STATUS_BADGE: Record<BookingStatus, string> = {
+    unconfirmed: "border-slate-200 bg-slate-100 text-slate-700",
+    confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    briefing: "border-amber-200 bg-amber-50 text-amber-800",
+    flying: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    complete: "border-slate-200 bg-slate-100 text-slate-700",
+    cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+  }
+
+  const durationLabel = React.useMemo(() => {
+    const ms = itemEndAt.getTime() - itemStartAt.getTime()
+    if (!Number.isFinite(ms) || ms <= 0) return null
+    const totalMinutes = Math.round(ms / 60_000)
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    if (hours === 0) return `${minutes}m`
+    if (minutes === 0) return `${hours}h`
+    return `${hours}h ${minutes}m`
+  }, [itemStartAt, itemEndAt])
 
   return (
     <div
@@ -242,90 +282,108 @@ export function BookingTimelineItem({
               variant="card"
               side="top"
               sideOffset={8}
-              className="max-w-[360px] rounded-md border border-border/70 bg-background p-0 shadow-lg"
+              className="relative w-[260px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-border/60 bg-background p-0 shadow-xl"
             >
-              <div className="space-y-3 p-3">
-                <div className="flex items-start justify-between gap-3">
+              <div
+                aria-hidden
+                className={cn(
+                  "absolute inset-x-0 top-0 h-1",
+                  STATUS_ACCENT[booking.status] ?? "bg-slate-300"
+                )}
+              />
+              
+              <div className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-border/70 bg-white text-slate-600",
-                          booking.bookingType === "maintenance" ? "text-slate-500" : ""
-                        )}
-                        aria-label={bookingTypeIndicator.label}
-                        title={bookingTypeIndicator.label}
-                      >
-                        <BookingTypeIcon className="h-3 w-3" />
-                      </span>
-                      <div className="truncate text-sm font-semibold leading-tight text-foreground">
-                        {booking.primaryLabel}
-                      </div>
+                    <div className="truncate text-[14px] font-semibold text-foreground">
+                      {booking.primaryLabel}
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span className="font-medium">{range}</span>
+                    <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                      <BookingTypeIcon className="h-3.5 w-3.5" />
+                      <span className="truncate">{bookingTypeIndicator.label}</span>
                     </div>
                   </div>
-                  <Badge
-                    variant={statusBadgeVariant(booking.status)}
-                    className="rounded-sm border-border/70 px-2 py-0.5 capitalize shadow-none"
+                  <span
+                    className={cn(
+                      "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize",
+                      STATUS_BADGE[booking.status] ?? "border-slate-200 bg-slate-100 text-slate-700"
+                    )}
                   >
                     {booking.status}
-                  </Badge>
+                  </span>
                 </div>
 
-                <div className="grid gap-2 rounded-sm border border-border/70 bg-slate-50/70 p-2 text-xs">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-slate-500">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[15px] font-semibold tracking-tight text-foreground">
+                    {range}
+                  </span>
+                  {durationLabel ? (
+                    <span className="text-[12px] font-medium text-muted-foreground">
+                      · {durationLabel}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-col gap-2.5 text-[12px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <User className="h-3.5 w-3.5" />
                       <span>Instructor</span>
                     </div>
-                    <span className="min-w-0 truncate font-medium text-slate-900">
-                      {booking.instructorLabel ?? "-"}
+                    <span className="truncate font-medium text-foreground">
+                      {booking.instructorLabel || "—"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Plane className="h-3.5 w-3.5" />
                       <span>Aircraft</span>
                     </div>
-                    <span className="min-w-0 truncate font-medium text-slate-900">
-                      {booking.aircraftLabel ?? "-"}
+                    <span className="truncate font-medium text-foreground">
+                      {booking.aircraftLabel || "—"}
                     </span>
                   </div>
                 </div>
 
-                {booking.canOpen ? (
-                  <div className="space-y-2 border-t border-border/70 pt-3">
-                    <div className="space-y-1">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                        Description
+                {booking.canOpen && (booking.purpose || booking.remarks) ? (
+                  <div className="space-y-2.5 border-t border-border/60 pt-3 text-[12px]">
+                    {booking.purpose ? (
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Description
+                        </div>
+                        <div className="line-clamp-2 leading-relaxed text-foreground/90">{booking.purpose}</div>
                       </div>
-                      <div className="text-xs leading-relaxed text-slate-700 break-words line-clamp-4">
-                        {booking.purpose}
-                      </div>
-                    </div>
+                    ) : null}
                     {booking.remarks ? (
                       <div className="space-y-1">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                           Remarks
                         </div>
-                        <div className="text-xs leading-relaxed text-slate-600 break-words line-clamp-3">
-                          {booking.remarks}
-                        </div>
+                        <div className="line-clamp-2 leading-relaxed text-foreground/90">{booking.remarks}</div>
                       </div>
                     ) : null}
                   </div>
                 ) : null}
+              </div>
 
-                <div className="border-t border-border/70 pt-2 text-[11px] text-slate-500">
-                  {booking.canOpen
-                    ? canDragThisBooking
-                      ? "Click to open or drag to move"
-                      : "Click to open booking"
-                    : "Busy slot"}
-                </div>
+              <div className="flex items-center justify-between border-t border-border/60 bg-muted/50 px-4 py-2.5 text-[11px] text-muted-foreground">
+                {booking.canOpen ? (
+                  <>
+                    <span className="flex items-center gap-1.5 font-medium text-foreground/70">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Click to open
+                    </span>
+                    {canDragThisBooking ? (
+                      <span className="flex items-center gap-1.5">
+                        <GripVertical className="h-3.5 w-3.5" />
+                        Drag to move
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span>Busy slot</span>
+                )}
               </div>
             </TooltipContent>
           )

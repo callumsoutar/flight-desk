@@ -91,13 +91,14 @@ export async function POST(
       user_id: targetUserId,
       syllabus_id: parsed.data.syllabus_id,
       enrolled_at: enrolledAt,
+      unenrolled_at: null,
       notes: parsed.data.notes ?? null,
       primary_instructor_id: parsed.data.primary_instructor_id ?? null,
       aircraft_type: parsed.data.aircraft_type ?? null,
       status: "active",
     })
     .select(
-      "id, status, enrolled_at, completion_date, notes, primary_instructor_id, aircraft_type, syllabus_id, syllabus:syllabus!student_syllabus_enrollment_syllabus_id_fkey(id, name, description, is_active, voided_at), aircraft_types:aircraft_types!student_syllabus_enrollment_aircraft_type_fkey(id, name)"
+      "id, status, enrolled_at, completion_date, unenrolled_at, notes, primary_instructor_id, aircraft_type, syllabus_id, syllabus:syllabus!student_syllabus_enrollment_syllabus_id_fkey(id, name, description, is_active, voided_at), aircraft_types:aircraft_types!student_syllabus_enrollment_aircraft_type_fkey(id, name)"
     )
     .single()
 

@@ -203,9 +203,9 @@ function formatHours(value: number | null | undefined): string {
   return `${(value ?? 0).toFixed(1)}h`
 }
 
-function formatPercent(value: number | null | undefined): string {
-  if (!Number.isFinite(value ?? NaN)) return "0.0%"
-  return `${(value ?? 0).toFixed(1)}%`
+function formatCount(value: number | null | undefined): string {
+  if (!Number.isFinite(value ?? NaN)) return "0"
+  return Math.trunc(value ?? 0).toLocaleString("en-NZ")
 }
 
 function formatMonthLabel(yearMonth: string): string {
@@ -337,10 +337,10 @@ export function ReportsDashboard({
                   title="Avg Flight Duration"
                   value={formatHours(flyingActivity?.avg_flight_duration_hours)}
                 />
-                <FlyingMetricItem 
-                  title="Conversion Rate" 
-                  value={formatPercent(flyingActivity?.conversion_rate)} 
-                  helpText="Percentage of trial flights that resulted in a student enrollment."
+                <FlyingMetricItem
+                  title="Converted Members"
+                  value={formatCount(flyingActivity?.converted_members)}
+                  helpText="Number of trial-flight customers who became members in this period."
                 />
               </div>
             </Card>

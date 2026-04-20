@@ -12,6 +12,7 @@ import {
   IconLoader2,
   IconMessage,
   IconNotebook,
+  IconPlus,
   IconTarget,
   IconX,
 } from "@tabler/icons-react"
@@ -417,12 +418,12 @@ export function CheckinDebriefEditor({
 
       {/* ── Open form ──────────────────────────────────────────── */}
       {isOpen ? (
-        <div className="mt-4 rounded-xl border border-border/60 bg-card shadow-sm">
+        <div className="mt-4 rounded-xl border border-border bg-card shadow-md">
           {showMeta ? (
-            <div className="border-b border-border/60 bg-muted/20 px-5 py-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground">
-                  <IconNotebook className="h-4 w-4" />
+            <div className="border-b border-border bg-slate-50/50 px-5 py-4 dark:bg-slate-900/20">
+              <div className="flex items-start gap-3">
+                <div className="flex shrink-0 items-center justify-center pt-0.5 text-slate-500 dark:text-slate-400">
+                  <IconNotebook className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h4 className="text-sm font-semibold leading-tight text-foreground">{meta.lessonName}</h4>
@@ -460,32 +461,79 @@ export function CheckinDebriefEditor({
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => setStatus("pass")}
                   className={cn(
-                    "inline-flex h-9 items-center gap-2 rounded-md border px-4 text-sm font-medium transition-colors",
+                    "group relative flex items-center gap-4 rounded-xl border p-4 text-left transition-all",
                     status === "pass"
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                      : "border-border bg-background text-muted-foreground hover:border-emerald-400/60 hover:bg-emerald-500/5 hover:text-emerald-600"
+                      ? "border-emerald-500 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-500/20 dark:bg-emerald-500/10"
+                      : "border-border bg-card hover:border-emerald-500/30 hover:bg-emerald-50/50 dark:hover:bg-emerald-500/5"
                   )}
                 >
-                  <IconCheck className="h-3.5 w-3.5 shrink-0" />
-                  Pass
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+                      status === "pass"
+                        ? "bg-emerald-500 text-white"
+                        : "bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:group-hover:bg-emerald-500/30"
+                    )}
+                  >
+                    <IconCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p
+                      className={cn(
+                        "font-semibold",
+                        status === "pass"
+                          ? "text-emerald-900 dark:text-emerald-100"
+                          : "text-foreground"
+                      )}
+                    >
+                      Pass
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Student met all lesson requirements
+                    </p>
+                  </div>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setStatus("not yet competent")}
                   className={cn(
-                    "inline-flex h-9 items-center gap-2 rounded-md border px-4 text-sm font-medium transition-colors",
+                    "group relative flex items-center gap-4 rounded-xl border p-4 text-left transition-all",
                     status === "not yet competent"
-                      ? "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-                      : "border-border bg-background text-muted-foreground hover:border-amber-400/60 hover:bg-amber-500/5 hover:text-amber-600"
+                      ? "border-amber-500 bg-amber-50/50 shadow-sm ring-1 ring-amber-500/20 dark:bg-amber-500/10"
+                      : "border-border bg-card hover:border-amber-500/30 hover:bg-amber-50/50 dark:hover:bg-amber-500/5"
                   )}
                 >
-                  <IconX className="h-3.5 w-3.5 shrink-0" />
-                  Not Yet Competent
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+                      status === "not yet competent"
+                        ? "bg-amber-500 text-white"
+                        : "bg-amber-100 text-amber-600 group-hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:group-hover:bg-amber-500/30"
+                    )}
+                  >
+                    <IconX className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p
+                      className={cn(
+                        "font-semibold",
+                        status === "not yet competent"
+                          ? "text-amber-900 dark:text-amber-100"
+                          : "text-foreground"
+                      )}
+                    >
+                      Not Yet Competent
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Needs more practice on this lesson
+                    </p>
+                  </div>
                 </button>
               </div>
             </div>
@@ -507,46 +555,67 @@ export function CheckinDebriefEditor({
                     value={nextSteps}
                     onChange={(e) => setNextSteps(e.target.value)}
                     placeholder="What should be the priority next time?"
-                    className="min-h-[88px] resize-y rounded-lg border-border/80 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background"
+                    className="min-h-[88px] resize-y bg-background shadow-sm"
                   />
                 </FieldGroup>
               </div>
             </div>
 
-            <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <SectionHeading icon={<IconNotebook className="h-4 w-4" />} label="Additional Details" />
-                <Button
+            {!detailsOpen ? (
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(true)}
+                className="group flex w-full items-center justify-between rounded-xl border border-dashed border-border/60 bg-muted/20 px-5 py-4 transition-all hover:border-primary/40 hover:bg-muted/40"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-muted-foreground shadow-sm transition-colors group-hover:text-primary">
+                    <IconPlus className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                      Add Optional Details
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Training highlights, weather, and safety observations
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-border/60 bg-muted/10 overflow-hidden">
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                  onClick={() => setDetailsOpen((prev) => !prev)}
+                  onClick={() => setDetailsOpen(false)}
+                  className="flex w-full items-center justify-between border-b border-border/60 bg-muted/20 px-5 py-4 transition-colors hover:bg-muted/30"
                 >
-                  {detailsOpen ? "Collapse" : "Expand"}
-                  <IconChevronDown
-                    className={cn("h-3.5 w-3.5 transition-transform duration-200", detailsOpen && "rotate-180")}
-                  />
-                </Button>
-              </div>
-
-              {detailsOpen ? (
-                <div className="mt-5 space-y-6">
-                  {/* Training Details — single column for easier reading */}
-                  <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <IconNotebook className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-foreground">Optional Details</p>
+                      <p className="text-xs text-muted-foreground">Training highlights, weather, and safety observations</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center text-xs font-medium text-muted-foreground hover:text-foreground">
+                    Collapse
+                    <IconChevronDown className="ml-1.5 h-4 w-4 rotate-180" />
+                  </div>
+                </button>
+                
+                <div className="p-5 space-y-8">
+                  <div className="space-y-6">
                     <SectionHeading
                       icon={<IconNotebook className="h-4 w-4" />}
                       label="Training Details"
-                      level="secondary"
+                      description="Optional notes on specific aspects of the lesson"
                     />
 
-                    <div className="space-y-4">
+                    <div className="grid gap-6 sm:grid-cols-2">
                       <FieldGroup label="Lesson Highlights" hint="What went particularly well?">
                         <Textarea
                           value={lessonHighlights}
                           onChange={(e) => setLessonHighlights(e.target.value)}
                           placeholder="Describe what went well..."
-                          className="min-h-[72px] resize-y rounded-lg border-border/80 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background"
+                          className="min-h-[88px] resize-y bg-background shadow-sm"
                         />
                       </FieldGroup>
 
@@ -555,39 +624,39 @@ export function CheckinDebriefEditor({
                           value={areasForImprovement}
                           onChange={(e) => setAreasForImprovement(e.target.value)}
                           placeholder="Areas that need work..."
-                          className="min-h-[72px] resize-y rounded-lg border-border/80 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background"
+                          className="min-h-[88px] resize-y bg-background shadow-sm"
                         />
                       </FieldGroup>
 
                       <FieldGroup
                         label="Airmanship & Decision Making"
                         hint="Situational awareness, safety mindset"
+                        className="sm:col-span-2"
                       >
                         <Textarea
                           value={airmanship}
                           onChange={(e) => setAirmanship(e.target.value)}
                           placeholder="Comments on airmanship and decision making..."
-                          className="min-h-[64px] resize-y rounded-lg border-border/80 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background"
+                          className="min-h-[88px] resize-y bg-background shadow-sm"
                         />
                       </FieldGroup>
                     </div>
                   </div>
 
-                  {/* Environment & Safety — compact two-column for short fields */}
-                  <div className="border-t border-border/50 pt-6">
+                  <div className="space-y-6 border-t border-border/60 pt-6">
                     <SectionHeading
                       icon={<IconCloud className="h-4 w-4" />}
                       label="Environment & Safety"
-                      level="secondary"
+                      description="Record conditions and any safety events"
                     />
 
-                    <div className="mt-3 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid gap-6 sm:grid-cols-2">
                       <FieldGroup label="Weather Conditions">
                         <Input
                           value={weatherConditions}
                           onChange={(e) => setWeatherConditions(e.target.value)}
                           placeholder="e.g. CAVOK, Gusty 15kts, Low cloud"
-                          className="h-9 rounded-lg border-border/80 bg-muted/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background"
+                          className="h-10 bg-background shadow-sm"
                         />
                       </FieldGroup>
 
@@ -596,108 +665,110 @@ export function CheckinDebriefEditor({
                           value={safetyConcerns}
                           onChange={(e) => setSafetyConcerns(e.target.value)}
                           placeholder="Any safety events or concerns?"
-                          className="h-9 rounded-lg border-amber-200/80 bg-amber-50/30 text-sm placeholder:text-muted-foreground/50 focus:bg-background dark:border-amber-800/60 dark:bg-amber-950/10"
+                          className="h-10 bg-amber-50/50 border-amber-200 shadow-sm focus-visible:ring-amber-500 dark:bg-amber-950/20 dark:border-amber-800"
                         />
                       </FieldGroup>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                  Training highlights, improvements, and safety notes (optional).
-                </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div
             className={cn(
-              "border-t border-border/60 bg-muted/30 px-5 py-4",
-              !collapsible && "sticky bottom-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+              "border-t border-border bg-slate-50/50 px-5 py-4 dark:bg-slate-900/20",
+              !collapsible && "sticky bottom-0 z-20 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80 dark:supports-[backdrop-filter]:bg-slate-900/80"
             )}
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs text-muted-foreground">
-                {hasExisting
-                  ? isDirty
-                    ? "You have unsaved changes."
-                    : "Debrief is saved and up to date."
-                  : "Fill in what's relevant — all fields are optional."}
-              </span>
-              {skipDebriefHref ? (
-                <Link
-                  href={skipDebriefHref}
-                  className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  {hasExisting ? "View Invoice" : "Skip Debrief"}
-                </Link>
-              ) : null}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {hasExisting
+                    ? isDirty
+                      ? "You have unsaved changes."
+                      : "Debrief is saved and up to date."
+                    : "Fill in what's relevant — all fields are optional."}
+                </span>
+              </div>
+
+              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                {skipDebriefHref ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="ghost"
+                    className="h-11 w-full sm:w-auto text-muted-foreground hover:text-foreground"
+                    asChild
+                  >
+                    <Link href={skipDebriefHref}>
+                      {hasExisting ? "View Invoice" : "Skip Debrief"}
+                    </Link>
+                  </Button>
+                ) : null}
+
+                {showViewButton && viewHref ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="outline"
+                    className="h-11 w-full sm:w-auto"
+                    asChild
+                  >
+                    <Link href={viewHref}>View Debrief</Link>
+                  </Button>
+                ) : null}
+
+                {continueHref ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    className={`h-11 w-full gap-2 sm:w-auto ${primaryButtonClassName}`}
+                    onClick={() => {
+                      if (hasExisting && !isDirty) {
+                        router.push(continueHref)
+                        return
+                      }
+                      void handleSave({ continueAfterSave: true })
+                    }}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <>
+                        <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        {continueLabel ?? "Save & Continue"}
+                        <IconArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                ) : null}
+
+                {!continueHref ? (
+                  <Button
+                    type="button"
+                    size="lg"
+                    className={`h-11 w-full gap-2 sm:w-auto ${primaryButtonClassName}`}
+                    onClick={() => void handleSave()}
+                    disabled={isSaving || (hasExisting && !isDirty)}
+                  >
+                    {isSaving ? (
+                      <>
+                        <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : hasExisting ? (
+                      isDirty ? "Save Changes" : "Saved"
+                    ) : (
+                      "Save Debrief"
+                    )}
+                  </Button>
+                ) : null}
+              </div>
             </div>
-
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-              {showViewButton && viewHref ? (
-                <Button
-                  type="button"
-                  size="lg"
-                  variant="outline"
-                  className="h-11 w-full sm:w-auto"
-                  asChild
-                >
-                  <Link href={viewHref}>View Debrief</Link>
-                </Button>
-              ) : null}
-
-              {continueHref ? (
-                <Button
-                  type="button"
-                  size="lg"
-                  className={`h-11 w-full gap-2 sm:w-auto ${primaryButtonClassName}`}
-                  onClick={() => {
-                    if (hasExisting && !isDirty) {
-                      router.push(continueHref)
-                      return
-                    }
-                    void handleSave({ continueAfterSave: true })
-                  }}
-                  disabled={isSaving}
-                >
-                  {isSaving ? (
-                    <>
-                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      {continueLabel ?? "Save & Continue"}
-                      <IconArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              ) : null}
-
-              {!continueHref ? (
-                <Button
-                  type="button"
-                  size="lg"
-                  className={`h-11 w-full gap-2 sm:w-auto ${primaryButtonClassName}`}
-                  onClick={() => void handleSave()}
-                  disabled={isSaving || (hasExisting && !isDirty)}
-                >
-                  {isSaving ? (
-                    <>
-                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : hasExisting ? (
-                    isDirty ? "Save Changes" : "Saved"
-                  ) : (
-                    "Save Debrief"
-                  )}
-                </Button>
-              ) : null}
-            </div>
-          </div>
           </div>
         </div>
       ) : null}
@@ -718,23 +789,26 @@ function SectionHeading({
 }) {
   const isPrimary = level === "primary"
   return (
-    <div className="flex items-center gap-2">
-      <span className={cn("shrink-0", isPrimary ? "text-muted-foreground" : "text-muted-foreground/70")}>
+    <div className="flex items-center gap-2.5">
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-center",
+          isPrimary ? "text-slate-600 dark:text-slate-400" : "text-muted-foreground/70"
+        )}
+      >
         {icon}
-      </span>
+      </div>
       <div className="min-w-0">
         <h4
           className={cn(
-            "leading-tight",
-            isPrimary
-              ? "text-base font-semibold text-foreground"
-              : "text-sm font-medium text-muted-foreground"
+            "leading-tight text-foreground",
+            isPrimary ? "text-base font-semibold" : "text-sm font-semibold"
           )}
         >
           {label}
         </h4>
         {description ? (
-          <p className={cn("mt-0.5 text-muted-foreground", isPrimary ? "text-xs" : "text-[11px]")}>
+          <p className={cn("mt-0.5 text-muted-foreground", isPrimary ? "text-sm" : "text-xs")}>
             {description}
           </p>
         ) : null}
@@ -758,17 +832,17 @@ function FieldGroup({
 }) {
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="space-y-0.5">
+      <div className="space-y-1">
         <label
           className={cn(
-            "block text-xs font-medium",
-            variant === "warning" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+            "block text-sm font-semibold",
+            variant === "warning" ? "text-amber-700 dark:text-amber-400" : "text-foreground"
           )}
         >
           {label}
         </label>
         {hint ? (
-          <p className="text-[11px] leading-relaxed text-muted-foreground/90">{hint}</p>
+          <p className="text-xs text-muted-foreground">{hint}</p>
         ) : null}
       </div>
       {children}

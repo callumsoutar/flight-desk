@@ -138,7 +138,7 @@ export function StickyFormActions({
       }}
     >
       <div
-        className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8"
+        className="mx-auto w-full px-4 py-4 sm:px-6 lg:px-8"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -152,7 +152,7 @@ export function StickyFormActions({
                 onClick={onUndo}
                 disabled={isSaving}
                 className={`h-12 border-gray-300 font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 ${
-                  isMobile ? "max-w-[200px] flex-1" : "min-w-[160px] px-8"
+                  isMobile ? "flex-1" : "min-w-[160px] px-8"
                 }`}
               >
                 <IconRotateClockwise className="mr-2 h-4 w-4" />
@@ -166,7 +166,7 @@ export function StickyFormActions({
               size="lg"
               disabled={isSaving || isSaveDisabled}
               className={`h-12 bg-slate-700 font-semibold text-white shadow-lg transition-all hover:bg-slate-800 hover:shadow-xl ${
-                isMobile ? "max-w-[200px] flex-1" : "min-w-[160px] px-8"
+                isMobile ? "flex-1" : "min-w-[160px] px-8"
               }`}
             >
               <IconDeviceFloppy className="mr-2 h-4 w-4" />

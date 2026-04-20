@@ -46,29 +46,26 @@ export function DashboardPageClient({ data }: { data: DashboardData }) {
 
       <DashboardStatCards metrics={data.metrics} viewerKind={data.viewerKind} />
 
-      <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-12 lg:gap-6">
-        <div className="space-y-6 lg:col-span-7">
-          <UpcomingTodayCard
-            bookings={data.upcomingBookings}
-            timeZone={data.timeZone}
-            viewerKind={data.viewerKind}
-            nowIso={data.nowIso}
-          />
-          <FlyingNowCard
-            bookings={data.flyingNowBookings}
-            timeZone={data.timeZone}
-            nowIso={data.nowIso}
-            viewerKind={data.viewerKind}
-          />
-        </div>
-        <div className="lg:col-span-5">
-          <BookingRequestsCard
-            bookings={data.bookingRequests}
-            timeZone={data.timeZone}
-            allowConfirmActions
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-2 lg:gap-6">
+        <UpcomingTodayCard
+          bookings={data.upcomingBookings}
+          timeZone={data.timeZone}
+          viewerKind={data.viewerKind}
+          nowIso={data.nowIso}
+        />
+        <BookingRequestsCard
+          bookings={data.bookingRequests}
+          timeZone={data.timeZone}
+          allowConfirmActions
+        />
       </div>
+
+      <FlyingNowCard
+        bookings={data.flyingNowBookings}
+        timeZone={data.timeZone}
+        nowIso={data.nowIso}
+        viewerKind={data.viewerKind}
+      />
     </div>
   )
 }

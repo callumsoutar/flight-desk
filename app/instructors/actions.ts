@@ -80,7 +80,7 @@ async function requireTenantContext() {
 
 function canEditInstructor(role: string | null) {
   if (!role) return false
-  return role === "owner" || role === "admin" || role === "instructor"
+  return role === "owner" || role === "admin"
 }
 
 async function verifyInstructorInTenant(

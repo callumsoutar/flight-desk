@@ -2,13 +2,37 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { IconCheck, IconChevronRight, IconClipboardList, IconLoader2 } from "@tabler/icons-react"
+import {
+  IconCheck,
+  IconChevronRight,
+  IconClipboardList,
+  IconLoader2,
+} from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import { updateBookingStatusAction } from "@/app/bookings/actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import type { DashboardBookingLite } from "@/lib/types/dashboard"
 import { cn } from "@/lib/utils"
 
@@ -87,7 +111,7 @@ export function BookingRequestsCard({
     if (pendingId) return
 
     setPendingId(bookingId)
-    const MIN_VISIBLE_LOADING_MS = 900
+    const MIN_VISIBLE_LOADING_MS = 600
     const loadingDelay = new Promise((resolve) => setTimeout(resolve, MIN_VISIBLE_LOADING_MS))
     const result = await updateBookingStatusAction(bookingId, "confirmed")
     await loadingDelay
@@ -125,7 +149,7 @@ export function BookingRequestsCard({
         </Button>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="pt-0">
         {count === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
@@ -135,93 +159,149 @@ export function BookingRequestsCard({
             <p className="mt-1 text-sm text-muted-foreground">You&apos;re all caught up.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {rows.map((booking) => {
-              const studentName = formatUser(booking.student)
-              const aircraft = booking.aircraft?.registration ?? "No aircraft"
-              const instructor = formatInstructor(booking.instructor)
-              const aircraftDetail = formatAircraftDetail(booking.aircraft)
-              const bookingType = formatBookingType(booking.booking_type)
-              const when = `${formatShortDate(booking.start_time, timeZone)}, ${formatTime(booking.start_time, timeZone)}–${formatTime(booking.end_time, timeZone)}`
-              const isApproving = pendingId === booking.id
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {allowConfirmActions ? "Pilot" : "Booking"}
+                  </TableHead>
+                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Aircraft
+                  </TableHead>
+                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Type
+                  </TableHead>
+                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    When
+                  </TableHead>
+                  <TableHead className="h-9 w-px text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {allowConfirmActions ? "Action" : "Status"}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((booking) => {
+                  const studentName = formatUser(booking.student)
+                  const aircraft = booking.aircraft?.registration ?? "—"
+                  const instructor = formatInstructor(booking.instructor)
+                  const aircraftDetail = formatAircraftDetail(booking.aircraft)
+                  const bookingType = formatBookingType(booking.booking_type)
+                  const dateLabel = formatShortDate(booking.start_time, timeZone)
+                  const timeRange = `${formatTime(booking.start_time, timeZone)}–${formatTime(booking.end_time, timeZone)}`
+                  const isApproving = pendingId === booking.id
 
-              return (
-                <article
-                  key={booking.id}
-                  className="rounded-xl border border-border/70 bg-card px-4 py-4 sm:px-5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-foreground">{studentName}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="rounded-full bg-muted px-2.5 py-1">{aircraft}</span>
-                        <span className="rounded-full bg-muted px-2.5 py-1">{bookingType}</span>
-                        <span className="rounded-full bg-muted px-2.5 py-1 tabular-nums">{when}</span>
-                      </div>
-                    </div>
-                    {!allowConfirmActions ? (
-                      <Badge variant="secondary" className="shrink-0 rounded-full px-2.5 py-1 text-[11px]">
-                        Pending
-                      </Badge>
-                    ) : null}
-                  </div>
+                  return (
+                    <HoverCard key={booking.id} openDelay={120} closeDelay={80}>
+                      <HoverCardTrigger asChild>
+                        <TableRow className="cursor-default">
+                          <TableCell className="py-2.5 font-medium text-foreground">
+                            <Link
+                              href={`/bookings/${booking.id}`}
+                              className="hover:underline underline-offset-2"
+                            >
+                              {studentName}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="py-2.5 text-sm text-muted-foreground">
+                            {aircraft}
+                          </TableCell>
+                          <TableCell className="py-2.5 text-sm text-muted-foreground">
+                            {bookingType}
+                          </TableCell>
+                          <TableCell className="py-2.5 text-sm tabular-nums text-muted-foreground">
+                            <span className="text-foreground">{dateLabel}</span>
+                            <span className="ml-1.5">{timeRange}</span>
+                          </TableCell>
+                          <TableCell className="py-2 text-right">
+                            {allowConfirmActions ? (
+                              <Button
+                                size="sm"
+                                className={cn(
+                                  "h-7 gap-1.5 bg-emerald-600 px-2.5 text-xs text-white hover:bg-emerald-700",
+                                  isApproving ? "pointer-events-none opacity-70" : ""
+                                )}
+                                disabled={!!isApproving}
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  approve(booking.id)
+                                }}
+                              >
+                                {isApproving ? (
+                                  <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <IconCheck className="h-3.5 w-3.5" />
+                                )}
+                                Confirm
+                              </Button>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="rounded-full px-2 py-0.5 text-[11px]"
+                              >
+                                Pending
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      </HoverCardTrigger>
 
-                  {allowConfirmActions && (instructor || aircraftDetail) ? (
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      {instructor ? `Instructor: ${instructor}` : null}
-                      {instructor && aircraftDetail ? "  ·  " : null}
-                      {aircraftDetail ? `Aircraft: ${aircraftDetail}` : null}
-                    </p>
-                  ) : null}
-
-                  {booking.purpose ? (
-                    <p className="mt-3 rounded-md border border-border/60 bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
-                      <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/75">Purpose:</span>
-                      {booking.purpose}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 pt-3">
-                    {allowConfirmActions && isApproving ? (
-                      <p className="mr-auto flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                        <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
-                        Confirming...
-                      </p>
-                    ) : null}
-
-                    <Button
-                      variant={allowConfirmActions ? "outline" : "default"}
-                      size="sm"
-                      className={cn(
-                        "h-8 px-3 text-xs",
-                        allowConfirmActions && isApproving ? "pointer-events-none opacity-60" : ""
-                      )}
-                      asChild
-                    >
-                      <Link href={`/bookings/${booking.id}`}>
-                        {allowConfirmActions ? "Review details" : "View booking"}
-                      </Link>
-                    </Button>
-
-                    {allowConfirmActions ? (
-                      <Button
-                        size="sm"
-                        className="h-8 gap-1.5 bg-emerald-600 px-4 text-xs text-white hover:bg-emerald-700"
-                        disabled={!!isApproving}
-                        onClick={() => approve(booking.id)}
+                      <HoverCardContent
+                        align="start"
+                        side="top"
+                        sideOffset={6}
+                        className="w-80 p-0"
                       >
-                        {isApproving ? (
-                          <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <IconCheck className="h-3.5 w-3.5" />
-                        )}
-                        Confirm
-                      </Button>
-                    ) : null}
-                  </div>
-                </article>
-              )
-            })}
+                        <div className="space-y-3 p-4">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-semibold text-foreground">{studentName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {bookingType} · {dateLabel} {timeRange}
+                            </p>
+                          </div>
+
+                          <dl className="grid grid-cols-[88px_1fr] gap-y-1.5 text-xs">
+                            {aircraftDetail ? (
+                              <>
+                                <dt className="text-muted-foreground">Aircraft</dt>
+                                <dd className="text-foreground">{aircraftDetail}</dd>
+                              </>
+                            ) : null}
+                            {instructor ? (
+                              <>
+                                <dt className="text-muted-foreground">Instructor</dt>
+                                <dd className="text-foreground">{instructor}</dd>
+                              </>
+                            ) : null}
+                            {booking.purpose ? (
+                              <>
+                                <dt className="text-muted-foreground">Purpose</dt>
+                                <dd className="text-foreground">{booking.purpose}</dd>
+                              </>
+                            ) : null}
+                          </dl>
+
+                          <div className="flex items-center justify-end border-t pt-2">
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 px-2 text-xs"
+                            >
+                              <Link href={`/bookings/${booking.id}`}>
+                                Review details
+                                <IconChevronRight className="h-3.5 w-3.5" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>

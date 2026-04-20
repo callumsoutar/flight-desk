@@ -1,7 +1,9 @@
 "use client"
 
-import { IconBook, IconClock, IconPlane, IconSchool, IconUser } from "@tabler/icons-react"
+import * as React from "react"
+import { IconBook, IconClock, IconPlane, IconSchool, IconUser, IconX } from "@tabler/icons-react"
 
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -12,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { LessonSearchDropdown } from "@/components/bookings/lesson-search-dropdown"
+import MemberSelect, { type UserResult } from "@/components/invoices/member-select"
 import { cn } from "@/lib/utils"
 import type { BookingOptions, BookingType, BookingWithRelations } from "@/lib/types/bookings"
 
@@ -151,6 +154,12 @@ export function BookingEditDetailsCard({
   const handleAircraftChange =
     onAircraftChange ?? ((value: string | null) => updateField("aircraft_id", value))
 
+  const memberDisabled = isReadOnly || !isAdminOrInstructor
+  const selectedMember = React.useMemo<UserResult | null>(() => {
+    if (!form.user_id) return null
+    return options.members.find((member) => member.id === form.user_id) ?? null
+  }, [form.user_id, options.members])
+
   const updateStartTime = (nextStartIso: string) => {
     updateField("start_time", nextStartIso)
     if (nextStartIso && isAfter(nextStartIso, form.end_time)) {
@@ -274,23 +283,29 @@ export function BookingEditDetailsCard({
               <IconUser className="h-4 w-4" />
               Member
             </label>
-            <Select
-              value={form.user_id ?? "none"}
-              onValueChange={(value) => updateField("user_id", value === "none" ? null : value)}
-              disabled={isReadOnly || !isAdminOrInstructor}
-            >
-              <SelectTrigger className={controlClass}>
-                <SelectValue placeholder="Select member" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No member</SelectItem>
-                {options.members.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {formatUser(member)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <MemberSelect
+                  members={options.members}
+                  value={selectedMember}
+                  onSelect={(member) => updateField("user_id", member?.id ?? null)}
+                  disabled={memberDisabled}
+                  buttonClassName={controlClass}
+                />
+              </div>
+              {selectedMember && !memberDisabled ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => updateField("user_id", null)}
+                  aria-label="Clear member"
+                >
+                  <IconX className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="space-y-2">

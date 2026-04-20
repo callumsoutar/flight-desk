@@ -63,7 +63,7 @@ export type CheckRosterRuleConflictsInput = z.infer<typeof checkRosterRuleConfli
 export type CreateRosterRulesBatchInput = z.infer<typeof createRosterRulesBatchSchema>
 
 function canManageRosters(role: string | null) {
-  return role === "owner" || role === "admin" || role === "instructor"
+  return role === "owner" || role === "admin"
 }
 
 function normalizeNotes(value: string | null | undefined) {

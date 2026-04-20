@@ -76,7 +76,7 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
   const enrollments = React.useMemo(() => training?.enrollments ?? [], [training])
 
   const activeEnrollments = enrollments.filter(
-    (e) => (e.status || "").toLowerCase() === "active" && !e.completion_date
+    (e) => (e.status || "").toLowerCase() === "active" && !e.completion_date && !e.unenrolled_at
   )
 
   React.useEffect(() => {
@@ -107,7 +107,10 @@ export function MemberTrainingTab({ memberId }: MemberTrainingTabProps) {
       const id = enrollment.syllabus_id
       const name = enrollment.syllabus?.name || syllabi.find((s) => s.id === id)?.name || "Syllabus"
 
-      const isActive = (enrollment.status || "").toLowerCase() === "active" && !enrollment.completion_date
+      const isActive =
+        (enrollment.status || "").toLowerCase() === "active" &&
+        !enrollment.completion_date &&
+        !enrollment.unenrolled_at
       const existing = byId.get(id)
       const lastEnrolledAt = enrollment.enrolled_at ?? null
 

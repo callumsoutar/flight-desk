@@ -116,6 +116,7 @@ export default async function InstructorDetailPage({ params }: PageProps) {
       </AppRouteShell>
     )
   }
+  if (!isAdminRole(role)) redirect("/dashboard")
 
   return (
     <AppRouteShell>

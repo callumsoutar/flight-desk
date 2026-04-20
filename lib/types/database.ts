@@ -2904,6 +2904,7 @@ export type Database = {
           status: string
           syllabus_id: string
           tenant_id: string
+          unenrolled_at: string | null
           updated_at: string
           user_id: string
         }
@@ -2918,6 +2919,7 @@ export type Database = {
           status?: string
           syllabus_id: string
           tenant_id?: string
+          unenrolled_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2932,6 +2934,7 @@ export type Database = {
           status?: string
           syllabus_id?: string
           tenant_id?: string
+          unenrolled_at?: string | null
           updated_at?: string
           user_id?: string
         }

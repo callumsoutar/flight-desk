@@ -5,6 +5,7 @@ import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-r
 import { RouteLoadingState } from "@/components/loading/route-loading-state"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { RostersPageClient } from "@/components/rosters/rosters-page-client"
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchRosterPageData } from "@/lib/rosters/fetch-roster-page-data"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -66,7 +67,7 @@ export default async function RostersPage() {
       </AppRouteShell>
     )
   }
-  if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
+  if (!isAdminRole(role)) redirect("/dashboard")
 
   return (
     <AppRouteShell>

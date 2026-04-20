@@ -5,7 +5,6 @@ import { z } from "zod"
 
 import { isStaffRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
-import { fetchBookingCheckoutWarnings } from "@/lib/bookings/fetch-booking-checkout-warnings"
 import {
   buildBookingUpdatedChanges,
   type BookingUpdatedComparable,
@@ -37,7 +36,6 @@ const checkoutSchema = bookingSchema.extend({
   flight_remarks: z.string().nullable(),
   briefing_completed: z.boolean(),
   authorization_completed: z.boolean(),
-  warnings_acknowledged: z.boolean(),
 })
 
 const cancelBookingSchema = z.strictObject({
@@ -302,23 +300,11 @@ export async function authorizeBookingCheckoutAction(bookingId: string, input: u
 
   const {
     checked_out_aircraft_id: checkedOutAircraftId,
-    warnings_acknowledged: warningsAcknowledged,
     ...checkoutData
   } = parsed.data
   const resolvedCheckedOutAircraftId = checkedOutAircraftId ?? checkoutData.aircraft_id
   if (!resolvedCheckedOutAircraftId) {
     return { ok: false as const, error: "Aircraft is required before checkout" }
-  }
-
-  const warnings = await fetchBookingCheckoutWarnings(supabase, tenantId, {
-    bookingId,
-    userId: checkoutData.user_id,
-    instructorId: checkoutData.instructor_id,
-    aircraftId: resolvedCheckedOutAircraftId,
-  })
-
-  if (warnings.summary.requires_acknowledgement && !warningsAcknowledged) {
-    return { ok: false as const, error: "Non-blocking booking warnings must be acknowledged before checkout" }
   }
 
   const nowIso = new Date().toISOString()
@@ -367,8 +353,7 @@ export async function updateBookingCheckoutDetailsAction(bookingId: string, inpu
     return { ok: false as const, error: "This booking can no longer be edited" }
   }
 
-  const { warnings_acknowledged, ...updateData } = parsed.data
-  void warnings_acknowledged
+  const updateData = parsed.data
 
   const { error } = await supabase
     .from("bookings")

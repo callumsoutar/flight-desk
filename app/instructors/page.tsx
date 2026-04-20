@@ -5,6 +5,7 @@ import { InstructorsPageClient } from "@/components/instructors/instructors-page
 import { ListPageSkeleton } from "@/components/loading/page-skeletons"
 import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
+import { isAdminRole } from "@/lib/auth/roles"
 import { getAuthSession } from "@/lib/auth/session"
 import { fetchInstructors } from "@/lib/instructors/fetch-instructors"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -52,7 +53,7 @@ export default async function InstructorsPage() {
       </AppRouteShell>
     )
   }
-  if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
+  if (!isAdminRole(role)) redirect("/dashboard")
 
   return (
     <AppRouteShell>

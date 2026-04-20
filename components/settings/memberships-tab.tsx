@@ -115,17 +115,17 @@ export function MembershipsTab({
 
         <div className="w-full pt-6">
           <Tabs.Content value="membership-types" className="outline-none">
-            <div className="w-full min-w-0 space-y-2">
-              <h3 className="text-lg font-semibold text-slate-900">Membership types</h3>
-              <p className="text-sm text-muted-foreground">Define the plans your organization offers.</p>
+            <div className="w-full min-w-0 space-y-6">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-slate-900">Membership types</h3>
+                <p className="text-sm text-muted-foreground">Define the plans your organization offers.</p>
+              </div>
               <MembershipTypesConfig />
             </div>
           </Tabs.Content>
 
           <Tabs.Content value="membership-year" className="outline-none">
-            <div className="w-full min-w-0 space-y-2">
-              <h3 className="text-lg font-semibold text-slate-900">Membership year</h3>
-              <p className="text-sm text-muted-foreground">Configure your membership year boundaries and renewals.</p>
+            <div className="w-full min-w-0">
               <MembershipYearConfig
                 initialSettings={initialSettings}
                 initialLoadError={initialLoadError}

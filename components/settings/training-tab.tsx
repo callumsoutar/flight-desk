@@ -11,17 +11,17 @@ import { LessonsTab } from "@/components/settings/training/lessons-tab"
 import { SyllabusConfig } from "@/components/settings/training/syllabus-config"
 
 const trainingTabs = [
-  { id: "experience-types", label: "Experience Types", icon: IconTrophy },
   { id: "training-programs", label: "Training Programs", icon: IconNotebook },
   { id: "lessons", label: "Lessons", icon: IconBook2 },
   { id: "exams", label: "Exams", icon: IconFileText },
   { id: "certifications", label: "Certifications", icon: IconCertificate },
+  { id: "experience-types", label: "Experience Types", icon: IconTrophy },
 ] as const
 
 // Training is an intentionally client-owned editor surface; the server page bootstraps the
 // surrounding settings shell, while the training resources manage their own query state.
 export function TrainingTab() {
-  const [activeTab, setActiveTab] = React.useState<(typeof trainingTabs)[number]["id"]>("experience-types")
+  const [activeTab, setActiveTab] = React.useState<(typeof trainingTabs)[number]["id"]>("training-programs")
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })

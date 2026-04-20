@@ -32,10 +32,10 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import ChargeableSearchDropdown from "@/components/invoices/chargeable-search-dropdown"
 import type { InvoiceCreateChargeable } from "@/lib/types/invoice-create"
 import type { MembershipTypeWithChargeable } from "@/lib/types/memberships"
 import { cn } from "@/lib/utils"
@@ -129,7 +129,7 @@ export function MembershipTypesConfig() {
   const {
     data: membershipChargeables = [],
     error: membershipChargeablesError,
-  } = useChargeablesQuery({ includeInactive: true, type: "membership_fee" })
+  } = useChargeablesQuery({ includeInactive: true, excludeTypeCode: "landing_fees", pageSize: 100 })
 
   const editingMembershipType = React.useMemo(
     () => (editingId ? membershipTypes.find((item) => item.id === editingId) ?? null : null),
@@ -597,14 +597,6 @@ function MembershipTypeFormFields({
     setBenefitsOpen(Boolean(form.benefits_text))
   }, [form.benefits_text])
 
-  const formatCurrency = React.useCallback((amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount)
-  }, [])
-
   const calculateTaxInclusiveRate = React.useCallback(
     (rate: number, isTaxable = true) => {
       if (!isTaxable) return rate
@@ -665,19 +657,21 @@ function MembershipTypeFormFields({
         <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
           Linked chargeable
         </label>
-        <Select value={form.chargeable_id} onValueChange={(value) => setForm((prev) => ({ ...prev, chargeable_id: value }))}>
-          <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white shadow-none focus:ring-0">
-            <SelectValue placeholder="Select chargeable" />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            <SelectItem value="none">No linked chargeable</SelectItem>
-                {membershipChargeables.map((chargeable) => (
-                  <SelectItem key={chargeable.id} value={chargeable.id}>
-                    {chargeable.name} ({formatCurrency(calculateTaxInclusiveRate(chargeable.rate ?? 0, chargeable.is_taxable ?? undefined))})
-                  </SelectItem>
-                ))}
-          </SelectContent>
-        </Select>
+        <ChargeableSearchDropdown
+          chargeables={membershipChargeables}
+          value={form.chargeable_id === "none" ? "" : form.chargeable_id}
+          onSelect={(chargeable) =>
+            setForm((prev) => ({ ...prev, chargeable_id: chargeable ? chargeable.id : "none" }))
+          }
+          taxRate={taxRate}
+          resolveInclusiveRate={(chargeable) =>
+            calculateTaxInclusiveRate(chargeable.rate ?? 0, chargeable.is_taxable ?? undefined)
+          }
+          placeholder="Search chargeables..."
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          Optional. Pricing will be inherited from the selected chargeable when invoicing.
+        </p>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-3">

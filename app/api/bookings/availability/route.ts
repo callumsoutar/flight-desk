@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
 
   const startTime = request.nextUrl.searchParams.get("start_time")
   const endTime = request.nextUrl.searchParams.get("end_time")
+  const excludeBookingId = request.nextUrl.searchParams.get("exclude_booking_id")
   if (!startTime || !endTime) {
     return noStoreJson({ error: "start_time and end_time are required" }, { status: 400 })
   }
@@ -22,12 +23,20 @@ export async function GET(request: NextRequest) {
     return noStoreJson({ error: "Invalid time range" }, { status: 400 })
   }
 
+  // Basic UUID shape check; tenant scoping in fetchUnavailableResourceIds keeps
+  // this safe even if the caller passes a value from another tenant.
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (excludeBookingId && !UUID_REGEX.test(excludeBookingId)) {
+    return noStoreJson({ error: "Invalid exclude_booking_id" }, { status: 400 })
+  }
+
   try {
     const { unavailableAircraftIds, unavailableInstructorIds } = await fetchUnavailableResourceIds({
       supabase,
       tenantId,
       startTimeIso: startDate.toISOString(),
       endTimeIso: endDate.toISOString(),
+      excludeBookingId: excludeBookingId ?? undefined,
     })
 
     return noStoreJson({ unavailableAircraftIds, unavailableInstructorIds })

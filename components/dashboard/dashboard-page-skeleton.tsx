@@ -2,6 +2,29 @@ import * as React from "react"
 
 import { SkeletonBlock } from "@/components/loading/skeleton-primitives"
 
+function CardShellSkeleton({
+  titleWidth,
+  descriptionWidth = "w-48",
+  children,
+}: {
+  titleWidth: string
+  descriptionWidth?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="flex items-start justify-between gap-3 px-6 pb-4 pt-6">
+        <div className="space-y-2">
+          <SkeletonBlock className={`h-4 ${titleWidth} max-w-full`} />
+          <SkeletonBlock className={`h-3 ${descriptionWidth} max-w-full`} />
+        </div>
+        <SkeletonBlock className="h-8 w-24 shrink-0 rounded-md" />
+      </div>
+      <div className="px-6 pb-6">{children}</div>
+    </div>
+  )
+}
+
 function SectionSkeleton({
   titleWidth,
   rows,
@@ -10,12 +33,8 @@ function SectionSkeleton({
   rows: number
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      <div className="border-b border-border/60 px-6 py-6">
-        <SkeletonBlock className={`h-4 ${titleWidth} max-w-full`} />
-        <SkeletonBlock className="mt-2 h-3 w-48 max-w-full" />
-      </div>
-      <div className="divide-y divide-border/60 px-6 py-2">
+    <CardShellSkeleton titleWidth={titleWidth}>
+      <div className="divide-y divide-border/60">
         {Array.from({ length: rows }).map((_, index) => (
           <div key={index} className="flex items-center justify-between gap-4 py-3">
             <SkeletonBlock className="h-4 w-28 shrink-0" />
@@ -25,7 +44,93 @@ function SectionSkeleton({
           </div>
         ))}
       </div>
-    </div>
+    </CardShellSkeleton>
+  )
+}
+
+function UpcomingTodaySkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <CardShellSkeleton titleWidth="w-36" descriptionWidth="w-56">
+      <div className="divide-y divide-border/70 overflow-hidden rounded-lg border">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={index} className="flex items-stretch gap-3 px-3 py-2.5">
+            <SkeletonBlock className="w-1 self-stretch shrink-0 rounded-full" />
+            <div className="flex w-[68px] shrink-0 flex-col justify-center gap-1.5">
+              <SkeletonBlock className="h-3.5 w-10" />
+              <SkeletonBlock className="h-2.5 w-12" />
+            </div>
+            <div className="min-w-0 flex-1 self-center space-y-2">
+              <SkeletonBlock className="h-3.5 w-2/3" />
+              <SkeletonBlock className="h-3 w-1/2" />
+            </div>
+            <div className="flex shrink-0 items-center gap-2 self-center">
+              <SkeletonBlock className="h-5 w-16 rounded-full" />
+              <SkeletonBlock className="h-4 w-4 rounded-sm" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </CardShellSkeleton>
+  )
+}
+
+function BookingRequestsSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <CardShellSkeleton titleWidth="w-36" descriptionWidth="w-52">
+      <div className="overflow-hidden rounded-lg border">
+        <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_1fr_auto] items-center gap-3 border-b bg-muted/40 px-3 py-2.5">
+          <SkeletonBlock className="h-2.5 w-12" />
+          <SkeletonBlock className="h-2.5 w-14" />
+          <SkeletonBlock className="h-2.5 w-10" />
+          <SkeletonBlock className="h-2.5 w-12" />
+          <SkeletonBlock className="h-2.5 w-10 justify-self-end" />
+        </div>
+        <div className="divide-y divide-border/70">
+          {Array.from({ length: rows }).map((_, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[1.4fr_0.9fr_0.7fr_1fr_auto] items-center gap-3 px-3 py-2.5"
+            >
+              <SkeletonBlock className="h-3.5 w-28" />
+              <SkeletonBlock className="h-3.5 w-16" />
+              <SkeletonBlock className="h-3.5 w-14" />
+              <SkeletonBlock className="h-3.5 w-24" />
+              <SkeletonBlock className="h-7 w-20 justify-self-end rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </CardShellSkeleton>
+  )
+}
+
+function FlyingNowSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <CardShellSkeleton titleWidth="w-28" descriptionWidth="w-56">
+      <div className="divide-y divide-border/70 overflow-hidden rounded-lg border">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={index} className="space-y-0">
+            <div className="flex items-stretch gap-3 px-3 py-2.5">
+              <SkeletonBlock className="w-1 self-stretch shrink-0 rounded-full" />
+              <SkeletonBlock className="h-9 w-9 shrink-0 self-center rounded-full" />
+              <div className="min-w-0 flex-1 self-center space-y-2">
+                <div className="flex items-center gap-2">
+                  <SkeletonBlock className="h-3.5 w-16" />
+                  <SkeletonBlock className="h-3.5 w-24" />
+                  <SkeletonBlock className="h-3 w-20" />
+                </div>
+                <SkeletonBlock className="h-3 w-2/5" />
+              </div>
+              <div className="flex shrink-0 items-center gap-2 self-center">
+                <SkeletonBlock className="h-5 w-20 rounded-full" />
+                <SkeletonBlock className="h-4 w-4 rounded-sm" />
+              </div>
+            </div>
+            <SkeletonBlock className="h-1 w-full rounded-none" />
+          </div>
+        ))}
+      </div>
+    </CardShellSkeleton>
   )
 }
 
@@ -75,15 +180,13 @@ export function DashboardPageSkeleton({
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-12" aria-hidden="true">
-        <div className="space-y-6 lg:col-span-7">
-          <SectionSkeleton titleWidth="w-36" rows={4} />
-          <SectionSkeleton titleWidth="w-28" rows={2} />
-        </div>
+      <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-2 lg:gap-6" aria-hidden="true">
+        <UpcomingTodaySkeleton rows={4} />
+        <BookingRequestsSkeleton rows={4} />
+      </div>
 
-        <div className="lg:col-span-5">
-          <SectionSkeleton titleWidth="w-36" rows={3} />
-        </div>
+      <div aria-hidden="true">
+        <FlyingNowSkeleton rows={2} />
       </div>
     </div>
   )

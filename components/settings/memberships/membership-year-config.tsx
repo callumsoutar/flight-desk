@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { IconCalendar, IconDeviceFloppy, IconInfoCircle, IconLoader2 } from "@tabler/icons-react"
+import { IconCalendar } from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import { updateMembershipsSettings } from "@/hooks/use-memberships-settings-query"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StickyFormActions } from "@/components/ui/sticky-form-actions"
 import {
   DEFAULT_MEMBERSHIP_YEAR,
   type MembershipsSettings,
@@ -225,19 +225,18 @@ export function MembershipYearConfig({
   const endMonthName = months.find((m) => m.value === String(form.end_month))?.label ?? "Unknown"
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4">
-        <IconInfoCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-500" />
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-blue-900">About membership year</p>
-          <p className="text-xs leading-relaxed text-blue-700">
-            This sets when annual memberships renew and when they expire. The end date is calculated automatically as the day
-            before the next year&apos;s start date.
-          </p>
-        </div>
+    <div className="w-full min-w-0 space-y-6">
+      <div className="space-y-1">
+        <h3 className="text-lg font-semibold text-slate-900">Membership year</h3>
+        <p className="text-sm text-muted-foreground">Configure your membership year boundaries and renewals.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <IconCalendar className="h-4 w-4 text-slate-500" />
+        Year boundaries
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="membership-year-start-month" className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Start month
@@ -279,74 +278,56 @@ export function MembershipYearConfig({
             )} → ${endMonthName} ${form.end_day}${getOrdinalSuffix(form.end_day)}.`}
           </p>
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="membership-early-join-grace"
-          className="text-xs font-bold uppercase tracking-wider text-slate-500"
-        >
-          Early join grace (days)
-        </Label>
-        <Input
-          id="membership-early-join-grace"
-          type="number"
-          min={0}
-          max={365}
-          value={form.early_join_grace_days}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, early_join_grace_days: e.target.value }))
-          }
-          className="h-11 rounded-xl border-slate-200 bg-white"
-        />
-        <p className="text-[11px] font-medium text-slate-500">
-          If a new membership starts within this many days of the next aligned expiry date, expiry moves one year
-          forward (so short &ldquo;tail&rdquo; periods roll into the full year). Use 0 to disable.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <IconCalendar className="h-4 w-4 text-slate-500" />
-          Summary
+        <div className="space-y-2 md:col-span-2">
+          <Label
+            htmlFor="membership-early-join-grace"
+            className="text-xs font-bold uppercase tracking-wider text-slate-500"
+          >
+            Early join grace (days)
+          </Label>
+          <Input
+            id="membership-early-join-grace"
+            type="number"
+            min={0}
+            max={365}
+            value={form.early_join_grace_days}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, early_join_grace_days: e.target.value }))
+            }
+            className="h-11 rounded-xl border-slate-200 bg-white sm:max-w-xs"
+          />
+          <p className="text-[11px] font-medium text-slate-500">
+            If a new membership starts within this many days of the next aligned expiry date, expiry moves one year
+            forward (so short &ldquo;tail&rdquo; periods roll into the full year). Use 0 to disable.
+          </p>
         </div>
-        <Input
-          value={form.description}
-          readOnly
-          className="h-11 rounded-xl border-slate-200 bg-slate-50 text-slate-700"
-        />
-        <p className="text-[11px] font-medium text-slate-500">Auto-generated from the start date.</p>
       </div>
 
-      <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onUndo}
-          disabled={!dirty || isSaving}
-          className="h-11 rounded-xl border-slate-200 text-sm font-semibold shadow-none hover:bg-slate-50"
-        >
-          Reset changes
-        </Button>
-        <Button
-          type="button"
-          onClick={onSave}
-          disabled={!dirty || isSaving}
-          className="h-11 rounded-xl bg-indigo-600 px-6 font-semibold text-white shadow-sm shadow-indigo-100 transition-all active:scale-[0.98] hover:bg-indigo-700 border-none"
-        >
-          {isSaving ? (
-            <span className="inline-flex items-center gap-2">
-              <IconLoader2 className="h-4 w-4 animate-spin" />
-              Saving…
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-2">
-              <IconDeviceFloppy className="h-4 w-4" />
-              Save membership year
-            </span>
-          )}
-        </Button>
+      <div className="space-y-4 border-t border-slate-200 pt-5">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-slate-900">Summary</h3>
+          <p className="text-sm text-muted-foreground">Auto-generated from the start date.</p>
+        </div>
+
+        <div className="space-y-2 sm:max-w-xl">
+          <Input
+            value={form.description}
+            readOnly
+            className="h-11 rounded-xl border-slate-200 bg-slate-50 text-slate-700"
+          />
+        </div>
       </div>
+
+      <StickyFormActions
+        isDirty={dirty}
+        isSaving={isSaving}
+        isSaveDisabled={!dirty || isSaving}
+        onUndo={onUndo}
+        onSave={onSave}
+        message="You have unsaved membership year changes."
+        saveLabel="Save membership year"
+      />
     </div>
   )
 }

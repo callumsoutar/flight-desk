@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { BookOpen, ChevronDown, ChevronUp, MessageSquare, Plane, Plus, Target, User } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronUp, MessageSquare, Plane, Plus, Target, User, UserMinus } from "lucide-react"
 
 import { useAuth } from "@/contexts/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -19,6 +20,7 @@ import { useTimezone } from "@/contexts/timezone-context"
 import { fetchInstructorsQuery } from "@/hooks/use-instructors-query"
 import {
   createTrainingEnrollment,
+  unenrollTrainingEnrollment,
   updateTrainingEnrollment,
 } from "@/hooks/use-member-training-query"
 import { fetchAircraftTypes } from "@/hooks/use-aircraft-types-query"
@@ -89,19 +91,33 @@ type EnrollmentCardProps = {
 
 function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOnly, isLoadingOptions, onUpdated }: EnrollmentCardProps) {
   const { timeZone } = useTimezone()
+  const todayKey = React.useMemo(() => zonedTodayYyyyMmDd(timeZone), [timeZone])
   const [primaryInstructorId, setPrimaryInstructorId] = React.useState<string>(enrollment.primary_instructor_id || SELECT_NONE)
   const [aircraftTypeId, setAircraftTypeId] = React.useState<string>(enrollment.aircraft_type || SELECT_NONE)
   const [enrolledAt, setEnrolledAt] = React.useState<string>(toDateKey(enrollment.enrolled_at) || "")
   const [notes, setNotes] = React.useState<string>(enrollment.notes || "")
   const [showNotes, setShowNotes] = React.useState(false)
   const [isUpdating, setIsUpdating] = React.useState(false)
+  const [showUnenrollConfirm, setShowUnenrollConfirm] = React.useState(false)
+  const [unenrolledAt, setUnenrolledAt] = React.useState<string>(
+    toDateKey(enrollment.unenrolled_at) || todayKey
+  )
 
   React.useEffect(() => {
     setPrimaryInstructorId(enrollment.primary_instructor_id || SELECT_NONE)
     setAircraftTypeId(enrollment.aircraft_type || SELECT_NONE)
     setEnrolledAt(toDateKey(enrollment.enrolled_at) || "")
     setNotes(enrollment.notes || "")
-  }, [enrollment.primary_instructor_id, enrollment.aircraft_type, enrollment.notes, enrollment.enrolled_at])
+    setUnenrolledAt(toDateKey(enrollment.unenrolled_at) || todayKey)
+    setShowUnenrollConfirm(false)
+  }, [
+    enrollment.primary_instructor_id,
+    enrollment.aircraft_type,
+    enrollment.notes,
+    enrollment.enrolled_at,
+    enrollment.unenrolled_at,
+    todayKey,
+  ])
 
   const isDirty =
     (primaryInstructorId === SELECT_NONE ? null : primaryInstructorId) !== enrollment.primary_instructor_id ||
@@ -128,7 +144,31 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
   }
 
   const label = enrollmentStatusLabel(enrollment)
+  const isCurrentlyActive =
+    (enrollment.status || "").toLowerCase() === "active" &&
+    !enrollment.completion_date &&
+    !enrollment.unenrolled_at
   const selectsDisabled = readOnly || isLoadingOptions || isUpdating
+
+  const handleUnenroll = async () => {
+    if (!unenrolledAt) {
+      toast.error("Please choose an unenrollment date")
+      return
+    }
+    setIsUpdating(true)
+    try {
+      await unenrollTrainingEnrollment(userId, enrollment.id, {
+        unenrolled_at: unenrolledAt,
+      })
+      toast.success("Member unenrolled from syllabus")
+      setShowUnenrollConfirm(false)
+      await onUpdated()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to unenroll member")
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   return (
     <div className="rounded-xl border border-border/50 bg-white p-5 shadow-sm">
@@ -158,11 +198,27 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
               {enrollment.completion_date ? (
                 <span className="ml-2">· Completed {formatDate(enrollment.completion_date, timeZone) || "-"}</span>
               ) : null}
+              {enrollment.unenrolled_at ? (
+                <span className="ml-2">· Unenrolled {formatDate(enrollment.unenrolled_at, timeZone) || "-"}</span>
+              ) : null}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {!readOnly && isCurrentlyActive ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowUnenrollConfirm((prev) => !prev)}
+              className="h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 flex items-center gap-1.5 px-2.5 rounded-lg"
+              disabled={isUpdating}
+            >
+              <UserMinus className="w-3.5 h-3.5" />
+              <span>{showUnenrollConfirm ? "Cancel unenroll" : "Unenroll"}</span>
+            </Button>
+          ) : null}
+
           <Button
             variant="ghost"
             size="sm"
@@ -269,6 +325,48 @@ function EnrollmentCard({ userId, enrollment, instructors, aircraftTypes, readOn
         </div>
       </div>
 
+      {showUnenrollConfirm ? (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+                Unenrollment Date
+              </label>
+              <DatePicker
+                date={unenrolledAt}
+                onChange={(date) => setUnenrolledAt(date || "")}
+                className="h-9 w-full bg-white border-amber-200 rounded-lg sm:w-[220px]"
+                disabled={isUpdating}
+              />
+              <p className="text-xs text-amber-800/80">
+                This moves the enrollment to history and marks it as withdrawn.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 px-3 text-xs"
+                onClick={() => setShowUnenrollConfirm(false)}
+                disabled={isUpdating}
+              >
+                Keep Active
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 px-3 text-xs bg-amber-700 hover:bg-amber-800 text-white"
+                onClick={() => void handleUnenroll()}
+                disabled={isUpdating || !unenrolledAt}
+              >
+                {isUpdating ? "Unenrolling…" : "Confirm Unenroll"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showNotes ? (
         <div className="mt-4 space-y-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -312,7 +410,7 @@ export function TrainingStudentProgrammeTab({
   const [isLoadingOptions, setIsLoadingOptions] = React.useState(true)
 
   const [enrollOpen, setEnrollOpen] = React.useState(false)
-  const [enrollSyllabusId, setEnrollSyllabusId] = React.useState("")
+  const [enrollSyllabusIds, setEnrollSyllabusIds] = React.useState<string[]>([])
   const [enrollPrimaryInstructorId, setEnrollPrimaryInstructorId] = React.useState<string>(SELECT_NONE)
   const [enrollAircraftTypeId, setEnrollAircraftTypeId] = React.useState<string>(SELECT_NONE)
   const [enrollDate, setEnrollDate] = React.useState("")
@@ -343,7 +441,7 @@ export function TrainingStudentProgrammeTab({
 
   React.useEffect(() => {
     if (!enrollOpen) return
-    setEnrollSyllabusId("")
+    setEnrollSyllabusIds([])
     setEnrollPrimaryInstructorId(SELECT_NONE)
     setEnrollAircraftTypeId(SELECT_NONE)
     setEnrollDate(todayKey)
@@ -352,10 +450,10 @@ export function TrainingStudentProgrammeTab({
   }, [enrollOpen, todayKey])
 
   const activeEnrollments = enrollments.filter(
-    (e) => (e.status || "").toLowerCase() === "active" && !e.completion_date
+    (e) => (e.status || "").toLowerCase() === "active" && !e.completion_date && !e.unenrolled_at
   )
   const historicalEnrollments = enrollments.filter(
-    (e) => !((e.status || "").toLowerCase() === "active" && !e.completion_date)
+    (e) => !((e.status || "").toLowerCase() === "active" && !e.completion_date && !e.unenrolled_at)
   )
   const hasAnyEnrollments = enrollments.length > 0
   const showEmbeddedStarter = embedded && !hasAnyEnrollments
@@ -363,22 +461,38 @@ export function TrainingStudentProgrammeTab({
   const activeSyllabusIds = new Set(activeEnrollments.map((e) => e.syllabus_id))
   const availableSyllabi = syllabi.filter((s) => !activeSyllabusIds.has(s.id))
 
+  const toggleEnrollSyllabus = React.useCallback((syllabusId: string, nextChecked: boolean) => {
+    setEnrollSyllabusIds((prev) => {
+      if (nextChecked) {
+        if (prev.includes(syllabusId)) return prev
+        return [...prev, syllabusId]
+      }
+      return prev.filter((id) => id !== syllabusId)
+    })
+  }, [])
+
   const handleCreateEnrollment = async () => {
-    if (!enrollSyllabusId) {
-      toast.error("Please select a syllabus")
+    if (enrollSyllabusIds.length === 0) {
+      toast.error("Select at least one syllabus")
       return
     }
 
     setEnrollSubmitting(true)
     try {
-      await createTrainingEnrollment(userId, {
-        syllabus_id: enrollSyllabusId,
-        enrolled_at: enrollDate || undefined,
-        notes: enrollNotes ? enrollNotes : null,
-        primary_instructor_id: enrollPrimaryInstructorId === SELECT_NONE ? null : enrollPrimaryInstructorId,
-        aircraft_type: enrollAircraftTypeId === SELECT_NONE ? null : enrollAircraftTypeId,
-      })
-      toast.success("Syllabus enrollment created")
+      for (const syllabusId of enrollSyllabusIds) {
+        await createTrainingEnrollment(userId, {
+          syllabus_id: syllabusId,
+          enrolled_at: enrollDate || undefined,
+          notes: enrollNotes ? enrollNotes : null,
+          primary_instructor_id: enrollPrimaryInstructorId === SELECT_NONE ? null : enrollPrimaryInstructorId,
+          aircraft_type: enrollAircraftTypeId === SELECT_NONE ? null : enrollAircraftTypeId,
+        })
+      }
+      toast.success(
+        enrollSyllabusIds.length === 1
+          ? "Syllabus enrollment created"
+          : `${enrollSyllabusIds.length} syllabus enrollments created`
+      )
       setEnrollOpen(false)
       await onRefresh()
     } catch (err) {
@@ -408,8 +522,8 @@ export function TrainingStudentProgrammeTab({
                 size="sm"
                 onClick={() => setEnrollOpen(true)}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-10 px-5 text-sm font-semibold shadow-sm shrink-0"
-                disabled={availableSyllabi.length === 0}
-                title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
+                disabled={syllabi.length === 0}
+                title={syllabi.length === 0 ? "No active syllabi available" : "Enroll in one or more syllabi"}
               >
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
                 Enroll Member
@@ -432,8 +546,8 @@ export function TrainingStudentProgrammeTab({
               size="sm"
               onClick={() => setEnrollOpen(true)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9 px-4 text-xs font-semibold shadow-sm shrink-0"
-              disabled={availableSyllabi.length === 0}
-              title={availableSyllabi.length === 0 ? "No additional active syllabi available" : "Enroll in a syllabus"}
+              disabled={syllabi.length === 0}
+              title={syllabi.length === 0 ? "No active syllabi available" : "Enroll in one or more syllabi"}
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Enroll
@@ -525,7 +639,11 @@ export function TrainingStudentProgrammeTab({
                         {formatDate(e.enrolled_at, resolvedTimeZone) || "-"}
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Unenrolled</div>
+                        <div className="mt-0.5 font-medium tabular-nums">{formatDate(e.unenrolled_at, resolvedTimeZone) || "—"}</div>
+                      </div>
                       <div>
                         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed</div>
                         <div className="mt-0.5 font-medium tabular-nums">{formatDate(e.completion_date, resolvedTimeZone) || "—"}</div>
@@ -559,6 +677,9 @@ export function TrainingStudentProgrammeTab({
                     </TableHead>
                     <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Completed
+                    </TableHead>
+                    <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Unenrolled
                     </TableHead>
                     <TableHead className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Instructor
@@ -600,6 +721,9 @@ export function TrainingStudentProgrammeTab({
                         </TableCell>
                         <TableCell className="px-5 py-3.5 text-sm text-muted-foreground tabular-nums">
                           {formatDate(e.completion_date, resolvedTimeZone) || "—"}
+                        </TableCell>
+                        <TableCell className="px-5 py-3.5 text-sm text-muted-foreground tabular-nums">
+                          {formatDate(e.unenrolled_at, resolvedTimeZone) || "—"}
                         </TableCell>
                         <TableCell className="px-5 py-3.5 text-sm text-muted-foreground">
                           {instName || "—"}
@@ -651,25 +775,45 @@ export function TrainingStudentProgrammeTab({
                   </div>
 
                   <div className="space-y-5">
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <label className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                         <BookOpen className="w-2.5 h-2.5" />
-                        SYLLABUS <span className="text-destructive font-bold ml-0.5">*</span>
+                        SYLLABI <span className="text-destructive font-bold ml-0.5">*</span>
                       </label>
-                      <Select value={enrollSyllabusId} onValueChange={setEnrollSyllabusId} disabled={enrollSubmitting}>
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-xs font-medium shadow-none hover:bg-slate-50 focus:ring-1 focus:ring-indigo-100 transition-all">
-                          <SelectValue
-                            placeholder={availableSyllabi.length ? "Select syllabus to enroll in" : "No syllabi available"}
-                          />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                          {availableSyllabi.map((s) => (
-                            <SelectItem key={s.id} value={s.id} className="text-xs font-medium rounded-lg mx-1 focus:bg-indigo-50 focus:text-indigo-600">
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {availableSyllabi.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 px-3 py-2.5 text-xs text-amber-800">
+                          No additional syllabi available to enroll. This member is already enrolled in all active syllabi.
+                        </div>
+                      ) : (
+                        <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2">
+                          {availableSyllabi.map((s) => {
+                            const checked = enrollSyllabusIds.includes(s.id)
+                            return (
+                              <label
+                                key={s.id}
+                                className={cn(
+                                  "flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors",
+                                  checked
+                                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                                    : "border-transparent hover:border-slate-200 hover:bg-slate-50"
+                                )}
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(value) => toggleEnrollSyllabus(s.id, value === true)}
+                                  disabled={enrollSubmitting}
+                                />
+                                <span className="font-medium">{s.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {enrollSyllabusIds.length > 0 ? (
+                        <p className="text-[11px] font-medium text-slate-500">
+                          {enrollSyllabusIds.length} syllabus{enrollSyllabusIds.length > 1 ? "es" : ""} selected
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
@@ -767,11 +911,15 @@ export function TrainingStudentProgrammeTab({
                 </Button>
                 <Button
                   type="button"
-                  disabled={enrollSubmitting || !availableSyllabi.length}
+                  disabled={enrollSubmitting || !availableSyllabi.length || enrollSyllabusIds.length === 0}
                   onClick={() => void handleCreateEnrollment()}
                   className="h-10 flex-[1.4] rounded-xl bg-slate-900 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
                 >
-                  {enrollSubmitting ? "Enrolling..." : "Enroll Member"}
+                  {enrollSubmitting
+                    ? "Enrolling..."
+                    : enrollSyllabusIds.length > 1
+                      ? `Enroll ${enrollSyllabusIds.length} Syllabi`
+                      : "Enroll Member"}
                 </Button>
               </div>
             </div>

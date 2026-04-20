@@ -136,8 +136,8 @@ function LeftHeader({ d }: { d: CheckoutSheetData }) {
       {d.logoUrl ? (
         <div
           style={{
-            width: 36,
-            height: 36,
+            width: 56,
+            height: 56,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
@@ -146,7 +146,7 @@ function LeftHeader({ d }: { d: CheckoutSheetData }) {
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- Tenant logo URLs are arbitrary signed URLs for print layout. */}
-          <img src={d.logoUrl} style={{ width: 36, height: 36, objectFit: "contain" }} alt="" />
+          <img src={d.logoUrl} style={{ width: 56, height: 56, objectFit: "contain" }} alt="" />
         </div>
       ) : null}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -274,9 +274,8 @@ function LeftPanel({ d }: { d: CheckoutSheetData }) {
         </div>
       </div>
 
-      <SecHead t="Notes" />
       {d.systemNotices.length > 0 ? (
-        <div style={{ marginBottom: 4 }}>
+        <div style={{ marginTop: 10, marginBottom: 4 }}>
           {d.systemNotices.slice(0, 2).map((n, i) => (
             <Notice key={i} notice={n} />
           ))}
@@ -337,7 +336,7 @@ function LeftPanel({ d }: { d: CheckoutSheetData }) {
         </div>
       </div>
 
-      {/* Defects + Other Charges */}
+      {/* Flight Times Start/End + Other Charges */}
       <div
         style={{
           marginTop: 10,
@@ -347,8 +346,11 @@ function LeftPanel({ d }: { d: CheckoutSheetData }) {
         }}
       >
         <div>
-          <SecHead t="Defects" mt={0} />
-          <WriteLines n={3} />
+          <SecHead t="Times" mt={0} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <LabeledLine label="Start Time" />
+            <LabeledLine label="End Time" />
+          </div>
         </div>
         <div>
           <SecHead t="Other Charges" mt={0} />
@@ -674,6 +676,9 @@ function RightPanel() {
 
       <SecHead t="Notes" />
       <WriteLines n={6} />
+
+      <SecHead t="Defects" />
+      <WriteLines n={3} />
 
       <div style={{ flex: 1 }} />
 
