@@ -2,17 +2,29 @@
 
 import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { ChevronRight } from "lucide-react"
+import { IconChevronDown } from "@tabler/icons-react"
+import { Ban } from "lucide-react"
 import { toast } from "sonner"
+
+import { useTimezone } from "@/contexts/timezone-context"
+import { formatDate } from "@/lib/utils/date-format"
 
 import { approveDraftInvoiceAction } from "@/app/invoices/[id]/actions"
 import InvoiceActionsToolbar from "@/components/invoices/invoice-actions-toolbar"
+import { InvoiceAuditTimeline } from "@/components/invoices/invoice-audit-timeline"
 import InvoiceDocumentView from "@/components/invoices/invoice-document-view"
+import { InvoicePaymentsCard } from "@/components/invoices/invoice-payments-card"
 import InvoiceViewActions from "@/components/invoices/invoice-view-actions"
 import type { UserResult } from "@/components/invoices/member-select"
-import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { invoiceDetailQueryKey, useInvoiceDetailQuery } from "@/hooks/use-invoice-detail-query"
 import { invoicesQueryKey } from "@/hooks/use-invoices-query"
+import type {
+  InvoiceAuditLog,
+  InvoiceAuditLookupMaps,
+} from "@/lib/invoices/fetch-invoice-audit-logs"
+import type { InvoicePaymentRow } from "@/lib/invoices/fetch-invoice-payments"
 import { roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
 import {
   DEFAULT_INVOICING_SETTINGS,
@@ -20,6 +32,7 @@ import {
 } from "@/lib/invoices/invoicing-settings"
 import type { InvoiceItemsRow } from "@/lib/types"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
+import { cn } from "@/lib/utils"
 
 export function InvoiceDetailClient({
   invoice,
@@ -27,14 +40,19 @@ export function InvoiceDetailClient({
   settings = DEFAULT_INVOICING_SETTINGS,
   loadErrors = [],
   canApproveDraft = false,
+  canVoid = false,
   xeroEnabled = false,
   xeroStatus = null,
+  auditLogs = [],
+  auditLookupMaps = { users: {} },
+  payments = [],
 }: {
   invoice: InvoiceWithRelations
   items: InvoiceItemsRow[]
   settings?: InvoicingSettings
   loadErrors?: string[]
   canApproveDraft?: boolean
+  canVoid?: boolean
   xeroEnabled?: boolean
   xeroStatus?: {
     export_status: "pending" | "exported" | "failed" | "voided"
@@ -42,9 +60,14 @@ export function InvoiceDetailClient({
     exported_at: string | null
     error_message: string | null
   } | null
+  auditLogs?: InvoiceAuditLog[]
+  auditLookupMaps?: InvoiceAuditLookupMaps
+  payments?: InvoicePaymentRow[]
 }) {
   const queryClient = useQueryClient()
+  const { timeZone } = useTimezone()
   const [isApproving, startApproveTransition] = React.useTransition()
+  const [auditOpen, setAuditOpen] = React.useState(true)
   const { data } = useInvoiceDetailQuery({
     invoice,
     items,
@@ -74,7 +97,8 @@ export function InvoiceDetailClient({
       : liveInvoice.user_id) || liveInvoice.user_id
 
   const isXeroLocked = liveXeroStatus?.export_status === "exported"
-  const isReadOnly = isXeroLocked
+  const isVoided = !!liveInvoice.deleted_at
+  const isReadOnly = isXeroLocked || isVoided
 
   /** Logo is for PDF/email only — never pass `logoUrl` into the on-screen document or browser print. */
   const settingsForInvoiceScreen = React.useMemo(
@@ -123,6 +147,7 @@ export function InvoiceDetailClient({
                   settings={settings}
                   xeroEnabled={xeroEnabled}
                   xeroStatus={liveXeroStatus}
+                  canVoid={canVoid}
                   bookingId={liveInvoice.booking_id}
                   invoice={{
                     invoiceNumber: liveInvoice.invoice_number || `#${liveInvoice.id.slice(0, 8)}`,
@@ -163,6 +188,24 @@ export function InvoiceDetailClient({
           <p className="mt-4 text-sm text-amber-700">Some sections failed to load: {loadErrors.join(", ")}</p>
         ) : null}
 
+        {isVoided ? (
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            <Ban className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+            <div className="space-y-0.5">
+              <div className="font-semibold">This invoice has been voided</div>
+              <div className="text-rose-800">
+                Voided{" "}
+                {liveInvoice.deleted_at
+                  ? formatDate(liveInvoice.deleted_at, timeZone, "long") || "previously"
+                  : "previously"}
+                {liveInvoice.deletion_reason ? ` - ${liveInvoice.deletion_reason}` : "."}{" "}
+                A reversal transaction has been posted to restore the customer&rsquo;s account
+                balance. Original ledger entries are kept for audit.
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-6 space-y-6">
           <InvoiceDocumentView
             settings={settingsForInvoiceScreen}
@@ -190,25 +233,33 @@ export function InvoiceDetailClient({
             }))}
           />
 
-          <Card className="shadow-sm ring-1 ring-border/40">
-            <div className="p-6">
-              <div className="text-base font-semibold">Notes</div>
-              <div className="mt-1 text-sm text-muted-foreground">Optional internal notes for this invoice.</div>
+          {payments.length > 0 ? (
+            <InvoicePaymentsCard
+              invoiceId={liveInvoice.id}
+              payments={payments}
+              canReverse={canVoid}
+              xeroEnabled={xeroEnabled}
+            />
+          ) : null}
 
-              <details className="group mt-4 w-full">
-                <summary className="flex w-full cursor-pointer list-none items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground">
-                  <ChevronRight className="h-4 w-4 transition-transform duration-200 group-open:rotate-90" />
-                  <span>{liveInvoice.notes ? "View notes" : "No notes"}</span>
-                </summary>
-                <div className="pt-3">
-                  <textarea
-                    className="min-h-[120px] w-full resize-vertical rounded-md border border-input bg-background px-3 py-2 text-sm transition placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={liveInvoice.notes || ""}
-                    readOnly
-                  />
-                </div>
-              </details>
-            </div>
+          <Card className="rounded-xl border border-border/50 shadow-md">
+            <CardHeader className="border-b border-border/20 p-0">
+              <Button
+                variant="ghost"
+                className="h-auto w-full justify-start gap-2 rounded-none px-6 py-4 text-left"
+                onClick={() => setAuditOpen((prev) => !prev)}
+              >
+                <IconChevronDown
+                  className={cn("h-4 w-4 transition-transform", !auditOpen && "-rotate-90")}
+                />
+                <CardTitle className="text-base sm:text-lg">Invoice History</CardTitle>
+              </Button>
+            </CardHeader>
+            {auditOpen ? (
+              <CardContent className="px-0 pt-4 pb-2">
+                <InvoiceAuditTimeline logs={auditLogs} maps={auditLookupMaps} />
+              </CardContent>
+            ) : null}
           </Card>
 
         </div>

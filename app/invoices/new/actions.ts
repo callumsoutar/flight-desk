@@ -14,7 +14,6 @@ const createInvoiceInputSchema = z.object({
   issueDate: z.string().datetime({ offset: true }).optional(),
   dueDate: z.string().datetime({ offset: true }).nullable().optional(),
   reference: z.string().max(200).nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
   items: z
     .array(
       z.object({
@@ -169,7 +168,6 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
       quantity: item.quantity,
       unit_price: unitPrice,
       tax_rate: taxRate,
-      notes: null as string | null,
     }
   })
 
@@ -180,7 +178,6 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
     quantity: item.quantity,
     unit_price: item.unit_price,
     tax_rate: item.tax_rate,
-    notes: item.notes,
   }))
   const createStatus = shouldApprove ? "authorised" : "draft"
 
@@ -193,7 +190,6 @@ async function createInvoiceInternal(input: unknown, shouldApprove: boolean) {
     p_issue_date: issueDate,
     p_due_date: payload.dueDate ?? undefined,
     p_reference: payload.reference ?? undefined,
-    p_notes: payload.notes ?? undefined,
     p_items: rpcItems,
   })
 

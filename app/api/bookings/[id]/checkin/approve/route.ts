@@ -17,7 +17,6 @@ const itemSchema = z.strictObject({
   quantity: z.number().positive(),
   unit_price: z.number().nonnegative(),
   tax_rate: z.number().min(0).max(1).nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
 })
 
 const payloadSchema = z.strictObject({
@@ -42,7 +41,6 @@ const payloadSchema = z.strictObject({
   tax_rate: z.number().min(0).max(1).optional(),
   due_date: z.string().datetime({ offset: true }).optional(),
   reference: z.string().max(200).nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
   items: z.array(itemSchema).min(1),
 })
 
@@ -90,7 +88,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     quantity: item.quantity,
     unit_price: item.unit_price,
     tax_rate: item.tax_rate ?? null,
-    notes: item.notes ?? null,
   }))
 
   const { data: result, error: rpcError } = await supabase.rpc(
@@ -115,7 +112,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       p_tax_rate: payload.tax_rate ?? null,
       p_due_date: dueDate,
       p_reference: payload.reference ?? `Booking ${bookingId} check-in`,
-      p_notes: payload.notes ?? "Auto-generated from booking check-in.",
       p_items: rpcItems,
     } as never
   )

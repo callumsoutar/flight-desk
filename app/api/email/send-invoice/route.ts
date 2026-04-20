@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     supabase
       .from("invoices")
       .select(
-        "id, tenant_id, user_id, invoice_number, issue_date, due_date, tax_rate, subtotal, tax_total, total_amount, total_paid, balance_due, notes, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email), tenant:tenants!invoices_tenant_id_fkey(name, logo_url, contact_email, currency, timezone)"
+        "id, tenant_id, user_id, invoice_number, issue_date, due_date, tax_rate, subtotal, tax_total, total_amount, total_paid, balance_due, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email), tenant:tenants!invoices_tenant_id_fkey(name, logo_url, contact_email, currency, timezone)"
       )
       .eq("tenant_id", tenantId)
       .eq("id", invoiceId)

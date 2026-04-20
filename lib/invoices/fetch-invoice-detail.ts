@@ -32,14 +32,12 @@ export async function fetchInvoiceDetail(
       .select("*, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email)")
       .eq("tenant_id", tenantId)
       .eq("id", invoiceId)
-      .is("deleted_at", null)
       .maybeSingle(),
     supabase
       .from("invoice_items")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("invoice_id", invoiceId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true }),
     supabase
       .from("xero_invoices")

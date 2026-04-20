@@ -10,6 +10,7 @@ import {
   IconChevronDown,
   IconDotsVertical,
   IconFileDescription,
+  IconFileInvoice,
   IconMail,
   IconPlane,
   IconPlaneDeparture,
@@ -263,11 +264,25 @@ export function BookingDetailClient({
   )
 
   const showDebriefAction = isFlightBooking && lessonProgressExists
+  const showInvoiceAction =
+    booking.status === "complete" && Boolean(booking.checkin_invoice_id)
   const showStatusActions = isFlightBooking && isAdminOrInstructor
 
   const headerActions =
-    showDebriefAction || showStatusActions ? (
+    showDebriefAction || showInvoiceAction || showStatusActions ? (
       <>
+        {showInvoiceAction ? (
+          <Button
+            variant="outline"
+            asChild
+            className="h-10 gap-2 font-medium shadow-sm transition-all hover:bg-muted/60 hover:shadow"
+          >
+            <Link href={`/invoices/${booking.checkin_invoice_id}`}>
+              <IconFileInvoice className="h-4 w-4" />
+              View Invoice
+            </Link>
+          </Button>
+        ) : null}
         {showDebriefAction ? (
           <Button
             variant="outline"

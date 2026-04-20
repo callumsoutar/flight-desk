@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import {
+  Ban,
   Calendar,
   ChevronDown,
   Download,
@@ -45,6 +46,10 @@ const VoidAndReissueModal = dynamic(
   () => import("@/components/invoices/void-and-reissue-modal").then((mod) => mod.VoidAndReissueModal),
   { ssr: false }
 )
+const VoidInvoiceModal = dynamic(
+  () => import("@/components/invoices/void-invoice-modal").then((mod) => mod.VoidInvoiceModal),
+  { ssr: false }
+)
 
 import type {
   InvoiceDocumentData,
@@ -69,8 +74,11 @@ export type InvoiceViewActionsProps = {
   bookingId?: string | null
   xeroEnabled?: boolean
   xeroStatus?: XeroStatusData | null
+  canVoid?: boolean
   onPaymentSuccess?: () => void
 }
+
+const VOIDABLE_STATUSES = new Set(["draft", "authorised", "overdue", "paid"])
 
 const XERO_EXPORTABLE = new Set(["authorised", "paid", "overdue"])
 
@@ -104,6 +112,7 @@ export default function InvoiceViewActions({
   bookingId,
   xeroEnabled = false,
   xeroStatus = null,
+  canVoid = false,
   onPaymentSuccess,
 }: InvoiceViewActionsProps) {
   const queryClient = useQueryClient()
@@ -111,6 +120,7 @@ export default function InvoiceViewActions({
   const { timeZone } = useTimezone()
   const [paymentOpen, setPaymentOpen] = React.useState(false)
   const [voidOpen, setVoidOpen] = React.useState(false)
+  const [voidInvoiceOpen, setVoidInvoiceOpen] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
   const [isPrinting, setIsPrinting] = React.useState(false)
   const [isExporting, setIsExporting] = React.useState(false)
@@ -131,6 +141,10 @@ export default function InvoiceViewActions({
   const canVoidAndReissue = canViewInXero
 
   const showXeroSection = xeroEnabled && (canExportToXero || canRetryXero || canViewInXero)
+
+  const isXeroLockedForVoid = !!xeroStatus && xeroStatus.export_status === "exported"
+  const showVoidInvoice =
+    canVoid && !!status && VOIDABLE_STATUSES.has(status) && !isXeroLockedForVoid
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
@@ -332,6 +346,22 @@ export default function InvoiceViewActions({
                 ) : null}
               </>
             ) : null}
+
+            {showVoidInvoice ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    setVoidInvoiceOpen(true)
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  Void Invoice
+                </DropdownMenuItem>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -365,6 +395,24 @@ export default function InvoiceViewActions({
           ])
         }}
       />
+
+      {showVoidInvoice ? (
+        <VoidInvoiceModal
+          open={voidInvoiceOpen}
+          onOpenChange={setVoidInvoiceOpen}
+          invoiceId={invoiceId}
+          invoiceNumber={invoice.invoiceNumber}
+          totalPaid={invoice.totalPaid ?? 0}
+          onSuccess={async () => {
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: invoiceDetailQueryKey(invoiceId) }),
+              queryClient.invalidateQueries({ queryKey: invoicesQueryKey(xeroEnabled) }),
+            ])
+            router.push("/invoices")
+            router.refresh()
+          }}
+        />
+      ) : null}
     </>
   )
 }

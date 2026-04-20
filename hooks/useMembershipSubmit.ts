@@ -170,7 +170,6 @@ export function useMembershipSubmit(options?: UseMembershipSubmitOptions) {
             p_issue_date: undefined,
             p_due_date: undefined,
             p_reference: invoiceReference,
-            p_notes: payload.notes ?? undefined,
             p_tax_rate: undefined,
             p_items: [
               {

@@ -7,7 +7,9 @@ import { AppRouteNarrowDetailContainer, AppRouteShell } from "@/components/layou
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { getAuthSession } from "@/lib/auth/session"
+import { fetchInvoiceAuditLogs } from "@/lib/invoices/fetch-invoice-audit-logs"
 import { fetchInvoiceDetail } from "@/lib/invoices/fetch-invoice-detail"
+import { fetchInvoicePayments } from "@/lib/invoices/fetch-invoice-payments"
 import { fetchInvoicingSettings } from "@/lib/invoices/fetch-invoicing-settings"
 import { DEFAULT_INVOICING_SETTINGS } from "@/lib/invoices/invoicing-settings"
 import { fetchXeroSettings } from "@/lib/settings/fetch-xero-settings"
@@ -21,10 +23,12 @@ async function InvoiceDetailContent({
   tenantId,
   id,
   canApproveDraft,
+  canVoid,
 }: {
   tenantId: string
   id: string
   canApproveDraft: boolean
+  canVoid: boolean
 }) {
   const supabase = await createSupabaseServerClient()
 
@@ -32,10 +36,15 @@ async function InvoiceDetailContent({
   let settings = DEFAULT_INVOICING_SETTINGS
   let xeroEnabled = false
 
-  const [detailResult, settingsResult, xeroSettingsResult] = await Promise.all([
+  const [detailResult, settingsResult, xeroSettingsResult, auditResult, paymentsResult] = await Promise.all([
     fetchInvoiceDetail(supabase, tenantId, id).catch(() => null),
     fetchInvoicingSettings(supabase, tenantId).catch(() => null),
     fetchXeroSettings(supabase, tenantId).catch(() => null),
+    fetchInvoiceAuditLogs(supabase, tenantId, id).catch(() => ({
+      logs: [],
+      maps: { users: {} },
+    })),
+    fetchInvoicePayments(supabase, tenantId, id).catch(() => []),
   ])
 
   if (!detailResult) {
@@ -72,8 +81,12 @@ async function InvoiceDetailContent({
       settings={settings}
       loadErrors={loadErrors}
       canApproveDraft={canApproveDraft}
+      canVoid={canVoid}
       xeroEnabled={xeroEnabled}
       xeroStatus={detail.xeroStatus}
+      auditLogs={auditResult.logs}
+      auditLookupMaps={auditResult.maps}
+      payments={paymentsResult}
     />
   )
 }
@@ -120,11 +133,17 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
 
   if (!role || !["owner", "admin", "instructor"].includes(role)) redirect("/dashboard")
   const canApproveDraft = role === "owner" || role === "admin" || role === "instructor"
+  const canVoid = role === "owner" || role === "admin"
 
   return (
     <AppRouteShell>
       <React.Suspense fallback={<InvoiceDetailSkeleton />}>
-        <InvoiceDetailContent tenantId={tenantId} id={id} canApproveDraft={canApproveDraft} />
+        <InvoiceDetailContent
+          tenantId={tenantId}
+          id={id}
+          canApproveDraft={canApproveDraft}
+          canVoid={canVoid}
+        />
       </React.Suspense>
     </AppRouteShell>
   )

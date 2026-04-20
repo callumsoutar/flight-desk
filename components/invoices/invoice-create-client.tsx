@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Textarea } from "@/components/ui/textarea"
 import {
   calculateInvoiceTotals,
   calculateItemAmounts,
@@ -85,7 +84,6 @@ export function InvoiceCreateClient({
     return formatInputDate(date)
   })
   const [reference, setReference] = React.useState("")
-  const [notes, setNotes] = React.useState("")
 
   const [items, setItems] = React.useState<DraftLineItem[]>([])
   const [newChargeableId, setNewChargeableId] = React.useState("")
@@ -275,7 +273,6 @@ export function InvoiceCreateClient({
       issueDate: issueDateIso,
       dueDate: dueDateIso,
       reference: reference.trim() || null,
-      notes: notes.trim() || null,
       items: previewRows.map((item) => ({
         chargeableId: item.chargeableId,
         quantity: item.quantity,
@@ -309,7 +306,7 @@ export function InvoiceCreateClient({
   return (
     <div className="flex flex-1 flex-col bg-muted/20">
       <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
-        <div className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 sm:py-4 lg:-mx-10 lg:px-10">
+        <div className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 sm:py-3.5 lg:-mx-10 lg:px-10">
           <InvoiceActionsToolbar
             mode="new"
             member={selectedMember}
@@ -610,19 +607,6 @@ export function InvoiceCreateClient({
             </div>
           </Card>
 
-          <Card className="shadow-sm ring-1 ring-border/40">
-            <div className="space-y-2 p-6">
-              <div className="text-base font-semibold">Notes</div>
-              <div className="text-sm text-muted-foreground">Optional internal notes for this invoice.</div>
-              <Textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Add notes..."
-                disabled={isPending}
-                rows={5}
-              />
-            </div>
-          </Card>
         </div>
       </div>
     </div>

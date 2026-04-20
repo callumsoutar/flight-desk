@@ -30,8 +30,30 @@ const recordInvoicePaymentSchema = z.object({
   paidAt: z.string().datetime({ offset: true }).nullable().optional(),
 })
 
+const voidInvoiceSchema = z.object({
+  invoiceId: z.string().uuid("Invalid invoice id"),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Please provide a short reason (min 3 characters)")
+    .max(500, "Reason is too long (max 500 characters)"),
+})
+
+const reversePaymentSchema = z.object({
+  paymentId: z.string().uuid("Invalid payment id"),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Please provide a short reason (min 3 characters)")
+    .max(500, "Reason is too long (max 500 characters)"),
+})
+
 function isStaff(role: string | null) {
   return role === "owner" || role === "admin" || role === "instructor"
+}
+
+function isAdminOrOwner(role: string | null) {
+  return role === "owner" || role === "admin"
 }
 
 function isRpcSuccess(value: unknown): value is { success: true } {
@@ -193,6 +215,161 @@ export async function recordInvoicePaymentAction(input: unknown) {
     result: {
       transactionId,
       paymentId,
+    },
+  }
+}
+
+export async function voidInvoiceAction(input: unknown) {
+  const parsed = voidInvoiceSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid void request",
+    }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    requireUser: true,
+    includeRole: true,
+    includeTenant: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
+
+  if (!user) return { ok: false as const, error: "Unauthorized" }
+  if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
+  if (!isAdminOrOwner(role)) {
+    return { ok: false as const, error: "Only admins or owners can void invoices" }
+  }
+
+  const { invoiceId, reason } = parsed.data
+
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("id, status, total_paid, deleted_at")
+    .eq("tenant_id", tenantId)
+    .eq("id", invoiceId)
+    .maybeSingle()
+
+  if (invoiceError) {
+    return { ok: false as const, error: "Failed to load invoice" }
+  }
+  if (!invoice) {
+    return { ok: false as const, error: "Invoice not found" }
+  }
+  if (invoice.deleted_at) {
+    return { ok: false as const, error: "Invoice is already voided" }
+  }
+  if ((invoice.total_paid ?? 0) > 0) {
+    return {
+      ok: false as const,
+      error: "This invoice has payments. Reverse all payments before voiding.",
+    }
+  }
+
+  const { data: rpcResult, error: rpcError } = await supabase.rpc("void_invoice_atomic", {
+    p_invoice_id: invoiceId,
+    p_reason: reason,
+  })
+
+  if (rpcError) {
+    return { ok: false as const, error: "Failed to void invoice" }
+  }
+  if (!isRpcSuccess(rpcResult)) {
+    const failResult = rpcResult as Record<string, unknown> | null
+    const message =
+      failResult && typeof failResult.message === "string" && failResult.message.trim().length > 0
+        ? failResult.message
+        : null
+    return {
+      ok: false as const,
+      error: message ?? getRpcErrorMessage(rpcResult) ?? "Failed to void invoice",
+    }
+  }
+
+  revalidatePath("/invoices")
+  revalidatePath(`/invoices/${invoiceId}`)
+
+  const result = rpcResult as Record<string, unknown>
+  const reversalTransactionId =
+    typeof result.reversal_transaction_id === "string" ? result.reversal_transaction_id : null
+
+  return {
+    ok: true as const,
+    result: {
+      reversalTransactionId,
+    },
+  }
+}
+
+export async function reverseInvoicePaymentAction(input: unknown) {
+  const parsed = reversePaymentSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid request",
+    }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { user, role, tenantId } = await getAuthSession(supabase, {
+    requireUser: true,
+    includeRole: true,
+    includeTenant: true,
+    authoritativeRole: true,
+    authoritativeTenant: true,
+  })
+
+  if (!user) return { ok: false as const, error: "Unauthorized" }
+  if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
+  if (!isAdminOrOwner(role)) {
+    return { ok: false as const, error: "Only admins or owners can reverse payments" }
+  }
+
+  const { paymentId, reason } = parsed.data
+
+  const { data: payment, error: paymentError } = await supabase
+    .from("invoice_payments")
+    .select("id, invoice_id, tenant_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", paymentId)
+    .maybeSingle()
+
+  if (paymentError) return { ok: false as const, error: "Failed to load payment" }
+  if (!payment) return { ok: false as const, error: "Payment not found" }
+
+  const { data: rpcResult, error: rpcError } = await supabase.rpc("reverse_invoice_payment_atomic", {
+    p_payment_id: paymentId,
+    p_reason: reason,
+  })
+
+  if (rpcError) {
+    return { ok: false as const, error: "Failed to reverse payment" }
+  }
+  if (!isRpcSuccess(rpcResult)) {
+    const failResult = rpcResult as Record<string, unknown> | null
+    const message =
+      failResult && typeof failResult.message === "string" && failResult.message.trim().length > 0
+        ? failResult.message
+        : null
+    return {
+      ok: false as const,
+      error: message ?? getRpcErrorMessage(rpcResult) ?? "Failed to reverse payment",
+    }
+  }
+
+  revalidatePath("/invoices")
+  revalidatePath(`/invoices/${payment.invoice_id}`)
+
+  const result = rpcResult as Record<string, unknown>
+  const reversalTransactionId =
+    typeof result.reversal_transaction_id === "string" ? result.reversal_transaction_id : null
+
+  return {
+    ok: true as const,
+    result: {
+      reversalTransactionId,
     },
   }
 }

@@ -22,6 +22,11 @@ export const publicBookingTypeSchema = z.union([
   z.literal("other"),
 ]);
 
+export const publicChargeableTypeScopeSchema = z.union([
+  z.literal("tenant"),
+  z.literal("system"),
+]);
+
 export const publicComponentStatusEnumSchema = z.union([
   z.literal("active"),
   z.literal("inactive"),
@@ -210,11 +215,6 @@ export const publicTransactionTypeSchema = z.union([
   z.literal("adjustment"),
 ]);
 
-export const publicChargeableTypeScopeSchema = z.union([
-  z.literal("tenant"),
-  z.literal("system"),
-]);
-
 export const publicUserRoleSchema = z.union([
   z.literal("admin"),
   z.literal("instructor"),
@@ -241,6 +241,52 @@ export const jsonSchema: z.ZodType<unknown> = z.lazy(() =>
     ])
     .nullable(),
 );
+
+export const publicAdminOverrideAuditRowSchema = z.object({
+  changed_by: z.string(),
+  created_at: z.string(),
+  id: z.string(),
+  new_data: jsonSchema.nullable(),
+  old_data: jsonSchema.nullable(),
+  reason: z.string(),
+  record_id: z.string(),
+  table_name: z.string(),
+  tenant_id: z.string(),
+});
+
+export const publicAdminOverrideAuditInsertSchema = z.object({
+  changed_by: z.string(),
+  created_at: z.string().optional(),
+  id: z.string().optional(),
+  new_data: jsonSchema.optional().nullable(),
+  old_data: jsonSchema.optional().nullable(),
+  reason: z.string(),
+  record_id: z.string(),
+  table_name: z.string(),
+  tenant_id: z.string().optional(),
+});
+
+export const publicAdminOverrideAuditUpdateSchema = z.object({
+  changed_by: z.string().optional(),
+  created_at: z.string().optional(),
+  id: z.string().optional(),
+  new_data: jsonSchema.optional().nullable(),
+  old_data: jsonSchema.optional().nullable(),
+  reason: z.string().optional(),
+  record_id: z.string().optional(),
+  table_name: z.string().optional(),
+  tenant_id: z.string().optional(),
+});
+
+export const publicAdminOverrideAuditRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("admin_override_audit_tenant_id_fkey"),
+    columns: z.tuple([z.literal("tenant_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("tenants"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+]);
 
 export const publicAircraftRowSchema = z.object({
   aircraft_image_url: z.string().nullable(),
@@ -881,6 +927,13 @@ export const publicBookingsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("bookings_checkin_invoice_id_fkey"),
     columns: z.tuple([z.literal("checkin_invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("bookings_checkin_invoice_id_fkey"),
+    columns: z.tuple([z.literal("checkin_invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -990,7 +1043,7 @@ export const publicChargeableTypesInsertSchema = z.object({
   id: z.string().optional(),
   is_active: z.boolean().optional().nullable(),
   name: z.string(),
-  scope: publicChargeableTypeScopeSchema.optional(),
+  scope: publicChargeableTypeScopeSchema,
   system_key: z.string().optional().nullable(),
   tenant_id: z.string().optional().nullable(),
   updated_at: z.string().optional().nullable(),
@@ -1154,6 +1207,13 @@ export const publicEmailLogsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("email_logs_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("email_logs_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -1174,20 +1234,6 @@ export const publicEmailLogsRelationshipsSchema = z.tuple([
   z.object({
     foreignKeyName: z.literal("email_logs_user_id_fkey"),
     columns: z.tuple([z.literal("user_id")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("users"),
-    referencedColumns: z.tuple([z.literal("id")]),
-  }),
-  z.object({
-    foreignKeyName: z.literal("email_logs_triggered_by_fkey"),
-    columns: z.tuple([z.literal("triggered_by")]),
-    isOneToOne: z.literal(false),
-    referencedRelation: z.literal("user_directory"),
-    referencedColumns: z.tuple([z.literal("id")]),
-  }),
-  z.object({
-    foreignKeyName: z.literal("email_logs_triggered_by_fkey"),
-    columns: z.tuple([z.literal("triggered_by")]),
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("users"),
     referencedColumns: z.tuple([z.literal("id")]),
@@ -1965,6 +2011,7 @@ export const publicInstructorsRowSchema = z.object({
   termination_date: z.string().nullable(),
   updated_at: z.string(),
   user_id: z.string(),
+  voided_at: z.string().nullable(),
 });
 
 export const publicInstructorsInsertSchema = z.object({
@@ -1993,6 +2040,7 @@ export const publicInstructorsInsertSchema = z.object({
   termination_date: z.string().optional().nullable(),
   updated_at: z.string().optional(),
   user_id: z.string(),
+  voided_at: z.string().optional().nullable(),
 });
 
 export const publicInstructorsUpdateSchema = z.object({
@@ -2021,6 +2069,7 @@ export const publicInstructorsUpdateSchema = z.object({
   termination_date: z.string().optional().nullable(),
   updated_at: z.string().optional(),
   user_id: z.string().optional(),
+  voided_at: z.string().optional().nullable(),
 });
 
 export const publicInstructorsRelationshipsSchema = z.tuple([
@@ -2146,6 +2195,13 @@ export const publicInvoiceItemsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("invoice_items_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoice_items_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -2208,6 +2264,13 @@ export const publicInvoicePaymentsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("invoice_payments_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoice_payments_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -2229,7 +2292,6 @@ export const publicInvoicePaymentsRelationshipsSchema = z.tuple([
 
 export const publicInvoiceSequencesRowSchema = z.object({
   created_at: z.string(),
-  id: z.string(),
   last_sequence: z.number(),
   tenant_id: z.string(),
   updated_at: z.string(),
@@ -2238,7 +2300,6 @@ export const publicInvoiceSequencesRowSchema = z.object({
 
 export const publicInvoiceSequencesInsertSchema = z.object({
   created_at: z.string().optional(),
-  id: z.string().optional(),
   last_sequence: z.number().optional(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
@@ -2247,7 +2308,6 @@ export const publicInvoiceSequencesInsertSchema = z.object({
 
 export const publicInvoiceSequencesUpdateSchema = z.object({
   created_at: z.string().optional(),
-  id: z.string().optional(),
   last_sequence: z.number().optional(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
@@ -2275,7 +2335,6 @@ export const publicInvoicesRowSchema = z.object({
   id: z.string(),
   invoice_number: z.string().nullable(),
   issue_date: z.string(),
-  notes: z.string().nullable(),
   paid_date: z.string().nullable(),
   payment_method: publicPaymentMethodSchema.nullable(),
   payment_reference: z.string().nullable(),
@@ -2302,7 +2361,6 @@ export const publicInvoicesInsertSchema = z.object({
   id: z.string().optional(),
   invoice_number: z.string().optional().nullable(),
   issue_date: z.string().optional(),
-  notes: z.string().optional().nullable(),
   paid_date: z.string().optional().nullable(),
   payment_method: publicPaymentMethodSchema.optional().nullable(),
   payment_reference: z.string().optional().nullable(),
@@ -2329,7 +2387,6 @@ export const publicInvoicesUpdateSchema = z.object({
   id: z.string().optional(),
   invoice_number: z.string().optional().nullable(),
   issue_date: z.string().optional(),
-  notes: z.string().optional().nullable(),
   paid_date: z.string().optional().nullable(),
   payment_method: publicPaymentMethodSchema.optional().nullable(),
   payment_reference: z.string().optional().nullable(),
@@ -2887,6 +2944,13 @@ export const publicMembershipsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("memberships_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("memberships_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -3194,6 +3258,7 @@ export const publicStudentSyllabusEnrollmentRowSchema = z.object({
   status: z.string(),
   syllabus_id: z.string(),
   tenant_id: z.string(),
+  unenrolled_at: z.string().nullable(),
   updated_at: z.string(),
   user_id: z.string(),
 });
@@ -3209,6 +3274,7 @@ export const publicStudentSyllabusEnrollmentInsertSchema = z.object({
   status: z.string().optional(),
   syllabus_id: z.string(),
   tenant_id: z.string().optional(),
+  unenrolled_at: z.string().optional().nullable(),
   updated_at: z.string().optional(),
   user_id: z.string(),
 });
@@ -3224,6 +3290,7 @@ export const publicStudentSyllabusEnrollmentUpdateSchema = z.object({
   status: z.string().optional(),
   syllabus_id: z.string().optional(),
   tenant_id: z.string().optional(),
+  unenrolled_at: z.string().optional().nullable(),
   updated_at: z.string().optional(),
   user_id: z.string().optional(),
 });
@@ -3312,6 +3379,45 @@ export const publicSyllabusRelationshipsSchema = z.tuple([
   }),
 ]);
 
+export const publicTaxRateTemplatesRowSchema = z.object({
+  country_code: z.string(),
+  created_at: z.string(),
+  description: z.string().nullable(),
+  effective_from: z.string(),
+  id: z.string(),
+  is_active: z.boolean(),
+  rate: z.number(),
+  region_code: z.string().nullable(),
+  tax_name: z.string(),
+  updated_at: z.string(),
+});
+
+export const publicTaxRateTemplatesInsertSchema = z.object({
+  country_code: z.string(),
+  created_at: z.string().optional(),
+  description: z.string().optional().nullable(),
+  effective_from: z.string().optional(),
+  id: z.string().optional(),
+  is_active: z.boolean().optional(),
+  rate: z.number(),
+  region_code: z.string().optional().nullable(),
+  tax_name: z.string(),
+  updated_at: z.string().optional(),
+});
+
+export const publicTaxRateTemplatesUpdateSchema = z.object({
+  country_code: z.string().optional(),
+  created_at: z.string().optional(),
+  description: z.string().optional().nullable(),
+  effective_from: z.string().optional(),
+  id: z.string().optional(),
+  is_active: z.boolean().optional(),
+  rate: z.number().optional(),
+  region_code: z.string().optional().nullable(),
+  tax_name: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
 export const publicTaxRatesRowSchema = z.object({
   country_code: z.string(),
   created_at: z.string(),
@@ -3368,6 +3474,7 @@ export const publicTaxRatesRelationshipsSchema = z.tuple([
 ]);
 
 export const publicTenantSettingsRowSchema = z.object({
+  created_at: z.string(),
   settings: jsonSchema,
   tenant_id: z.string(),
   updated_at: z.string(),
@@ -3375,6 +3482,7 @@ export const publicTenantSettingsRowSchema = z.object({
 });
 
 export const publicTenantSettingsInsertSchema = z.object({
+  created_at: z.string().optional(),
   settings: jsonSchema.optional(),
   tenant_id: z.string(),
   updated_at: z.string().optional(),
@@ -3382,6 +3490,7 @@ export const publicTenantSettingsInsertSchema = z.object({
 });
 
 export const publicTenantSettingsUpdateSchema = z.object({
+  created_at: z.string().optional(),
   settings: jsonSchema.optional(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
@@ -3393,6 +3502,43 @@ export const publicTenantSettingsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("tenant_settings_tenant_id_fkey"),
     columns: z.tuple([z.literal("tenant_id")]),
     isOneToOne: z.literal(true),
+    referencedRelation: z.literal("tenants"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+]);
+
+export const publicTenantSettingsAuditRowSchema = z.object({
+  changed_at: z.string(),
+  changed_by: z.string().nullable(),
+  id: z.number(),
+  new_settings: jsonSchema,
+  previous_settings: jsonSchema,
+  tenant_id: z.string(),
+});
+
+export const publicTenantSettingsAuditInsertSchema = z.object({
+  changed_at: z.string().optional(),
+  changed_by: z.string().optional().nullable(),
+  id: z.number().optional(),
+  new_settings: jsonSchema.optional(),
+  previous_settings: jsonSchema.optional(),
+  tenant_id: z.string(),
+});
+
+export const publicTenantSettingsAuditUpdateSchema = z.object({
+  changed_at: z.string().optional(),
+  changed_by: z.string().optional().nullable(),
+  id: z.number().optional(),
+  new_settings: jsonSchema.optional(),
+  previous_settings: jsonSchema.optional(),
+  tenant_id: z.string().optional(),
+});
+
+export const publicTenantSettingsAuditRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("tenant_settings_audit_tenant_id_fkey"),
+    columns: z.tuple([z.literal("tenant_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("tenants"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -3595,6 +3741,13 @@ export const publicTransactionsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("transactions_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("transactions_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -3626,6 +3779,7 @@ export const publicUserPermissionOverridesRowSchema = z.object({
   granted: z.boolean(),
   id: z.string(),
   permission_id: z.string(),
+  tenant_id: z.string(),
   updated_at: z.string(),
   user_id: z.string(),
 });
@@ -3635,6 +3789,7 @@ export const publicUserPermissionOverridesInsertSchema = z.object({
   granted: z.boolean(),
   id: z.string().optional(),
   permission_id: z.string(),
+  tenant_id: z.string(),
   updated_at: z.string().optional(),
   user_id: z.string(),
 });
@@ -3644,11 +3799,19 @@ export const publicUserPermissionOverridesUpdateSchema = z.object({
   granted: z.boolean().optional(),
   id: z.string().optional(),
   permission_id: z.string().optional(),
+  tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
   user_id: z.string().optional(),
 });
 
 export const publicUserPermissionOverridesRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("user_permission_overrides_tenant_id_fkey"),
+    columns: z.tuple([z.literal("tenant_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("tenants"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
   z.object({
     foreignKeyName: z.literal("user_permission_overrides_user_id_fkey"),
     columns: z.tuple([z.literal("user_id")]),
@@ -4074,6 +4237,13 @@ export const publicXeroExportLogsRelationshipsSchema = z.tuple([
     foreignKeyName: z.literal("xero_export_logs_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
     isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("xero_export_logs_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
     referencedRelation: z.literal("invoices"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
@@ -4096,6 +4266,7 @@ export const publicXeroInvoicesRowSchema = z.object({
   tenant_id: z.string(),
   updated_at: z.string(),
   xero_invoice_id: z.string().nullable(),
+  xero_invoice_number: z.string().nullable(),
 });
 
 export const publicXeroInvoicesInsertSchema = z.object({
@@ -4108,6 +4279,7 @@ export const publicXeroInvoicesInsertSchema = z.object({
   tenant_id: z.string(),
   updated_at: z.string().optional(),
   xero_invoice_id: z.string().optional().nullable(),
+  xero_invoice_number: z.string().optional().nullable(),
 });
 
 export const publicXeroInvoicesUpdateSchema = z.object({
@@ -4120,9 +4292,17 @@ export const publicXeroInvoicesUpdateSchema = z.object({
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
   xero_invoice_id: z.string().optional().nullable(),
+  xero_invoice_number: z.string().optional().nullable(),
 });
 
 export const publicXeroInvoicesRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("xero_invoices_invoice_id_fkey"),
+    columns: z.tuple([z.literal("invoice_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("invoice_effective_status"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
   z.object({
     foreignKeyName: z.literal("xero_invoices_invoice_id_fkey"),
     columns: z.tuple([z.literal("invoice_id")]),
@@ -4135,6 +4315,132 @@ export const publicXeroInvoicesRelationshipsSchema = z.tuple([
     columns: z.tuple([z.literal("tenant_id")]),
     isOneToOne: z.literal(false),
     referencedRelation: z.literal("tenants"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+]);
+
+export const publicInvoiceEffectiveStatusRowSchema = z.object({
+  balance_due: z.number().nullable(),
+  booking_id: z.string().nullable(),
+  created_at: z.string().nullable(),
+  deleted_at: z.string().nullable(),
+  deleted_by: z.string().nullable(),
+  deletion_reason: z.string().nullable(),
+  due_date: z.string().nullable(),
+  effective_status: publicInvoiceStatusSchema.nullable(),
+  id: z.string().nullable(),
+  invoice_number: z.string().nullable(),
+  issue_date: z.string().nullable(),
+  paid_date: z.string().nullable(),
+  payment_method: publicPaymentMethodSchema.nullable(),
+  payment_reference: z.string().nullable(),
+  reference: z.string().nullable(),
+  status: publicInvoiceStatusSchema.nullable(),
+  subtotal: z.number().nullable(),
+  tax_rate: z.number().nullable(),
+  tax_total: z.number().nullable(),
+  tenant_id: z.string().nullable(),
+  total_amount: z.number().nullable(),
+  total_paid: z.number().nullable(),
+  updated_at: z.string().nullable(),
+  user_id: z.string().nullable(),
+});
+
+export const publicInvoiceEffectiveStatusInsertSchema = z.object({
+  balance_due: z.number().optional().nullable(),
+  booking_id: z.string().optional().nullable(),
+  created_at: z.string().optional().nullable(),
+  deleted_at: z.string().optional().nullable(),
+  deleted_by: z.string().optional().nullable(),
+  deletion_reason: z.string().optional().nullable(),
+  due_date: z.string().optional().nullable(),
+  effective_status: z.never().optional(),
+  id: z.string().optional().nullable(),
+  invoice_number: z.string().optional().nullable(),
+  issue_date: z.string().optional().nullable(),
+  paid_date: z.string().optional().nullable(),
+  payment_method: publicPaymentMethodSchema.optional().nullable(),
+  payment_reference: z.string().optional().nullable(),
+  reference: z.string().optional().nullable(),
+  status: publicInvoiceStatusSchema.optional().nullable(),
+  subtotal: z.number().optional().nullable(),
+  tax_rate: z.number().optional().nullable(),
+  tax_total: z.number().optional().nullable(),
+  tenant_id: z.string().optional().nullable(),
+  total_amount: z.number().optional().nullable(),
+  total_paid: z.number().optional().nullable(),
+  updated_at: z.string().optional().nullable(),
+  user_id: z.string().optional().nullable(),
+});
+
+export const publicInvoiceEffectiveStatusUpdateSchema = z.object({
+  balance_due: z.number().optional().nullable(),
+  booking_id: z.string().optional().nullable(),
+  created_at: z.string().optional().nullable(),
+  deleted_at: z.string().optional().nullable(),
+  deleted_by: z.string().optional().nullable(),
+  deletion_reason: z.string().optional().nullable(),
+  due_date: z.string().optional().nullable(),
+  effective_status: z.never().optional(),
+  id: z.string().optional().nullable(),
+  invoice_number: z.string().optional().nullable(),
+  issue_date: z.string().optional().nullable(),
+  paid_date: z.string().optional().nullable(),
+  payment_method: publicPaymentMethodSchema.optional().nullable(),
+  payment_reference: z.string().optional().nullable(),
+  reference: z.string().optional().nullable(),
+  status: publicInvoiceStatusSchema.optional().nullable(),
+  subtotal: z.number().optional().nullable(),
+  tax_rate: z.number().optional().nullable(),
+  tax_total: z.number().optional().nullable(),
+  tenant_id: z.string().optional().nullable(),
+  total_amount: z.number().optional().nullable(),
+  total_paid: z.number().optional().nullable(),
+  updated_at: z.string().optional().nullable(),
+  user_id: z.string().optional().nullable(),
+});
+
+export const publicInvoiceEffectiveStatusRelationshipsSchema = z.tuple([
+  z.object({
+    foreignKeyName: z.literal("invoices_booking_id_fkey"),
+    columns: z.tuple([z.literal("booking_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("bookings"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoices_deleted_by_fkey"),
+    columns: z.tuple([z.literal("deleted_by")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("user_directory"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoices_deleted_by_fkey"),
+    columns: z.tuple([z.literal("deleted_by")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("users"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoices_tenant_id_fkey"),
+    columns: z.tuple([z.literal("tenant_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("tenants"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoices_user_id_fkey"),
+    columns: z.tuple([z.literal("user_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("user_directory"),
+    referencedColumns: z.tuple([z.literal("id")]),
+  }),
+  z.object({
+    foreignKeyName: z.literal("invoices_user_id_fkey"),
+    columns: z.tuple([z.literal("user_id")]),
+    isOneToOne: z.literal(false),
+    referencedRelation: z.literal("users"),
     referencedColumns: z.tuple([z.literal("id")]),
   }),
 ]);
@@ -4157,7 +4463,7 @@ export const publicUserDirectoryInsertSchema = z.object({
   id: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
-  public_email: z.string().optional().nullable(),
+  public_email: z.never().optional(),
   updated_at: z.string().optional().nullable(),
 });
 
@@ -4168,7 +4474,7 @@ export const publicUserDirectoryUpdateSchema = z.object({
   id: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
-  public_email: z.string().optional().nullable(),
+  public_email: z.never().optional(),
   updated_at: z.string().optional().nullable(),
 });
 
@@ -4194,7 +4500,6 @@ export const publicApproveBookingCheckinAtomicArgsSchema = z.object({
   p_hobbs_end: z.number(),
   p_hobbs_start: z.number(),
   p_items: jsonSchema.optional(),
-  p_notes: z.string().optional(),
   p_reference: z.string().optional(),
   p_solo_end_hobbs: z.number(),
   p_solo_end_tach: z.number(),
@@ -4253,13 +4558,6 @@ export const publicCheckUserRoleArgsSchema = z.object({
 
 export const publicCheckUserRoleReturnsSchema = z.boolean();
 
-export const publicCheckUserRoleSimpleArgsSchema = z.object({
-  allowed_roles: z.array(publicUserRoleSchema),
-  user_id: z.string(),
-});
-
-export const publicCheckUserRoleSimpleReturnsSchema = z.boolean();
-
 export const publicCorrectBookingCheckinTtisAtomicArgsSchema = z.object({
   p_airswitch_end: z.number(),
   p_booking_id: z.string(),
@@ -4276,7 +4574,6 @@ export const publicCreateInvoiceAtomicArgsSchema = z.object({
   p_invoice_number: z.string().optional(),
   p_issue_date: z.string().optional(),
   p_items: jsonSchema.optional(),
-  p_notes: z.string().optional(),
   p_reference: z.string().optional(),
   p_status: z.string().optional(),
   p_tax_rate: z.number().optional(),
@@ -4295,6 +4592,12 @@ export const publicCreateTenantForNewUserReturnsSchema = z.string();
 export const publicCurrentUserIsStaffArgsSchema = z.never();
 
 export const publicCurrentUserIsStaffReturnsSchema = z.boolean();
+
+export const publicCurrentUserIsStaffForTenantArgsSchema = z.object({
+  p_tenant_id: z.string(),
+});
+
+export const publicCurrentUserIsStaffForTenantReturnsSchema = z.boolean();
 
 export const publicEquipmentUpdateSummaryArgsSchema = z.never();
 
@@ -4353,21 +4656,11 @@ export const publicFindAircraftWithSuspiciousTtisReturnsSchema = z.array(
   }),
 );
 
-export const publicFlattenSettingsArgsSchema = z.object({
-  nested_settings: jsonSchema,
-});
-
-export const publicFlattenSettingsReturnsSchema = jsonSchema;
-
 export const publicFlightdeskAccessTokenHookArgsSchema = z.object({
   event: jsonSchema,
 });
 
 export const publicFlightdeskAccessTokenHookReturnsSchema = jsonSchema;
-
-export const publicGenerateInvoiceNumberArgsSchema = z.never();
-
-export const publicGenerateInvoiceNumberReturnsSchema = z.string();
 
 export const publicGenerateInvoiceNumberAppArgsSchema = z.never();
 
@@ -4415,55 +4708,27 @@ export const publicGetAircraftTechLogArgsSchema = z.object({
 
 export const publicGetAircraftTechLogReturnsSchema = z.array(
   z.object({
-    computed_ttis: z.number().nullable(),
-    daily_delta: z.number().nullable(),
-    daily_ttis_delta: z.number().nullable(),
+    computed_ttis: z.number(),
+    daily_delta: z.number(),
+    daily_ttis_delta: z.number(),
     entry_count: z.number(),
-    latest_entry_at: z.string().nullable(),
-    latest_reading: z.number().nullable(),
+    latest_entry_at: z.string(),
+    latest_reading: z.number(),
     reading_source: z.string(),
     tech_log_date: z.string(),
     total_rows: z.number(),
-    total_time_method: publicTotalTimeMethodSchema.nullable(),
+    total_time_method: publicTotalTimeMethodSchema,
   }),
 );
 
-export const publicGetFinancialDailySummaryReportArgsSchema = z.object({
-  p_end: z.string(),
-  p_start: z.string(),
+export const publicGetAircraftUtilisationDashboardArgsSchema = z.object({
+  p_daily_available_hours: z.number().optional(),
+  p_end_date: z.string(),
+  p_start_date: z.string(),
+  p_tenant_id: z.string(),
 });
 
-export const publicGetFinancialDailySummaryReportReturnsSchema = z.array(
-  z.object({
-    difference: z.number(),
-    payment_breakdown: jsonSchema,
-    period_end: z.string(),
-    period_start: z.string(),
-    total_received: z.number(),
-    total_sales: z.number(),
-  }),
-);
-
-export const publicGetFinancialTransactionListReportArgsSchema = z.object({
-  p_end: z.string(),
-  p_limit: z.number().optional(),
-  p_offset: z.number().optional(),
-  p_start: z.string(),
-});
-
-export const publicGetFinancialTransactionListReportReturnsSchema = z.array(
-  z.object({
-    amount: z.number(),
-    created_at: z.string(),
-    description: z.string(),
-    payment_method: z.string().nullable(),
-    reference: z.string(),
-    related_invoice_id: z.string().nullable(),
-    transaction_id: z.string(),
-    transaction_subtype: z.string(),
-    transaction_type: z.string(),
-  }),
-);
+export const publicGetAircraftUtilisationDashboardReturnsSchema = jsonSchema;
 
 export const publicGetAuthUserDetailsArgsSchema = z.object({
   user_uuid: z.string(),
@@ -4507,6 +4772,70 @@ export const publicGetCurrentRoleStateReturnsSchema = z.array(
     role_changed_at: z.string(),
     role_name: publicUserRoleSchema,
     tenant_id: z.string(),
+  }),
+);
+
+export const publicGetFinancialDailySummaryReportArgsSchema = z.object({
+  p_end: z.string(),
+  p_start: z.string(),
+});
+
+export const publicGetFinancialDailySummaryReportReturnsSchema = z.array(
+  z.object({
+    difference: z.number(),
+    payment_breakdown: jsonSchema,
+    period_end: z.string(),
+    period_start: z.string(),
+    total_received: z.number(),
+    total_sales: z.number(),
+  }),
+);
+
+export const publicGetFinancialTransactionListReportArgsSchema = z.object({
+  p_end: z.string(),
+  p_limit: z.number().optional(),
+  p_offset: z.number().optional(),
+  p_start: z.string(),
+});
+
+export const publicGetFinancialTransactionListReportReturnsSchema = z.array(
+  z.object({
+    amount: z.number(),
+    created_at: z.string(),
+    description: z.string(),
+    payment_method: z.string(),
+    reference: z.string(),
+    related_invoice_id: z.string(),
+    transaction_id: z.string(),
+    transaction_subtype: z.string(),
+    transaction_type: z.string(),
+  }),
+);
+
+export const publicGetFlyingActivityDashboardArgsSchema = z.object({
+  p_end_date: z.string(),
+  p_start_date: z.string(),
+  p_tenant_id: z.string(),
+});
+
+export const publicGetFlyingActivityDashboardReturnsSchema = jsonSchema;
+
+export const publicGetHoursByFlightTypeArgsSchema = z.object({
+  p_end_date: z.string(),
+  p_start_date: z.string(),
+  p_tenant_id: z.string(),
+});
+
+export const publicGetHoursByFlightTypeReturnsSchema = z.array(
+  z.object({
+    dual_hours: z.number(),
+    flight_type_id: z.string(),
+    flight_type_name: z.string(),
+    flights: z.number(),
+    instruction_type: z.string(),
+    pct_of_total: z.number(),
+    solo_hours: z.number(),
+    total_hours: z.number(),
   }),
 );
 
@@ -4565,6 +4894,14 @@ export const publicGetRoleIdByNameArgsSchema = z.object({
 });
 
 export const publicGetRoleIdByNameReturnsSchema = z.string();
+
+export const publicGetStaffDashboardArgsSchema = z.object({
+  p_end_date: z.string(),
+  p_start_date: z.string(),
+  p_tenant_id: z.string(),
+});
+
+export const publicGetStaffDashboardReturnsSchema = jsonSchema;
 
 export const publicGetTechLogReportsArgsSchema = z.object({
   p_aircraft_id: z.string().optional(),
@@ -4660,7 +4997,7 @@ export const publicRecordAircraftInitialTtisAuditArgsSchema = z.object({
   p_aircraft_id: z.string(),
 });
 
-export const publicRecordAircraftInitialTtisAuditReturnsSchema = z.null();
+export const publicRecordAircraftInitialTtisAuditReturnsSchema = z.undefined();
 
 export const publicRecordInvoicePaymentAtomicArgsSchema = z.object({
   p_amount: z.number(),
@@ -4782,8 +5119,18 @@ export const publicVoidAndReissueXeroInvoiceArgsSchema = z.object({
 
 export const publicVoidAndReissueXeroInvoiceReturnsSchema = jsonSchema;
 
+export const publicVoidInvoiceAtomicArgsSchema = z.object({
+  p_invoice_id: z.string(),
+  p_reason: z.string(),
+});
+
+export const publicVoidInvoiceAtomicReturnsSchema = jsonSchema;
+
 export type PublicBookingStatus = z.infer<typeof publicBookingStatusSchema>;
 export type PublicBookingType = z.infer<typeof publicBookingTypeSchema>;
+export type PublicChargeableTypeScope = z.infer<
+  typeof publicChargeableTypeScopeSchema
+>;
 export type PublicComponentStatusEnum = z.infer<
   typeof publicComponentStatusEnumSchema
 >;
@@ -4827,14 +5174,23 @@ export type PublicTransactionStatus = z.infer<
   typeof publicTransactionStatusSchema
 >;
 export type PublicTransactionType = z.infer<typeof publicTransactionTypeSchema>;
-export type PublicChargeableTypeScope = z.infer<
-  typeof publicChargeableTypeScopeSchema
->;
 export type PublicUserRole = z.infer<typeof publicUserRoleSchema>;
 export type PublicXeroExportStatus = z.infer<
   typeof publicXeroExportStatusSchema
 >;
 export type Json = z.infer<typeof jsonSchema>;
+export type PublicAdminOverrideAuditRow = z.infer<
+  typeof publicAdminOverrideAuditRowSchema
+>;
+export type PublicAdminOverrideAuditInsert = z.infer<
+  typeof publicAdminOverrideAuditInsertSchema
+>;
+export type PublicAdminOverrideAuditUpdate = z.infer<
+  typeof publicAdminOverrideAuditUpdateSchema
+>;
+export type PublicAdminOverrideAuditRelationships = z.infer<
+  typeof publicAdminOverrideAuditRelationshipsSchema
+>;
 export type PublicAircraftRow = z.infer<typeof publicAircraftRowSchema>;
 export type PublicAircraftInsert = z.infer<typeof publicAircraftInsertSchema>;
 export type PublicAircraftUpdate = z.infer<typeof publicAircraftUpdateSchema>;
@@ -5234,6 +5590,15 @@ export type PublicSyllabusUpdate = z.infer<typeof publicSyllabusUpdateSchema>;
 export type PublicSyllabusRelationships = z.infer<
   typeof publicSyllabusRelationshipsSchema
 >;
+export type PublicTaxRateTemplatesRow = z.infer<
+  typeof publicTaxRateTemplatesRowSchema
+>;
+export type PublicTaxRateTemplatesInsert = z.infer<
+  typeof publicTaxRateTemplatesInsertSchema
+>;
+export type PublicTaxRateTemplatesUpdate = z.infer<
+  typeof publicTaxRateTemplatesUpdateSchema
+>;
 export type PublicTaxRatesRow = z.infer<typeof publicTaxRatesRowSchema>;
 export type PublicTaxRatesInsert = z.infer<typeof publicTaxRatesInsertSchema>;
 export type PublicTaxRatesUpdate = z.infer<typeof publicTaxRatesUpdateSchema>;
@@ -5251,6 +5616,18 @@ export type PublicTenantSettingsUpdate = z.infer<
 >;
 export type PublicTenantSettingsRelationships = z.infer<
   typeof publicTenantSettingsRelationshipsSchema
+>;
+export type PublicTenantSettingsAuditRow = z.infer<
+  typeof publicTenantSettingsAuditRowSchema
+>;
+export type PublicTenantSettingsAuditInsert = z.infer<
+  typeof publicTenantSettingsAuditInsertSchema
+>;
+export type PublicTenantSettingsAuditUpdate = z.infer<
+  typeof publicTenantSettingsAuditUpdateSchema
+>;
+export type PublicTenantSettingsAuditRelationships = z.infer<
+  typeof publicTenantSettingsAuditRelationshipsSchema
 >;
 export type PublicTenantUsersRow = z.infer<typeof publicTenantUsersRowSchema>;
 export type PublicTenantUsersInsert = z.infer<
@@ -5359,6 +5736,18 @@ export type PublicXeroInvoicesUpdate = z.infer<
 export type PublicXeroInvoicesRelationships = z.infer<
   typeof publicXeroInvoicesRelationshipsSchema
 >;
+export type PublicInvoiceEffectiveStatusRow = z.infer<
+  typeof publicInvoiceEffectiveStatusRowSchema
+>;
+export type PublicInvoiceEffectiveStatusInsert = z.infer<
+  typeof publicInvoiceEffectiveStatusInsertSchema
+>;
+export type PublicInvoiceEffectiveStatusUpdate = z.infer<
+  typeof publicInvoiceEffectiveStatusUpdateSchema
+>;
+export type PublicInvoiceEffectiveStatusRelationships = z.infer<
+  typeof publicInvoiceEffectiveStatusRelationshipsSchema
+>;
 export type PublicUserDirectoryRow = z.infer<
   typeof publicUserDirectoryRowSchema
 >;
@@ -5416,12 +5805,6 @@ export type PublicCheckUserRoleArgs = z.infer<
 export type PublicCheckUserRoleReturns = z.infer<
   typeof publicCheckUserRoleReturnsSchema
 >;
-export type PublicCheckUserRoleSimpleArgs = z.infer<
-  typeof publicCheckUserRoleSimpleArgsSchema
->;
-export type PublicCheckUserRoleSimpleReturns = z.infer<
-  typeof publicCheckUserRoleSimpleReturnsSchema
->;
 export type PublicCorrectBookingCheckinTtisAtomicArgs = z.infer<
   typeof publicCorrectBookingCheckinTtisAtomicArgsSchema
 >;
@@ -5446,6 +5829,12 @@ export type PublicCurrentUserIsStaffArgs = z.infer<
 export type PublicCurrentUserIsStaffReturns = z.infer<
   typeof publicCurrentUserIsStaffReturnsSchema
 >;
+export type PublicCurrentUserIsStaffForTenantArgs = z.infer<
+  typeof publicCurrentUserIsStaffForTenantArgsSchema
+>;
+export type PublicCurrentUserIsStaffForTenantReturns = z.infer<
+  typeof publicCurrentUserIsStaffForTenantReturnsSchema
+>;
 export type PublicEquipmentUpdateSummaryArgs = z.infer<
   typeof publicEquipmentUpdateSummaryArgsSchema
 >;
@@ -5464,23 +5853,11 @@ export type PublicFindAircraftWithSuspiciousTtisArgs = z.infer<
 export type PublicFindAircraftWithSuspiciousTtisReturns = z.infer<
   typeof publicFindAircraftWithSuspiciousTtisReturnsSchema
 >;
-export type PublicFlattenSettingsArgs = z.infer<
-  typeof publicFlattenSettingsArgsSchema
->;
-export type PublicFlattenSettingsReturns = z.infer<
-  typeof publicFlattenSettingsReturnsSchema
->;
 export type PublicFlightdeskAccessTokenHookArgs = z.infer<
   typeof publicFlightdeskAccessTokenHookArgsSchema
 >;
 export type PublicFlightdeskAccessTokenHookReturns = z.infer<
   typeof publicFlightdeskAccessTokenHookReturnsSchema
->;
-export type PublicGenerateInvoiceNumberArgs = z.infer<
-  typeof publicGenerateInvoiceNumberArgsSchema
->;
-export type PublicGenerateInvoiceNumberReturns = z.infer<
-  typeof publicGenerateInvoiceNumberReturnsSchema
 >;
 export type PublicGenerateInvoiceNumberAppArgs = z.infer<
   typeof publicGenerateInvoiceNumberAppArgsSchema
@@ -5512,17 +5889,11 @@ export type PublicGetAircraftTechLogArgs = z.infer<
 export type PublicGetAircraftTechLogReturns = z.infer<
   typeof publicGetAircraftTechLogReturnsSchema
 >;
-export type PublicGetFinancialDailySummaryReportArgs = z.infer<
-  typeof publicGetFinancialDailySummaryReportArgsSchema
+export type PublicGetAircraftUtilisationDashboardArgs = z.infer<
+  typeof publicGetAircraftUtilisationDashboardArgsSchema
 >;
-export type PublicGetFinancialDailySummaryReportReturns = z.infer<
-  typeof publicGetFinancialDailySummaryReportReturnsSchema
->;
-export type PublicGetFinancialTransactionListReportArgs = z.infer<
-  typeof publicGetFinancialTransactionListReportArgsSchema
->;
-export type PublicGetFinancialTransactionListReportReturns = z.infer<
-  typeof publicGetFinancialTransactionListReportReturnsSchema
+export type PublicGetAircraftUtilisationDashboardReturns = z.infer<
+  typeof publicGetAircraftUtilisationDashboardReturnsSchema
 >;
 export type PublicGetAuthUserDetailsArgs = z.infer<
   typeof publicGetAuthUserDetailsArgsSchema
@@ -5541,6 +5912,30 @@ export type PublicGetCurrentRoleStateArgs = z.infer<
 >;
 export type PublicGetCurrentRoleStateReturns = z.infer<
   typeof publicGetCurrentRoleStateReturnsSchema
+>;
+export type PublicGetFinancialDailySummaryReportArgs = z.infer<
+  typeof publicGetFinancialDailySummaryReportArgsSchema
+>;
+export type PublicGetFinancialDailySummaryReportReturns = z.infer<
+  typeof publicGetFinancialDailySummaryReportReturnsSchema
+>;
+export type PublicGetFinancialTransactionListReportArgs = z.infer<
+  typeof publicGetFinancialTransactionListReportArgsSchema
+>;
+export type PublicGetFinancialTransactionListReportReturns = z.infer<
+  typeof publicGetFinancialTransactionListReportReturnsSchema
+>;
+export type PublicGetFlyingActivityDashboardArgs = z.infer<
+  typeof publicGetFlyingActivityDashboardArgsSchema
+>;
+export type PublicGetFlyingActivityDashboardReturns = z.infer<
+  typeof publicGetFlyingActivityDashboardReturnsSchema
+>;
+export type PublicGetHoursByFlightTypeArgs = z.infer<
+  typeof publicGetHoursByFlightTypeArgsSchema
+>;
+export type PublicGetHoursByFlightTypeReturns = z.infer<
+  typeof publicGetHoursByFlightTypeReturnsSchema
 >;
 export type PublicGetInstructorActivityReportsArgs = z.infer<
   typeof publicGetInstructorActivityReportsArgsSchema
@@ -5565,6 +5960,12 @@ export type PublicGetRoleIdByNameArgs = z.infer<
 >;
 export type PublicGetRoleIdByNameReturns = z.infer<
   typeof publicGetRoleIdByNameReturnsSchema
+>;
+export type PublicGetStaffDashboardArgs = z.infer<
+  typeof publicGetStaffDashboardArgsSchema
+>;
+export type PublicGetStaffDashboardReturns = z.infer<
+  typeof publicGetStaffDashboardReturnsSchema
 >;
 export type PublicGetTechLogReportsArgs = z.infer<
   typeof publicGetTechLogReportsArgsSchema
@@ -5721,4 +6122,10 @@ export type PublicVoidAndReissueXeroInvoiceArgs = z.infer<
 >;
 export type PublicVoidAndReissueXeroInvoiceReturns = z.infer<
   typeof publicVoidAndReissueXeroInvoiceReturnsSchema
+>;
+export type PublicVoidInvoiceAtomicArgs = z.infer<
+  typeof publicVoidInvoiceAtomicArgsSchema
+>;
+export type PublicVoidInvoiceAtomicReturns = z.infer<
+  typeof publicVoidInvoiceAtomicReturnsSchema
 >;

@@ -1351,14 +1351,12 @@ export function BookingCheckinClient({
             tax_rate: taxRate,
             due_date: dueDate.toISOString(),
             reference: `Booking ${bookingId} check-in`,
-            notes: "Auto-generated from booking check-in.",
             items: approvalInvoiceItems.map((item) => ({
               chargeable_id: item.chargeable_id,
               description: item.description,
               quantity: item.quantity,
               unit_price: item.unit_price,
               tax_rate: item.tax_rate,
-              notes: item.notes ?? null,
             })),
           }),
         }

@@ -25,6 +25,5 @@ export type InvoiceCreateActionInput = {
   issueDate?: string
   dueDate?: string | null
   reference?: string | null
-  notes?: string | null
   items: InvoiceCreateActionItemInput[]
 }
