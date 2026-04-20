@@ -32,7 +32,7 @@ export async function GET() {
     await Promise.all([
       supabase
         .from("aircraft")
-        .select("id, registration, type, aircraft_type_id, model, manufacturer")
+        .select("id, registration, type, aircraft_type_id, model, manufacturer, prioritise_scheduling")
         .eq("tenant_id", tenantId)
         .is("voided_at", null)
         .eq("on_line", true)

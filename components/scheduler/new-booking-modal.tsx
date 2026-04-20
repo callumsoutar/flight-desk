@@ -9,6 +9,7 @@ import {
   Loader2,
   Plane,
   Plus,
+  Star,
   User,
   Wrench,
 } from "lucide-react"
@@ -132,6 +133,42 @@ const TIME_OPTIONS = (() => {
 
 function formatName(value: { first_name: string | null; last_name: string | null; email: string | null }) {
   return [value.first_name, value.last_name].filter(Boolean).join(" ").trim() || value.email || "Unknown"
+}
+
+type AircraftOption = {
+  id: string
+  registration: string
+  type: string
+  prioritise_scheduling: boolean
+}
+
+function sortAircraftByPriority<T extends { prioritise_scheduling: boolean }>(list: T[]): T[] {
+  // Stable sort: prioritised aircraft surface first while preserving existing
+  // server-provided order (by `order`, then `registration`).
+  return [...list].sort((a, b) => {
+    const aPriority = a.prioritise_scheduling ? 0 : 1
+    const bPriority = b.prioritise_scheduling ? 0 : 1
+    return aPriority - bPriority
+  })
+}
+
+function AircraftItemLabel({ aircraft }: { aircraft: AircraftOption }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="truncate">
+        {aircraft.registration} ({aircraft.type})
+      </span>
+      {aircraft.prioritise_scheduling ? (
+        <span
+          title="Prioritised for scheduling"
+          aria-label="Prioritised for scheduling"
+          className="inline-flex shrink-0"
+        >
+          <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+        </span>
+      ) : null}
+    </span>
+  )
 }
 
 function toYyyyMmDd(date: Date) {
@@ -533,8 +570,10 @@ export function NewBookingModal({
 
   const availableAircraft = React.useMemo(() => {
     const all = options?.aircraft ?? []
-    if (!isValidTimeRange) return all
-    return all.filter((a) => !unavailableAircraftSet.has(a.id))
+    const filtered = isValidTimeRange
+      ? all.filter((a) => !unavailableAircraftSet.has(a.id))
+      : all
+    return sortAircraftByPriority(filtered)
   }, [options?.aircraft, isValidTimeRange, unavailableAircraftSet])
 
   const availableInstructors = React.useMemo(() => {
@@ -1097,7 +1136,7 @@ export function NewBookingModal({
                                   </SelectLabel>
                                   {suggestedAircraft.map((aircraft) => (
                                     <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                                      {aircraft.registration} ({aircraft.type})
+                                      <AircraftItemLabel aircraft={aircraft} />
                                     </SelectItem>
                                   ))}
                                 </SelectGroup>
@@ -1110,7 +1149,7 @@ export function NewBookingModal({
                                       </SelectLabel>
                                       {otherAircraft.map((aircraft) => (
                                         <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                                          {aircraft.registration} ({aircraft.type})
+                                          <AircraftItemLabel aircraft={aircraft} />
                                         </SelectItem>
                                       ))}
                                     </SelectGroup>
@@ -1120,7 +1159,7 @@ export function NewBookingModal({
                             ) : (
                               availableAircraft.map((aircraft) => (
                                 <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                                  {aircraft.registration} ({aircraft.type})
+                                  <AircraftItemLabel aircraft={aircraft} />
                                 </SelectItem>
                               ))
                             )}
@@ -1230,7 +1269,7 @@ export function NewBookingModal({
                                 </SelectLabel>
                                 {suggestedAircraft.map((aircraft) => (
                                   <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                                    {aircraft.registration} ({aircraft.type})
+                                    <AircraftItemLabel aircraft={aircraft} />
                                   </SelectItem>
                                 ))}
                               </SelectGroup>
@@ -1243,7 +1282,7 @@ export function NewBookingModal({
                                     </SelectLabel>
                                     {otherAircraft.map((aircraft) => (
                                       <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                                        {aircraft.registration} ({aircraft.type})
+                                        <AircraftItemLabel aircraft={aircraft} />
                                       </SelectItem>
                                     ))}
                                   </SelectGroup>
@@ -1253,7 +1292,7 @@ export function NewBookingModal({
                           ) : (
                             availableAircraft.map((aircraft) => (
                               <SelectItem key={aircraft.id} value={aircraft.id} className="rounded-lg py-2 text-xs">
-                                {aircraft.registration} ({aircraft.type})
+                                <AircraftItemLabel aircraft={aircraft} />
                               </SelectItem>
                             ))
                           )}

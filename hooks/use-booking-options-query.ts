@@ -10,6 +10,7 @@ export type BookingOptions = {
     aircraft_type_id: string | null
     model: string | null
     manufacturer: string | null
+    prioritise_scheduling: boolean
   }>
   members: Array<{
     id: string
