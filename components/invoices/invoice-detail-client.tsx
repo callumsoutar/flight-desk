@@ -242,8 +242,8 @@ export function InvoiceDetailClient({
             />
           ) : null}
 
-          <Card className="rounded-xl border border-border/50 shadow-md">
-            <CardHeader className="border-b border-border/20 p-0">
+          <Card className="rounded-xl border border-border/50 shadow-md gap-0 py-0">
+            <CardHeader className="border-b border-border/20 p-0 !pb-0">
               <Button
                 variant="ghost"
                 className="h-auto w-full justify-start gap-2 rounded-none px-6 py-4 text-left"
@@ -256,7 +256,7 @@ export function InvoiceDetailClient({
               </Button>
             </CardHeader>
             {auditOpen ? (
-              <CardContent className="px-0 pt-4 pb-2">
+              <CardContent className="p-0">
                 <InvoiceAuditTimeline logs={auditLogs} maps={auditLookupMaps} />
               </CardContent>
             ) : null}

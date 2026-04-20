@@ -32,13 +32,13 @@ function formatUser(user: {
 }
 
 const COLORS = {
-  emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  green: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  red: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  blue: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-  indigo: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  emerald: "text-emerald-600 dark:text-emerald-400",
+  green: "text-green-600 dark:text-green-400",
+  amber: "text-amber-600 dark:text-amber-400",
+  red: "text-red-600 dark:text-red-400",
+  blue: "text-blue-600 dark:text-blue-400",
+  slate: "text-slate-500 dark:text-slate-400",
+  indigo: "text-indigo-600 dark:text-indigo-400",
 }
 
 function formatMoney(value: unknown, currency: string = "$"): string | null {
@@ -363,68 +363,62 @@ export function InvoiceAuditTimeline({
   }
 
   return (
-    <div className="px-4 py-2 sm:px-6">
-      {entries.map((entry, idx) => {
-        const isLast = idx === entries.length - 1
-        const firstChange = entry.isCreate ? null : entry.changes[0]
-        const icon = entry.isCreate ? (
-          <IconCalendarPlus className="h-4 w-4" />
-        ) : (
-          firstChange?.icon
-        )
-        const colorClass = entry.isCreate
-          ? COLORS.emerald
-          : (firstChange?.colorClass ?? COLORS.slate)
+    <div className="px-4 py-3 sm:px-6">
+      <div className="space-y-4">
+        {entries.map((entry) => {
+          const firstChange = entry.isCreate ? null : entry.changes[0]
+          const icon = entry.isCreate ? (
+            <IconCalendarPlus className="h-4 w-4" />
+          ) : (
+            firstChange?.icon
+          )
+          const colorClass = entry.isCreate
+            ? COLORS.emerald
+            : (firstChange?.colorClass ?? COLORS.slate)
 
-        return (
-          <div key={entry.log.id} className="flex gap-4">
-            <div className="flex flex-col items-center">
+          return (
+            <div key={entry.log.id} className="flex gap-3 text-sm">
               <div
                 className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                  colorClass,
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center",
+                  colorClass
                 )}
               >
                 {icon}
               </div>
-              {!isLast ? <div className="my-1 w-px flex-1 bg-border/40" /> : null}
-            </div>
-
-            <div className={cn("min-w-0 flex-1", isLast ? "pb-2" : "pb-5")}>
-              {entry.isCreate ? (
-                <p className="text-sm font-semibold leading-8">Invoice Created</p>
-              ) : (
-                <div className="space-y-1 pt-1.5">
-                  {entry.changes.map((change, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-wrap items-baseline gap-1 text-sm"
-                    >
-                      <span className="font-medium">{change.label}</span>
-                      {change.oldValue !== undefined && change.newValue !== undefined ? (
-                        <>
-                          <span className="text-muted-foreground line-through">
-                            {change.oldValue}
-                          </span>
-                          <span className="text-muted-foreground">→</span>
-                          <span>{change.newValue}</span>
-                        </>
-                      ) : change.newValue !== undefined ? (
-                        <span className="text-muted-foreground">{change.newValue}</span>
-                      ) : null}
-                    </div>
-                  ))}
+              <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1">
+                  {entry.isCreate ? (
+                    <div className="font-medium text-foreground">Invoice Created</div>
+                  ) : (
+                    entry.changes.map((change, i) => (
+                      <div key={i} className="flex flex-wrap items-baseline gap-1.5">
+                        <span className="font-medium text-foreground">{change.label}</span>
+                        {change.oldValue !== undefined && change.newValue !== undefined ? (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <span className="line-through">{change.oldValue}</span>
+                            <span>→</span>
+                            <span className="text-foreground">{change.newValue}</span>
+                          </div>
+                        ) : change.newValue !== undefined ? (
+                          <span className="text-muted-foreground">{change.newValue}</span>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
                 </div>
-              )}
-              <p className="mt-1 text-xs text-muted-foreground">
-                {formatDateTime(entry.log.created_at ?? "", timeZone) || "—"}
-                {" · "}
-                {entry.log.user ? formatUser(entry.log.user) : "System"}
-              </p>
+                <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground sm:pt-0.5">
+                  <time dateTime={entry.log.created_at ?? undefined}>
+                    {formatDateTime(entry.log.created_at ?? "", timeZone) || "—"}
+                  </time>
+                  <span className="text-border">•</span>
+                  <span>{entry.log.user ? formatUser(entry.log.user) : "System"}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
