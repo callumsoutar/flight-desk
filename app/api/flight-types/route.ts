@@ -9,10 +9,30 @@ export const dynamic = "force-dynamic"
 
 const instructionTypeSchema = z.enum(["dual", "solo", "trial"])
 
+const billingModeSchema = z.enum(["hourly", "fixed_package"])
+
+const durationMinutesSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(24 * 60)
+  .nullable()
+  .optional()
+
+const fixedPackagePriceSchema = z
+  .number()
+  .positive()
+  .max(1_000_000)
+  .optional()
+  .nullable()
+
 const createSchema = z.strictObject({
   name: z.string().trim().min(1).max(140),
   description: z.string().trim().max(1200).optional().nullable(),
   instruction_type: instructionTypeSchema,
+  billing_mode: billingModeSchema.optional(),
+  duration_minutes: durationMinutesSchema,
+  fixed_package_price: fixedPackagePriceSchema,
   aircraft_gl_code: z.string().trim().max(20).optional().nullable(),
   instructor_gl_code: z.string().trim().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
@@ -23,6 +43,9 @@ const updateSchema = z.strictObject({
   name: z.string().trim().min(1).max(140).optional(),
   description: z.string().trim().max(1200).optional().nullable(),
   instruction_type: instructionTypeSchema.optional(),
+  billing_mode: billingModeSchema.optional(),
+  duration_minutes: durationMinutesSchema,
+  fixed_package_price: fixedPackagePriceSchema,
   aircraft_gl_code: z.string().trim().max(20).optional().nullable(),
   instructor_gl_code: z.string().trim().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
@@ -55,11 +78,9 @@ export async function GET(request: NextRequest) {
   if (session.response) return session.response
   const { supabase, tenantId } = session.context
 
-  let query = supabase
-    .from("flight_types")
-    .select(
-      "id, name, description, instruction_type, aircraft_gl_code, instructor_gl_code, is_active, is_default_solo, updated_at"
-    )
+  // Use * so environments that have not yet applied the fixed_package_price migration
+  // still succeed; missing columns are simply omitted from the response.
+  let query = supabase.from("flight_types").select("*")
     .eq("tenant_id", tenantId)
     .is("voided_at", null)
     .order("name", { ascending: true })
@@ -98,6 +119,12 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ error: "Instructor GL code is required for dual/trial flight types" }, { status: 400 })
   }
 
+  const billingMode = payload.billing_mode ?? "hourly"
+  const pkgPrice =
+    billingMode === "fixed_package" && payload.fixed_package_price != null
+      ? payload.fixed_package_price
+      : null
+
   const { data, error } = await supabase
     .from("flight_types")
     .insert({
@@ -105,6 +132,9 @@ export async function POST(request: NextRequest) {
       name: payload.name.trim(),
       description: normalizeNullableString(payload.description),
       instruction_type: payload.instruction_type,
+      billing_mode: billingMode,
+      duration_minutes: payload.duration_minutes ?? null,
+      fixed_package_price: pkgPrice,
       aircraft_gl_code: normalizeNullableString(payload.aircraft_gl_code),
       instructor_gl_code:
         payload.instruction_type === "solo" ? null : normalizeNullableString(payload.instructor_gl_code),
@@ -118,7 +148,7 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ error: "Failed to create flight type" }, { status: 500 })
   }
 
-  return noStoreJson({ ok: true }, { status: 201 })
+  return noStoreJson({ ok: true, id: data.id }, { status: 201 })
 }
 
 export async function PUT(request: NextRequest) {
@@ -133,10 +163,26 @@ export async function PUT(request: NextRequest) {
   }
 
   const { id, ...rest } = parsed.data
+
+  const { data: existing, error: existingError } = await supabase
+    .from("flight_types")
+    .select("id, instruction_type, instructor_gl_code, billing_mode")
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .is("voided_at", null)
+    .maybeSingle()
+
+  if (existingError || !existing) {
+    return noStoreJson({ error: "Flight type not found" }, { status: 404 })
+  }
+
   const updateData: Record<string, unknown> = {}
   if (rest.name !== undefined) updateData.name = rest.name.trim()
   if (rest.description !== undefined) updateData.description = normalizeNullableString(rest.description)
   if (rest.instruction_type !== undefined) updateData.instruction_type = rest.instruction_type
+  if (rest.billing_mode !== undefined) updateData.billing_mode = rest.billing_mode
+  if (rest.duration_minutes !== undefined) updateData.duration_minutes = rest.duration_minutes
+  if (rest.fixed_package_price !== undefined) updateData.fixed_package_price = rest.fixed_package_price
   if (rest.aircraft_gl_code !== undefined) {
     updateData.aircraft_gl_code = normalizeNullableString(rest.aircraft_gl_code)
   }
@@ -147,18 +193,6 @@ export async function PUT(request: NextRequest) {
 
   if (!Object.keys(updateData).length) {
     return noStoreJson({ error: "No fields to update" }, { status: 400 })
-  }
-
-  const { data: existing, error: existingError } = await supabase
-    .from("flight_types")
-    .select("id, instruction_type, instructor_gl_code")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .is("voided_at", null)
-    .maybeSingle()
-
-  if (existingError || !existing) {
-    return noStoreJson({ error: "Flight type not found" }, { status: 404 })
   }
 
   const nextInstructionType =
@@ -175,6 +209,12 @@ export async function PUT(request: NextRequest) {
     updateData.instructor_gl_code = null
   }
 
+  const prevBilling = existing.billing_mode as "hourly" | "fixed_package"
+  const nextBilling = (updateData.billing_mode as "hourly" | "fixed_package" | undefined) ?? prevBilling
+  if (nextBilling === "hourly") {
+    updateData.fixed_package_price = null
+  }
+
   const { error } = await supabase
     .from("flight_types")
     .update(updateData)
@@ -183,6 +223,14 @@ export async function PUT(request: NextRequest) {
 
   if (error) {
     return noStoreJson({ error: "Failed to update flight type" }, { status: 500 })
+  }
+
+  if (prevBilling === "fixed_package" && nextBilling === "hourly") {
+    await supabase
+      .from("aircraft_charge_rates")
+      .update({ fixed_package_price: null })
+      .eq("tenant_id", tenantId)
+      .eq("flight_type_id", id)
   }
 
   return noStoreJson({ ok: true })

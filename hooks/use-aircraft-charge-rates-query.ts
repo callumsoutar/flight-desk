@@ -7,6 +7,7 @@ export type AircraftChargeRate = {
   aircraft_id: string
   flight_type_id: string
   rate_per_hour: number
+  fixed_package_price: number | null
   charge_hobbs: boolean
   charge_tacho: boolean
   charge_airswitch: boolean
@@ -57,6 +58,7 @@ export async function createAircraftChargeRate(input: {
   aircraft_id: string
   flight_type_id: string
   rate_per_hour: number
+  fixed_package_price?: number | null
   charge_hobbs: boolean
   charge_tacho: boolean
   charge_airswitch: boolean
@@ -79,6 +81,7 @@ export async function updateAircraftChargeRate(input: {
   id: string
   flight_type_id: string
   rate_per_hour: number
+  fixed_package_price?: number | null
   charge_hobbs: boolean
   charge_tacho: boolean
   charge_airswitch: boolean

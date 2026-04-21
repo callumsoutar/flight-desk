@@ -69,11 +69,11 @@ export type InstructorDetailWithRelations = Pick<
 
 export type InstructorRateWithFlightType = Pick<
   InstructorFlightTypeRatesRow,
-  "id" | "instructor_id" | "flight_type_id" | "rate" | "currency" | "effective_from"
+  "id" | "instructor_id" | "flight_type_id" | "rate" | "currency" | "effective_from" | "revenue_allocation"
 > & {
-  flight_type: Pick<FlightTypesRow, "id" | "name" | "instruction_type"> | null
+  flight_type: Pick<FlightTypesRow, "id" | "name" | "instruction_type" | "billing_mode"> | null
 }
 
 export type InstructorCategoryLite = Pick<InstructorCategoriesRow, "id" | "name">
 
-export type InstructorFlightTypeLite = Pick<FlightTypesRow, "id" | "name">
+export type InstructorFlightTypeLite = Pick<FlightTypesRow, "id" | "name" | "billing_mode">

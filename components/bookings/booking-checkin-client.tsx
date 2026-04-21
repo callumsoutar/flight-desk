@@ -514,6 +514,30 @@ export function BookingCheckinClient({
   }, [landingFeeRates])
 
   const instructionType = selectedFlightType?.instruction_type ?? null
+  const isFixedPackageBilling = selectedFlightType?.billing_mode === "fixed_package"
+  const fixedPackagePriceExcl = React.useMemo(() => {
+    if (!isFixedPackageBilling) return null
+    const fromType = selectedFlightType?.fixed_package_price
+    if (fromType != null) {
+      const v = typeof fromType === "string" ? parseFloat(fromType) : fromType
+      if (Number.isFinite(v) && v > 0) return v
+    }
+    if (!aircraftChargeRate) return null
+    const raw = aircraftChargeRate.fixed_package_price as number | string | null | undefined
+    if (raw == null) return null
+    const v = typeof raw === "string" ? parseFloat(raw) : raw
+    return Number.isFinite(v) && v > 0 ? v : null
+  }, [aircraftChargeRate, isFixedPackageBilling, selectedFlightType?.fixed_package_price])
+  const fixedPackageBillingBlocked =
+    isFixedPackageBilling &&
+    Boolean(selectedAircraftId && selectedFlightTypeId) &&
+    fixedPackagePriceExcl == null
+  const fixedPackagePricePreview = React.useMemo(() => {
+    if (fixedPackagePriceExcl == null) return null
+    const gst = roundToTwoDecimals(fixedPackagePriceExcl * taxRate)
+    const total = roundToTwoDecimals(fixedPackagePriceExcl + gst)
+    return { subtotalExcl: fixedPackagePriceExcl, gst, total }
+  }, [fixedPackagePriceExcl, taxRate])
   const defaultBriefingChargeable = React.useMemo(() => {
     if (!bookingsSettings?.default_booking_briefing_charge_enabled) return null
     const chargeableId = bookingsSettings.default_booking_briefing_chargeable_id
@@ -521,10 +545,12 @@ export function BookingCheckinClient({
     return chargeableMap.get(chargeableId) ?? null
   }, [bookingsSettings, chargeableMap])
 
-  const aircraftBillingBasis = React.useMemo(
-    () => deriveChargeBasisFromFlags(aircraftChargeRate),
-    [aircraftChargeRate]
-  )
+  const aircraftBillingBasis = React.useMemo(() => {
+    const fromRate = deriveChargeBasisFromFlags(aircraftChargeRate)
+    if (fromRate) return fromRate
+    if (isFixedPackageBilling && selectedAircraftId) return "hobbs" as const
+    return null
+  }, [aircraftChargeRate, isFixedPackageBilling, selectedAircraftId])
 
   const displayedHobbsHours = React.useMemo(
     () => calculateFlightHours(hobbsStart, hobbsEnd),
@@ -647,6 +673,39 @@ export function BookingCheckinClient({
   }, [aircraftBillingBasis, hobbsTotalHours, tachTotalHours])
 
   const isAirswitchBillingUnsupported = aircraftBillingBasis === "airswitch"
+
+  // Fixed-package flights: pre-fill the appropriate end meter from the flight type's
+  // typical duration so the tech log / experience records get a sensible default.
+  // Staff can still override. Only runs once per (aircraft, flightType, duration, basis) tuple
+  // and only when the end input is empty, so it never clobbers user input.
+  const durationPrefillKeyRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!isFixedPackageBilling) return
+    const duration = selectedFlightType?.duration_minutes
+    if (duration == null || duration <= 0) return
+    if (!selectedAircraftId || !selectedFlightTypeId) return
+    if (!aircraftBillingBasis || aircraftBillingBasis === "airswitch") return
+    const key = `${selectedAircraftId}:${selectedFlightTypeId}:${duration}:${aircraftBillingBasis}`
+    if (durationPrefillKeyRef.current === key) return
+    durationPrefillKeyRef.current = key
+
+    const durationHours = duration / 60
+    if (aircraftBillingBasis === "hobbs" && hobbsStart != null) {
+      const predicted = Number(hobbsStart) + durationHours
+      setHobbsEndInput((prev) => (prev.trim() ? prev : predicted.toFixed(1)))
+    } else if (aircraftBillingBasis === "tacho" && tachStart != null) {
+      const predicted = Number(tachStart) + durationHours
+      setTachEndInput((prev) => (prev.trim() ? prev : predicted.toFixed(1)))
+    }
+  }, [
+    isFixedPackageBilling,
+    selectedFlightType?.duration_minutes,
+    selectedAircraftId,
+    selectedFlightTypeId,
+    aircraftBillingBasis,
+    hobbsStart,
+    tachStart,
+  ])
 
   const aircraftRatePerHourExclTax = React.useMemo(() => {
     if (!aircraftChargeRate) return null
@@ -926,20 +985,56 @@ export function BookingCheckinClient({
   }, [chargeableMap, chargeableTypeCodeById, quickAdd, taxRate, updateQuickAdd])
 
   const buildGeneratedInvoiceItems = React.useCallback((): InvoiceBuilderItem[] => {
-    if (!aircraftChargeRate || !aircraftBillingBasis || aircraftBillingBasis === "airswitch") return []
+    if (!aircraftBillingBasis || aircraftBillingBasis === "airswitch") return []
+    if (!isFixedPackageBilling && !aircraftChargeRate) return []
     if (billingHours <= 0) return []
-
-    const aircraftRate = typeof aircraftChargeRate.rate_per_hour === "string"
-      ? parseFloat(aircraftChargeRate.rate_per_hour)
-      : aircraftChargeRate.rate_per_hour
-
-    if (!Number.isFinite(aircraftRate) || aircraftRate <= 0) return []
+    if (isFixedPackageBilling && fixedPackagePriceExcl == null) return []
 
     const selectedAircraft =
       options.aircraft.find((item) => item.id === selectedAircraftId) ??
       booking.checked_out_aircraft ??
       booking.aircraft
     const aircraftReg = selectedAircraft?.registration ?? "Aircraft"
+
+    if (isFixedPackageBilling) {
+      if (fixedPackagePriceExcl == null) return []
+      const items: InvoiceBuilderItem[] = []
+      if (booking.briefing_completed && defaultBriefingChargeable) {
+        items.push({
+          id: "generated-default-briefing-charge",
+          chargeable_id: defaultBriefingChargeable.id,
+          description: defaultBriefingChargeable.name,
+          quantity: 1,
+          unit_price: Number.isFinite(defaultBriefingChargeable.rate) ? Number(defaultBriefingChargeable.rate) : 0,
+          tax_rate: defaultBriefingChargeable.is_taxable ? taxRate : 0,
+          notes: `Auto-added from booking briefing setting; booking ${booking.id}`,
+          source: "generated",
+          generated_group: "briefing",
+          chargeable_type_id: defaultBriefingChargeable.chargeable_type_id,
+          chargeable_type_code:
+            chargeableTypeCodeById.get(defaultBriefingChargeable.chargeable_type_id) ?? null,
+        })
+      }
+      items.push({
+        id: "generated-flight-type-package",
+        chargeable_id: null,
+        description: selectedFlightType?.name ?? "Flight",
+        quantity: 1,
+        unit_price: fixedPackagePriceExcl,
+        tax_rate: taxRate,
+        notes: `Booking ${booking.id}; fixed-package billing; aircraft=${aircraftReg}`,
+        source: "generated",
+        generated_group: "flight_hire",
+      })
+      return items
+    }
+
+    const rateRow = aircraftChargeRate!
+    const aircraftRate = typeof rateRow.rate_per_hour === "string"
+      ? parseFloat(rateRow.rate_per_hour)
+      : rateRow.rate_per_hour
+
+    if (!Number.isFinite(aircraftRate) || aircraftRate <= 0) return []
 
     const items: InvoiceBuilderItem[] = []
 
@@ -1010,11 +1105,14 @@ export function BookingCheckinClient({
     booking.instructor,
     chargeableTypeCodeById,
     defaultBriefingChargeable,
+    fixedPackagePriceExcl,
     instructionType,
     instructorRatePerHourExclTax,
+    isFixedPackageBilling,
     options.aircraft,
     options.instructors,
     selectedAircraftId,
+    selectedFlightType?.name,
     selectedInstructorId,
     splitTimes.dual,
     splitTimes.solo,
@@ -1103,9 +1201,10 @@ export function BookingCheckinClient({
       (line) => line.source === "generated" && (line.generated_group ?? "flight_hire") === "flight_hire"
     )
     if (generatedLines.length > 0) {
+      const isFixedPackageLines = generatedLines.some((line) => line.id === "generated-flight-type-package")
       groups.push({
         id: "generated-flight-hire",
-        label: "Flight Hire",
+        label: isFixedPackageLines ? "Fixed package" : "Flight Hire",
         lines: generatedLines,
       })
     }
@@ -1166,6 +1265,8 @@ export function BookingCheckinClient({
       soloEndTach: hasSoloAtEnd ? soloEndTach : null,
       hasSoloAtEnd,
       instructionType,
+      isFixedPackageBilling,
+      fixedPackagePriceExcl,
       aircraftChargeRate,
       instructorChargeRate,
       taxRate,
@@ -1173,11 +1274,13 @@ export function BookingCheckinClient({
   }, [
     aircraftChargeRate,
     booking.id,
+    fixedPackagePriceExcl,
     hasSoloAtEnd,
     hobbsEnd,
     hobbsStart,
     instructionType,
     instructorChargeRate,
+    isFixedPackageBilling,
     selectedAircraftId,
     selectedFlightTypeId,
     selectedInstructorId,
@@ -1206,12 +1309,22 @@ export function BookingCheckinClient({
       toast.error("Flight type is required")
       return
     }
-    if (!aircraftChargeRate || !aircraftBillingBasis) {
+    if (!aircraftBillingBasis) {
+      toast.error("Could not determine aircraft billing basis (Hobbs/Tacho). Configure charge rates on the aircraft or enter meter readings.")
+      return
+    }
+    if (!isFixedPackageBilling && !aircraftChargeRate) {
       toast.error("Aircraft charge rate is not configured")
       return
     }
     if (isAirswitchBillingUnsupported) {
       toast.error("Airswitch billing is not supported in this check-in UI")
+      return
+    }
+    if (isFixedPackageBilling && fixedPackagePriceExcl == null) {
+      toast.error(
+        `No package price is set on flight type ${selectedFlightType?.name ?? "this trial"}. Add it under Settings → Charges → Flight types.`
+      )
       return
     }
     if (billingHours <= 0) {
@@ -1288,6 +1401,9 @@ export function BookingCheckinClient({
     splitTimes.dual,
     splitTimes.error,
     splitTimes.solo,
+    isFixedPackageBilling,
+    fixedPackagePriceExcl,
+    selectedFlightType?.name,
   ])
 
   const approveDraft = React.useCallback(async ({ continueToDebrief }: { continueToDebrief?: boolean } = {}) => {
@@ -1413,7 +1529,8 @@ export function BookingCheckinClient({
     !isApproving &&
     !isAirswitchBillingUnsupported &&
     !splitTimes.error &&
-    billingHours > 0
+    billingHours > 0 &&
+    !fixedPackageBillingBlocked
 
   const enterCorrectionMode = React.useCallback(() => {
     setCorrectionHobbsEnd(booking.hobbs_end != null ? String(booking.hobbs_end) : "")
@@ -1599,6 +1716,14 @@ export function BookingCheckinClient({
               </div>
             ) : null}
 
+            {fixedPackageBillingBlocked ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                No tax-inclusive package price is set on flight type{" "}
+                {selectedFlightType?.name ?? "this trial"}. Add it under Settings → Charges → Flight types before
+                completing this check-in.
+              </div>
+            ) : null}
+
             <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2 max-w-2xl">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Flight Type</label>
@@ -1622,6 +1747,18 @@ export function BookingCheckinClient({
                 <p className="text-xs text-muted-foreground">
                   {aircraftRateLoading ? (
                     "Loading aircraft rate..."
+                  ) : isFixedPackageBilling ? (
+                    fixedPackagePriceExcl != null && fixedPackagePricePreview != null ? (
+                      <>
+                        Fixed package:{" "}
+                        <span className="font-semibold text-foreground">
+                          ${fixedPackagePricePreview.total.toFixed(2)}
+                        </span>{" "}
+                        inc. tax
+                      </>
+                    ) : (
+                      "No package price configured for this flight type (Settings → Charges → Flight types)."
+                    )
                   ) : aircraftRatePerHourInclTax != null ? (
                     <>
                       Aircraft rate: <span className="font-semibold text-foreground">${aircraftRatePerHourInclTax.toFixed(2)}</span>/hr (inc. tax)
@@ -1655,7 +1792,9 @@ export function BookingCheckinClient({
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   {selectedInstructorId ? (
-                    instructorRateLoading ? (
+                    isFixedPackageBilling ? (
+                      "Fixed package billing — instructor hire is not added as a separate invoice line."
+                    ) : instructorRateLoading ? (
                       "Loading instructor rate..."
                     ) : instructorRatePerHourInclTax != null ? (
                       <>
@@ -1776,6 +1915,40 @@ export function BookingCheckinClient({
                 }
               )}
             </div>
+
+            {isFixedPackageBilling && fixedPackagePricePreview && !isApproved ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-4 text-sm shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-slate-900">
+                    {selectedFlightType?.name ?? "Flight"} — Fixed Package
+                  </div>
+                  {selectedFlightType?.duration_minutes ? (
+                    <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                      Target {selectedFlightType.duration_minutes}m
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3 space-y-1.5 tabular-nums text-slate-800">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Package price</span>
+                    <span>${fixedPackagePricePreview.subtotalExcl.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">GST ({(taxRate * 100).toFixed(0)}%)</span>
+                    <span>${fixedPackagePricePreview.gst.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold text-slate-900">
+                    <span>Total</span>
+                    <span>${fixedPackagePricePreview.total.toFixed(2)}</span>
+                  </div>
+                  <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
+                    Actual flight time: {billingHours.toFixed(1)} hrs
+                    <br />
+                    (Billing is fixed — duration has no effect on the charge)
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             <div className="flex justify-stretch sm:justify-start">
               <Button

@@ -28,7 +28,7 @@ async function fetchBooking(
   const { data, error } = await supabase
     .from("bookings")
     .select(
-      "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), checked_out_instructor:instructors!bookings_checked_out_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, fuel_consumption, aircraft_type_id), checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, fuel_consumption, aircraft_type_id), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id), lesson_progress(*)"
+      "*, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), checked_out_instructor:instructors!bookings_checked_out_instructor_id_fkey(id, first_name, last_name, user_id, user:user_directory!instructors_user_id_fkey(id, first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, fuel_consumption, aircraft_type_id), checked_out_aircraft:aircraft!bookings_checked_out_aircraft_id_fkey(id, registration, type, model, manufacturer, current_hobbs, current_tach, fuel_consumption, aircraft_type_id), flight_type:flight_types!bookings_flight_type_id_fkey(id, name, instruction_type, billing_mode, aircraft_gl_code, duration_minutes, fixed_package_price), lesson:lessons!bookings_lesson_id_fkey(id, name, syllabus_id), lesson_progress(*)"
     )
     .eq("tenant_id", tenantId)
     .eq("id", bookingId)
@@ -105,7 +105,7 @@ async function fetchOptions(
         .order("first_name", { ascending: true }),
       supabase
         .from("flight_types")
-        .select("id, name, instruction_type")
+        .select("id, name, instruction_type, billing_mode, aircraft_gl_code, duration_minutes, fixed_package_price")
         .eq("tenant_id", tenantId)
         .eq("is_active", true)
         .is("voided_at", null)

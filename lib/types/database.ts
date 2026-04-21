@@ -176,6 +176,7 @@ export type Database = {
           charge_hobbs: boolean
           charge_tacho: boolean
           created_at: string
+          fixed_package_price: number | null
           flight_type_id: string
           id: string
           rate_per_hour: number
@@ -188,6 +189,7 @@ export type Database = {
           charge_hobbs?: boolean
           charge_tacho?: boolean
           created_at?: string
+          fixed_package_price?: number | null
           flight_type_id: string
           id?: string
           rate_per_hour: number
@@ -200,6 +202,7 @@ export type Database = {
           charge_hobbs?: boolean
           charge_tacho?: boolean
           created_at?: string
+          fixed_package_price?: number | null
           flight_type_id?: string
           id?: string
           rate_per_hour?: number
@@ -1578,8 +1581,11 @@ export type Database = {
       flight_types: {
         Row: {
           aircraft_gl_code: string | null
+          billing_mode: Database["public"]["Enums"]["billing_mode_enum"]
           created_at: string
           description: string | null
+          duration_minutes: number | null
+          fixed_package_price: number | null
           id: string
           instruction_type: Database["public"]["Enums"]["instruction_type_enum"]
           instructor_gl_code: string | null
@@ -1592,8 +1598,11 @@ export type Database = {
         }
         Insert: {
           aircraft_gl_code?: string | null
+          billing_mode?: Database["public"]["Enums"]["billing_mode_enum"]
           created_at?: string
           description?: string | null
+          duration_minutes?: number | null
+          fixed_package_price?: number | null
           id?: string
           instruction_type?: Database["public"]["Enums"]["instruction_type_enum"]
           instructor_gl_code?: string | null
@@ -1606,8 +1615,11 @@ export type Database = {
         }
         Update: {
           aircraft_gl_code?: string | null
+          billing_mode?: Database["public"]["Enums"]["billing_mode_enum"]
           created_at?: string
           description?: string | null
+          duration_minutes?: number | null
+          fixed_package_price?: number | null
           id?: string
           instruction_type?: Database["public"]["Enums"]["instruction_type_enum"]
           instructor_gl_code?: string | null
@@ -1664,6 +1676,7 @@ export type Database = {
           id: string
           instructor_id: string
           rate: number
+          revenue_allocation: number | null
           tenant_id: string
           updated_at: string
         }
@@ -1675,6 +1688,7 @@ export type Database = {
           id?: string
           instructor_id: string
           rate: number
+          revenue_allocation?: number | null
           tenant_id?: string
           updated_at?: string
         }
@@ -1686,6 +1700,7 @@ export type Database = {
           id?: string
           instructor_id?: string
           rate?: number
+          revenue_allocation?: number | null
           tenant_id?: string
           updated_at?: string
         }
@@ -4644,6 +4659,7 @@ export type Database = {
       }
     }
     Enums: {
+      billing_mode_enum: "hourly" | "fixed_package"
       booking_status:
         | "unconfirmed"
         | "confirmed"
@@ -4869,6 +4885,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      billing_mode_enum: ["hourly", "fixed_package"],
       booking_status: [
         "unconfirmed",
         "confirmed",

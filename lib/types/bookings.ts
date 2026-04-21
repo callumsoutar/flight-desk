@@ -64,7 +64,16 @@ export type BookingWithRelations = BookingRow & {
         | "aircraft_type_id"
       >
     | null
-  flight_type: Pick<FlightTypesRow, "id" | "name" | "instruction_type"> | null
+  flight_type: Pick<
+    FlightTypesRow,
+    | "id"
+    | "name"
+    | "instruction_type"
+    | "billing_mode"
+    | "aircraft_gl_code"
+    | "duration_minutes"
+    | "fixed_package_price"
+  > | null
   lesson: Pick<LessonRow, "id" | "name" | "syllabus_id"> | null
   lesson_progress: LessonProgressRow[] | LessonProgressRow | null
 }
@@ -96,7 +105,18 @@ export type BookingOptions = {
       user: DirectoryUserLite | null
     }
   >
-  flightTypes: Array<Pick<FlightTypesRow, "id" | "name" | "instruction_type">>
+  flightTypes: Array<
+    Pick<
+      FlightTypesRow,
+      | "id"
+      | "name"
+      | "instruction_type"
+      | "billing_mode"
+      | "aircraft_gl_code"
+      | "duration_minutes"
+      | "fixed_package_price"
+    >
+  >
   syllabi: Array<{ id: string; name: string }>
   lessons: Array<Pick<LessonRow, "id" | "name" | "description" | "order" | "syllabus_id">>
   chargeables?: InvoiceCreateChargeable[]

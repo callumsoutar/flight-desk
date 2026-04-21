@@ -10,6 +10,9 @@ export type FlightType = Pick<
   | "name"
   | "description"
   | "instruction_type"
+  | "billing_mode"
+  | "duration_minutes"
+  | "fixed_package_price"
   | "aircraft_gl_code"
   | "instructor_gl_code"
   | "is_active"
@@ -62,10 +65,13 @@ export async function createFlightType(input: {
   name: string
   description: string
   instruction_type: "dual" | "solo" | "trial"
+  billing_mode?: "hourly" | "fixed_package"
+  duration_minutes?: number | null
+  fixed_package_price?: number | null
   aircraft_gl_code: string | null
   instructor_gl_code: string | null
   is_active: boolean
-}) {
+}): Promise<{ id: string }> {
   const response = await fetch("/api/flight-types", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -75,6 +81,8 @@ export async function createFlightType(input: {
     const payload = await response.json().catch(() => null)
     throw new Error(getApiError(payload, "Failed to create flight type"))
   }
+  const payload = (await response.json().catch(() => null)) as { id?: string } | null
+  return { id: payload?.id ?? "" }
 }
 
 export async function updateFlightType(input: {
@@ -82,6 +90,9 @@ export async function updateFlightType(input: {
   name: string
   description: string
   instruction_type: "dual" | "solo" | "trial"
+  billing_mode?: "hourly" | "fixed_package"
+  duration_minutes?: number | null
+  fixed_package_price?: number | null
   aircraft_gl_code: string | null
   instructor_gl_code: string | null
   is_active: boolean
@@ -94,6 +105,35 @@ export async function updateFlightType(input: {
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
     throw new Error(getApiError(payload, "Failed to update flight type"))
+  }
+}
+
+export type DuplicateFlightTypeResult = {
+  id: string
+  aircraft_rates_copied: number
+  instructor_rates_copied: number
+}
+
+export async function duplicateFlightType(input: {
+  source_id: string
+  name: string
+  copy_aircraft_rates?: boolean
+  copy_instructor_rates?: boolean
+}): Promise<DuplicateFlightTypeResult> {
+  const response = await fetch("/api/flight-types/duplicate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(getApiError(payload, "Failed to duplicate flight type"))
+  }
+  const payload = (await response.json().catch(() => null)) as DuplicateFlightTypeResult | null
+  return {
+    id: payload?.id ?? "",
+    aircraft_rates_copied: payload?.aircraft_rates_copied ?? 0,
+    instructor_rates_copied: payload?.instructor_rates_copied ?? 0,
   }
 }
 
@@ -112,5 +152,33 @@ export function useFlightTypesQuery(params: FlightTypesQueryParams) {
     queryKey: flightTypesQueryKey(params),
     queryFn: () => fetchFlightTypesQuery(params),
     staleTime: 60 * 1000,
+  })
+}
+
+export type FlightTypeBillingSummary = {
+  flight_type_id: string
+  aircraft_total: number
+  aircraft_priced: number
+  min_price: number | null
+  max_price: number | null
+}
+
+export const flightTypesBillingSummaryKey = ["flight-types", "billing-summary"] as const
+
+async function fetchFlightTypesBillingSummary(): Promise<FlightTypeBillingSummary[]> {
+  const response = await fetch("/api/flight-types/billing-summary", { cache: "no-store" })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(getApiError(payload, "Failed to load billing summary"))
+  }
+  const data = (await response.json().catch(() => null)) as { summaries?: FlightTypeBillingSummary[] } | null
+  return Array.isArray(data?.summaries) ? data.summaries : []
+}
+
+export function useFlightTypesBillingSummaryQuery() {
+  return useQuery({
+    queryKey: flightTypesBillingSummaryKey,
+    queryFn: fetchFlightTypesBillingSummary,
+    staleTime: 30 * 1000,
   })
 }

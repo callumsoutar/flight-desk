@@ -39,6 +39,7 @@ const createInstructorRateSchema = z.object({
   instructorId: z.string().uuid(),
   flight_type_id: z.string().uuid(),
   rate_per_hour: z.number().finite().min(0),
+  revenue_allocation: z.number().finite().min(0).nullable().optional(),
   effective_from: instructorRateDateSchema,
   currency: z.string().trim().length(3).optional(),
 })
@@ -46,6 +47,7 @@ const createInstructorRateSchema = z.object({
 const updateInstructorRateSchema = z.object({
   id: z.string().uuid(),
   rate_per_hour: z.number().finite().min(0),
+  revenue_allocation: z.number().finite().min(0).nullable().optional(),
   effective_from: instructorRateDateSchema,
 })
 
@@ -243,7 +245,7 @@ export async function createInstructorRateAction(input: unknown) {
   if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
   if (!canEditInstructor(role)) return { ok: false as const, error: "Forbidden" }
 
-  const { instructorId, flight_type_id, rate_per_hour, effective_from, currency } = parsed.data
+  const { instructorId, flight_type_id, rate_per_hour, revenue_allocation, effective_from, currency } = parsed.data
   const [instructor, hasFlightType] = await Promise.all([
     verifyInstructorByIdInTenant(supabase, tenantId, instructorId),
     verifyFlightTypeInTenant(supabase, tenantId, flight_type_id),
@@ -268,6 +270,7 @@ export async function createInstructorRateAction(input: unknown) {
       instructor_id: instructorId,
       flight_type_id,
       rate: rate_per_hour,
+      revenue_allocation: revenue_allocation ?? null,
       currency: (currency ?? "NZD").toUpperCase(),
       effective_from,
     })
@@ -291,7 +294,7 @@ export async function updateInstructorRateAction(input: unknown) {
   if (!tenantId) return { ok: false as const, error: "Missing tenant context" }
   if (!canEditInstructor(role)) return { ok: false as const, error: "Forbidden" }
 
-  const { id, rate_per_hour, effective_from } = parsed.data
+  const { id, rate_per_hour, revenue_allocation, effective_from } = parsed.data
 
   const { data: existingRate, error: rateLookupError } = await supabase
     .from("instructor_flight_type_rates")
@@ -306,6 +309,7 @@ export async function updateInstructorRateAction(input: unknown) {
     .from("instructor_flight_type_rates")
     .update({
       rate: rate_per_hour,
+      ...(revenue_allocation !== undefined ? { revenue_allocation } : {}),
       effective_from,
       updated_at: new Date().toISOString(),
     })

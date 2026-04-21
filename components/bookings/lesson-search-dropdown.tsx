@@ -172,7 +172,7 @@ export function LessonSearchDropdown({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search lessons..."
-          className="mb-2 h-8"
+          className="mb-2 h-8 text-base md:text-sm"
         />
 
         {nextLessonLoading ? (

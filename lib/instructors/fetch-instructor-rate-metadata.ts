@@ -18,7 +18,7 @@ export async function fetchInstructorRateMetadata(
   const [flightTypesResult, taxResult] = await Promise.all([
     supabase
       .from("flight_types")
-      .select("id, name")
+      .select("id, name, billing_mode")
       .eq("tenant_id", tenantId)
       .eq("is_active", true)
       .is("voided_at", null)

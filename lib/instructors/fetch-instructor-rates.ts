@@ -18,7 +18,7 @@ export async function fetchInstructorRates(
   const { data, error } = await supabase
     .from("instructor_flight_type_rates")
     .select(
-      "id, instructor_id, flight_type_id, rate, currency, effective_from, flight_type:flight_types!instructor_flight_type_rates_flight_type_id_fkey(id, name, instruction_type)"
+      "id, instructor_id, flight_type_id, rate, revenue_allocation, currency, effective_from, flight_type:flight_types!instructor_flight_type_rates_flight_type_id_fkey(id, name, instruction_type, billing_mode)"
     )
     .eq("tenant_id", tenantId)
     .eq("instructor_id", instructorId)
@@ -31,6 +31,7 @@ export async function fetchInstructorRates(
     instructor_id: row.instructor_id,
     flight_type_id: row.flight_type_id,
     rate: row.rate,
+    revenue_allocation: row.revenue_allocation,
     currency: row.currency,
     effective_from: row.effective_from,
     flight_type: pickMaybeOne(row.flight_type),

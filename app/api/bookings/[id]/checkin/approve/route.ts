@@ -76,7 +76,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const { data: selectedFlightType } = await supabase
     .from("flight_types")
-    .select("instruction_type, aircraft_gl_code, instructor_gl_code")
+    .select("instruction_type, aircraft_gl_code, instructor_gl_code, billing_mode, name")
     .eq("tenant_id", tenantId)
     .eq("id", payload.flight_type_id)
     .is("voided_at", null)
@@ -204,7 +204,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         }
       } else {
         const desc = (item.description ?? "").toLowerCase()
-        if (desc.includes("aircraft hire")) {
+        const isFixedPackageFlightLine =
+          selectedFlightType?.billing_mode === "fixed_package" &&
+          item.description?.trim() === selectedFlightType.name?.trim()
+        if (isFixedPackageFlightLine) {
+          glCode = selectedFlightType?.aircraft_gl_code ?? null
+        } else if (desc.includes("aircraft hire")) {
           glCode = selectedFlightType?.aircraft_gl_code ?? null
         } else if (
           desc.includes("instructor rate") &&

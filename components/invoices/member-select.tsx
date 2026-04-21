@@ -74,7 +74,7 @@ export default function MemberSelect({
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search members..."
           className={cn(
-            "mb-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-ring",
+            "mb-2 h-9 w-full rounded-md border border-input bg-background px-3 text-base outline-none ring-0 placeholder:text-muted-foreground focus:border-ring md:text-sm",
             inputClassName
           )}
         />

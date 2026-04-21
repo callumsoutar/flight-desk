@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query"
 export type ChargeRate = {
   id: string
   rate_per_hour: number | string
+  fixed_package_price?: number | null
+  revenue_allocation?: number | null
   charge_hobbs: boolean
   charge_tacho: boolean
   charge_airswitch: boolean

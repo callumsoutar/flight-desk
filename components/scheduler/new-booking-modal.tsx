@@ -10,6 +10,7 @@ import {
   Plane,
   Plus,
   Star,
+  Ticket,
   User,
   Wrench,
 } from "lucide-react"
@@ -68,6 +69,7 @@ type SchedulerBookingDraft = {
 type InstructorRosterWindow = { startMin: number; endMin: number }
 
 type BookingType = "flight" | "groundwork" | "maintenance" | "other"
+type TrialPaymentMethod = "pay_on_day" | "gift_voucher"
 
 type FormState = {
   date: Date
@@ -89,6 +91,7 @@ type FormState = {
   trialLastName: string
   trialEmail: string
   trialPhone: string
+  trialPaymentMethod: TrialPaymentMethod
   voucherNumber: string
 }
 
@@ -262,6 +265,7 @@ function buildInitialState({
     trialLastName: "",
     trialEmail: "",
     trialPhone: "",
+    trialPaymentMethod: "pay_on_day",
     voucherNumber: "",
   }
 }
@@ -677,6 +681,16 @@ export function NewBookingModal({
     [updateForm]
   )
 
+  const handleTrialPaymentMethodChange = React.useCallback(
+    (method: TrialPaymentMethod) => {
+      updateForm("trialPaymentMethod", method)
+      if (method === "pay_on_day") {
+        updateForm("voucherNumber", "")
+      }
+    },
+    [updateForm]
+  )
+
   const validate = React.useCallback(
     (values: FormState, mode: "regular" | "trial" | "maintenance") => {
       const nextErrors: ErrorState = {}
@@ -717,6 +731,9 @@ export function NewBookingModal({
           nextErrors.trialEmail = "Email is required"
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.trialEmail.trim())) {
           nextErrors.trialEmail = "Please enter a valid email"
+        }
+        if (values.trialPaymentMethod === "gift_voucher" && !values.voucherNumber.trim()) {
+          nextErrors.voucherNumber = "Voucher number is required when paying with a gift voucher"
         }
       } else if (mode !== "maintenance") {
         if (isStaff && !values.memberId) {
@@ -779,7 +796,7 @@ export function NewBookingModal({
             guest_last_name: form.trialLastName.trim(),
             guest_email: form.trialEmail.trim(),
             guest_phone: form.trialPhone.trim() || undefined,
-            voucher_number: form.voucherNumber.trim() || undefined,
+            voucher_number: form.trialPaymentMethod === "gift_voucher" ? form.voucherNumber.trim() || undefined : undefined,
             start_time: startIso,
             end_time: endIso,
             aircraft_id: form.aircraftId,
@@ -925,7 +942,7 @@ export function NewBookingModal({
                 void submit("unconfirmed")
               }}
               aria-busy={submitting}
-              className="flex-1 overflow-y-auto px-6 pb-6"
+              className="flex-1 overflow-y-auto overscroll-y-contain px-6 pb-6"
             >
               <div className="space-y-6">
                 {!isMemberOrStudent ? (
@@ -942,13 +959,98 @@ export function NewBookingModal({
                 ) : null}
 
                 {bookingMode === "trial" ? (
+                  <section>
+                    <div className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <Plane className="h-4 w-4 text-slate-500" />
+                      <span className="text-[13px] font-semibold text-slate-900">Trial Flight Details</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {!isMemberOrStudent && form.bookingType === "flight" ? (
+                        <div>
+                          <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                            TRIAL TYPE <span className="text-destructive">*</span>
+                          </label>
+                          <Select
+                            disabled={optionsLoading}
+                            value={form.flightTypeId || "none"}
+                            onValueChange={(value) => updateForm("flightTypeId", value === "none" ? null : value)}
+                          >
+                            <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                              <SelectValue placeholder={optionsLoading ? "Loading..." : "Select trial type"} />
+                            </SelectTrigger>
+                            <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
+                              <SelectItem value="none" className="rounded-lg py-2 text-xs">
+                                Select trial type
+                              </SelectItem>
+                              {filteredFlightTypes.map((flightType) => (
+                                <SelectItem key={flightType.id} value={flightType.id} className="rounded-lg py-2 text-xs">
+                                  {flightType.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {errors.flightTypeId ? <p className="mt-1 text-[11px] text-destructive">{errors.flightTypeId}</p> : null}
+                        </div>
+                      ) : null}
+
+                      <div className={cn((isMemberOrStudent || form.bookingType !== "flight") && "sm:col-span-2")}>
+                        <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          PAYMENT
+                        </label>
+                        <div className="flex h-10 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleTrialPaymentMethodChange("pay_on_day")}
+                            className={cn(
+                              "rounded-xl border px-3 text-sm font-semibold transition-all duration-200",
+                              form.trialPaymentMethod === "pay_on_day"
+                                ? "border-slate-900 bg-slate-900 text-white shadow-sm flex-1"
+                                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 shrink-0"
+                            )}
+                          >
+                            Pay on day
+                          </button>
+                          
+                          {form.trialPaymentMethod === "gift_voucher" ? (
+                            <div className="relative flex-1 animate-in fade-in zoom-in-95 duration-200">
+                              <Ticket className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                              <Input
+                                autoFocus
+                                placeholder="Voucher code..."
+                                value={form.voucherNumber}
+                                onChange={(event) => updateForm("voucherNumber", event.target.value)}
+                                className="h-full w-full rounded-xl border-slate-900 ring-1 ring-slate-900 bg-white pl-9 pr-3 text-sm font-medium shadow-sm placeholder:text-slate-400 focus-visible:ring-slate-900 focus-visible:ring-offset-0"
+                              />
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleTrialPaymentMethodChange("gift_voucher")}
+                              className={cn(
+                                "rounded-xl border px-3 text-sm font-semibold transition-all duration-200 flex-1",
+                                "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                              )}
+                            >
+                              Gift voucher
+                            </button>
+                          )}
+                        </div>
+                        {errors.voucherNumber && form.trialPaymentMethod === "gift_voucher" ? (
+                          <p className="mt-1 text-[11px] text-destructive">{errors.voucherNumber}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {bookingMode === "trial" ? (
                   <TrialGuestDetailsSection
                     values={{
                       trialFirstName: form.trialFirstName,
                       trialLastName: form.trialLastName,
                       trialEmail: form.trialEmail,
                       trialPhone: form.trialPhone,
-                      voucherNumber: form.voucherNumber,
                     }}
                     errors={errors}
                     onChange={updateForm}
@@ -989,7 +1091,7 @@ export function NewBookingModal({
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-10 w-full justify-start rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                            className="h-10 w-full justify-start rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                           >
                             <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
                             <span className="truncate">{formatDate(form.date, timeZone)}</span>
@@ -1015,7 +1117,7 @@ export function NewBookingModal({
                         START TIME <span className="text-destructive">*</span>
                       </label>
                       <Select value={form.startTime} onValueChange={(value) => updateForm("startTime", value)}>
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue placeholder="Start" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
@@ -1039,7 +1141,7 @@ export function NewBookingModal({
                             <Button
                               type="button"
                               variant="outline"
-                              className="h-10 w-full justify-start rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                              className="h-10 w-full justify-start rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                             >
                               <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
                               <span className="truncate">{formatDate(form.endDate, timeZone)}</span>
@@ -1081,7 +1183,7 @@ export function NewBookingModal({
                         ) : null}
                       </label>
                       <Select value={form.endTime} onValueChange={(value) => updateForm("endTime", value)}>
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue placeholder="End" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
@@ -1113,7 +1215,7 @@ export function NewBookingModal({
                           value={form.aircraftId || "none"}
                           onValueChange={(value) => updateForm("aircraftId", value === "none" ? null : value)}
                         >
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                             <SelectValue
                               placeholder={
                                 optionsLoading
@@ -1175,7 +1277,7 @@ export function NewBookingModal({
                           placeholder="e.g. Annual inspection, oil change..."
                           value={form.purpose}
                           onChange={(event) => updateForm("purpose", event.target.value)}
-                          className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                          className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                         />
                         {errors.purpose ? <p className="mt-1 text-[11px] text-destructive">{errors.purpose}</p> : null}
                       </div>
@@ -1205,7 +1307,7 @@ export function NewBookingModal({
                                   value={selectedMember}
                                   onSelect={(member) => updateForm("memberId", member?.id ?? null)}
                                   disabled={optionsLoading || submitting}
-                                  buttonClassName="rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                                  buttonClassName="rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                                   contentClassName="rounded-xl border-slate-200 shadow-xl"
                                   inputClassName="rounded-lg border-slate-200 bg-white text-xs font-medium placeholder:text-slate-300 focus:border-blue-500"
                                   listClassName="rounded-xl border-slate-200"
@@ -1221,7 +1323,7 @@ export function NewBookingModal({
                           </>
                         ) : (
                           <div className="flex items-center gap-1.5">
-                            <div className="flex h-10 flex-1 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm font-medium text-slate-600">
+                            <div className="flex h-10 flex-1 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-base md:text-sm font-medium text-slate-600">
                               <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
                               <span className="truncate">
                                 {optionsLoading ? "Loading..." : options?.members?.[0] ? formatName(options.members[0]) : "your account"}
@@ -1244,7 +1346,7 @@ export function NewBookingModal({
                         value={form.aircraftId || "none"}
                         onValueChange={(value) => updateForm("aircraftId", value === "none" ? null : value)}
                       >
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue
                             placeholder={
                               optionsLoading
@@ -1309,7 +1411,7 @@ export function NewBookingModal({
                           value={form.instructorId || "none"}
                           onValueChange={(value) => updateForm("instructorId", value === "none" ? null : value)}
                         >
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                             <SelectValue
                               placeholder={
                                 optionsLoading
@@ -1380,7 +1482,7 @@ export function NewBookingModal({
                           value={form.flightTypeId || "none"}
                           onValueChange={(value) => updateForm("flightTypeId", value === "none" ? null : value)}
                         >
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                             <SelectValue
                               placeholder={
                                 optionsLoading
@@ -1410,7 +1512,7 @@ export function NewBookingModal({
                           BOOKING TYPE
                         </label>
                         <Select value={form.bookingType} onValueChange={handleBookingTypeChange}>
-                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                          <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                           <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
@@ -1440,7 +1542,7 @@ export function NewBookingModal({
                           nextLessonName={memberTrainingPeek?.next_lesson?.name ?? null}
                           nextLessonLoading={Boolean(memberId) && (memberTrainingPeekLoading || memberTrainingPeekFetching)}
                           nextLessonAlreadyBooked={Boolean(memberTrainingPeek?.next_lesson_booking)}
-                          triggerClassName="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
+                          triggerClassName="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                         />
                       </div>
                     ) : null}
@@ -1458,7 +1560,7 @@ export function NewBookingModal({
                       placeholder="e.g. Dual circuits..."
                       value={form.purpose}
                       onChange={(event) => updateForm("purpose", event.target.value)}
-                      className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
+                      className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
                     />
                     {errors.purpose ? <p className="mt-1 text-[11px] text-destructive">{errors.purpose}</p> : null}
                   </div>
@@ -1496,43 +1598,6 @@ export function NewBookingModal({
                       </CollapsibleTrigger>
 
                       <CollapsibleContent className="space-y-4 border-t border-slate-100 bg-slate-50/40 p-4">
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        {bookingMode === "trial" && !isMemberOrStudent && form.bookingType === "flight" ? (
-                          <div className="w-full sm:col-span-1">
-                            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                              FLIGHT TYPE <span className="text-destructive">*</span>
-                            </label>
-                            <Select
-                              disabled={optionsLoading}
-                              value={form.flightTypeId || "none"}
-                              onValueChange={(value) => updateForm("flightTypeId", value === "none" ? null : value)}
-                            >
-                              <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                                <SelectValue
-                                  placeholder={
-                                    optionsLoading
-                                      ? "Loading..."
-                                      : "Select flight type"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                                <SelectItem value="none" className="rounded-lg py-2 text-xs">
-                                  None
-                                </SelectItem>
-                                {filteredFlightTypes.map((flightType) => (
-                                  <SelectItem key={flightType.id} value={flightType.id} className="rounded-lg py-2 text-xs">
-                                    {flightType.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {errors.flightTypeId ? <p className="mt-1 text-[11px] text-destructive">{errors.flightTypeId}</p> : null}
-                          </div>
-                        ) : null}
-
-                      </div>
-
                       <div>
                         <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                           NOTES / REMARKS
@@ -1540,7 +1605,7 @@ export function NewBookingModal({
                         <Textarea
                           rows={2}
                           placeholder="Internal notes or operational remarks..."
-                          className="w-full rounded-xl border-slate-200 bg-white text-sm placeholder:text-slate-400 focus:ring-slate-900"
+                          className="w-full rounded-xl border-slate-200 bg-white text-base placeholder:text-slate-400 focus:ring-slate-900 md:text-sm"
                           value={form.remarks}
                           onChange={(event) => updateForm("remarks", event.target.value)}
                         />

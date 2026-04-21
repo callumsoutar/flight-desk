@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Mail, Phone, Ticket, User } from "lucide-react"
+import { Mail, Phone, User } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 
 type TrialGuestErrors = Partial<
-  Record<"trialFirstName" | "trialLastName" | "trialEmail" | "trialPhone" | "voucherNumber", string>
+  Record<"trialFirstName" | "trialLastName" | "trialEmail" | "trialPhone", string>
 >
 
 export function TrialGuestDetailsSection({
@@ -19,11 +19,10 @@ export function TrialGuestDetailsSection({
     trialLastName: string
     trialEmail: string
     trialPhone: string
-    voucherNumber: string
   }
   errors: TrialGuestErrors
   onChange: (
-    key: "trialFirstName" | "trialLastName" | "trialEmail" | "trialPhone" | "voucherNumber",
+    key: "trialFirstName" | "trialLastName" | "trialEmail" | "trialPhone",
     value: string
   ) => void
 }) {
@@ -43,6 +42,7 @@ export function TrialGuestDetailsSection({
             <User className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="First name"
+              autoComplete="given-name"
               value={values.trialFirstName}
               onChange={(e) => onChange("trialFirstName", e.target.value)}
               className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
@@ -58,6 +58,7 @@ export function TrialGuestDetailsSection({
             <User className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="Last name"
+              autoComplete="family-name"
               value={values.trialLastName}
               onChange={(e) => onChange("trialLastName", e.target.value)}
               className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
@@ -74,6 +75,7 @@ export function TrialGuestDetailsSection({
             <Input
               type="email"
               placeholder="guest@example.com"
+              autoComplete="email"
               value={values.trialEmail}
               onChange={(e) => onChange("trialEmail", e.target.value)}
               className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
@@ -90,27 +92,14 @@ export function TrialGuestDetailsSection({
             <Input
               type="tel"
               placeholder="Phone number (optional)"
+              autoComplete="tel"
+              inputMode="tel"
               value={values.trialPhone}
               onChange={(e) => onChange("trialPhone", e.target.value)}
               className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
             />
           </div>
           {errors.trialPhone ? <p className="mt-1 text-[10px] text-destructive">{errors.trialPhone}</p> : null}
-        </div>
-        <div>
-          <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-            VOUCHER NUMBER
-          </label>
-          <div className="relative">
-            <Ticket className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="e.g. TF-2026-001"
-              value={values.voucherNumber}
-              onChange={(e) => onChange("voucherNumber", e.target.value)}
-              className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"
-            />
-          </div>
-          {errors.voucherNumber ? <p className="mt-1 text-[10px] text-destructive">{errors.voucherNumber}</p> : null}
         </div>
       </div>
     </section>
