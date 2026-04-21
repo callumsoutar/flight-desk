@@ -61,6 +61,7 @@ export function BookingTimelineItem({
     status: BookingStatus
     bookingType: string | null
     instructionType: string | null
+    flightTypeName: string | null
     canOpen: boolean
     canCancel: boolean
     canViewContact: boolean
@@ -91,6 +92,7 @@ export function BookingTimelineItem({
       status: BookingStatus
       bookingType: string | null
       instructionType: string | null
+      flightTypeName: string | null
       aircraftLabel?: string
       instructorLabel?: string
       canOpen: boolean
@@ -135,7 +137,10 @@ export function BookingTimelineItem({
     if (booking.instructionType === "solo") {
       return { icon: User, label: "Solo flight" }
     }
-    if (booking.instructionType === "dual" || booking.instructionType === "trial") {
+    if (booking.instructionType === "trial") {
+      return { icon: Users, label: booking.flightTypeName || "Trial flight" }
+    }
+    if (booking.instructionType === "dual") {
       return { icon: Users, label: "Dual flight" }
     }
     return { icon: Plane, label: "Flight booking" }
@@ -282,7 +287,7 @@ export function BookingTimelineItem({
               variant="card"
               side="top"
               sideOffset={8}
-              className="relative w-[260px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-border/60 bg-background p-0 shadow-xl"
+              className="relative w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-border/60 bg-background p-0 shadow-xl"
             >
               <div
                 aria-hidden
@@ -292,14 +297,14 @@ export function BookingTimelineItem({
                 )}
               />
               
-              <div className="space-y-4 p-4">
-                <div className="flex items-start justify-between gap-2">
+              <div className="space-y-3.5 p-3.5">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 space-y-1">
-                    <div className="truncate text-[14px] font-semibold text-foreground">
+                    <div className="truncate text-sm font-semibold text-foreground">
                       {booking.primaryLabel}
                     </div>
-                    <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-                      <BookingTypeIcon className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <BookingTypeIcon className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{bookingTypeIndicator.label}</span>
                     </div>
                   </div>
@@ -313,43 +318,41 @@ export function BookingTimelineItem({
                   </span>
                 </div>
 
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[15px] font-semibold tracking-tight text-foreground">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-sm font-medium text-foreground">
                     {range}
                   </span>
                   {durationLabel ? (
-                    <span className="text-[12px] font-medium text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       · {durationLabel}
                     </span>
                   ) : null}
                 </div>
 
-                <div className="flex flex-col gap-2.5 text-[12px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <User className="h-3.5 w-3.5" />
-                      <span>Instructor</span>
+                <div className="flex flex-col gap-2 text-xs">
+                  {booking.instructorLabel && (
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <User className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate font-medium text-foreground">
+                        {booking.instructorLabel}
+                      </span>
                     </div>
-                    <span className="truncate font-medium text-foreground">
-                      {booking.instructorLabel || "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Plane className="h-3.5 w-3.5" />
-                      <span>Aircraft</span>
+                  )}
+                  {booking.aircraftLabel && (
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <Plane className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate font-medium text-foreground">
+                        {booking.aircraftLabel}
+                      </span>
                     </div>
-                    <span className="truncate font-medium text-foreground">
-                      {booking.aircraftLabel || "—"}
-                    </span>
-                  </div>
+                  )}
                 </div>
 
                 {booking.canOpen && (booking.purpose || booking.remarks) ? (
-                  <div className="space-y-2.5 border-t border-border/60 pt-3 text-[12px]">
+                  <div className="space-y-2.5 border-t border-border/60 pt-3 text-xs">
                     {booking.purpose ? (
                       <div className="space-y-1">
-                        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           Description
                         </div>
                         <div className="line-clamp-2 leading-relaxed text-foreground/90">{booking.purpose}</div>
@@ -357,7 +360,7 @@ export function BookingTimelineItem({
                     ) : null}
                     {booking.remarks ? (
                       <div className="space-y-1">
-                        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                           Remarks
                         </div>
                         <div className="line-clamp-2 leading-relaxed text-foreground/90">{booking.remarks}</div>
@@ -367,7 +370,7 @@ export function BookingTimelineItem({
                 ) : null}
               </div>
 
-              <div className="flex items-center justify-between border-t border-border/60 bg-muted/50 px-4 py-2.5 text-[11px] text-muted-foreground">
+              <div className="flex items-center justify-between border-t border-border/60 bg-muted/50 px-3.5 py-2.5 text-[11px] text-muted-foreground">
                 {booking.canOpen ? (
                   <>
                     <span className="flex items-center gap-1.5 font-medium text-foreground/70">

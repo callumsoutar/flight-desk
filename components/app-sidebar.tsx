@@ -79,12 +79,9 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, role, profile } = useAuth()
-  const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>
   const name = getUserDisplayName(user, profile)
 
   const email = user?.email ?? ""
-  const avatar =
-    (metadata["avatar_url"] as string | undefined) ?? "/avatars/shadcn.jpg"
 
   const canAccessTraining = role === "owner" || role === "admin" || role === "instructor"
   const canAccessFinancialReports = role === "owner" || role === "admin"
@@ -141,7 +138,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{ id: user?.id ?? "guest", name, email, avatar }} />
+        <NavUser user={{ id: user?.id ?? "guest", name, email }} />
       </SidebarFooter>
     </Sidebar>
   )

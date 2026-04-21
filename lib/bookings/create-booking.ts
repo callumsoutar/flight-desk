@@ -9,7 +9,7 @@ import { logError } from "@/lib/security/logger"
 import type { Database } from "@/lib/types"
 import type { BookingStatus } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
-import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
+import { getZonedYyyyMmDdAndHHmm, minBookableWallClockMinutesFromNow, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 
 export const createBookingPayloadSchema = z.strictObject({
   start_time: z.string(),
@@ -56,9 +56,46 @@ export async function createBookingInTenant({
       return { ok: false, status: 400, error: "Invalid booking time range" }
     }
 
+    let tenantTimeZone: string | null = null
+    const resolveTenantTimeZone = async () => {
+      if (tenantTimeZone !== null) return tenantTimeZone
+      const { data } = await supabase.from("tenants").select("timezone").eq("id", tenantId).maybeSingle()
+      tenantTimeZone = data?.timezone ?? "Pacific/Auckland"
+      return tenantTimeZone
+    }
+
     const staff = isStaffRole(role)
     if (!staff && payload.user_id && payload.user_id !== user.id) {
       return { ok: false, status: 403, error: "You can only create bookings for yourself" }
+    }
+
+    if (!staff) {
+      const tz = await resolveTenantTimeZone()
+      const bookingDateKey = getZonedYyyyMmDdAndHHmm(startDate, tz).yyyyMmDd
+      const todayKey = zonedTodayYyyyMmDd(tz)
+      if (bookingDateKey < todayKey) {
+        return { ok: false, status: 400, error: "You cannot create bookings in the past." }
+      }
+      if (bookingDateKey === todayKey) {
+        const minStartMin = minBookableWallClockMinutesFromNow({
+          dateYyyyMmDd: bookingDateKey,
+          timeZone: tz,
+          intervalMinutes: 30,
+        })
+        if (minStartMin === null) {
+          return { ok: false, status: 400, error: "No more booking slots are available today." }
+        }
+        const { hhmm } = getZonedYyyyMmDdAndHHmm(startDate, tz)
+        const [h, m] = hhmm.split(":").map(Number)
+        const startMin = h * 60 + m
+        if (startMin < minStartMin) {
+          return {
+            ok: false,
+            status: 400,
+            error: "Start time must be the next available 30-minute slot from the current time.",
+          }
+        }
+      }
     }
 
     const resolvedUserId = staff ? (payload.user_id ?? null) : user.id
@@ -159,13 +196,7 @@ export async function createBookingInTenant({
     }
 
     if (payload.instructor_id) {
-      const { data: tenant } = await supabase
-        .from("tenants")
-        .select("timezone")
-        .eq("id", tenantId)
-        .maybeSingle()
-
-      const tz = tenant?.timezone ?? "Pacific/Auckland"
+      const tz = await resolveTenantTimeZone()
       const fmt = new Intl.DateTimeFormat("en-US", {
         timeZone: tz,
         weekday: "short",

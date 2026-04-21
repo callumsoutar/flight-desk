@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { zonedDateTimeToUtc } from "@/lib/utils/timezone"
+import { minBookableWallClockMinutesFromNow, zonedDateTimeToUtc, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -239,17 +239,31 @@ function buildInitialState({
   draft,
   isStaff,
   currentUserId,
+  timeZone,
 }: {
   draft: SchedulerBookingDraft
   isStaff: boolean
   currentUserId: string | null
+  timeZone: string
 }): FormState {
   const date = fromYyyyMmDd(draft.dateYyyyMmDd)
+  let startTime = draft.startTimeHHmm
+  if (!isStaff && draft.dateYyyyMmDd === zonedTodayYyyyMmDd(timeZone)) {
+    const minM = minBookableWallClockMinutesFromNow({
+      dateYyyyMmDd: draft.dateYyyyMmDd,
+      timeZone,
+      intervalMinutes: 30,
+    })
+    if (minM !== null) {
+      const s = parseTimeToMinutes(startTime)
+      if (s !== null && s < minM) startTime = minutesToHHmm(minM)
+    }
+  }
   return {
     date,
     endDate: date,
-    startTime: draft.startTimeHHmm,
-    endTime: addMinutesToHHmm(draft.startTimeHHmm, 120),
+    startTime,
+    endTime: addMinutesToHHmm(startTime, 120),
     aircraftId: draft.preselectedAircraftId ?? null,
     flightTypeId: null,
     instructorId: draft.preselectedInstructorId ?? null,
@@ -307,13 +321,13 @@ export function NewBookingModal({
 
   React.useEffect(() => {
     if (!open || !draft) return
-    setForm(buildInitialState({ draft, isStaff, currentUserId }))
+    setForm(buildInitialState({ draft, isStaff, currentUserId, timeZone }))
     setBookingMode("regular")
     setErrors({})
     setMoreOptionsOpen(false)
     setSubmitting(false)
     setSubmitAction(null)
-  }, [open, draft, isStaff, currentUserId])
+  }, [open, draft, isStaff, currentUserId, timeZone])
 
   const memberId = form?.memberId ?? null
   const members = React.useMemo(() => options?.members ?? [], [options?.members])
@@ -352,6 +366,22 @@ export function NewBookingModal({
     if (!form?.date || !form?.endDate) return true
     return toYyyyMmDd(form.date) === toYyyyMmDd(form.endDate)
   }, [form?.date, form?.endDate])
+
+  React.useEffect(() => {
+    if (!open || !form || !isMemberOrStudent) return
+    const dateKey = toYyyyMmDd(form.date)
+    if (dateKey !== zonedTodayYyyyMmDd(timeZone)) return
+    const minM = minBookableWallClockMinutesFromNow({
+      dateYyyyMmDd: dateKey,
+      timeZone,
+      intervalMinutes: 30,
+    })
+    if (minM === null) return
+    const cur = parseTimeToMinutes(form.startTime)
+    if (cur !== null && cur >= minM) return
+    const nextStart = minutesToHHmm(minM)
+    setForm((prev) => (prev ? { ...prev, startTime: nextStart } : prev))
+  }, [open, form, isMemberOrStudent, timeZone])
 
   React.useEffect(() => {
     if (!open || !form?.startTime) return
@@ -487,6 +517,23 @@ export function NewBookingModal({
     [form?.startTime, form?.instructorId, instructorRosterWindows]
   )
 
+  const filteredStartTimeOptions = React.useMemo(() => {
+    if (!form) return TIME_OPTIONS
+    if (!isMemberOrStudent) return TIME_OPTIONS
+    const dateKey = toYyyyMmDd(form.date)
+    if (dateKey !== zonedTodayYyyyMmDd(timeZone)) return TIME_OPTIONS
+    const minM = minBookableWallClockMinutesFromNow({
+      dateYyyyMmDd: dateKey,
+      timeZone,
+      intervalMinutes: 30,
+    })
+    if (minM === null) return []
+    return TIME_OPTIONS.filter((time) => {
+      const t = parseTimeToMinutes(time)
+      return t !== null && t >= minM
+    })
+  }, [form, isMemberOrStudent, timeZone])
+
   const filteredEndTimeOptions = React.useMemo(() => {
     if (!sameDay || rosterMaxEndMinutes === null || !form?.startTime) return TIME_OPTIONS
     const startMin = parseTimeToMinutes(form.startTime)
@@ -499,6 +546,23 @@ export function NewBookingModal({
     // Avoid empty options (broken Select); roster window edge cases can filter everything out.
     return filtered.length > 0 ? filtered : TIME_OPTIONS
   }, [sameDay, rosterMaxEndMinutes, form?.startTime])
+
+  const disableMemberPastCalendarDay = React.useCallback(
+    (date: Date) => {
+      if (!isMemberOrStudent) return false
+      return toYyyyMmDd(date) < zonedTodayYyyyMmDd(timeZone)
+    },
+    [isMemberOrStudent, timeZone]
+  )
+
+  const disableEndDateCalendarDay = React.useCallback(
+    (date: Date) => {
+      if (disableMemberPastCalendarDay(date)) return true
+      if (!form) return false
+      return toYyyyMmDd(date) < toYyyyMmDd(form.date)
+    },
+    [disableMemberPastCalendarDay, form]
+  )
 
   const computedRange = React.useMemo(() => {
     if (!form?.date || !form?.endDate || !form.startTime || !form.endTime || !isValidTimeRange) return null
@@ -745,6 +809,22 @@ export function NewBookingModal({
         nextErrors.flightTypeId = "Flight type is required"
       }
 
+      if (isMemberOrStudent) {
+        const dateKey = toYyyyMmDd(values.date)
+        if (dateKey === zonedTodayYyyyMmDd(timeZone)) {
+          const minM = minBookableWallClockMinutesFromNow({
+            dateYyyyMmDd: dateKey,
+            timeZone,
+            intervalMinutes: 30,
+          })
+          if (minM === null) {
+            nextErrors.startTime = "No more booking slots available today."
+          } else if (start !== null && start < minM) {
+            nextErrors.startTime = "Choose a start time from the next available 30-minute slot."
+          }
+        }
+      }
+
       if (values.isRecurring) {
         if (values.recurringDays.length === 0) {
           nextErrors.recurringDays = "Select at least one day"
@@ -762,7 +842,7 @@ export function NewBookingModal({
 
       return nextErrors
     },
-    [isStaff, instructorRosterWindows]
+    [isMemberOrStudent, isStaff, instructorRosterWindows, timeZone]
   )
 
   const submit = React.useCallback(
@@ -1105,6 +1185,7 @@ export function NewBookingModal({
                               if (!value) return
                               updateForm("date", value)
                             }}
+                            disabled={disableMemberPastCalendarDay}
                             initialFocus
                           />
                         </PopoverContent>
@@ -1116,12 +1197,16 @@ export function NewBookingModal({
                       <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                         START TIME <span className="text-destructive">*</span>
                       </label>
-                      <Select value={form.startTime} onValueChange={(value) => updateForm("startTime", value)}>
+                      <Select
+                        value={form.startTime}
+                        onValueChange={(value) => updateForm("startTime", value)}
+                        disabled={filteredStartTimeOptions.length === 0}
+                      >
                         <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                          <SelectValue placeholder="Start" />
+                          <SelectValue placeholder={filteredStartTimeOptions.length === 0 ? "No slots left today" : "Start"} />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
-                          {TIME_OPTIONS.map((time) => (
+                          {filteredStartTimeOptions.map((time) => (
                             <SelectItem key={time} value={time} className="rounded-lg py-2 text-xs">
                               {time}
                             </SelectItem>
@@ -1159,6 +1244,7 @@ export function NewBookingModal({
                                   updateForm("endDate", value)
                                 }
                               }}
+                              disabled={disableEndDateCalendarDay}
                               initialFocus
                             />
                           </PopoverContent>
@@ -1322,16 +1408,11 @@ export function NewBookingModal({
                             ) : null}
                           </>
                         ) : (
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex h-10 flex-1 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-base md:text-sm font-medium text-slate-600">
-                              <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                              <span className="truncate">
-                                {optionsLoading ? "Loading..." : options?.members?.[0] ? formatName(options.members[0]) : "your account"}
-                              </span>
-                            </div>
-                            {form.memberId ? (
-                              <MemberTrainingPeek memberId={form.memberId} timeZone={timeZone} variant="icon" />
-                            ) : null}
+                          <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-base md:text-sm font-medium text-slate-600">
+                            <User className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            <span className="truncate">
+                              {optionsLoading ? "Loading..." : options?.members?.[0] ? formatName(options.members[0]) : "your account"}
+                            </span>
                           </div>
                         )}
                       </div>

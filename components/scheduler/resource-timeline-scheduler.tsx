@@ -25,6 +25,7 @@ import {
   addDaysYyyyMmDd,
   dayOfWeekFromYyyyMmDd,
   getZonedYyyyMmDdAndHHmm,
+  minBookableWallClockMinutesFromNow,
   zonedDateTimeToUtc,
   zonedTodayYyyyMmDd,
 } from "@/lib/utils/timezone"
@@ -90,6 +91,7 @@ type SchedulerBooking = {
   status: BookingStatus
   bookingType: string | null
   instructionType: string | null
+  flightTypeName: string | null
   aircraftLabel?: string
   instructorLabel?: string
   canOpen: boolean
@@ -636,6 +638,7 @@ function bookingToSchedulerBooking(
     status: booking.status,
     bookingType: booking.booking_type ?? null,
     instructionType: booking.flight_type?.instruction_type ?? null,
+    flightTypeName: booking.flight_type?.name ?? null,
     aircraftLabel,
     instructorLabel,
     canOpen,
@@ -1203,6 +1206,25 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         endTimeHHmm = endParts.hhmm
       }
 
+      if (!isStaff) {
+        const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+        if (dateYyyyMmDd === todayKey) {
+          const minStartMin = minBookableWallClockMinutesFromNow({
+            dateYyyyMmDd,
+            timeZone: data.timeZone,
+            intervalMinutes: INTERVAL_MINUTES,
+          })
+          if (minStartMin === null) {
+            toast.message("No more booking slots left today.")
+            return
+          }
+          const startMin = parseTimeToMinutes(startTimeHHmm)
+          if (startMin !== null && startMin < minStartMin) {
+            startTimeHHmm = minutesToTimeHHmm(minStartMin)
+          }
+        }
+      }
+
       setNewBookingDraft({
         dateYyyyMmDd,
         startTimeHHmm,
@@ -1220,7 +1242,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         openModalTimerRef.current = null
       }, 0)
     },
-    [data.timeZone, selectedDateKey, timelineConfig.startMin]
+    [data.timeZone, isStaff, selectedDateKey, timelineConfig.startMin]
   )
 
   const handleNewBooking = React.useCallback(() => {
@@ -1255,17 +1277,61 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         }
       }
 
+      if (!isStaff) {
+        const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+        if (selectedDateKey === todayKey) {
+          const minStartMin = minBookableWallClockMinutesFromNow({
+            dateYyyyMmDd: selectedDateKey,
+            timeZone: data.timeZone,
+            intervalMinutes: INTERVAL_MINUTES,
+          })
+          if (minStartMin === null) return
+          const slotMin = getMinutesInTimeZone(when, data.timeZone)
+          if (slotMin < minStartMin) return
+        }
+      }
+
       openCreateBookingModal({ when, resource })
     },
     [
       data.timeZone,
       instructorAvailabilityById,
+      isStaff,
       openCreateBookingModal,
       selectedDateKey,
       slotCount,
       slots,
       timelineStart,
     ]
+  )
+
+  /** Re-render grid bookability for members/students as “now” crosses slot boundaries. */
+  const [memberSlotNowTicker, setMemberSlotNowTicker] = React.useState(0)
+  React.useEffect(() => {
+    if (isStaff) return
+    const id = window.setInterval(() => {
+      setMemberSlotNowTicker((t) => t + 1)
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [isStaff])
+
+  const isSlotBookableByViewerForGrid = React.useCallback(
+    (slot: Date) => {
+      void memberSlotNowTicker
+      if (isStaff) return true
+      if (!selectedDateKey) return true
+      const todayKey = zonedTodayYyyyMmDd(data.timeZone)
+      if (selectedDateKey !== todayKey) return true
+      const minStartMin = minBookableWallClockMinutesFromNow({
+        dateYyyyMmDd: selectedDateKey,
+        timeZone: data.timeZone,
+        intervalMinutes: INTERVAL_MINUTES,
+      })
+      if (minStartMin === null) return false
+      const slotMin = getMinutesInTimeZone(slot, data.timeZone)
+      return slotMin >= minStartMin
+    },
+    [data.timeZone, isStaff, memberSlotNowTicker, selectedDateKey]
   )
 
   const dragInProgress = dragPreview !== null
@@ -1324,6 +1390,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 isSlotAvailable={(slot) =>
                   isMinutesWithinAnyWindow(getMinutesInTimeZone(slot, data.timeZone), windows)
                 }
+                isSlotBookableByViewer={isSlotBookableByViewerForGrid}
                 onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                 onBookingPointerDown={handleBookingPointerDown}
                 canDragBookings={isStaff && !isMobile}
@@ -1357,6 +1424,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       instructorAvailabilityById,
       instructorResources,
       isMobile,
+      isSlotBookableByViewerForGrid,
       isStaff,
       openContactDetails,
       statusBadgeVariantForViewer,
@@ -1391,6 +1459,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 dragInProgress={dragInProgress}
                 isStriped={index % 2 === 1}
                 resourceTitle={getResourceTitle(resource)}
+                isSlotBookableByViewer={isSlotBookableByViewerForGrid}
                 onEmptyClick={(clientX, container) => handleEmptySlotClick({ resource, clientX, container })}
                 onBookingPointerDown={handleBookingPointerDown}
                 canDragBookings={isStaff && !isMobile}
@@ -1423,6 +1492,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       handleEmptySlotClick,
       handleStatusUpdate,
       isMobile,
+      isSlotBookableByViewerForGrid,
       isStaff,
       openContactDetails,
       statusBadgeVariantForViewer,

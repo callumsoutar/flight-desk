@@ -36,6 +36,7 @@ type TimelineRowBooking = {
   status: BookingStatus
   bookingType: string | null
   instructionType: string | null
+  flightTypeName: string | null
   canOpen: boolean
   canCancel: boolean
   canViewContact: boolean
@@ -76,6 +77,7 @@ export function ResourceTimelineRow({
   isStriped,
   resourceTitle,
   isSlotAvailable,
+  isSlotBookableByViewer,
   onEmptyClick,
   onBookingPointerDown,
   canDragBookings,
@@ -103,6 +105,7 @@ export function ResourceTimelineRow({
   isStriped?: boolean
   resourceTitle?: string
   isSlotAvailable?: (slot: Date) => boolean
+  isSlotBookableByViewer?: (slot: Date) => boolean
   onEmptyClick: (clientX: number, container: HTMLDivElement) => void
   onBookingPointerDown: (payload: TimelineRowBookingPointerDownPayload) => void
   canDragBookings: boolean
@@ -174,6 +177,7 @@ export function ResourceTimelineRow({
         activeDragPreviewValid={activeDragPreview?.valid ?? false}
         resourceTitle={resourceTitle}
         isSlotAvailable={isSlotAvailable}
+        isSlotBookableByViewer={isSlotBookableByViewer}
         onEmptyClick={onEmptyClick}
         hoveredSlotIdx={hoveredSlotIdx}
         onHoveredSlotIdxChange={setHoveredSlotIdx}

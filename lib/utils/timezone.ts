@@ -149,6 +149,61 @@ export function zonedDateTimeToUtc({
   return new Date(utcMs)
 }
 
+function getZonedHmsInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  })
+
+  let hour = 0
+  let minute = 0
+  let second = 0
+  for (const part of formatter.formatToParts(date)) {
+    if (part.type === "hour") hour = Number(part.value)
+    if (part.type === "minute") minute = Number(part.value)
+    if (part.type === "second") second = Number(part.value)
+  }
+
+  return { hour, minute, second }
+}
+
+/**
+ * For "today" in `timeZone`, returns the earliest wall-clock start minute (from midnight)
+ * that is still in the future, aligned to `intervalMinutes` (e.g. 30 → next :00 or :30 after now).
+ * Used so members/students cannot book a slot that has already begun.
+ *
+ * Returns `null` when `dateYyyyMmDd` is not today in that zone, or when there is no slot left before midnight.
+ */
+export function minBookableWallClockMinutesFromNow({
+  dateYyyyMmDd,
+  timeZone,
+  intervalMinutes = 30,
+  now = new Date(),
+}: {
+  dateYyyyMmDd: string
+  timeZone: string
+  intervalMinutes?: number
+  now?: Date
+}): number | null {
+  if (!Number.isFinite(intervalMinutes) || intervalMinutes <= 0) return null
+
+  const todayKey = zonedTodayYyyyMmDd(timeZone)
+  if (dateYyyyMmDd !== todayKey) return null
+
+  const { hour, minute, second } = getZonedHmsInTimeZone(now, timeZone)
+  const secondsSinceMidnight = hour * 3600 + minute * 60 + second
+  const intervalSeconds = intervalMinutes * 60
+  const slotStartSeconds = Math.ceil(secondsSinceMidnight / intervalSeconds) * intervalSeconds
+  const endOfDaySeconds = 24 * 3600
+
+  if (slotStartSeconds >= endOfDaySeconds) return null
+
+  return slotStartSeconds / 60
+}
+
 export function zonedDayRangeUtcIso({
   dateYyyyMmDd,
   timeZone,

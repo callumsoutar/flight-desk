@@ -2,11 +2,6 @@
 
 import * as React from "react"
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useAuth } from "@/contexts/auth-context"
@@ -14,11 +9,8 @@ import { getUserDisplayName, getUserFirstName } from "@/lib/auth/display-name"
 
 export function SiteHeader() {
   const { user, profile } = useAuth()
-  const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>
   const fullName = getUserDisplayName(user, profile)
   const firstName = getUserFirstName(user, profile)
-  const avatar =
-    (metadata["avatar_url"] as string | undefined) ?? "/avatars/shadcn.jpg"
   const initials = React.useMemo(() => {
     const parts = fullName.trim().split(/\s+/).slice(0, 2)
     const letters = parts.map((part) => part.slice(0, 1).toUpperCase()).join("")
@@ -32,10 +24,12 @@ export function SiteHeader() {
         <div className="flex flex-1 justify-center">
           <span className="text-base font-semibold">FlightDesk</span>
         </div>
-        <Avatar className="h-8 w-8 rounded-md">
-          <AvatarImage src={avatar} alt={fullName} />
-          <AvatarFallback className="rounded-md">{initials}</AvatarFallback>
-        </Avatar>
+        <span
+          className="bg-muted text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sm font-medium select-none"
+          aria-hidden
+        >
+          {initials}
+        </span>
       </header>
 
       <header className="hidden h-12 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:flex lg:px-6 dark:border-slate-800 dark:bg-slate-900">
@@ -46,10 +40,12 @@ export function SiteHeader() {
         />
         <div className="ml-auto flex items-center gap-3">
           <p className="text-sm text-muted-foreground">{`Hello, ${firstName}`}</p>
-          <Avatar className="h-8 w-8 rounded-md">
-            <AvatarImage src={avatar} alt={fullName} />
-            <AvatarFallback className="rounded-md">{initials}</AvatarFallback>
-          </Avatar>
+          <span
+            className="bg-muted text-muted-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sm font-medium select-none"
+            aria-hidden
+          >
+            {initials}
+          </span>
         </div>
       </header>
     </>

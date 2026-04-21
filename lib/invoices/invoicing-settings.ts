@@ -20,7 +20,7 @@ export const DEFAULT_INVOICING_SETTINGS: InvoicingSettings = {
   contactPhone: "",
   contactEmail: "",
   invoiceFooter: "Thank you for your business.",
-  paymentTerms: "Payment terms: Net 30 days.",
+  paymentTerms: "",
   logoUrl: null,
   includeLogoOnInvoice: false,
 }
