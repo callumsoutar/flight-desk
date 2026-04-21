@@ -292,6 +292,9 @@ export function BookingCheckinClient({
     Record<string, GeneratedItemOverride>
   >({})
   const [removedGeneratedItemIds, setRemovedGeneratedItemIds] = React.useState<Record<string, true>>({})
+  const [zeroedLineItemRestoreUnitPrice, setZeroedLineItemRestoreUnitPrice] = React.useState<
+    Record<string, number>
+  >({})
   const [editingLineItem, setEditingLineItem] = React.useState<LineItemEditState | null>(null)
   const [quickAdd, setQuickAdd] = React.useState<Record<ManualItemGroup, QuickAddState>>({
     landing_fees: { chargeableId: "", quantity: "1", rateInclusive: "" },
@@ -515,6 +518,7 @@ export function BookingCheckinClient({
 
   const instructionType = selectedFlightType?.instruction_type ?? null
   const isFixedPackageBilling = selectedFlightType?.billing_mode === "fixed_package"
+  const canQuickZeroInvoiceItems = isFixedPackageBilling && instructionType === "trial"
   const fixedPackagePriceExcl = React.useMemo(() => {
     if (!isFixedPackageBilling) return null
     const fromType = selectedFlightType?.fixed_package_price
@@ -674,39 +678,6 @@ export function BookingCheckinClient({
 
   const isAirswitchBillingUnsupported = aircraftBillingBasis === "airswitch"
 
-  // Fixed-package flights: pre-fill the appropriate end meter from the flight type's
-  // typical duration so the tech log / experience records get a sensible default.
-  // Staff can still override. Only runs once per (aircraft, flightType, duration, basis) tuple
-  // and only when the end input is empty, so it never clobbers user input.
-  const durationPrefillKeyRef = React.useRef<string | null>(null)
-  React.useEffect(() => {
-    if (!isFixedPackageBilling) return
-    const duration = selectedFlightType?.duration_minutes
-    if (duration == null || duration <= 0) return
-    if (!selectedAircraftId || !selectedFlightTypeId) return
-    if (!aircraftBillingBasis || aircraftBillingBasis === "airswitch") return
-    const key = `${selectedAircraftId}:${selectedFlightTypeId}:${duration}:${aircraftBillingBasis}`
-    if (durationPrefillKeyRef.current === key) return
-    durationPrefillKeyRef.current = key
-
-    const durationHours = duration / 60
-    if (aircraftBillingBasis === "hobbs" && hobbsStart != null) {
-      const predicted = Number(hobbsStart) + durationHours
-      setHobbsEndInput((prev) => (prev.trim() ? prev : predicted.toFixed(1)))
-    } else if (aircraftBillingBasis === "tacho" && tachStart != null) {
-      const predicted = Number(tachStart) + durationHours
-      setTachEndInput((prev) => (prev.trim() ? prev : predicted.toFixed(1)))
-    }
-  }, [
-    isFixedPackageBilling,
-    selectedFlightType?.duration_minutes,
-    selectedAircraftId,
-    selectedFlightTypeId,
-    aircraftBillingBasis,
-    hobbsStart,
-    tachStart,
-  ])
-
   const aircraftRatePerHourExclTax = React.useMemo(() => {
     if (!aircraftChargeRate) return null
     const value =
@@ -763,7 +734,11 @@ export function BookingCheckinClient({
         },
       }
     })
-  }, [effectiveLandingFeeAircraftTypeId, getDefaultInclusiveRate, selectedLandingQuickAddChargeableId])
+  }, [
+    effectiveLandingFeeAircraftTypeId,
+    getDefaultInclusiveRate,
+    selectedLandingQuickAddChargeableId,
+  ])
 
   const updateQuickAdd = React.useCallback(
     (group: ManualItemGroup, patch: Partial<QuickAddState>) => {
@@ -866,6 +841,12 @@ export function BookingCheckinClient({
             : item
         )
       )
+      setZeroedLineItemRestoreUnitPrice((prev) => {
+        if (!prev[editingLineItem.itemId]) return prev
+        const next = { ...prev }
+        delete next[editingLineItem.itemId]
+        return next
+      })
       setEditingLineItem(null)
       return
     }
@@ -900,6 +881,12 @@ export function BookingCheckinClient({
             unit_price: nextUnitPrice,
           },
         }
+      })
+      setZeroedLineItemRestoreUnitPrice((prev) => {
+        if (!prev[editingLineItem.itemId]) return prev
+        const next = { ...prev }
+        delete next[editingLineItem.itemId]
+        return next
       })
       setEditingLineItem(null)
       return
@@ -939,6 +926,12 @@ export function BookingCheckinClient({
     }
 
     setEditingLineItem((prev) => (prev?.itemId === item.id ? null : prev))
+    setZeroedLineItemRestoreUnitPrice((prev) => {
+      if (!prev[item.id]) return prev
+      const next = { ...prev }
+      delete next[item.id]
+      return next
+    })
   }, [])
 
   const addManualItemForGroup = React.useCallback((group: ManualItemGroup) => {
@@ -983,6 +976,128 @@ export function BookingCheckinClient({
       rateInclusive: "",
     })
   }, [chargeableMap, chargeableTypeCodeById, quickAdd, taxRate, updateQuickAdd])
+
+  const zeroOutLineItem = React.useCallback((item: InvoiceBuilderItem) => {
+    if (isApproved) return
+
+    if (item.source === "manual") {
+      if (item.unit_price === 0) return
+      setZeroedLineItemRestoreUnitPrice((prev) => ({
+        ...prev,
+        [item.id]: item.unit_price,
+      }))
+      setManualItems((prev) =>
+        prev.map((manualItem) =>
+          manualItem.id === item.id && manualItem.unit_price !== 0 ? { ...manualItem, unit_price: 0 } : manualItem
+        )
+      )
+      setEditingLineItem((prev) =>
+        prev?.itemId === item.id
+          ? {
+              ...prev,
+              rateInclusive: "0.00",
+            }
+          : prev
+      )
+      return
+    }
+
+    const generatedBaseItem = draftCalculation?.items.find((candidate) => candidate.id === item.id)
+    if (!generatedBaseItem) return
+    if (item.unit_price === 0) return
+    setZeroedLineItemRestoreUnitPrice((prev) => ({
+      ...prev,
+      [item.id]: item.unit_price,
+    }))
+
+    setGeneratedItemOverrides((prev) => {
+      const existing = prev[item.id]
+      const quantity = existing?.quantity ?? generatedBaseItem.quantity
+      if (existing && existing.unit_price === 0) return prev
+      return {
+        ...prev,
+        [item.id]: {
+          quantity,
+          unit_price: 0,
+        },
+      }
+    })
+    setEditingLineItem((prev) =>
+      prev?.itemId === item.id
+        ? {
+            ...prev,
+            rateInclusive: "0.00",
+          }
+        : prev
+    )
+  }, [draftCalculation, isApproved])
+
+  const restoreZeroedLineItem = React.useCallback((item: InvoiceBuilderItem) => {
+    if (isApproved) return
+
+    const restoreUnitPrice = zeroedLineItemRestoreUnitPrice[item.id]
+    if (restoreUnitPrice == null) return
+
+    if (item.source === "manual") {
+      setManualItems((prev) =>
+        prev.map((manualItem) =>
+          manualItem.id === item.id ? { ...manualItem, unit_price: restoreUnitPrice } : manualItem
+        )
+      )
+      setEditingLineItem((prev) =>
+        prev?.itemId === item.id
+          ? {
+              ...prev,
+              rateInclusive: exclusiveToInclusive(restoreUnitPrice, getItemTaxRate(item)).toFixed(2),
+            }
+          : prev
+      )
+      setZeroedLineItemRestoreUnitPrice((prev) => {
+        const next = { ...prev }
+        delete next[item.id]
+        return next
+      })
+      return
+    }
+
+    const generatedBaseItem = draftCalculation?.items.find((candidate) => candidate.id === item.id)
+    if (!generatedBaseItem) return
+
+    setGeneratedItemOverrides((prev) => {
+      const existing = prev[item.id]
+      const nextQuantity = roundToTwoDecimals(item.quantity)
+      const baseQuantity = roundToTwoDecimals(generatedBaseItem.quantity)
+      if (nextQuantity === baseQuantity && restoreUnitPrice === generatedBaseItem.unit_price) {
+        if (!existing) return prev
+        const next = { ...prev }
+        delete next[item.id]
+        return next
+      }
+      if (existing && existing.quantity === nextQuantity && existing.unit_price === restoreUnitPrice) {
+        return prev
+      }
+      return {
+        ...prev,
+        [item.id]: {
+          quantity: nextQuantity,
+          unit_price: restoreUnitPrice,
+        },
+      }
+    })
+    setEditingLineItem((prev) =>
+      prev?.itemId === item.id
+        ? {
+            ...prev,
+            rateInclusive: exclusiveToInclusive(restoreUnitPrice, getItemTaxRate(generatedBaseItem)).toFixed(2),
+          }
+        : prev
+    )
+    setZeroedLineItemRestoreUnitPrice((prev) => {
+      const next = { ...prev }
+      delete next[item.id]
+      return next
+    })
+  }, [draftCalculation, getItemTaxRate, isApproved, zeroedLineItemRestoreUnitPrice])
 
   const buildGeneratedInvoiceItems = React.useCallback((): InvoiceBuilderItem[] => {
     if (!aircraftBillingBasis || aircraftBillingBasis === "airswitch") return []
@@ -1339,6 +1454,7 @@ export function BookingCheckinClient({
         setDraftCalculation(null)
         setGeneratedItemOverrides({})
         setRemovedGeneratedItemIds({})
+        setZeroedLineItemRestoreUnitPrice({})
         setEditingLineItem(null)
         toast.error("No generated invoice items to calculate")
         return
@@ -1376,6 +1492,7 @@ export function BookingCheckinClient({
       })
       setGeneratedItemOverrides({})
       setRemovedGeneratedItemIds({})
+      setZeroedLineItemRestoreUnitPrice({})
       setEditingLineItem(null)
       setIsBriefingNoticeDismissed(false)
       toast.success("Draft invoice calculated")
@@ -1384,6 +1501,7 @@ export function BookingCheckinClient({
       setDraftCalculation(null)
       setGeneratedItemOverrides({})
       setRemovedGeneratedItemIds({})
+      setZeroedLineItemRestoreUnitPrice({})
       setEditingLineItem(null)
     } finally {
       setIsCalculating(false)
@@ -1916,40 +2034,6 @@ export function BookingCheckinClient({
               )}
             </div>
 
-            {isFixedPackageBilling && fixedPackagePricePreview && !isApproved ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-4 text-sm shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-slate-900">
-                    {selectedFlightType?.name ?? "Flight"} — Fixed Package
-                  </div>
-                  {selectedFlightType?.duration_minutes ? (
-                    <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                      Target {selectedFlightType.duration_minutes}m
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-3 space-y-1.5 tabular-nums text-slate-800">
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Package price</span>
-                    <span>${fixedPackagePricePreview.subtotalExcl.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">GST ({(taxRate * 100).toFixed(0)}%)</span>
-                    <span>${fixedPackagePricePreview.gst.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold text-slate-900">
-                    <span>Total</span>
-                    <span>${fixedPackagePricePreview.total.toFixed(2)}</span>
-                  </div>
-                  <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
-                    Actual flight time: {billingHours.toFixed(1)} hrs
-                    <br />
-                    (Billing is fixed — duration has no effect on the charge)
-                  </p>
-                </div>
-              </div>
-            ) : null}
-
             <div className="flex justify-stretch sm:justify-start">
               <Button
                 type="button"
@@ -2028,6 +2112,7 @@ export function BookingCheckinClient({
                       </Button>
                     </div>
                   ) : null}
+
                 </div>
 
                 {invoiceBuilderLines.length === 0 ? (
@@ -2060,6 +2145,8 @@ export function BookingCheckinClient({
                             {group.lines.map((line) => {
                               const isEditing = editingLineItem?.itemId === line.id
                               const quantityDisplay = Number.isFinite(line.quantity) ? line.quantity.toFixed(1) : "—"
+                              const canUndoZero =
+                                line.unit_price === 0 && zeroedLineItemRestoreUnitPrice[line.id] != null
 
                               return (
                                 <TableRow key={line.id}>
@@ -2139,6 +2226,24 @@ export function BookingCheckinClient({
                                         >
                                           Edit
                                         </Button>
+                                        {canQuickZeroInvoiceItems ? (
+                                          <Button
+                                            type="button"
+                                            variant="default"
+                                            size="sm"
+                                            disabled={isApproved || (!canUndoZero && line.unit_price === 0)}
+                                            onClick={() => {
+                                              if (canUndoZero) {
+                                                restoreZeroedLineItem(line)
+                                                return
+                                              }
+                                              zeroOutLineItem(line)
+                                            }}
+                                            className="bg-slate-900 font-semibold text-white hover:bg-slate-800"
+                                          >
+                                            {canUndoZero ? "Undo $0" : "Set $0"}
+                                          </Button>
+                                        ) : null}
                                         <Button
                                           type="button"
                                           variant="ghost"
