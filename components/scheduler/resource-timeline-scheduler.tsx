@@ -103,6 +103,7 @@ type SchedulerBooking = {
 type SchedulerBookingPointerDownPayload = {
   booking: SchedulerBooking
   sourceResource: SchedulerDragResource
+  dragMode: "move" | "resize-end"
   pointerId: number
   clientX: number
   clientY: number
@@ -114,6 +115,7 @@ type SchedulerBookingPointerDownPayload = {
 type SchedulerBookingDragCandidate = {
   booking: SchedulerBooking
   sourceResource: SchedulerDragResource
+  dragMode: "move" | "resize-end"
   pointerId: number
   startClientX: number
   startClientY: number
@@ -523,23 +525,23 @@ function statusBadgeVariant(status: BookingStatus, isStaff: boolean) {
 
 function statusPillClasses(status: BookingStatus, isStaff: boolean) {
   if (!isStaff && (status === "flying" || status === "complete")) {
-    return "border-slate-300 bg-slate-100"
+    return "border-slate-400 bg-slate-200"
   }
   switch (status) {
     case "flying":
-      return "border-amber-200 bg-amber-50"
+      return "border-amber-300 bg-amber-100"
     case "complete":
-      return "border-emerald-200 bg-emerald-50"
+      return "border-emerald-300 bg-emerald-100"
     case "cancelled":
-      return "border-slate-200 bg-slate-100"
+      return "border-slate-300 bg-slate-200"
     case "briefing":
-      return "border-sky-200 bg-sky-50"
+      return "border-sky-300 bg-sky-100"
     case "confirmed":
-      return "border-indigo-200 bg-indigo-50"
+      return "border-violet-300 bg-violet-100"
     case "unconfirmed":
-      return "border-slate-300 bg-slate-100"
+      return "border-slate-400 bg-slate-200"
     default:
-      return "border-indigo-200 bg-indigo-50"
+      return "border-violet-300 bg-violet-100"
   }
 }
 
@@ -900,6 +902,12 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
     [aircraftResourceById, instructorResourceById]
   )
 
+  const resolveRowElementForResource = React.useCallback((resource: SchedulerDragResource) => {
+    return document.querySelector<HTMLElement>(
+      `[data-scheduler-row='true'][data-resource-kind='${resource.kind}'][data-resource-id='${resource.data.id}']`
+    )
+  }, [])
+
   const isInstructorRangeAvailable = React.useCallback(
     (instructorId: string, start: Date, end: Date) => {
       const windows = instructorAvailabilityById.get(instructorId) ?? []
@@ -934,6 +942,44 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       }
 
       if (slotCount <= 0) return fallback
+
+      if (candidate.dragMode === "resize-end") {
+        const sourceRow = resolveRowElementForResource(candidate.sourceResource)
+        if (!sourceRow) return fallback
+
+        const rect = sourceRow.getBoundingClientRect()
+        if (!rect.width) return fallback
+
+        const relativeX = clamp(clientX - rect.left, 0, rect.width)
+        const hoveredIdx = clamp(Math.floor((relativeX / rect.width) * slotCount), 0, slotCount - 1)
+        const endIdxExclusive = hoveredIdx + 1
+        const startAt = candidate.booking.startsAt
+        const minEndAt = new Date(startAt.getTime() + INTERVAL_MINUTES * 60_000)
+        let endAt =
+          endIdxExclusive >= slotCount ? new Date(timelineEnd) : (slots[endIdxExclusive] ?? new Date(timelineEnd))
+
+        if (endAt < minEndAt) {
+          endAt = minEndAt
+        }
+        if (endAt > timelineEnd) {
+          endAt = new Date(timelineEnd)
+        }
+
+        let valid = endAt.getTime() > startAt.getTime()
+        if (valid && candidate.sourceResource.kind === "instructor") {
+          valid = isInstructorRangeAvailable(candidate.sourceResource.data.id, startAt, endAt)
+        }
+
+        return {
+          booking: candidate.booking,
+          dragKind: candidate.sourceResource.kind,
+          sourceResourceId,
+          targetResourceId: sourceResourceId,
+          startAt,
+          endAt,
+          valid,
+        }
+      }
 
       const hoveredElement = document.elementFromPoint(clientX, clientY)
       const targetResource = resolveResourceFromRowElement(hoveredElement)
@@ -978,7 +1024,15 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         valid,
       }
     },
-    [isInstructorRangeAvailable, resolveResourceFromRowElement, slotCount, slots, timelineEnd, timelineStart]
+    [
+      isInstructorRangeAvailable,
+      resolveResourceFromRowElement,
+      resolveRowElementForResource,
+      slotCount,
+      slots,
+      timelineEnd,
+      timelineStart,
+    ]
   )
 
   const handleBookingPointerDown = React.useCallback(
@@ -992,6 +1046,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       dragCandidateRef.current = {
         booking: payload.booking,
         sourceResource: payload.sourceResource,
+        dragMode: payload.dragMode,
         pointerId: payload.pointerId,
         startClientX: payload.clientX,
         startClientY: payload.clientY,
@@ -1016,7 +1071,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
       if (!didDragRef.current) {
         didDragRef.current = true
         document.body.style.userSelect = "none"
-        document.body.style.cursor = "grabbing"
+        document.body.style.cursor = candidate.dragMode === "resize-end" ? "ew-resize" : "grabbing"
       }
 
       const nextPreview = buildDragPreview(candidate, event.clientX, event.clientY)
@@ -1540,11 +1595,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
                 })
               }}
               onSelectAircraft={(aircraftId) => {
-                const ac = aircraftResourceById.get(aircraftId)
-                if (!ac) return
-                openCreateBookingModal({
-                  resource: { kind: "aircraft", data: ac },
-                })
+                void router.push(`/aircraft/${encodeURIComponent(aircraftId)}`)
               }}
               renderAircraftWarning={(summary) => <AircraftWarningTooltip summary={summary} />}
             />

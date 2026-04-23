@@ -2,16 +2,14 @@
 
 import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
-import { IconCashBanknote, IconCategory, IconPlane, IconReceiptTax } from "@tabler/icons-react"
+import { IconCashBanknote, IconCategory, IconReceiptTax } from "@tabler/icons-react"
 
 import { ChargeableTypesConfig } from "@/components/settings/charges/chargeable-types-config"
 import { ChargeablesConfig } from "@/components/settings/charges/chargeables-config"
-import { FlightTypesConfig } from "@/components/settings/charges/flight-types-config"
 import { LandingFeesConfig } from "@/components/settings/charges/landing-fees-config"
 import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
 
 const chargeTabs = [
-  { id: "aircraft", label: "Aircraft rates", icon: IconPlane },
   { id: "landing", label: "Landing fees", icon: IconReceiptTax },
   { id: "categories", label: "Categories", icon: IconCategory },
   { id: "additional", label: "Additional charges", icon: IconCashBanknote },
@@ -20,7 +18,7 @@ const chargeTabs = [
 // Charges are intentionally client-owned editors. The server settings page only selects and
 // renders the shell; the collection tabs own their own query-backed list state.
 export function ChargesTab({ initialXeroStatus }: { initialXeroStatus: XeroStatusQueryData }) {
-  const [activeTab, setActiveTab] = React.useState<(typeof chargeTabs)[number]["id"]>("aircraft")
+  const [activeTab, setActiveTab] = React.useState<(typeof chargeTabs)[number]["id"]>("landing")
   const tabRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
   const tabsListRef = React.useRef<HTMLDivElement>(null)
   const [underlineStyle, setUnderlineStyle] = React.useState({ left: 0, width: 0 })
@@ -65,7 +63,7 @@ export function ChargesTab({ initialXeroStatus }: { initialXeroStatus: XeroStatu
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Charges</h2>
           </div>
           <p className="text-sm text-muted-foreground">
-            Manage hourly aircraft rates, landing fees, and any additional chargeables.
+            Manage landing fees, chargeable categories, and additional chargeables.
           </p>
         </div>
       </div>
@@ -116,12 +114,6 @@ export function ChargesTab({ initialXeroStatus }: { initialXeroStatus: XeroStatu
         </div>
 
         <div className="w-full pt-6">
-          <Tabs.Content value="aircraft" className="outline-none">
-            <div className="w-full min-w-0">
-              <FlightTypesConfig initialXeroStatus={initialXeroStatus} />
-            </div>
-          </Tabs.Content>
-
           <Tabs.Content value="landing" className="outline-none">
             <div className="w-full min-w-0">
               <LandingFeesConfig />

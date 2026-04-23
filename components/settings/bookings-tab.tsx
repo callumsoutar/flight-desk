@@ -2,11 +2,19 @@
 
 import * as React from "react"
 import * as Tabs from "@radix-ui/react-tabs"
-import { IconClock, IconListDetails, IconLoader2, IconSettings } from "@tabler/icons-react"
+import {
+  IconClock,
+  IconGift,
+  IconListDetails,
+  IconLoader2,
+  IconPlane,
+  IconSettings,
+} from "@tabler/icons-react"
 import { toast } from "sonner"
 
 import ChargeableSearchDropdown from "@/components/invoices/chargeable-search-dropdown"
 import { CancellationCategoriesTab } from "@/components/settings/bookings/cancellation-categories-tab"
+import { FlightTypesConfig } from "@/components/settings/bookings/flight-types-config"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +23,7 @@ import { Switch } from "@/components/ui/switch"
 import { useChargeablesQuery } from "@/hooks/use-chargeables-query"
 import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
 import { updateBookingsSettings } from "@/hooks/use-bookings-settings-query"
+import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
 import type { BookingsSettings } from "@/lib/settings/bookings-settings"
 
 function getErrorMessage(error: unknown) {
@@ -38,6 +47,8 @@ function createFormState(settings: BookingsSettings | null) {
 
 const bookingTabs = [
   { id: "defaults", label: "Defaults", icon: IconSettings },
+  { id: "flight-types", label: "Flight types", icon: IconPlane },
+  { id: "trial-flights", label: "Trial flights", icon: IconGift },
   { id: "cancellations", label: "Cancellation categories", icon: IconListDetails },
 ] as const
 
@@ -47,9 +58,11 @@ const bookingTabs = [
 export function BookingsTab({
   initialSettings = null,
   initialLoadError = null,
+  initialXeroStatus,
 }: {
   initialSettings?: BookingsSettings | null
   initialLoadError?: string | null
+  initialXeroStatus: XeroStatusQueryData
 }) {
   const [activeTab, setActiveTab] =
     React.useState<(typeof bookingTabs)[number]["id"]>("defaults")
@@ -185,7 +198,7 @@ export function BookingsTab({
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            Configure booking defaults and cancellation metadata.
+            Configure booking defaults, dual and solo flight types, trial experiences, and cancellation metadata.
           </p>
         </div>
       </div>
@@ -398,6 +411,18 @@ export function BookingsTab({
                   </div>
                 </div>
               </div>
+            </div>
+          </Tabs.Content>
+
+          <Tabs.Content value="flight-types" className="outline-none">
+            <div className="w-full min-w-0">
+              <FlightTypesConfig initialXeroStatus={initialXeroStatus} scope="dual_solo" />
+            </div>
+          </Tabs.Content>
+
+          <Tabs.Content value="trial-flights" className="outline-none">
+            <div className="w-full min-w-0">
+              <FlightTypesConfig initialXeroStatus={initialXeroStatus} scope="trial" />
             </div>
           </Tabs.Content>
 

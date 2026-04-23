@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -48,16 +50,52 @@ export function PendingBookingMoveDialog({
 }: PendingBookingMoveDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Confirm booking move</DialogTitle>
-          <DialogDescription>
-            Review the pending scheduler changes before applying them.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className="max-w-lg gap-0 p-0"
+        showCloseButton={!isApplyingMove}
+        aria-busy={isApplyingMove}
+        onPointerDownOutside={(e) => {
+          if (isApplyingMove) e.preventDefault()
+        }}
+        onInteractOutside={(e) => {
+          if (isApplyingMove) e.preventDefault()
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isApplyingMove) e.preventDefault()
+        }}
+      >
+        {isApplyingMove ? (
+          <div
+            className="pointer-events-none h-0.5 w-full shrink-0 overflow-hidden bg-muted/90"
+            aria-hidden
+          >
+            <div
+              className="h-full w-1/3 rounded-none bg-primary will-change-transform"
+              style={{
+                animation: "pending-booking-move-indeterminate 1.1s ease-in-out infinite",
+              }}
+            />
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-4 p-6">
+          <DialogHeader>
+            <DialogTitle>Confirm scheduler change</DialogTitle>
+            <DialogDescription>
+              {isApplyingMove ? (
+                "Applying changes to the schedule. This may take a moment…"
+              ) : (
+                "Review the pending scheduler changes before applying them."
+              )}
+            </DialogDescription>
+          </DialogHeader>
 
-        {pendingMove ? (
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+          {pendingMove ? (
+          <div
+            className={cn(
+              "rounded-lg border border-border/60 bg-muted/20 p-3 transition-opacity",
+              isApplyingMove && "pointer-events-none opacity-60"
+            )}
+          >
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Booking</span>
@@ -129,20 +167,38 @@ export function PendingBookingMoveDialog({
               ) : null}
             </div>
           </div>
-        ) : null}
+          ) : null}
 
-        <DialogFooter>
-          <Button variant="outline" disabled={isApplyingMove} onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            className="bg-slate-900 font-semibold text-white hover:bg-slate-800"
-            disabled={isApplyingMove || !pendingMove}
-            onClick={onApprove}
-          >
-            {isApplyingMove ? "Applying..." : "Approve changes"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isApplyingMove}
+              onClick={onCancel}
+              className="cursor-pointer transition-colors disabled:cursor-not-allowed"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="min-w-[10.5rem] cursor-pointer bg-slate-900 font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed"
+              disabled={isApplyingMove || !pendingMove}
+              onClick={onApprove}
+            >
+              {isApplyingMove ? (
+                <>
+                  <Loader2
+                    className="h-4 w-4 shrink-0 animate-spin"
+                    aria-hidden
+                  />
+                  Applying…
+                </>
+              ) : (
+                "Approve changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

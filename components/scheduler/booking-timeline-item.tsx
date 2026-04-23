@@ -101,6 +101,7 @@ export function BookingTimelineItem({
       canConfirm: boolean
     }
     sourceResource: { kind: "instructor" | "aircraft"; data: { id: string } }
+    dragMode: "move" | "resize-end"
     pointerId: number
     clientX: number
     clientY: number
@@ -149,21 +150,21 @@ export function BookingTimelineItem({
   const BookingTypeIcon = bookingTypeIndicator.icon
 
   const STATUS_ACCENT: Record<BookingStatus, string> = {
-    unconfirmed: "bg-slate-300",
-    confirmed: "bg-emerald-500",
-    briefing: "bg-amber-500",
-    flying: "bg-indigo-500",
-    complete: "bg-slate-400",
-    cancelled: "bg-rose-500",
+    unconfirmed: "bg-slate-500",
+    confirmed: "bg-violet-600",
+    briefing: "bg-amber-600",
+    flying: "bg-amber-600",
+    complete: "bg-emerald-600",
+    cancelled: "bg-rose-600",
   }
 
   const STATUS_BADGE: Record<BookingStatus, string> = {
-    unconfirmed: "border-slate-200 bg-slate-100 text-slate-700",
-    confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    briefing: "border-amber-200 bg-amber-50 text-amber-800",
-    flying: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    complete: "border-slate-200 bg-slate-100 text-slate-700",
-    cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+    unconfirmed: "border-slate-400 bg-slate-200 text-slate-900",
+    confirmed: "border-violet-300 bg-violet-100 text-violet-900",
+    briefing: "border-amber-300 bg-amber-100 text-amber-900",
+    flying: "border-amber-300 bg-amber-100 text-amber-900",
+    complete: "border-emerald-300 bg-emerald-100 text-emerald-900",
+    cancelled: "border-rose-300 bg-rose-100 text-rose-900",
   }
 
   const durationLabel = React.useMemo(() => {
@@ -229,6 +230,7 @@ export function BookingTimelineItem({
                     instructorId: rowResource.kind === "instructor" ? rowResource.data.id : null,
                   },
                   sourceResource: rowResource,
+                  dragMode: "move",
                   pointerId: event.pointerId,
                   clientX: event.clientX,
                   clientY: event.clientY,
@@ -246,7 +248,7 @@ export function BookingTimelineItem({
                 interactive ? "focus:ring-2 focus:ring-sky-500/35 focus:outline-none" : "focus:outline-none",
                 booking.canOpen || canDragThisBooking ? "hover:shadow-md" : "hover:shadow-sm",
                 booking.bookingType === "maintenance"
-                  ? "border-slate-300 bg-slate-100"
+                  ? "border-slate-400 bg-slate-200"
                   : statusPillClasses(booking.status),
                 canDragThisBooking
                   ? "cursor-grab active:cursor-grabbing"
@@ -261,17 +263,59 @@ export function BookingTimelineItem({
               )}
             >
               <span
-                className="pointer-events-none absolute right-1.5 top-1.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm bg-white text-slate-600 shadow-sm ring-1 ring-black/5"
+                className="pointer-events-none absolute right-2.5 top-1.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm bg-white text-slate-600 shadow-sm ring-1 ring-black/5"
                 aria-label={bookingTypeIndicator.label}
                 title={bookingTypeIndicator.label}
               >
                 <BookingTypeIcon className="h-2.5 w-2.5" />
               </span>
+              {canDragThisBooking ? (
+                <span
+                  className="absolute inset-y-0 right-0 z-10 hidden w-4 cursor-ew-resize items-center justify-center opacity-0 transition group-hover:flex group-hover:opacity-100 group-focus-within:flex group-focus-within:opacity-100"
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return
+                    if (!containerRef.current) return
+                    event.preventDefault()
+                    event.stopPropagation()
+
+                    const durationMs = itemEndAt.getTime() - itemStartAt.getTime()
+                    const durationSlots = Math.max(1, Math.ceil(durationMs / (30 * 60_000)))
+
+                    onBookingPointerDown({
+                      booking: {
+                        ...booking,
+                        startsAt: itemStartAt,
+                        endsAt: itemEndAt,
+                        instructorId: rowResource.kind === "instructor" ? rowResource.data.id : null,
+                      },
+                      sourceResource: rowResource,
+                      dragMode: "resize-end",
+                      pointerId: event.pointerId,
+                      clientX: event.clientX,
+                      clientY: event.clientY,
+                      button: event.button,
+                      pointerOffsetSlots: Math.max(0, durationSlots - 1),
+                      durationSlots,
+                    })
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                  title="Drag to change end time"
+                  aria-hidden="true"
+                >
+                  <span className="pointer-events-none absolute inset-y-1.5 right-0.5 w-px rounded-full bg-slate-500/70" />
+                  <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500/85">
+                    <GripVertical className="h-3 w-3" />
+                  </span>
+                </span>
+              ) : null}
               <div className="flex h-full min-w-0 flex-col justify-center">
-                <div className="truncate pr-5 text-[11px] font-semibold leading-[1.15] text-slate-900 sm:text-xs">
+                <div className="truncate pr-7 text-[11px] font-semibold leading-[1.15] text-slate-900 sm:text-xs">
                   {booking.primaryLabel}
                 </div>
-                <div className="mt-0.5 truncate pr-5 text-[10px] font-medium leading-[1.1] text-slate-600">
+                <div className="mt-0.5 truncate pr-7 text-[10px] font-semibold leading-[1.1] text-slate-700">
                   {isPreview && previewTimeLabel ? previewTimeLabel : range}
                 </div>
               </div>
@@ -380,7 +424,7 @@ export function BookingTimelineItem({
                     {canDragThisBooking ? (
                       <span className="flex items-center gap-1.5">
                         <GripVertical className="h-3.5 w-3.5" />
-                        Drag to move
+                        Drag to move or resize
                       </span>
                     ) : null}
                   </>

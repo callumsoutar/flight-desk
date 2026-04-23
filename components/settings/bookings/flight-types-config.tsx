@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import {
   IconArchive,
   IconCopy,
+  IconGift,
   IconPencil,
   IconPlane,
   IconPlus,
@@ -38,6 +39,14 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { XeroAccountSelect } from "@/components/settings/xero-account-select"
 import type { XeroStatusQueryData } from "@/hooks/use-xero-status-query"
 import { useXeroStatusQuery } from "@/hooks/use-xero-status-query"
@@ -224,6 +233,8 @@ function TypeOptionButton({
   )
 }
 
+export type FlightTypesConfigScope = "dual_solo" | "trial"
+
 type FlightTypeDialogProps = {
   mode: "create" | "edit"
   flightType: FlightType | null
@@ -232,6 +243,7 @@ type FlightTypeDialogProps = {
   onSaved: () => void
   showChartOfAccounts: boolean
   defaultTaxRate: number
+  instructionScope: FlightTypesConfigScope
 }
 
 function FlightTypeDialog({
@@ -242,6 +254,7 @@ function FlightTypeDialog({
   onSaved,
   showChartOfAccounts,
   defaultTaxRate,
+  instructionScope,
 }: FlightTypeDialogProps) {
   const queryClient = useQueryClient()
   const [formData, setFormData] = React.useState<FlightTypeFormData>(defaultFormData)
@@ -269,11 +282,17 @@ function FlightTypeDialog({
         instructor_gl_code: flightType.instructor_gl_code ?? "",
         is_active: Boolean(flightType.is_active),
       })
+    } else if (instructionScope === "trial") {
+      setFormData({
+        ...defaultFormData,
+        instruction_type: "trial",
+        billing_mode: defaultBillingModeFor("trial"),
+      })
     } else {
       setFormData(defaultFormData)
     }
     setShowAdvanced(false)
-  }, [open, mode, flightType, defaultTaxRate])
+  }, [open, mode, flightType, defaultTaxRate, instructionScope])
 
   const isTrial = formData.instruction_type === "trial"
   const isFixedPackage = isTrial && formData.billing_mode === "fixed_package"
@@ -397,26 +416,40 @@ function FlightTypeDialog({
   }
 
   const disableSave = saving
+  const dialogTitle =
+    instructionScope === "trial"
+      ? mode === "edit"
+        ? "Edit trial flight"
+        : "Add trial flight"
+      : mode === "edit"
+        ? "Edit flight type"
+        : "Add flight type"
+  const dualSoloOptions = instructionTypeOptions.filter((o) => o.value !== "trial")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden",
+          "overflow-hidden rounded-2xl border border-slate-200 p-0 shadow-lg",
           "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:w-full sm:max-w-[540px]",
-          "top-[calc(env(safe-area-inset-top)+1rem)] sm:top-[50%] translate-y-0 sm:translate-y-[-50%]",
           "h-[calc(100dvh-2rem)] sm:flex sm:flex-col sm:h-auto sm:max-h-[calc(100dvh-4rem)]"
         )}
       >
         <div className="flex flex-col flex-1 min-h-0 bg-white">
           <DialogHeader className="px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-4 text-left sm:pt-6 shrink-0">
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                <IconPlane className="h-5 w-5" />
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+              >
+                {instructionScope === "trial" ? (
+                  <IconGift className="h-5 w-5" />
+                ) : (
+                  <IconPlane className="h-5 w-5" />
+                )}
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
-                  {mode === "edit" ? "Edit Flight Type" : "Add Flight Type"}
+                  {dialogTitle}
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 text-sm text-slate-500">
                   Configure booking category and pricing. Required fields are marked with{" "}
@@ -427,22 +460,32 @@ function FlightTypeDialog({
           </DialogHeader>
 
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6 space-y-6">
-            {/* Step 1: flight type */}
+            {/* Step 1: instruction category */}
             <div>
               <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Flight type <span className="text-destructive">*</span>
+                {instructionScope === "trial" ? "Category" : "Instruction type"}{" "}
+                <span className="text-destructive">*</span>
               </label>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {instructionTypeOptions.map((option) => (
-                  <TypeOptionButton
-                    key={option.value}
-                    option={option}
-                    selected={formData.instruction_type === option.value}
-                    onClick={() => handleInstructionTypeChange(option.value)}
-                    disabled={saving}
-                  />
-                ))}
-              </div>
+              {instructionScope === "trial" ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">Trial flight</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Marketed discovery or intro flights — usually a fixed package price and duration.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {dualSoloOptions.map((option) => (
+                    <TypeOptionButton
+                      key={option.value}
+                      option={option}
+                      selected={formData.instruction_type === option.value}
+                      onClick={() => handleInstructionTypeChange(option.value)}
+                      disabled={saving}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Step 2: name + duration */}
@@ -567,9 +610,9 @@ function FlightTypeDialog({
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-600">
                     <IconPlus className={cn("h-3.5 w-3.5 transition-transform", showAdvanced && "rotate-45")} />
                   </span>
                   {showAdvanced ? "Hide advanced options" : "Show advanced options"}
@@ -686,7 +729,13 @@ function FlightTypeDialog({
   )
 }
 
-export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: XeroStatusQueryData }) {
+export function FlightTypesConfig({
+  initialXeroStatus,
+  scope,
+}: {
+  initialXeroStatus: XeroStatusQueryData
+  scope: FlightTypesConfigScope
+}) {
   const queryClient = useQueryClient()
   const [mutationError, setMutationError] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -713,16 +762,25 @@ export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: Xe
 
   const error = mutationError ?? (flightTypesQueryError ? getErrorMessage(flightTypesQueryError) : null)
 
+  const scopedTypes = React.useMemo(() => {
+    return flightTypes.filter((t) => {
+      const it = t.instruction_type as InstructionType
+      if (scope === "trial") return it === "trial"
+      return it === "dual" || it === "solo"
+    })
+  }, [flightTypes, scope])
+
   const filteredTypes = React.useMemo(() => {
+    if (scope === "trial") return scopedTypes
     const term = searchTerm.trim().toLowerCase()
-    if (!term) return flightTypes
-    return flightTypes.filter((type) => {
+    if (!term) return scopedTypes
+    return scopedTypes.filter((type) => {
       const haystack = [type.name, type.description ?? "", type.instruction_type ?? ""]
         .join(" ")
         .toLowerCase()
       return haystack.includes(term)
     })
-  }, [flightTypes, searchTerm])
+  }, [scope, scopedTypes, searchTerm])
 
   const invalidateFlightTypeCaches = React.useCallback(async () => {
     await Promise.all([
@@ -786,17 +844,39 @@ export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: Xe
     }
   }
 
+  const groupOrder: readonly InstructionType[] =
+    scope === "trial" ? (["trial"] as const) : (["dual", "solo"] as const)
+
+  const searchPlaceholder = "Search dual & solo flight types…"
+  const addLabel = scope === "trial" ? "Add trial flight" : "Add flight type"
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-        <IconPlane className="h-5 w-5 text-indigo-600" />
-        <h3 className="text-lg font-semibold text-slate-900">Flight types</h3>
-      </div>
-      <p className="text-sm text-slate-600">
-        Flight types categorise bookings. Trial packages use a single price on the flight type; hourly
-        Dual and Solo rates are set per aircraft under{" "}
-        <span className="font-medium text-slate-800">Settings &rarr; Aircraft</span>.
-      </p>
+      {scope === "trial" ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Trial flights</h3>
+            <p className="max-w-2xl text-sm leading-relaxed text-slate-600">
+              Configure intro, discovery, and gift-flight packages with durations, prices, and revenue
+              coding for first-time customers.
+            </p>
+          </div>
+        </section>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <IconPlane className="h-5 w-5 text-indigo-600" />
+            <h3 className="text-lg font-semibold text-slate-900">Flight types</h3>
+          </div>
+          <p className="text-sm text-slate-600">
+            Dual and solo categories for ongoing training and hire. Hourly aircraft rates are set per
+            aircraft under{" "}
+            <span className="font-medium text-slate-800">Settings &rarr; Aircraft &rarr; Charge rates</span>.
+            Trial and intro packages are managed in the{" "}
+            <span className="font-medium text-slate-800">Trial flights</span> tab.
+          </p>
+        </>
+      )}
 
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -804,39 +884,199 @@ export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: Xe
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2">
-        <div className="relative flex-1">
-          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            placeholder="Search flight types..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-10 border-none bg-transparent pl-9 shadow-none focus-visible:ring-0"
-          />
+      {scope === "trial" ? (
+        <div className="flex justify-end">
+          <Button
+            onClick={() => setDialog({ open: true, mode: "create" })}
+            className="h-10 rounded-xl bg-violet-600 px-4 font-semibold text-white shadow-sm hover:bg-violet-700"
+            disabled={working}
+          >
+            <IconPlus className="mr-2 h-4 w-4" />
+            {addLabel}
+          </Button>
         </div>
-        <div className="h-6 w-px bg-slate-200" />
-        <Button
-          onClick={() => setDialog({ open: true, mode: "create" })}
-          className="h-10 rounded-xl bg-indigo-600 font-semibold text-white hover:bg-indigo-700"
-          disabled={working}
-        >
-          <IconPlus className="mr-2 h-4 w-4" />
-          Add
-        </Button>
-      </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder={searchPlaceholder}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-10 rounded-xl border-slate-200 bg-white pl-9 shadow-none focus-visible:ring-0"
+              />
+            </div>
+            <Button
+              onClick={() => setDialog({ open: true, mode: "create" })}
+              className="h-10 rounded-xl bg-indigo-600 px-4 font-semibold text-white shadow-sm hover:bg-indigo-700 sm:shrink-0"
+              disabled={working}
+            >
+              <IconPlus className="mr-2 h-4 w-4" />
+              {addLabel}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-muted-foreground">
-          Loading flight types…
+          {scope === "trial" ? "Loading trial flights…" : "Loading flight types…"}
         </div>
       ) : filteredTypes.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-12 text-center">
           <p className="text-sm font-semibold text-slate-900">
-            {searchTerm ? "No matching flight types" : "No flight types configured"}
+            {scope === "trial"
+              ? "No trial flights yet"
+              : searchTerm
+                ? "No matches"
+                : "No dual or solo flight types"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {searchTerm ? "Try a different search term." : "Add your first flight type to get started."}
+            {scope === "trial"
+              ? "Create your first trial flight to offer intro experiences at checkout and on the schedule."
+              : searchTerm
+                ? "Try a different search."
+                : "Add dual instruction and solo hire types to categorise bookings."}
           </p>
+        </div>
+      ) : scope === "trial" ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredTypes.map((flightType) => {
+            const summary = billingSummariesById.get(flightType.id)
+            const billingDisplay = formatBillingSummary(flightType, summary, defaultTaxRate)
+            const isFixedPackage = flightType.billing_mode === "fixed_package"
+            const showCardDetails = Boolean(billingDisplay.sub) || showChartOfAccounts
+            return (
+              <Card
+                key={flightType.id}
+                className={cn(
+                  "flex h-full flex-col gap-0 overflow-hidden rounded-xl border border-slate-200 py-0 shadow-sm",
+                  flightType.is_active ? "bg-white" : "bg-slate-50/90"
+                )}
+              >
+                <CardHeader className="space-y-3 px-4 pb-3 pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <CardTitle className="text-base leading-snug text-slate-900">
+                        {flightType.name}
+                      </CardTitle>
+                      {flightType.description ? (
+                        <CardDescription className="line-clamp-2 text-xs leading-relaxed text-slate-600">
+                          {flightType.description}
+                        </CardDescription>
+                      ) : (
+                        <CardDescription className="text-xs italic text-slate-400">
+                          No description
+                        </CardDescription>
+                      )}
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+                        flightType.is_active
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slate-200 bg-slate-100 text-slate-600"
+                      )}
+                    >
+                      {flightType.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {isFixedPackage && flightType.duration_minutes ? (
+                      <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-900">
+                        {flightType.duration_minutes} min
+                      </span>
+                    ) : null}
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+                        billingDisplay.tone === "ok"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : billingDisplay.tone === "warn"
+                            ? "border-amber-200 bg-amber-50 text-amber-900"
+                            : "border-slate-200 bg-white text-slate-600"
+                      )}
+                    >
+                      {billingDisplay.label}
+                    </span>
+                    {!isFixedPackage ? (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                        Hourly (aircraft)
+                      </span>
+                    ) : null}
+                  </div>
+                </CardHeader>
+                {showCardDetails ? (
+                  <CardContent className="flex flex-1 flex-col gap-2 border-t border-slate-100 px-4 py-3 text-xs">
+                    {billingDisplay.sub ? (
+                      <p className="text-slate-600">
+                        <span className="mr-1 font-semibold uppercase tracking-wide text-slate-500">
+                          Billing:
+                        </span>
+                        {billingDisplay.sub}
+                      </p>
+                    ) : null}
+                    {showChartOfAccounts ? (
+                      <dl className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <dt className="font-semibold uppercase tracking-wide text-slate-500">Aircraft GL</dt>
+                          <dd className="mt-1 font-mono text-slate-800">
+                            {flightType.aircraft_gl_code || "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="font-semibold uppercase tracking-wide text-slate-500">Instructor GL</dt>
+                          <dd className="mt-1 font-mono text-slate-800">
+                            {isFixedPackage || flightType.instruction_type === "solo"
+                              ? "—"
+                              : flightType.instructor_gl_code || "—"}
+                          </dd>
+                        </div>
+                      </dl>
+                    ) : null}
+                  </CardContent>
+                ) : null}
+                <CardFooter className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/70 px-3.5 py-2.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg border-slate-300 bg-white px-3"
+                      onClick={() => setDialog({ open: true, mode: "edit", flightType })}
+                      disabled={working}
+                    >
+                      <IconPencil className="mr-1.5 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg border-slate-300 bg-white px-3"
+                      onClick={() => void handleDuplicate(flightType)}
+                      disabled={working}
+                    >
+                      <IconCopy className="mr-1.5 h-3.5 w-3.5" />
+                      Duplicate
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-lg px-2 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
+                    onClick={() => void handleDeactivate(flightType)}
+                    disabled={working || !flightType.is_active}
+                  >
+                    <IconArchive className="mr-1.5 h-3.5 w-3.5" />
+                    Deactivate
+                  </Button>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -856,7 +1096,7 @@ export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: Xe
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(["trial", "dual", "solo"] as const).flatMap((group) => {
+              {groupOrder.flatMap((group) => {
                 const rows = filteredTypes.filter(
                   (t) => (t.instruction_type as InstructionType) === group
                 )
@@ -999,6 +1239,7 @@ export function FlightTypesConfig({ initialXeroStatus }: { initialXeroStatus: Xe
         }}
         showChartOfAccounts={showChartOfAccounts}
         defaultTaxRate={defaultTaxRate}
+        instructionScope={scope}
       />
     </div>
   )

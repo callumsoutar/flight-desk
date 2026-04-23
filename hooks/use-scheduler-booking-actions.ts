@@ -108,7 +108,7 @@ export function useSchedulerBookingActions<TPendingMove extends SchedulerPending
     try {
       await patchBookingMutation(pendingMove.booking.id, body)
       onPendingMoveChange(null)
-      toast.success("Booking moved")
+      toast.success("Booking updated")
       onChanged()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to move booking")

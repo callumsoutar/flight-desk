@@ -141,6 +141,16 @@
   }
 }
 
+/* Indeterminate bar for scheduler “confirm move” dialog */
+@keyframes pending-booking-move-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 /* Screen: hide portal shell (print sheet still in DOM for window.print). */
 #checkout-sheet-print-root {
   position: fixed;

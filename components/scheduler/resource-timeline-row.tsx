@@ -56,6 +56,7 @@ type TimelineRowDragPreview = {
 type TimelineRowBookingPointerDownPayload = {
   booking: TimelineRowBooking
   sourceResource: TimelineRowResource
+  dragMode: "move" | "resize-end"
   pointerId: number
   clientX: number
   clientY: number

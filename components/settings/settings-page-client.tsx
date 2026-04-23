@@ -279,6 +279,7 @@ export function SettingsPageClient({
                 <BookingsTab
                   initialSettings={initialBookingsSettings}
                   initialLoadError={bookingsLoadError}
+                  initialXeroStatus={initialXeroStatusQueryData}
                 />
               </Tabs.Content>
               <Tabs.Content value="training">

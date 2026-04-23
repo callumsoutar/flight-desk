@@ -15,7 +15,7 @@ export function ResourceTimelineRowSurface({
   activeDragPreviewValid,
   resourceTitle,
   isSlotAvailable,
-  /** When false, slot uses “unavailable” styling and cannot create a booking (e.g. members: past slots today). */
+  /** When false, slot cannot create a booking for this viewer (e.g. members: past slots today). */
   isSlotBookableByViewer,
   onEmptyClick,
   hoveredSlotIdx,
@@ -41,16 +41,21 @@ export function ResourceTimelineRowSurface({
   const tooltipRef = React.useRef<HTMLDivElement | null>(null)
   const [containerWidth, setContainerWidth] = React.useState(0)
   const [tooltipWidth, setTooltipWidth] = React.useState(0)
-  const isCellBookable = React.useCallback(
+  const getCellAvailability = React.useCallback(
     (slot: Date) => {
-      const rosterOk = isSlotAvailable ? isSlotAvailable(slot) : true
-      const viewerOk = isSlotBookableByViewer ? isSlotBookableByViewer(slot) : true
-      return rosterOk && viewerOk
+      const isRosterAvailable = isSlotAvailable ? isSlotAvailable(slot) : true
+      const isViewerAllowed = isSlotBookableByViewer ? isSlotBookableByViewer(slot) : true
+
+      return {
+        isRosterAvailable,
+        isViewerAllowed,
+        canCreateBooking: isRosterAvailable && isViewerAllowed,
+      }
     },
     [isSlotAvailable, isSlotBookableByViewer]
   )
   const hoveredSlot = hoveredSlotIdx === null ? null : (slots[hoveredSlotIdx] ?? null)
-  const hoveredBookable = hoveredSlot ? isCellBookable(hoveredSlot) : true
+  const hoveredBookable = hoveredSlot ? getCellAvailability(hoveredSlot).canCreateBooking : true
   const hoveredTimeLabel = hoveredSlot ? formatTimeLabel12h(hoveredSlot, timeZone) : null
   const slotCenterPct = ((hoveredSlotIdx ?? 0) + 0.5) * (100 / Math.max(1, slotCount))
 
@@ -128,25 +133,27 @@ export function ResourceTimelineRowSurface({
           const rawIdx = Math.floor((x / rect.width) * slotCount)
           const idx = Math.max(0, Math.min(rawIdx, slotCount - 1))
           const slot = slots[idx]
-          if (slot && !isCellBookable(slot)) return
+          if (slot && !getCellAvailability(slot).canCreateBooking) return
           onEmptyClick(event.clientX, containerRef.current)
         }}
         aria-label={resourceTitle ? `Timeline row for ${resourceTitle}` : "Timeline row"}
       >
         <div className="grid h-full" style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}>
           {slots.map((slot, idx) => {
-            const bookable = isCellBookable(slot)
+            const { isRosterAvailable, canCreateBooking } = getCellAvailability(slot)
             const isHovered = hoveredSlotIdx === idx
             return (
               <div
                 key={slot.toISOString()}
                 className={cn(
                   "border-r border-border/50 transition-colors last:border-r-0",
-                  bookable
-                    ? "cursor-pointer bg-transparent hover:bg-sky-500/8"
+                  isRosterAvailable
+                    ? canCreateBooking
+                      ? "cursor-pointer bg-transparent hover:bg-sky-500/8"
+                      : "cursor-not-allowed bg-transparent"
                     : "cursor-not-allowed bg-slate-100/85",
-                  isHovered && bookable ? "bg-sky-100/80 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.18)]" : "",
-                  isHovered && !bookable
+                  isHovered && canCreateBooking ? "bg-sky-100/80 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.18)]" : "",
+                  isHovered && !isRosterAvailable
                     ? "bg-slate-300/70 shadow-[inset_0_0_0_1px_rgba(100,116,139,0.18)]"
                     : ""
                 )}
