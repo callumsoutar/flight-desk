@@ -2039,7 +2039,7 @@ export function BookingCheckinClient({
             <div className="flex justify-stretch sm:justify-start">
               <Button
                 type="button"
-                className="h-9 w-full sm:w-auto rounded-md bg-slate-700 text-sm font-medium text-white shadow-sm hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700"
+                className="h-10 w-full bg-slate-900 text-sm font-semibold text-white hover:bg-slate-800 sm:w-auto"
                 onClick={() => void calculateDraft()}
                 disabled={isApproved || isCalculating}
               >
@@ -2068,14 +2068,14 @@ export function BookingCheckinClient({
           </CardContent>
         </Card>
 
-        <Card className="border-border/60">
+        <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
                     <IconFileText className="h-4 w-4" />
                     Invoice Builder
                   </CardTitle>
-                  <span className="text-sm tabular-nums text-muted-foreground">
+                  <span className="text-sm tabular-nums text-slate-500">
                     {invoiceBuilderLines.length} {invoiceBuilderLines.length === 1 ? "item" : "items"}
                   </span>
                 </div>
@@ -2083,7 +2083,7 @@ export function BookingCheckinClient({
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   {!isDraftCalculated ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-600">
                       Calculate flight charges to generate line items, then add any extra fees below.
                     </p>
                   ) : isDraftStale ? (
@@ -2118,28 +2118,29 @@ export function BookingCheckinClient({
                 </div>
 
                 {invoiceBuilderLines.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-muted-foreground">
+                  <div className="py-8 text-center text-sm font-medium text-slate-500">
                     No invoice items yet. Set flight details and calculate charges to generate line items.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="w-[100px] text-right">Qty</TableHead>
-                          <TableHead className="w-[140px] text-right">Rate (inc.)</TableHead>
-                          <TableHead className="w-[120px] text-right">Total</TableHead>
-                          <TableHead className="w-[220px] text-right">Actions</TableHead>
+                        <TableRow className="border-slate-200 bg-slate-50/50 hover:bg-slate-50/50">
+                          <TableHead className="text-xs font-semibold uppercase tracking-wide text-slate-600">Description</TableHead>
+                          <TableHead className="w-[100px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Qty</TableHead>
+                          <TableHead className="w-[140px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Rate (inc.)</TableHead>
+                          <TableHead className="w-[120px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Total</TableHead>
+                          <TableHead className="w-[220px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {invoiceBuilderLineGroups.map((group) => (
                           <React.Fragment key={group.id}>
-                            <TableRow className="bg-muted/20 hover:bg-muted/20">
+                            <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
                               <TableCell
                                 colSpan={5}
-                                className="py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                                className="py-2 text-xs font-semibold uppercase tracking-wide text-slate-600"
                               >
                                 {group.label}
                               </TableCell>
@@ -2151,9 +2152,9 @@ export function BookingCheckinClient({
                                 line.unit_price === 0 && zeroedLineItemRestoreUnitPrice[line.id] != null
 
                               return (
-                                <TableRow key={line.id}>
+                                <TableRow key={line.id} className="hover:bg-slate-50/50">
                                   <TableCell>
-                                    <span className="font-medium">{line.description || "Manual item"}</span>
+                                    <span className="font-medium text-slate-900">{line.description || "Manual item"}</span>
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {isEditing ? (
@@ -2164,16 +2165,16 @@ export function BookingCheckinClient({
                                         value={editingLineItem?.quantity ?? ""}
                                         disabled={isApproved}
                                         onChange={(event) => updateEditingLineItem({ quantity: event.target.value })}
-                                        className="h-8 w-20 text-right tabular-nums"
+                                        className="h-8 w-20 border-slate-200 bg-white text-right tabular-nums"
                                       />
                                     ) : (
-                                      <span className="tabular-nums">{quantityDisplay}</span>
+                                      <span className="tabular-nums text-slate-900">{quantityDisplay}</span>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {isEditing ? (
                                       <div className="relative inline-block">
-                                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                        <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                                           $
                                         </span>
                                         <Input
@@ -2185,14 +2186,14 @@ export function BookingCheckinClient({
                                           onChange={(event) =>
                                             updateEditingLineItem({ rateInclusive: event.target.value })
                                           }
-                                          className="h-8 w-28 pl-5 text-right tabular-nums"
+                                          className="h-8 w-28 border-slate-200 bg-white pl-5 text-right tabular-nums"
                                         />
                                       </div>
                                     ) : (
-                                      <span className="tabular-nums">${line.rate_inclusive.toFixed(2)}</span>
+                                      <span className="tabular-nums text-slate-900">${line.rate_inclusive.toFixed(2)}</span>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-right tabular-nums font-medium">
+                                  <TableCell className="text-right font-medium tabular-nums text-slate-900">
                                     ${line.line_total.toFixed(2)}
                                   </TableCell>
                                   <TableCell className="text-right">
@@ -2200,10 +2201,11 @@ export function BookingCheckinClient({
                                       <div className="flex items-center justify-end gap-1">
                                         <Button
                                           type="button"
-                                          variant="secondary"
+                                          variant="outline"
                                           size="sm"
                                           disabled={isApproved}
                                           onClick={saveLineItemEdit}
+                                          className="h-8 border-slate-200 font-semibold text-slate-700 hover:bg-slate-50"
                                         >
                                           Save
                                         </Button>
@@ -2252,7 +2254,7 @@ export function BookingCheckinClient({
                                           size="icon"
                                           disabled={isApproved}
                                           onClick={() => removeLineItem(line)}
-                                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                          className="h-7 w-7 text-slate-500 hover:text-destructive"
                                         >
                                           <IconTrash className="h-3.5 w-3.5" />
                                         </Button>
@@ -2266,11 +2268,12 @@ export function BookingCheckinClient({
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
                 )}
 
-                <div className="border-t pt-5">
-                  <h4 className="mb-4 text-sm font-semibold text-foreground">Add Charges</h4>
+                <div className="border-t border-slate-200 pt-5">
+                  <h4 className="mb-4 text-sm font-bold text-slate-900">Add charges</h4>
 
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
@@ -2280,13 +2283,15 @@ export function BookingCheckinClient({
                           <Button
                             key={option.group}
                             type="button"
-                            variant={isActive ? "secondary" : "outline"}
+                            variant="outline"
                             size="sm"
                             onClick={() => setActiveManualGroup(option.group)}
                             disabled={isApproved}
                             className={cn(
-                              "h-8 rounded-md px-3 text-sm",
-                              !isActive && "text-muted-foreground"
+                              "h-8 rounded-md px-3 text-sm font-semibold",
+                              isActive
+                                ? "border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                             )}
                           >
                             {option.title}
@@ -2295,14 +2300,14 @@ export function BookingCheckinClient({
                       })}
                     </div>
 
-                    <div className="rounded-lg border border-border/70 bg-muted/20 p-3 sm:p-4">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <label className="text-sm font-medium text-foreground">{activeManualGroupConfig.title}</label>
+                        <label className="text-sm font-semibold text-slate-700">{activeManualGroupConfig.title}</label>
                         {activeManualGroup === "landing_fees" && effectiveLandingFeeAircraftTypeName ? (
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <span>
                               Aircraft type:{" "}
-                              <span className="font-medium text-foreground">
+                              <span className="font-medium text-slate-900">
                                 {effectiveLandingFeeAircraftTypeName}
                               </span>
                               {isLandingFeeAircraftTypeOverridden ? " (override)" : ""}
@@ -2311,7 +2316,7 @@ export function BookingCheckinClient({
                               type="button"
                               variant="link"
                               size="sm"
-                              className="h-auto p-0 text-xs"
+                              className="h-auto p-0 text-xs text-slate-700"
                               disabled={isApproved || landingFeeAircraftTypeOptions.length === 0}
                               onClick={() => setShowLandingFeeAircraftTypeEditor((prev) => !prev)}
                             >
@@ -2330,7 +2335,7 @@ export function BookingCheckinClient({
                               setLandingFeeAircraftTypeOverrideId(value === "auto" ? null : value)
                             }
                           >
-                            <SelectTrigger className="h-9 w-full sm:w-72">
+                            <SelectTrigger className="h-9 w-full border-slate-200 bg-white sm:w-72">
                               <SelectValue placeholder="Select aircraft type" />
                             </SelectTrigger>
                             <SelectContent>
@@ -2351,7 +2356,7 @@ export function BookingCheckinClient({
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-9 w-full sm:w-auto"
+                              className="h-9 w-full border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
                               disabled={isApproved}
                               onClick={() => setLandingFeeAircraftTypeOverrideId(null)}
                             >
@@ -2362,12 +2367,13 @@ export function BookingCheckinClient({
                       ) : null}
 
                       {activeScopedChargeables.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">{activeManualGroupConfig.emptyText}</p>
+                        <p className="text-sm text-slate-500">{activeManualGroupConfig.emptyText}</p>
                       ) : (
                         <div className="mt-3 space-y-1.5">
                           <div className="grid gap-2 sm:grid-cols-[minmax(0,420px)_90px_120px_auto] sm:items-end">
                             <div className="min-w-0 sm:max-w-[420px]">
                               <ChargeableSearchDropdown
+                                className="border-slate-200 bg-white"
                                 chargeables={activeScopedChargeables}
                                 value={activeQuickAddState.chargeableId}
                                 taxRate={taxRate}
@@ -2396,11 +2402,11 @@ export function BookingCheckinClient({
                                 updateQuickAdd(activeManualGroup, { quantity: event.target.value })
                               }
                               disabled={isApproved}
-                              className="h-10 w-full text-right tabular-nums"
+                              className="h-10 w-full border-slate-200 bg-white text-right tabular-nums"
                               aria-label={`${activeManualGroupConfig.title} quantity`}
                             />
                             <div className="relative w-full">
-                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                                 $
                               </span>
                               <Input
@@ -2413,7 +2419,7 @@ export function BookingCheckinClient({
                                   updateQuickAdd(activeManualGroup, { rateInclusive: event.target.value })
                                 }
                                 disabled={isApproved}
-                                className="h-10 pl-6 text-right tabular-nums"
+                                className="h-10 border-slate-200 bg-white pl-6 text-right tabular-nums"
                                 aria-label={`${activeManualGroupConfig.title} rate`}
                               />
                             </div>
@@ -2421,14 +2427,14 @@ export function BookingCheckinClient({
                               type="button"
                               onClick={() => addManualItemForGroup(activeManualGroup)}
                               disabled={!canAddGroupItem(activeManualGroup)}
-                              className="h-10 w-full sm:w-auto sm:justify-self-start"
+                              className="h-10 w-full bg-slate-900 font-semibold text-white hover:bg-slate-800 sm:w-auto sm:justify-self-start"
                             >
                               <IconPlus className="mr-1 h-4 w-4" />
                               Add
                             </Button>
                           </div>
                           {activeManualGroup === "landing_fees" && selectedActiveChargeable ? (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-slate-500">
                               {usesAircraftLandingRate
                                 ? `Rate from landing fee schedule for ${effectiveLandingFeeAircraftTypeName ?? "selected aircraft type"}.`
                                 : effectiveLandingFeeAircraftTypeId
@@ -2442,29 +2448,29 @@ export function BookingCheckinClient({
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
+                <div className="border-t border-slate-200 pt-4">
                   <div className="ml-auto max-w-xs space-y-1.5 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span className="tabular-nums">${invoiceBuilderTotals.subtotal.toFixed(2)}</span>
+                      <span className="text-slate-600">Subtotal</span>
+                      <span className="tabular-nums text-slate-900">${invoiceBuilderTotals.subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tax</span>
-                      <span className="tabular-nums">${invoiceBuilderTotals.taxTotal.toFixed(2)}</span>
+                      <span className="text-slate-600">Tax</span>
+                      <span className="tabular-nums text-slate-900">${invoiceBuilderTotals.taxTotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between border-t pt-1.5 text-base font-semibold">
+                    <div className="flex justify-between border-t border-slate-200 pt-1.5 text-base font-bold text-slate-900">
                       <span>Total</span>
                       <span className="tabular-nums">${invoiceBuilderTotals.totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end border-t pt-4">
+                <div className="flex justify-end border-t border-slate-200 pt-4">
                   <Button
                     type="button"
                     onClick={() => void approveDraft({ continueToDebrief: !skipDebrief })}
                     disabled={!canApprove}
-                    className="h-10 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
+                    className="h-10 bg-slate-900 px-6 text-sm font-semibold text-white hover:bg-slate-800"
                   >
                     {isApproving ? (
                       <>

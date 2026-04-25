@@ -29,7 +29,6 @@ const createSchema = z.strictObject({
   last_completed_date: z.string().nullable().optional(),
   last_completed_hours: z.number().nullable().optional(),
   status: z.enum(["active", "inactive", "removed"]).optional(),
-  priority: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 })
 
@@ -59,7 +58,6 @@ const updateSchema = z.strictObject({
   last_completed_date: z.string().nullable().optional(),
   last_completed_hours: z.number().nullable().optional(),
   status: z.enum(["active", "inactive", "removed"]).optional(),
-  priority: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   extension_limit_hours: z.number().nullable().optional(),
 })
@@ -146,7 +144,6 @@ export async function POST(request: NextRequest) {
       last_completed_date: payload.last_completed_date ?? null,
       last_completed_hours: payload.last_completed_hours ?? null,
       status: payload.status ?? "active",
-      priority: payload.priority ?? "MEDIUM",
       notes: payload.notes ?? null,
     })
     .select("*")

@@ -111,7 +111,7 @@ export function ResourceTimelineRowSurface({
         ref={containerRef}
         className={cn(
           "absolute inset-0 cursor-default",
-          isStriped ? "bg-slate-50/80" : "bg-white",
+          isStriped ? "bg-slate-100/55" : "bg-white/98",
           isActiveDragTarget ? (activeDragPreviewValid ? "bg-emerald-500/8" : "bg-destructive/8") : ""
         )}
         onMouseMove={(event) => {
@@ -146,16 +146,14 @@ export function ResourceTimelineRowSurface({
               <div
                 key={slot.toISOString()}
                 className={cn(
-                  "border-r border-border/50 transition-colors last:border-r-0",
+                  "border-r border-slate-200/30 transition-colors last:border-r-0",
                   isRosterAvailable
                     ? canCreateBooking
-                      ? "cursor-pointer bg-transparent hover:bg-sky-500/8"
+                      ? "cursor-pointer bg-transparent hover:bg-sky-500/10"
                       : "cursor-not-allowed bg-transparent"
                     : "cursor-not-allowed bg-slate-100/85",
-                  isHovered && canCreateBooking ? "bg-sky-100/80 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.18)]" : "",
-                  isHovered && !isRosterAvailable
-                    ? "bg-slate-300/70 shadow-[inset_0_0_0_1px_rgba(100,116,139,0.18)]"
-                    : ""
+                  isHovered && canCreateBooking ? "bg-sky-100/65" : "",
+                  isHovered && !isRosterAvailable ? "bg-slate-300/70" : ""
                 )}
               />
             )
@@ -172,11 +170,11 @@ export function ResourceTimelineRowSurface({
             <div
               ref={tooltipRef}
               className={cn(
-                "relative max-w-[calc(100vw-2rem)] whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium tabular-nums shadow-md ring-1 backdrop-blur",
+                "relative max-w-[calc(100vw-2rem)] whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium tabular-nums shadow-sm backdrop-blur",
                 "after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-[6px] after:border-transparent",
                 hoveredBookable
-                  ? "bg-slate-900/92 text-white ring-white/10 after:border-t-slate-900/92"
-                  : "bg-slate-700/92 text-white ring-white/10 after:border-t-slate-700/92"
+                  ? "bg-slate-900/92 text-white after:border-t-slate-900/92"
+                  : "bg-slate-700/92 text-white after:border-t-slate-700/92"
               )}
             >
               {hoveredBookable ? "Create booking from " : "Unavailable at "}

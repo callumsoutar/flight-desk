@@ -110,11 +110,11 @@ export default function InvoiceActionsToolbar({
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           {/* Invoice number */}
           {displayInvoiceNumber ? (
-            <h1 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg">
+            <h1 className="truncate text-base font-semibold leading-tight tracking-tight text-slate-900 sm:text-lg">
               {displayInvoiceNumber}
             </h1>
           ) : (
-            <h1 className="truncate text-base font-semibold leading-tight tracking-tight text-foreground sm:text-lg">
+            <h1 className="truncate text-base font-semibold leading-tight tracking-tight text-slate-900 sm:text-lg">
               New invoice
             </h1>
           )}
@@ -165,7 +165,7 @@ export default function InvoiceActionsToolbar({
                 onClick={onSave}
                 disabled={saveDisabled || saveLoading}
                 variant="outline"
-                className="h-8 sm:h-9"
+                className="h-8 border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 sm:h-9"
               >
                 {saveLoading ? "Saving…" : "Save Draft"}
               </Button>
@@ -176,7 +176,7 @@ export default function InvoiceActionsToolbar({
                 size="sm"
                 onClick={onApprove}
                 disabled={approveDisabled || approveLoading}
-                className="h-8 gap-1.5 sm:h-9"
+                className="h-8 gap-1.5 bg-slate-900 font-semibold text-white hover:bg-slate-800 sm:h-9"
               >
                 {approveLoading ? "Approving…" : (
                   <>
@@ -198,7 +198,7 @@ export default function InvoiceActionsToolbar({
                 onClick={onSave}
                 disabled={saveDisabled || saveLoading}
                 variant="outline"
-                className="h-8 gap-1.5 sm:h-9"
+                className="h-8 gap-1.5 border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 sm:h-9"
               >
                 {saveLoading ? "Saving…" : (
                   <>
@@ -214,7 +214,7 @@ export default function InvoiceActionsToolbar({
                 size="sm"
                 onClick={onApprove}
                 disabled={approveDisabled || approveLoading}
-                className="h-8 gap-1.5 sm:h-9"
+                className="h-8 gap-1.5 bg-slate-900 font-semibold text-white hover:bg-slate-800 sm:h-9"
               >
                 {approveLoading ? "Approving…" : (
                   <>

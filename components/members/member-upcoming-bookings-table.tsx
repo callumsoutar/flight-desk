@@ -19,6 +19,8 @@ import { formatDate, formatTime } from "@/lib/utils/date-format"
 
 export type MemberUpcomingBookingsTableProps = {
   memberId: string
+  /** Increment to refetch upcoming bookings (e.g. after creating a booking from the header). */
+  refreshSeq?: number
 }
 
 const FUTURE_STATUSES: BookingStatus[] = ["unconfirmed", "confirmed", "briefing", "flying"]
@@ -90,7 +92,7 @@ async function fetchMemberUpcomingBookings(memberId: string): Promise<BookingWit
   return (payload.bookings || []) as BookingWithRelations[]
 }
 
-export function MemberUpcomingBookingsTable({ memberId }: MemberUpcomingBookingsTableProps) {
+export function MemberUpcomingBookingsTable({ memberId, refreshSeq = 0 }: MemberUpcomingBookingsTableProps) {
   const { timeZone } = useTimezone()
   const [bookings, setBookings] = React.useState<BookingWithRelations[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
@@ -126,7 +128,7 @@ export function MemberUpcomingBookingsTable({ memberId }: MemberUpcomingBookings
     return () => {
       cancelled = true
     }
-  }, [memberId])
+  }, [memberId, refreshSeq])
 
   if (isLoading) {
     return (

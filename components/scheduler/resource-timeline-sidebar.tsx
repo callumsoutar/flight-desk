@@ -34,16 +34,21 @@ export function ResourceTimelineSidebar({
   renderAircraftWarning: (summary: SchedulerAircraftWarningSummary) => React.ReactNode
 }) {
   return (
-    <div className={cn("shrink-0 border-r border-border/70 bg-background", LEFT_COL_WIDTH)}>
-      <div className="sticky top-0 z-30 flex h-11 items-center border-b border-border/70 bg-background px-3 sm:h-12 sm:px-4">
+    <div
+      className={cn(
+        "shrink-0 border-r border-slate-200/70 bg-gradient-to-b from-slate-100/50 via-white to-slate-50/40",
+        LEFT_COL_WIDTH
+      )}
+    >
+      <div className="sticky top-0 z-30 flex h-11 items-center border-b border-slate-200/60 bg-gradient-to-b from-white to-slate-50/60 px-3 sm:h-12 sm:px-4">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Timeline</div>
-          <div className="text-sm font-semibold text-foreground">Resources</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Timeline</div>
+          <div className="text-sm font-semibold tracking-tight text-slate-900">Resources</div>
         </div>
       </div>
 
       <div
-        className="flex items-center border-b border-border/60 bg-slate-100 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:px-4"
+        className="flex items-center border-b border-slate-200/50 bg-gradient-to-r from-slate-200/30 via-slate-100/90 to-slate-200/30 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 sm:px-4"
         style={{ height: groupHeight }}
       >
         Instructors
@@ -52,9 +57,9 @@ export function ResourceTimelineSidebar({
         <div
           key={inst.id}
           className={cn(
-            "flex cursor-pointer items-center border-b border-border/50 px-3 transition-colors sm:px-4",
-            index % 2 === 1 ? "bg-slate-50/80" : "bg-white",
-            "hover:bg-slate-100/80"
+            "flex cursor-pointer items-center border-b border-slate-200/40 px-3 transition-colors sm:px-4",
+            index % 2 === 1 ? "bg-slate-100/50" : "bg-white/90",
+            "hover:bg-slate-100/90"
           )}
           style={{ height: rowHeight }}
           role="button"
@@ -66,7 +71,7 @@ export function ResourceTimelineSidebar({
             onSelectInstructor(inst.id)
           }}
         >
-          <div className="min-w-0 truncate text-[13px] font-medium leading-tight text-slate-900 sm:text-sm">
+          <div className="min-w-0 truncate text-[13px] font-semibold leading-tight text-slate-900 sm:text-sm">
             {inst.endorsements.length > 0 ? (
               <>
                 {inst.name}{" "}
@@ -82,7 +87,7 @@ export function ResourceTimelineSidebar({
       ))}
 
       <div
-        className="flex items-center border-b border-border/60 bg-slate-100 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:px-4"
+        className="flex items-center border-b border-slate-200/50 bg-gradient-to-r from-slate-200/30 via-slate-100/90 to-slate-200/30 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 sm:px-4"
         style={{ height: groupHeight }}
       >
         Aircraft
@@ -91,9 +96,9 @@ export function ResourceTimelineSidebar({
         <div
           key={ac.id}
           className={cn(
-            "flex cursor-pointer items-center border-b border-border/50 px-3 transition-colors sm:px-4",
-            index % 2 === 1 ? "bg-slate-50/80" : "bg-white",
-            "hover:bg-slate-100/80"
+            "flex cursor-pointer items-center border-b border-slate-200/40 px-3 transition-colors sm:px-4",
+            index % 2 === 1 ? "bg-slate-100/50" : "bg-white/90",
+            "hover:bg-slate-100/90"
           )}
           style={{ height: rowHeight }}
           role="button"
@@ -106,7 +111,7 @@ export function ResourceTimelineSidebar({
           }}
         >
           <div className="flex min-w-0 items-center gap-2">
-            <div className="min-w-0 truncate text-[13px] font-medium leading-tight text-slate-900 sm:text-sm">
+            <div className="min-w-0 truncate text-[13px] font-semibold leading-tight text-slate-900 sm:text-sm">
               {ac.registration}{" "}
               <span className="font-medium text-slate-500">({ac.type})</span>
             </div>

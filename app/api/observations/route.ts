@@ -132,16 +132,32 @@ export async function PATCH(request: NextRequest) {
   if (payload.name !== undefined) updateData.name = payload.name
   if (payload.description !== undefined) updateData.description = payload.description || null
   if (payload.priority !== undefined) updateData.priority = payload.priority
-  if (payload.stage !== undefined) updateData.stage = payload.stage
   if (payload.resolution_comments !== undefined) {
     updateData.resolution_comments = payload.resolution_comments || null
   }
 
-  if (payload.resolved_at !== undefined) {
-    updateData.resolved_at = payload.resolved_at
-  } else if (payload.stage !== undefined) {
-    updateData.resolved_at = payload.stage === "closed" ? new Date().toISOString() : null
+  // `stage` is the canonical lifecycle field; `resolved_at` stays in sync for audit/history.
+  let mergedStage = payload.stage
+  let mergedResolvedAt = payload.resolved_at
+
+  if (mergedStage === undefined && mergedResolvedAt !== undefined && mergedResolvedAt) {
+    mergedStage = "closed"
   }
+
+  if (mergedStage === "closed" && mergedResolvedAt === undefined) {
+    mergedResolvedAt = new Date().toISOString()
+  }
+
+  if (mergedStage !== undefined && mergedStage !== "closed" && mergedResolvedAt === undefined) {
+    mergedResolvedAt = null
+  }
+
+  if (mergedResolvedAt !== undefined && mergedResolvedAt && mergedStage === undefined) {
+    mergedStage = "closed"
+  }
+
+  if (mergedStage !== undefined) updateData.stage = mergedStage
+  if (mergedResolvedAt !== undefined) updateData.resolved_at = mergedResolvedAt
 
   if (!Object.keys(updateData).length) {
     return noStoreJson({ error: "No fields to update" }, { status: 400 })

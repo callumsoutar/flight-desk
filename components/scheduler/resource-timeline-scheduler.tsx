@@ -467,7 +467,7 @@ function AircraftWarningTooltip({ summary }: { summary: SchedulerAircraftWarning
         align={isMobile ? "center" : "start"}
         sideOffset={isMobile ? 16 : 10}
         className={cn(
-          "overflow-hidden rounded-xl border border-slate-200 bg-white p-0 shadow-xl",
+          "overflow-hidden rounded-md border border-slate-200 bg-white p-0 shadow-sm",
           isMobile ? "w-[min(360px,100vw-24px)] max-w-[100vw-24px]" : "w-[320px]"
         )}
       >
@@ -1406,10 +1406,10 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
           <div
             key={slot.toISOString()}
             className={cn(
-              "flex items-center justify-center border-r border-border/60 px-0.5 text-[9px] text-slate-500 last:border-r-0 sm:px-1 sm:text-[10px]"
+              "flex items-center justify-center border-r border-slate-200/45 px-0.5 text-[10px] last:border-r-0 sm:px-1 sm:text-[11px]"
             )}
           >
-            <div className="select-none whitespace-nowrap px-1 py-1 font-medium tabular-nums text-slate-500">
+            <div className="select-none whitespace-nowrap px-1 py-1 font-semibold tabular-nums text-slate-600">
               {formatTimeLabel(slot, data.timeZone)}
             </div>
           </div>
@@ -1560,7 +1560,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <ResourceTimelineToolbar
         selectedDateLabel={selectedDateKey ? formatDateKeyLabel(selectedDateKey) : "Loading..."}
         selectedDate={selectedDate ?? undefined}
@@ -1574,14 +1574,14 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         calendarDisabled={isStaff ? undefined : calendarDisabledPastDays}
       />
 
-      <div className="overflow-hidden rounded-md border border-border/70 bg-background shadow-sm">
+      <div className="overflow-hidden rounded-md border border-slate-200/80 bg-white">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-32">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Loading scheduler data...</p>
           </div>
         ) : (
-          <div className="flex bg-background">
+          <div className="flex bg-gradient-to-b from-slate-50/90 via-white to-slate-50/30">
             <ResourceTimelineSidebar
               rowHeight={ROW_HEIGHT}
               groupHeight={GROUP_HEIGHT}

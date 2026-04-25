@@ -47,7 +47,6 @@ interface ComponentEditModalProps {
   onChanged?: () => void
 }
 
-const PRIORITY_OPTIONS = ["LOW", "MEDIUM", "HIGH"]
 const STATUS_OPTIONS: ComponentStatus[] = ["active", "inactive", "removed"]
 const COMPONENT_TYPE_OPTIONS: ComponentType[] = [
   "battery",
@@ -104,7 +103,6 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
   const [lastCompletedDate, setLastCompletedDate] = useState<Date | null>(null)
   const [lastCompletedHours, setLastCompletedHours] = useState("")
   const [status, setStatus] = useState<ComponentStatus>("active")
-  const [priority, setPriority] = useState<string | null>("MEDIUM")
   const [notes, setNotes] = useState<string>("")
   const [loadingExtend, setLoadingExtend] = useState(false)
   const [revertLoading, setRevertLoading] = useState(false)
@@ -139,7 +137,6 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
           : ""
       )
       setStatus(component.status || "active")
-      setPriority(component.priority || "MEDIUM")
       setNotes(component.notes || "")
       setShowRevertConfirm(false)
     }
@@ -184,7 +181,6 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
       last_completed_date: toYyyyMmDd(lastCompletedDate),
       last_completed_hours: parsedLastCompletedHours,
       status,
-      priority,
       notes,
     }
     try {
@@ -530,47 +526,27 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
               <section>
                 <div className="mb-3 flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span className="text-xs font-semibold tracking-tight text-slate-900">Status & Priority</span>
+                  <span className="text-xs font-semibold tracking-tight text-slate-900">Status</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Status <span className="text-destructive">*</span>
-                    </label>
-                    <Select value={status} onValueChange={(v) => setStatus(v as ComponentStatus)}>
-                      <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                        <div className="flex items-center gap-2">
-                          <Settings className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <SelectValue placeholder="Select status" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                        {STATUS_OPTIONS.map((statusOption) => (
-                          <SelectItem key={statusOption} value={statusOption} className="rounded-lg py-2 text-base">
-                            {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Priority</label>
-                    <Select value={priority || ""} onValueChange={(v) => setPriority(v)}>
-                      <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
-                        <div className="flex items-center gap-2">
-                          <Tag className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <SelectValue placeholder="Select priority" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-slate-200 shadow-xl">
-                        {PRIORITY_OPTIONS.map((p) => (
-                          <SelectItem key={p} value={p} className="rounded-lg py-2 text-base">
-                            {p.charAt(0) + p.slice(1).toLowerCase()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Status <span className="text-destructive">*</span>
+                  </label>
+                  <Select value={status} onValueChange={(v) => setStatus(v as ComponentStatus)}>
+                    <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <SelectValue placeholder="Select status" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                      {STATUS_OPTIONS.map((statusOption) => (
+                        <SelectItem key={statusOption} value={statusOption} className="rounded-lg py-2 text-base">
+                          {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </section>
 

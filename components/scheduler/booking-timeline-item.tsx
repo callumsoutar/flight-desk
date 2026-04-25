@@ -191,8 +191,8 @@ export function BookingTimelineItem({
           <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[105%]">
             <div
               className={cn(
-                "rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-md ring-1 backdrop-blur",
-                previewValid ? "bg-slate-900/90 text-white ring-white/20" : "bg-destructive/90 text-white ring-white/20"
+                "rounded-md px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-sm backdrop-blur",
+                previewValid ? "bg-slate-900/90 text-white" : "bg-destructive/90 text-white"
               )}
             >
               {previewValid ? "New time " : "Unavailable "}
@@ -244,9 +244,8 @@ export function BookingTimelineItem({
                 onBookingClick()
               }}
               className={cn(
-                "group relative h-full w-full overflow-hidden rounded-md border px-2.5 py-1.5 text-left shadow-sm transition-all",
-                interactive ? "focus:ring-2 focus:ring-sky-500/35 focus:outline-none" : "focus:outline-none",
-                booking.canOpen || canDragThisBooking ? "hover:shadow-md" : "hover:shadow-sm",
+                "group relative h-full w-full overflow-hidden rounded-md border px-2.5 py-1.5 text-left transition-colors",
+                interactive ? "focus:ring-2 focus:ring-sky-500/30 focus:outline-none" : "focus:outline-none",
                 booking.bookingType === "maintenance"
                   ? "border-slate-400 bg-slate-200"
                   : statusPillClasses(booking.status),
@@ -257,13 +256,13 @@ export function BookingTimelineItem({
                     : "cursor-default",
                 isPreview
                   ? previewValid
-                    ? "cursor-grabbing border-emerald-300 ring-2 ring-emerald-300/70 shadow-lg"
-                    : "cursor-not-allowed border-destructive/70 opacity-70 ring-2 ring-destructive/60"
+                    ? "cursor-grabbing border-2 border-emerald-500/80"
+                    : "cursor-not-allowed border-2 border-destructive/60 opacity-70"
                   : ""
               )}
             >
               <span
-                className="pointer-events-none absolute right-2.5 top-1.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm bg-white text-slate-600 shadow-sm ring-1 ring-black/5"
+                className="pointer-events-none absolute right-2.5 top-1.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm border border-slate-200/80 bg-white text-slate-600"
                 aria-label={bookingTypeIndicator.label}
                 title={bookingTypeIndicator.label}
               >
@@ -312,10 +311,10 @@ export function BookingTimelineItem({
                 </span>
               ) : null}
               <div className="flex h-full min-w-0 flex-col justify-center">
-                <div className="truncate pr-7 text-[11px] font-semibold leading-[1.15] text-slate-900 sm:text-xs">
+                <div className="truncate pr-7 text-[11px] font-semibold leading-[1.15] text-slate-900 sm:text-[13px]">
                   {booking.primaryLabel}
                 </div>
-                <div className="mt-0.5 truncate pr-7 text-[10px] font-semibold leading-[1.1] text-slate-700">
+                <div className="mt-0.5 truncate pr-7 text-[10px] font-medium leading-[1.1] text-slate-700 sm:text-xs">
                   {isPreview && previewTimeLabel ? previewTimeLabel : range}
                 </div>
               </div>
@@ -331,7 +330,7 @@ export function BookingTimelineItem({
               variant="card"
               side="top"
               sideOffset={8}
-              className="relative w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-border/60 bg-background p-0 shadow-xl"
+              className="relative w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-md border border-border/60 bg-background p-0 shadow-sm"
             >
               <div
                 aria-hidden

@@ -38,8 +38,6 @@ type PaymentMethod =
   | "credit_card"
   | "debit_card"
   | "bank_transfer"
-  | "check"
-  | "online_payment"
   | "other"
 
 const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: React.ElementType }> = [
@@ -47,8 +45,6 @@ const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: React.E
   { value: "credit_card", label: "Credit Card", icon: CreditCard },
   { value: "debit_card", label: "Debit Card", icon: CreditCard },
   { value: "bank_transfer", label: "Bank Transfer", icon: Landmark },
-  { value: "check", label: "Check", icon: Receipt },
-  { value: "online_payment", label: "Online Payment", icon: Wallet },
   { value: "other", label: "Other", icon: Wallet },
 ]
 
@@ -237,7 +233,7 @@ export default function RecordPaymentModal({
           ) : (
             <form onSubmit={onSubmit} className="flex-1 overflow-y-auto">
               <div className="space-y-4 px-5 py-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_3fr]">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[2fr_3fr]">
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium text-muted-foreground">
@@ -268,7 +264,7 @@ export default function RecordPaymentModal({
                           const numeric = Number.parseFloat(value)
                           setAmount(Number.isFinite(numeric) ? numeric : 0)
                         }}
-                        className="h-10 pl-8 text-sm"
+                        className="h-10 pl-8 text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         required
                         disabled={loading}
                       />
@@ -323,7 +319,7 @@ export default function RecordPaymentModal({
                           <div className="relative">
                             <Receipt className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
-                              placeholder="Transaction ID or check #"
+                              placeholder="Transaction ID or reference"
                               value={reference}
                               onChange={(event) => setReference(event.target.value)}
                               disabled={loading}

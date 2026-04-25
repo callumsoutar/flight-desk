@@ -304,9 +304,9 @@ export function InvoiceCreateClient({
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-muted/20">
-      <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
-        <div className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 sm:py-3.5 lg:-mx-10 lg:px-10">
+    <div className="flex flex-1 flex-col">
+      <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 md:py-6 lg:px-6">
+        <div className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:-mx-6 sm:px-6 sm:py-3.5 lg:-mx-6 lg:px-6">
           <InvoiceActionsToolbar
             mode="new"
             member={selectedMember}
@@ -321,19 +321,19 @@ export function InvoiceCreateClient({
         </div>
 
         <div className="mt-6 space-y-6">
-          <Card className="shadow-sm ring-1 ring-border/40">
+          <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="space-y-4 p-6">
               <div>
-                <div className="text-sm font-medium text-foreground/80">Invoice</div>
-                <div className="mt-1 text-2xl font-semibold tracking-tight">New invoice</div>
-                <div className="mt-1 text-sm text-muted-foreground">
+                <div className="text-sm font-medium text-slate-500">Invoice</div>
+                <div className="mt-1 text-3xl font-bold tracking-tight text-slate-900">New invoice</div>
+                <div className="mt-1 text-sm text-slate-600">
                   Create a draft invoice, then approve when ready.
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground/80">Bill to</label>
+                  <label className="text-sm font-semibold text-slate-700">Bill to</label>
                   <MemberSelect
                     members={members}
                     value={selectedMember}
@@ -343,65 +343,68 @@ export function InvoiceCreateClient({
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground/80">Reference</label>
+                  <label className="text-sm font-semibold text-slate-700">Reference</label>
                   <Input
                     value={reference}
                     onChange={(event) => setReference(event.target.value)}
                     placeholder="Optional reference"
                     disabled={isPending}
+                    className="border-slate-200 bg-white"
                   />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground/80">Issue date</label>
+                  <label className="text-sm font-semibold text-slate-700">Issue date</label>
                   <Input
                     type="date"
                     value={issueDate}
                     onChange={(event) => setIssueDate(event.target.value)}
                     disabled={isPending}
+                    className="border-slate-200 bg-white"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground/80">Due date</label>
+                  <label className="text-sm font-semibold text-slate-700">Due date</label>
                   <Input
                     type="date"
                     value={dueDate}
                     onChange={(event) => setDueDate(event.target.value)}
                     disabled={isPending}
+                    className="border-slate-200 bg-white"
                   />
                 </div>
               </div>
             </div>
           </Card>
 
-          <Card className="shadow-sm ring-1 ring-border/40">
+          <Card className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="space-y-5 p-6">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-base font-semibold">Line items</div>
-                <div className="text-xs text-muted-foreground tabular-nums">
+                <div className="text-base font-bold text-slate-900">Line items</div>
+                <div className="text-xs text-slate-500 tabular-nums">
                   {previewRows.length} {previewRows.length === 1 ? "item" : "items"}
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-border/70 bg-background shadow-sm">
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/35 hover:bg-muted/35">
-                      <TableHead className="h-10 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <TableRow className="border-slate-200 bg-slate-50/50 hover:bg-slate-50/50">
+                      <TableHead className="h-10 text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Item
                       </TableHead>
-                      <TableHead className="h-10 w-[110px] text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <TableHead className="h-10 w-[110px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Qty
                       </TableHead>
-                      <TableHead className="h-10 w-[150px] text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <TableHead className="h-10 w-[150px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Rate (incl.)
                       </TableHead>
-                      <TableHead className="h-10 w-[140px] text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <TableHead className="h-10 w-[140px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Tax
                       </TableHead>
-                      <TableHead className="h-10 w-[150px] text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <TableHead className="h-10 w-[150px] text-right text-xs font-semibold uppercase tracking-wide text-slate-600">
                         Amount
                       </TableHead>
                       <TableHead className="w-[80px]" />
@@ -410,13 +413,13 @@ export function InvoiceCreateClient({
                   <TableBody>
                     {previewRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={6} className="py-10 text-center text-sm font-medium text-slate-500">
                           No line items yet.
                         </TableCell>
                       </TableRow>
                     ) : (
                       previewRows.map((row) => (
-                        <TableRow key={row.id} className="hover:bg-muted/20">
+                        <TableRow key={row.id} className="hover:bg-slate-50/50">
                           <TableCell>
                             <div className="font-medium">{row.chargeable?.name ?? "Unknown item"}</div>
                           </TableCell>
@@ -432,7 +435,7 @@ export function InvoiceCreateClient({
                                     setEditQuantity(roundToTwoDecimals(Number(event.target.value) || 0))
                                   }
                                   disabled={isPending}
-                                  className="h-8 border-border/60 bg-muted/20 text-right font-medium tabular-nums shadow-none focus-visible:ring-1"
+                                  className="h-8 border-slate-200 bg-white text-right font-medium tabular-nums shadow-none focus-visible:ring-1"
                                 />
                               </div>
                             ) : (
@@ -442,7 +445,7 @@ export function InvoiceCreateClient({
                           <TableCell className="text-right">
                             {editingItemId === row.id ? (
                               <div className="relative ml-auto w-[126px]">
-                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                                   $
                                 </span>
                                 <Input
@@ -454,7 +457,7 @@ export function InvoiceCreateClient({
                                     setEditRateInclusive(roundToTwoDecimals(Number(event.target.value) || 0))
                                   }
                                   disabled={isPending}
-                                  className="h-8 border-border/60 bg-muted/20 pl-6 text-right font-medium tabular-nums shadow-none focus-visible:ring-1"
+                                  className="h-8 border-slate-200 bg-white pl-6 text-right font-medium tabular-nums shadow-none focus-visible:ring-1"
                                 />
                               </div>
                             ) : (
@@ -524,19 +527,20 @@ export function InvoiceCreateClient({
                   </TableBody>
                 </Table>
 
-                <div className="border-t bg-muted/[0.08] px-3 py-3 sm:px-4 sm:py-4">
+                <div className="border-t border-slate-200 bg-slate-50/50 px-3 py-3 sm:px-4 sm:py-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                       Add line item
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-slate-500">
                       Select a chargeable, then set qty and inclusive rate
                     </span>
                   </div>
                   <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_110px_140px_auto]">
                     <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-muted-foreground">Chargeable</label>
+                      <label className="text-xs font-medium text-slate-600">Chargeable</label>
                       <ChargeableSearchDropdown
+                        className="border-slate-200 bg-white"
                         chargeables={chargeables}
                         value={newChargeableId}
                         taxRate={defaultTaxRate}
@@ -549,7 +553,7 @@ export function InvoiceCreateClient({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-muted-foreground">Qty</label>
+                      <label className="text-xs font-medium text-slate-600">Qty</label>
                       <Input
                         type="number"
                         min={0.01}
@@ -558,11 +562,11 @@ export function InvoiceCreateClient({
                         onChange={(event) => setNewQuantity(Number(event.target.value) || 0)}
                         placeholder="Qty"
                         disabled={isPending}
-                        className="h-10 text-right tabular-nums"
+                        className="h-10 border-slate-200 bg-white text-right tabular-nums"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-muted-foreground">Rate (incl.)</label>
+                      <label className="text-xs font-medium text-slate-600">Rate (incl.)</label>
                       <div className="relative">
                         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                           $
@@ -575,13 +579,18 @@ export function InvoiceCreateClient({
                           onChange={(event) => setNewRateInclusive(Number(event.target.value) || 0)}
                           placeholder="Rate (incl.)"
                           disabled={isPending}
-                          className="h-10 pl-6 text-right tabular-nums"
+                          className="h-10 border-slate-200 bg-white pl-6 text-right tabular-nums"
                         />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-transparent">Add</label>
-                      <Button type="button" onClick={addLineItem} disabled={!canAddLineItem} className="h-10 w-full">
+                      <label className="text-xs font-medium text-transparent">Add</label>
+                      <Button
+                        type="button"
+                        onClick={addLineItem}
+                        disabled={!canAddLineItem}
+                        className="h-10 w-full bg-slate-900 font-semibold text-white hover:bg-slate-800"
+                      >
                         <Plus className="mr-1 h-4 w-4" />
                         Add item
                       </Button>
@@ -592,14 +601,14 @@ export function InvoiceCreateClient({
 
               <div className="ml-auto w-full max-w-sm space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Subtotal (excl. tax)</span>
-                  <span className="tabular-nums">${totals.subtotal.toFixed(2)}</span>
+                  <span className="text-slate-600">Subtotal (excl. tax)</span>
+                  <span className="tabular-nums text-slate-900">${totals.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="tabular-nums">${totals.taxTotal.toFixed(2)}</span>
+                  <span className="text-slate-600">Tax</span>
+                  <span className="tabular-nums text-slate-900">${totals.taxTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
+                <div className="flex items-center justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
                   <span>Total</span>
                   <span className="tabular-nums">${totals.totalAmount.toFixed(2)}</span>
                 </div>

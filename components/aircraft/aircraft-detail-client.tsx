@@ -145,7 +145,7 @@ export function AircraftDetailClient({
   const availableForBookings = aircraft.on_line ?? true
   const totalHours = aircraft.total_time_in_service || 0
 
-  const activeObservations = observations.filter((o) => !o.resolved_at).length
+  const activeObservations = observations.filter((o) => o.stage !== "closed").length
   const overdueComponents = components.filter((c) => {
     if (!c.current_due_date && !c.current_due_hours) return false
     if (c.current_due_date) {

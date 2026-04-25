@@ -18,6 +18,8 @@ interface ChargeableSearchDropdownProps {
   resolveInclusiveRate?: (chargeable: InvoiceCreateChargeable) => number | null
   disabled?: boolean
   placeholder?: string
+  /** Merged into the combobox trigger (e.g. border/surface to match form styling). */
+  className?: string
 }
 
 export default function ChargeableSearchDropdown({
@@ -28,6 +30,7 @@ export default function ChargeableSearchDropdown({
   resolveInclusiveRate,
   disabled = false,
   placeholder = "Select item...",
+  className: triggerClassName,
 }: ChargeableSearchDropdownProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
@@ -80,7 +83,8 @@ export default function ChargeableSearchDropdown({
           disabled={disabled}
           className={cn(
             "h-10 w-full justify-between px-3 font-normal",
-            !selectedChargeable && "text-muted-foreground"
+            !selectedChargeable && "text-muted-foreground",
+            triggerClassName
           )}
         >
           <span className="truncate">{selectedChargeable?.name ?? placeholder}</span>

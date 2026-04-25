@@ -16,8 +16,6 @@ const paymentMethodSchema = z.enum([
   "credit_card",
   "debit_card",
   "bank_transfer",
-  "check",
-  "online_payment",
   "other",
 ])
 

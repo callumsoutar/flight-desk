@@ -150,8 +150,6 @@ export const publicPaymentMethodSchema = z.union([
   z.literal("credit_card"),
   z.literal("debit_card"),
   z.literal("bank_transfer"),
-  z.literal("check"),
-  z.literal("online_payment"),
   z.literal("other"),
 ]);
 
@@ -474,7 +472,6 @@ export const publicAircraftComponentsRowSchema = z.object({
   last_completed_hours: z.number().nullable(),
   name: z.string(),
   notes: z.string().nullable(),
-  priority: z.string().nullable(),
   status: publicComponentStatusEnumSchema,
   tenant_id: z.string(),
   updated_at: z.string(),
@@ -497,7 +494,6 @@ export const publicAircraftComponentsInsertSchema = z.object({
   last_completed_hours: z.number().optional().nullable(),
   name: z.string(),
   notes: z.string().optional().nullable(),
-  priority: z.string().optional().nullable(),
   status: publicComponentStatusEnumSchema.optional(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
@@ -520,7 +516,6 @@ export const publicAircraftComponentsUpdateSchema = z.object({
   last_completed_hours: z.number().optional().nullable(),
   name: z.string().optional(),
   notes: z.string().optional().nullable(),
-  priority: z.string().optional().nullable(),
   status: publicComponentStatusEnumSchema.optional(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),

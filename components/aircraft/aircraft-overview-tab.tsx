@@ -51,7 +51,7 @@ export function AircraftOverviewTab({
   const currentHobbs = aircraft.current_hobbs || 0
   const currentTach = aircraft.current_tach || 0
   const recentFlights = flights.slice(0, 5)
-  const recentObservations = observations.filter((o) => !o.resolved_at).slice(0, 3)
+  const recentObservations = observations.filter((o) => o.stage !== "closed").slice(0, 3)
 
   const lastFlight = flights[0]
   const hoursSinceLastFlight = lastFlight?.created_at

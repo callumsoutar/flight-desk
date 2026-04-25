@@ -16,12 +16,16 @@ import {
   IconReceipt,
   IconUser,
   IconUsers,
+  IconCurrencyDollar,
 } from "@tabler/icons-react"
-import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
 
 import dynamic from "next/dynamic"
 
 import { MemberContactDetails } from "@/components/members/member-contact-details"
+import { useAuth } from "@/contexts/auth-context"
+import type { UserResult } from "@/components/invoices/member-select"
+import type { SchedulerBookingDraft } from "@/components/scheduler/new-booking-modal"
 
 const MemberAccountAccessTab = dynamic(
   () => import("@/components/members/member-account-access-tab").then((mod) => mod.MemberAccountAccessTab),
@@ -49,6 +53,14 @@ const MemberTrainingTab = dynamic(
 )
 const MemberUpcomingBookingsTable = dynamic(
   () => import("@/components/members/member-upcoming-bookings-table").then((mod) => mod.MemberUpcomingBookingsTable),
+  { ssr: false }
+)
+const RecordMemberCreditModal = dynamic(
+  () => import("@/components/invoices/record-member-credit-modal"),
+  { ssr: false }
+)
+const NewBookingModal = dynamic(
+  () => import("@/components/scheduler/new-booking-modal").then((mod) => mod.NewBookingModal),
   { ssr: false }
 )
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -83,7 +95,13 @@ import type {
   MembershipTypeWithChargeable,
 } from "@/lib/types/memberships"
 import { useTimezone } from "@/contexts/timezone-context"
+import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import { formatDate } from "@/lib/utils/date-format"
+import {
+  getMemberDetailHeaderSubtitle,
+  getMemberPersonType,
+  isTenantMembershipActive,
+} from "@/lib/members/member-person-type"
 
 export function MemberDetailClient({
   member,
@@ -105,9 +123,18 @@ export function MemberDetailClient({
   membershipYear: MembershipYearSettings | null
 }) {
   const { timeZone } = useTimezone()
+  const { role, user } = useAuth()
+  const queryClient = useQueryClient()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const canRecordMemberPayment = role === "owner" || role === "admin" || role === "instructor"
+  const isStaff = role === "owner" || role === "admin" || role === "instructor"
   const [currentMember, setCurrentMember] = React.useState(member)
+  const [receivePaymentOpen, setReceivePaymentOpen] = React.useState(false)
+  const [newBookingOpen, setNewBookingOpen] = React.useState(false)
+  const [newBookingDraft, setNewBookingDraft] = React.useState<SchedulerBookingDraft | null>(null)
+  const [upcomingBookingsRefreshSeq, setUpcomingBookingsRefreshSeq] = React.useState(0)
+  const newBookingOpenTimerRef = React.useRef<number | null>(null)
   const [currentUserEndorsements, setCurrentUserEndorsements] = React.useState(
     initialUserEndorsements
   )
@@ -209,10 +236,38 @@ export function MemberDetailClient({
     [firstName, lastName].filter(Boolean).join(" ") ||
     currentMember.user?.email ||
     "Unknown Member"
-  const isActive = currentMember.is_active
+  const isTenantUserActive = currentMember.is_active
+  const hasActiveMembership = isTenantMembershipActive(currentMember.membership, timeZone)
+  const personType = getMemberPersonType({
+    roleName: currentMember.role?.name ?? null,
+    hasInstructor: Boolean(currentMember.instructor),
+    hasActiveMembership,
+  })
+  const membershipStartDateLabel =
+    personType === "member" && currentMember.membership?.start_date
+      ? formatDate(currentMember.membership.start_date, timeZone)
+      : null
+  const headerSubtitle = getMemberDetailHeaderSubtitle(personType, {
+    membershipStartDateLabel,
+  })
   const membershipStartDate = currentMember.membership?.start_date
     ? formatDate(currentMember.membership.start_date, timeZone)
     : null
+
+  const memberForPayment = React.useMemo<UserResult>(
+    () => ({
+      id: currentMember.user_id,
+      first_name: currentMember.user?.first_name ?? null,
+      last_name: currentMember.user?.last_name ?? null,
+      email: currentMember.user?.email ?? "",
+    }),
+    [
+      currentMember.user_id,
+      currentMember.user?.first_name,
+      currentMember.user?.last_name,
+      currentMember.user?.email,
+    ]
+  )
 
   const tabItems = React.useMemo(
     () => [
@@ -238,9 +293,37 @@ export function MemberDetailClient({
     setActiveTab(requested)
   }, [searchParams, tabItems])
 
-  const onNewBooking = () => {
-    toast.info("Booking flow will be wired next.")
-  }
+  const openNewBookingModal = React.useCallback(() => {
+    const dateYyyyMmDd = zonedTodayYyyyMmDd(timeZone)
+    setNewBookingDraft({
+      dateYyyyMmDd,
+      startTimeHHmm: "08:00",
+      endTimeHHmm: "10:00",
+      preselectedInstructorId: null,
+      preselectedAircraftId: null,
+      preselectedMemberId: currentMember.user_id,
+    })
+    if (newBookingOpenTimerRef.current !== null) {
+      window.clearTimeout(newBookingOpenTimerRef.current)
+    }
+    newBookingOpenTimerRef.current = window.setTimeout(() => {
+      setNewBookingOpen(true)
+      newBookingOpenTimerRef.current = null
+    }, 0)
+  }, [timeZone, currentMember.user_id])
+
+  const handleBookingCreated = React.useCallback(() => {
+    setUpcomingBookingsRefreshSeq((n) => n + 1)
+    router.refresh()
+  }, [router])
+
+  React.useEffect(() => {
+    return () => {
+      if (newBookingOpenTimerRef.current !== null) {
+        window.clearTimeout(newBookingOpenTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="w-full">
@@ -265,7 +348,7 @@ export function MemberDetailClient({
                 <span
                   aria-hidden
                   className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card ${
-                    isActive ? "bg-emerald-500" : "bg-muted-foreground/40"
+                    isTenantUserActive ? "bg-emerald-500" : "bg-muted-foreground/40"
                   }`}
                 />
               </div>
@@ -273,11 +356,7 @@ export function MemberDetailClient({
                 <h1 className="truncate text-[22px] font-semibold leading-tight tracking-tight text-foreground">
                   {fullName}
                 </h1>
-                <p className="truncate text-sm text-muted-foreground">
-                  {membershipStartDate
-                    ? `Member since ${membershipStartDate}`
-                    : "Member"}
-                </p>
+                <p className="truncate text-sm text-muted-foreground">{headerSubtitle}</p>
               </div>
             </div>
 
@@ -290,7 +369,7 @@ export function MemberDetailClient({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={onNewBooking}>
+                  <DropdownMenuItem onClick={openNewBookingModal}>
                     <IconCalendar className="mr-2 h-4 w-4" />
                     New Booking
                   </DropdownMenuItem>
@@ -302,9 +381,15 @@ export function MemberDetailClient({
                     <IconReceipt className="mr-2 h-4 w-4" />
                     New Invoice
                   </DropdownMenuItem>
+                  {canRecordMemberPayment ? (
+                    <DropdownMenuItem onClick={() => setReceivePaymentOpen(true)}>
+                      <IconCurrencyDollar className="mr-2 h-4 w-4" />
+                      Receive payment
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button size="sm" className="h-8" onClick={onNewBooking}>
+              <Button size="sm" className="h-8" onClick={openNewBookingModal}>
                 <IconCalendar className="mr-1.5 h-4 w-4" />
                 New Booking
               </Button>
@@ -348,10 +433,10 @@ export function MemberDetailClient({
               <span
                 aria-hidden
                 className={`h-1.5 w-1.5 rounded-full ${
-                  isActive ? "bg-emerald-500" : "bg-muted-foreground/40"
+                  isTenantUserActive ? "bg-emerald-500" : "bg-muted-foreground/40"
                 }`}
               />
-              {isActive ? "Active" : "Inactive"}
+              {isTenantUserActive ? "Active" : "Inactive"}
             </Badge>
           </div>
         </CardContent>
@@ -538,10 +623,17 @@ export function MemberDetailClient({
                 />
               </Tabs.Content>
               <Tabs.Content value="finances">
-                <MemberFinances memberId={currentMember.user_id} />
+                <MemberFinances
+                  memberId={currentMember.user_id}
+                  canRecordMemberPayment={canRecordMemberPayment}
+                  onReceivePaymentClick={() => setReceivePaymentOpen(true)}
+                />
               </Tabs.Content>
               <Tabs.Content value="flights">
-                <MemberUpcomingBookingsTable memberId={currentMember.user_id} />
+                <MemberUpcomingBookingsTable
+                  memberId={currentMember.user_id}
+                  refreshSeq={upcomingBookingsRefreshSeq}
+                />
               </Tabs.Content>
               <Tabs.Content value="logbook">
                 <MemberFlightHistoryTab memberId={currentMember.user_id} />
@@ -577,6 +669,33 @@ export function MemberDetailClient({
           saveLabel="Save Changes"
         />
       ) : null}
+
+      {canRecordMemberPayment ? (
+        <RecordMemberCreditModal
+          open={receivePaymentOpen}
+          onOpenChange={setReceivePaymentOpen}
+          members={[memberForPayment]}
+          initialMember={memberForPayment}
+          onSuccess={async () => {
+            await queryClient.invalidateQueries({
+              queryKey: ["account-statement", memberForPayment.id],
+            })
+          }}
+        />
+      ) : null}
+
+      <NewBookingModal
+        open={newBookingOpen}
+        onOpenChange={(open) => {
+          setNewBookingOpen(open)
+          if (!open) setNewBookingDraft(null)
+        }}
+        draft={newBookingDraft}
+        timeZone={timeZone}
+        isStaff={isStaff}
+        currentUserId={user?.id ?? null}
+        onCreated={handleBookingCreated}
+      />
     </div>
   )
 }

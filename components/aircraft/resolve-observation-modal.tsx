@@ -70,7 +70,6 @@ export function ResolveObservationModal({
         id: observationId,
         stage: "closed",
         resolution_comments: resolutionComments.trim(),
-        resolved_at: new Date().toISOString(),
       })
 
       toast.success("Observation resolved successfully")

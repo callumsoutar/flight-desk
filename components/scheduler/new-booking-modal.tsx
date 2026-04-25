@@ -64,6 +64,8 @@ type SchedulerBookingDraft = {
   endTimeHHmm: string
   preselectedInstructorId?: string | null
   preselectedAircraftId?: string | null
+  /** When set (e.g. from a member profile), this member is selected in the form. */
+  preselectedMemberId?: string | null
 }
 
 type InstructorRosterWindow = { startMin: number; endMin: number }
@@ -259,6 +261,11 @@ function buildInitialState({
       if (s !== null && s < minM) startTime = minutesToHHmm(minM)
     }
   }
+  const memberIdFromDraft =
+    draft.preselectedMemberId != null && draft.preselectedMemberId !== ""
+      ? draft.preselectedMemberId
+      : null
+
   return {
     date,
     endDate: date,
@@ -267,7 +274,7 @@ function buildInitialState({
     aircraftId: draft.preselectedAircraftId ?? null,
     flightTypeId: null,
     instructorId: draft.preselectedInstructorId ?? null,
-    memberId: isStaff ? null : currentUserId,
+    memberId: memberIdFromDraft ?? (isStaff ? null : currentUserId),
     bookingType: "flight",
     lessonId: null,
     purpose: "",

@@ -35,11 +35,11 @@ export function ResourceTimelineToolbar({
   return (
     <div className="flex max-w-full flex-col gap-2 sm:gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-        <div className="inline-flex h-11 w-full min-w-0 max-w-full items-stretch overflow-hidden rounded-md border border-border/70 bg-background shadow-sm sm:w-fit">
+        <div className="inline-flex h-11 w-full min-w-0 max-w-full items-stretch overflow-hidden rounded-md border border-slate-200/80 bg-white sm:w-fit">
           <Button
             variant="ghost"
             size="icon"
-            className="group h-full w-11 shrink-0 cursor-pointer rounded-none rounded-l-md border-r border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed"
+            className="group h-full w-11 shrink-0 cursor-pointer rounded-none rounded-l-md border-r border-slate-200/70 bg-slate-50/90 text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed"
             onClick={onPreviousDay}
             disabled={disablePreviousDay}
             aria-label="Previous day"
@@ -51,14 +51,14 @@ export function ResourceTimelineToolbar({
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-full min-w-0 flex-1 justify-center gap-2 rounded-none border-0 px-2 font-semibold text-foreground hover:bg-slate-50 sm:min-w-[240px] sm:flex-none sm:justify-start sm:gap-3 sm:px-4 md:min-w-[260px]"
+                className="h-full min-w-0 flex-1 justify-center gap-2 rounded-none border-0 bg-white/80 px-2 font-semibold text-foreground hover:bg-slate-50/90 sm:min-w-[240px] sm:flex-none sm:justify-start sm:gap-3 sm:px-4 md:min-w-[260px]"
                 aria-label="Select date"
               >
                 <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 truncate text-center sm:text-left">{selectedDateLabel}</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto rounded-md border-border/70 p-0 shadow-lg" align="start">
+            <PopoverContent className="w-auto rounded-md border-slate-200/80 p-0 shadow-sm" align="start">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -72,7 +72,7 @@ export function ResourceTimelineToolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="group h-full w-11 shrink-0 cursor-pointer rounded-none rounded-r-md border-l border-border/70 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            className="group h-full w-11 shrink-0 cursor-pointer rounded-none rounded-r-md border-l border-slate-200/70 bg-slate-50/90 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             onClick={onNextDay}
             aria-label="Next day"
           >
@@ -83,7 +83,7 @@ export function ResourceTimelineToolbar({
         <Button
           variant="outline"
           onClick={onToday}
-          className="h-11 w-full shrink-0 whitespace-nowrap rounded-md border-border/70 bg-background px-4 font-semibold shadow-sm hover:bg-slate-50 sm:w-auto sm:px-5"
+          className="h-11 w-full shrink-0 whitespace-nowrap rounded-md border-slate-200/80 bg-white px-4 font-semibold hover:bg-slate-50/90 sm:w-auto sm:px-5"
         >
           Today
         </Button>
@@ -91,7 +91,7 @@ export function ResourceTimelineToolbar({
 
       <div className="hidden items-center gap-2 sm:flex">
         <Button
-          className="h-11 rounded-md bg-slate-900 px-5 font-semibold text-white shadow-sm hover:bg-slate-800"
+          className="h-11 rounded-md bg-slate-900 px-5 font-semibold text-white hover:bg-slate-800"
           onClick={onNewBooking}
           disabled={disableNewBooking}
         >

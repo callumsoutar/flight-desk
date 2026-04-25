@@ -250,7 +250,6 @@ export type Database = {
           last_completed_hours: number | null
           name: string
           notes: string | null
-          priority: string | null
           status: Database["public"]["Enums"]["component_status_enum"]
           tenant_id: string
           updated_at: string
@@ -272,7 +271,6 @@ export type Database = {
           last_completed_hours?: number | null
           name: string
           notes?: string | null
-          priority?: string | null
           status?: Database["public"]["Enums"]["component_status_enum"]
           tenant_id?: string
           updated_at?: string
@@ -294,7 +292,6 @@ export type Database = {
           last_completed_hours?: number | null
           name?: string
           notes?: string | null
-          priority?: string | null
           status?: Database["public"]["Enums"]["component_status_enum"]
           tenant_id?: string
           updated_at?: string
@@ -4723,8 +4720,6 @@ export type Database = {
         | "credit_card"
         | "debit_card"
         | "bank_transfer"
-        | "check"
-        | "online_payment"
         | "other"
       shift_override_type: "add" | "replace" | "cancel"
       syllabus_stage:
@@ -4954,8 +4949,6 @@ export const Constants = {
         "credit_card",
         "debit_card",
         "bank_transfer",
-        "check",
-        "online_payment",
         "other",
       ],
       shift_override_type: ["add", "replace", "cancel"],

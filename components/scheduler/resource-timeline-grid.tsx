@@ -180,7 +180,7 @@ export function ResourceTimelineGrid({
   }, [])
 
   return (
-    <div className="relative min-w-0 flex-1 bg-background">
+    <div className="relative min-w-0 flex-1 min-h-0">
       <div
         ref={scrollContainerRef}
         className={cn("overflow-x-scroll overflow-y-hidden", isPanning ? "cursor-grabbing select-none" : "")}
@@ -214,7 +214,7 @@ export function ResourceTimelineGrid({
         }
       >
         <div className="relative" style={timelineMinWidth ? { minWidth: timelineMinWidth } : undefined}>
-          <div className="sticky top-0 z-30 h-11 border-b border-border/70 bg-background sm:h-12">
+          <div className="sticky top-0 z-30 h-11 border-b border-slate-200/60 bg-gradient-to-b from-white via-slate-50/50 to-slate-100/30 sm:h-12">
             <div
               className="grid h-full"
               style={{
@@ -225,27 +225,35 @@ export function ResourceTimelineGrid({
             </div>
           </div>
 
-          <div className="divide-y divide-border/60">
-            <div className="bg-slate-100" style={{ height: groupHeight }} aria-hidden="true">
+          <div className="divide-y divide-slate-200/45">
+            <div
+              className="bg-gradient-to-r from-slate-200/25 via-slate-100/80 to-slate-200/25"
+              style={{ height: groupHeight }}
+              aria-hidden="true"
+            >
               <div
                 className="grid h-full"
                 style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
               >
                 {slots.map((slot) => (
-                  <div key={`instructors-${slot.toISOString()}`} className="border-r border-border/50 last:border-r-0" />
+                  <div key={`instructors-${slot.toISOString()}`} className="border-r border-slate-200/35 last:border-r-0" />
                 ))}
               </div>
             </div>
 
             {instructorRows}
 
-            <div className="bg-slate-100" style={{ height: groupHeight }} aria-hidden="true">
+            <div
+              className="bg-gradient-to-r from-slate-200/25 via-slate-100/80 to-slate-200/25"
+              style={{ height: groupHeight }}
+              aria-hidden="true"
+            >
               <div
                 className="grid h-full"
                 style={{ gridTemplateColumns: `repeat(${slotCount}, minmax(0, 1fr))` }}
               >
                 {slots.map((slot) => (
-                  <div key={`aircraft-${slot.toISOString()}`} className="border-r border-border/50 last:border-r-0" />
+                  <div key={`aircraft-${slot.toISOString()}`} className="border-r border-slate-200/35 last:border-r-0" />
                 ))}
               </div>
             </div>
@@ -260,7 +268,7 @@ export function ResourceTimelineGrid({
                 style={{ left: `${currentTimeLineLeftPct}%` }}
                 aria-hidden="true"
               >
-                <div className="h-full w-px bg-red-500/90 shadow-[0_0_0_1px_rgba(239,68,68,0.08)]" />
+                <div className="h-full w-px bg-rose-500" />
               </div>
             </div>
           ) : null}
@@ -269,14 +277,14 @@ export function ResourceTimelineGrid({
 
       <div
         className={cn(
-          "pointer-events-none absolute bottom-0 left-0 top-0 z-20 w-8 bg-gradient-to-r from-background to-transparent transition-opacity",
+          "pointer-events-none absolute bottom-0 left-0 top-0 z-20 w-8 bg-gradient-to-r from-white to-transparent transition-opacity",
           isOverflowing && canScrollLeft ? "opacity-100" : "opacity-0"
         )}
         aria-hidden="true"
       />
       <div
         className={cn(
-          "pointer-events-none absolute bottom-0 right-0 top-0 z-20 w-8 bg-gradient-to-l from-background to-transparent transition-opacity",
+          "pointer-events-none absolute bottom-0 right-0 top-0 z-20 w-8 bg-gradient-to-l from-white to-transparent transition-opacity",
           isOverflowing && canScrollRight ? "opacity-100" : "opacity-0"
         )}
         aria-hidden="true"

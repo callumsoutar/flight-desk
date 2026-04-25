@@ -3,13 +3,12 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
-import { getZonedYyyyMmDdAndHHmm, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
+import { getMemberPersonType, isTenantMembershipActive } from "@/lib/members/member-person-type"
 import type {
   MemberWithRelations,
   MembershipStatus,
   MembershipWithType,
   MembersFilter,
-  PersonType,
 } from "@/lib/types/members"
 
 function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
@@ -17,41 +16,12 @@ function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value
 }
 
-function isMembershipActive(membership: MembershipWithType | null, timeZone: string) {
-  if (!membership || !membership.is_active) return false
-  const expiry = new Date(membership.expiry_date)
-  if (Number.isNaN(expiry.getTime())) return false
-  const expiryDateKey = getZonedYyyyMmDdAndHHmm(expiry, timeZone).yyyyMmDd
-  const todayDateKey = zonedTodayYyyyMmDd(timeZone)
-  return expiryDateKey >= todayDateKey
-}
-
 function toMembershipStatus(
   membership: MembershipWithType | null,
   timeZone: string
 ): MembershipStatus {
   if (!membership) return "none"
-  return isMembershipActive(membership, timeZone) ? "active" : "expired"
-}
-
-function toPersonType(member: {
-  roleName: string | null
-  hasInstructor: boolean
-  hasActiveMembership: boolean
-}): Exclude<PersonType, "all"> {
-  if (member.roleName === "owner" || member.roleName === "admin") {
-    return "staff"
-  }
-
-  if (member.hasInstructor) {
-    return "instructor"
-  }
-
-  if (member.hasActiveMembership) {
-    return "member"
-  }
-
-  return "contact"
+  return isTenantMembershipActive(membership, timeZone) ? "active" : "expired"
 }
 
 export async function fetchMembers(
@@ -134,7 +104,7 @@ export async function fetchMembers(
     const instructor = instructorByUser.get(row.user_id) ?? null
     const role = pickMaybeOne(row.role)
     const roleName = role?.name ?? null
-    const hasActiveMembership = isMembershipActive(membership, timeZone)
+    const hasActiveMembership = isTenantMembershipActive(membership, timeZone)
 
     return {
       id: row.id,
@@ -146,7 +116,7 @@ export async function fetchMembers(
       membership,
       instructor,
       membership_status: toMembershipStatus(membership, timeZone),
-      person_type: toPersonType({
+      person_type: getMemberPersonType({
         roleName,
         hasInstructor: Boolean(instructor),
         hasActiveMembership,

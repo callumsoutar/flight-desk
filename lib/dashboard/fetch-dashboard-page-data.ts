@@ -335,7 +335,7 @@ export async function fetchDashboardPageData(
         .from("observations")
         .select("aircraft_id")
         .eq("tenant_id", tenantId)
-        .is("resolved_at", null)
+        .neq("stage", "closed")
         .in("aircraft_id", aircraftIds)
         .limit(2000)
       if (error) throw error

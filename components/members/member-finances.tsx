@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { IconCurrencyDollar } from "@tabler/icons-react"
+
 import { cn } from "@/lib/utils"
 import { sendAccountStatementEmail, useAccountStatementQuery } from "@/hooks/use-account-statement-query"
 import type { AccountStatementEntry } from "@/lib/types/account-statement"
@@ -24,6 +26,8 @@ import { formatDate } from "@/lib/utils/date-format"
 
 export type MemberFinancesProps = {
   memberId: string
+  canRecordMemberPayment?: boolean
+  onReceivePaymentClick?: () => void
 }
 const EMPTY_STATEMENT: AccountStatementEntry[] = []
 
@@ -62,7 +66,11 @@ function getEndOfMonth(date: Date): string {
 
 const now = new Date()
 
-export function MemberFinances({ memberId }: MemberFinancesProps) {
+export function MemberFinances({
+  memberId,
+  canRecordMemberPayment = false,
+  onReceivePaymentClick,
+}: MemberFinancesProps) {
   const { timeZone } = useTimezone()
   const router = useRouter()
   const [startDate, setStartDate] = React.useState(() => getStartOfMonth(now))
@@ -96,23 +104,35 @@ export function MemberFinances({ memberId }: MemberFinancesProps) {
     <div className="space-y-6">
       <Card className="border border-slate-200 shadow-sm">
         <CardContent className="p-5 sm:p-6">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              Outstanding Balance
-            </p>
-            {isLoading ? (
-              <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading...
-              </div>
-            ) : (
-              <>
-                <p className="text-3xl font-bold text-red-700">${outstandingBalance.toFixed(2)}</p>
-                {closingBalance <= 0 ? (
-                  <p className="text-sm text-slate-500">No amount currently owing.</p>
-                ) : null}
-              </>
-            )}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Outstanding Balance
+              </p>
+              {isLoading ? (
+                <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </div>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-red-700">${outstandingBalance.toFixed(2)}</p>
+                  {closingBalance <= 0 ? (
+                    <p className="text-sm text-slate-500">No amount currently owing.</p>
+                  ) : null}
+                </>
+              )}
+            </div>
+            {canRecordMemberPayment && onReceivePaymentClick ? (
+              <Button
+                type="button"
+                className="h-10 shrink-0 bg-green-600 text-white hover:bg-green-700"
+                onClick={onReceivePaymentClick}
+              >
+                <IconCurrencyDollar className="mr-2 h-4 w-4" />
+                Receive payment
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
