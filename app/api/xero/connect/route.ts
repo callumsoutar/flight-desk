@@ -8,7 +8,6 @@ import { getXeroEnv } from "@/lib/xero/env"
 export const dynamic = "force-dynamic"
 
 type XeroStatePayload = {
-  tenantId: string
   nonce: string
   timestamp: number
 }
@@ -20,11 +19,10 @@ function encodeStatePayload(payload: XeroStatePayload) {
 export async function GET(request: NextRequest) {
   const session = await getTenantAdminRouteContext()
   if (session.response) return session.response
-  const { tenantId } = session.context
 
   const { clientId, redirectUri, scopes } = getXeroEnv()
   const nonce = randomUUID()
-  const payload = { tenantId, nonce, timestamp: Date.now() }
+  const payload = { nonce, timestamp: Date.now() }
   const encodedState = encodeStatePayload(payload)
 
   const cookieStore = await cookies()

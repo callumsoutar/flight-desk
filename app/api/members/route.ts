@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
 
+import { isAdminRole } from "@/lib/auth/roles"
 import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchMembers } from "@/lib/members/fetch-members"
+import { sendMemberAccessInvitation } from "@/lib/members/send-access-invitation"
+import { logWarn } from "@/lib/security/logger"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const ctx = await getTenantStaffRouteContext(supabase)
   if (ctx.response) return ctx.response
-  const { user, tenantId } = ctx.context
+  const { user, role, tenantId } = ctx.context
 
   const parsed = createMemberSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
@@ -138,10 +141,42 @@ export async function POST(request: NextRequest) {
     return noStoreJson({ error: "Failed to add member to tenant" }, { status: 500 })
   }
 
+  let invitationSent = false
+  let invitationId: string | null = null
+  let invitationError: string | null = null
+
+  if (payload.send_invitation) {
+    if (!isAdminRole(role)) {
+      invitationError = "Invitation was not sent. Sending invitations during member creation requires an owner or admin."
+    } else {
+      const inviteResult = await sendMemberAccessInvitation({
+        email,
+        memberId: tenantMember.user_id,
+        tenantId,
+        purpose: "issue Supabase auth invitation during member creation",
+      })
+
+      if (inviteResult.sent) {
+        invitationSent = true
+        invitationId = inviteResult.invitationId
+      } else {
+        invitationError = inviteResult.error
+        logWarn("[members] Invitation requested during member creation but was not sent", {
+          tenantId,
+          memberId: tenantMember.user_id,
+          reason: inviteResult.error,
+        })
+      }
+    }
+  }
+
   return noStoreJson(
     {
       member: { id: tenantMember.user_id },
       invitation_requested: payload.send_invitation,
+      invitation_sent: invitationSent,
+      invitation_id: invitationId,
+      invitation_error: invitationError,
     },
     { status: 201 }
   )

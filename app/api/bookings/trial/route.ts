@@ -5,7 +5,11 @@ import { z } from "zod"
 
 import { getTenantStaffRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { fetchUnavailableResourceIds } from "@/lib/bookings/resource-availability"
-import { logError } from "@/lib/security/logger"
+import {
+  isDisallowedTrialGuestEmail,
+  trialGuestNameConflictsWithExistingUser,
+} from "@/lib/bookings/trial-guest-email"
+import { logError, logWarn } from "@/lib/security/logger"
 import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getZonedYyyyMmDdAndHHmm } from "@/lib/utils/timezone"
@@ -175,6 +179,15 @@ export async function POST(request: NextRequest) {
 
   const admin = createPrivilegedSupabaseClient("trial booking guest provisioning and tenant linking")
   const normalizedEmail = payload.guest_email.toLowerCase()
+  if (isDisallowedTrialGuestEmail(normalizedEmail)) {
+    return noStoreJson(
+      {
+        error:
+          "That email is not valid for a trial guest. Use the guest’s real address (not a placeholder or example.com test address).",
+      },
+      { status: 400 }
+    )
+  }
   const { data: studentRole, error: studentRoleError } = await admin
     .from("roles")
     .select("id")
@@ -192,7 +205,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingUser, error: lookupError } = await admin
     .from("users")
-    .select("id")
+    .select("id, first_name, last_name")
     .eq("email", normalizedEmail)
     .maybeSingle()
 
@@ -203,6 +216,26 @@ export async function POST(request: NextRequest) {
   let guestUserId: string
 
   if (existingUser) {
+    if (
+      trialGuestNameConflictsWithExistingUser(
+        payload.guest_first_name,
+        payload.guest_last_name,
+        existingUser.first_name,
+        existingUser.last_name
+      )
+    ) {
+      logWarn("[trial-booking] email matches existing user but name does not; refusing to attach booking", {
+        tenantId,
+        existingUserId: existingUser.id,
+      })
+      return noStoreJson(
+        {
+          error:
+            "A profile with this email already exists under a different name. Use that person’s name, or a different email with no duplicate, so the booking is not assigned to the wrong student.",
+        },
+        { status: 409 }
+      )
+    }
     guestUserId = existingUser.id
   } else {
     const newId = randomUUID()

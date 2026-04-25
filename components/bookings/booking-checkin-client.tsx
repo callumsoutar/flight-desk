@@ -44,6 +44,7 @@ import { bookingQueryKey, useBookingQuery } from "@/hooks/use-booking-query"
 import { useChargeRateQuery, type ChargeRate } from "@/hooks/use-charge-rate-query"
 import { useDefaultTaxRateQuery } from "@/hooks/use-default-tax-rate-query"
 import { InvoiceCalculations, roundToTwoDecimals } from "@/lib/invoices/invoice-calculations"
+import { shouldSkipDebrief } from "@/lib/bookings/should-skip-debrief"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
 import type { LessonProgressRow } from "@/lib/types/tables"
@@ -342,9 +343,15 @@ export function BookingCheckinClient({
   const { data: invoiceData, isLoading: invoiceLoading } = useBookingCheckinInvoiceQuery(checkinInvoiceId)
   const invoice = invoiceData?.invoice ?? null
   const invoiceItems = invoiceData?.invoiceItems ?? []
+  const selectedFlightType = React.useMemo(() => {
+    if (!selectedFlightTypeId) return booking.flight_type ?? null
+    return options.flightTypes.find((item) => item.id === selectedFlightTypeId) ?? booking.flight_type ?? null
+  }, [booking.flight_type, options.flightTypes, selectedFlightTypeId])
+  const instructionType = selectedFlightType?.instruction_type ?? null
+  const skipDebrief = shouldSkipDebrief(instructionType)
 
   const isApproved = Boolean(booking.checkin_approved_at || localInvoiceId)
-  const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
+  const includeDebriefStage = !skipDebrief
   const trackerStages = React.useMemo(
     () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),
     [booking.briefing_completed, includeDebriefStage]
@@ -394,10 +401,6 @@ export function BookingCheckinClient({
   const soloEndHobbs = React.useMemo(() => parseOptionalNumber(soloEndHobbsInput), [soloEndHobbsInput])
   const soloEndTach = React.useMemo(() => parseOptionalNumber(soloEndTachInput), [soloEndTachInput])
 
-  const selectedFlightType = React.useMemo(() => {
-    if (!selectedFlightTypeId) return booking.flight_type ?? null
-    return options.flightTypes.find((item) => item.id === selectedFlightTypeId) ?? booking.flight_type ?? null
-  }, [booking.flight_type, options.flightTypes, selectedFlightTypeId])
   const chargeables = React.useMemo(() => options.chargeables ?? [], [options.chargeables])
   const bookingsSettings = options.bookingsSettings ?? null
   const chargeableTypes = React.useMemo(() => options.chargeableTypes ?? [], [options.chargeableTypes])
@@ -516,7 +519,6 @@ export function BookingCheckinClient({
     return map
   }, [landingFeeRates])
 
-  const instructionType = selectedFlightType?.instruction_type ?? null
   const isFixedPackageBilling = selectedFlightType?.billing_mode === "fixed_package"
   const canQuickZeroInvoiceItems = isFixedPackageBilling && instructionType === "trial"
   const fixedPackagePriceExcl = React.useMemo(() => {
@@ -1598,8 +1600,8 @@ export function BookingCheckinClient({
 
       setLocalInvoiceId(result.invoice.id)
       toast.success("Check-in approved and invoice created")
-      // Solo flights skip debrief; go straight to the invoice
-      if (instructionType === "solo") {
+      // Solo and trial flights skip debrief; go straight to the invoice
+      if (skipDebrief) {
         router.push(`/invoices/${result.invoice.id}`)
         return
       }
@@ -1623,7 +1625,6 @@ export function BookingCheckinClient({
     hasSoloAtEnd,
     hobbsEnd,
     hobbsStart,
-    instructionType,
     isAdminOrInstructor,
     isDraftStale,
     queryClient,
@@ -1631,6 +1632,7 @@ export function BookingCheckinClient({
     selectedAircraftId,
     selectedFlightTypeId,
     selectedInstructorId,
+    skipDebrief,
     soloEndHobbs,
     soloEndTach,
     tachEnd,
@@ -2460,7 +2462,7 @@ export function BookingCheckinClient({
                 <div className="flex justify-end border-t pt-4">
                   <Button
                     type="button"
-                    onClick={() => void approveDraft({ continueToDebrief: instructionType !== "solo" })}
+                    onClick={() => void approveDraft({ continueToDebrief: !skipDebrief })}
                     disabled={!canApprove}
                     className="h-10 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
                   >
@@ -2469,7 +2471,7 @@ export function BookingCheckinClient({
                         <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                         Approving...
                       </>
-                    ) : instructionType === "solo" ? (
+                    ) : skipDebrief ? (
                       <>
                         <IconCheck className="mr-2 h-4 w-4" />
                         Approve & View Invoice

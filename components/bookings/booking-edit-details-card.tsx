@@ -314,7 +314,7 @@ export function BookingEditDetailsCard({
               Instructor
             </label>
             <Select
-              value={form.instructor_id ?? "none"}
+              value={form.instructor_id || "none"}
               onValueChange={(value) => updateField("instructor_id", value === "none" ? null : value)}
               disabled={isReadOnly}
             >
@@ -342,7 +342,7 @@ export function BookingEditDetailsCard({
               Aircraft
             </label>
             <Select
-              value={aircraftSelectValue ?? "none"}
+              value={aircraftSelectValue || "none"}
               onValueChange={(value) => handleAircraftChange(value === "none" ? null : value)}
               disabled={isReadOnly}
             >
@@ -366,7 +366,7 @@ export function BookingEditDetailsCard({
               Flight Type
             </label>
             <Select
-              value={form.flight_type_id ?? "none"}
+              value={form.flight_type_id || "none"}
               onValueChange={(value) => updateField("flight_type_id", value === "none" ? null : value)}
               disabled={isReadOnly || isMemberOrStudent}
             >
@@ -385,7 +385,7 @@ export function BookingEditDetailsCard({
           <div className="space-y-2">
             <label className={fieldLabelClass}>Booking Type</label>
             <Select
-              value={form.booking_type}
+              value={form.booking_type ?? "flight"}
               onValueChange={(value) => updateField("booking_type", value as BookingType)}
               disabled={isReadOnly}
             >

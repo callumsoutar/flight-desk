@@ -40,7 +40,12 @@ export async function createMember(input: {
   phone?: string | null
   street_address?: string | null
   send_invitation?: boolean
-}): Promise<{ id: string }> {
+}): Promise<{
+  id: string
+  invitationRequested: boolean
+  invitationSent: boolean
+  invitationError: string | null
+}> {
   const response = await fetch("/api/members", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -49,6 +54,9 @@ export async function createMember(input: {
   const payload = (await response.json().catch(() => ({}))) as {
     error?: string
     member?: { id?: string }
+    invitation_requested?: boolean
+    invitation_sent?: boolean
+    invitation_error?: string | null
   }
 
   const createdMemberId = payload.member?.id
@@ -56,7 +64,12 @@ export async function createMember(input: {
     throw new Error(getMembersError(payload, "Failed to create member"))
   }
 
-  return { id: createdMemberId }
+  return {
+    id: createdMemberId,
+    invitationRequested: payload.invitation_requested === true,
+    invitationSent: payload.invitation_sent === true,
+    invitationError: typeof payload.invitation_error === "string" ? payload.invitation_error : null,
+  }
 }
 
 export function useMembersQuery(initialData: MemberWithRelations[]) {

@@ -13,7 +13,7 @@ function applyCookies(
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { userId, role, cookiesToSet } = await updateSession(request)
   const pathname = request.nextUrl.pathname
 

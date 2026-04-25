@@ -1,7 +1,6 @@
 import { getTenantAdminRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 
-import { getRequiredPublicAppUrl } from "@/lib/env/public-app-url"
-import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
+import { sendMemberAccessInvitation } from "@/lib/members/send-access-invitation"
 
 export const dynamic = "force-dynamic"
 
@@ -38,28 +37,21 @@ export async function POST(
       return noStoreJson({ error: "Member not found in tenant" }, { status: 404 })
     }
 
-    const memberUser = memberUserResult.data
-    const appUrl = getRequiredPublicAppUrl()
+    const inviteResult = await sendMemberAccessInvitation({
+      email: memberUserResult.data.email,
+      memberId,
+      tenantId,
+      purpose: "issue Supabase auth invitation for existing tenant member",
+    })
 
-    const admin = createPrivilegedSupabaseClient("issue Supabase auth invitation for existing tenant member")
-    const { data: inviteData, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(memberUser.email, {
-        redirectTo: `${appUrl}/auth/invite/accept`,
-        data: {
-          tenant_id: tenantId,
-          user_id: memberId,
-        },
-      })
-
-    if (inviteError) {
-      const msg = inviteError.message ?? "Failed to send invitation"
-      return noStoreJson({ error: msg }, { status: 400 })
+    if (!inviteResult.sent) {
+      return noStoreJson({ error: inviteResult.error }, { status: 400 })
     }
 
     return noStoreJson(
       {
         sent: true,
-        invitation_id: inviteData?.user?.id,
+        invitation_id: inviteResult.invitationId,
       },
       { status: 200 }
     )

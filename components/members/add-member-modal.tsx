@@ -98,7 +98,16 @@ export function AddMemberModal(props: {
         send_invitation: parsedValues.send_invitation,
       })
 
-      toast.success("Member created")
+      if (member.invitationRequested) {
+        if (member.invitationSent) {
+          toast.success("Member created and invitation sent")
+        } else {
+          toast.message(member.invitationError ?? "Member created, but the invitation was not sent")
+        }
+      } else {
+        toast.success("Member created")
+      }
+
       onOpenChange(false)
       onSuccess?.()
       router.push(`/members/${member.id}`)

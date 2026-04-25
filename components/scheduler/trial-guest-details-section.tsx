@@ -74,8 +74,9 @@ export function TrialGuestDetailsSection({
             <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <Input
               type="email"
-              placeholder="guest@example.com"
-              autoComplete="email"
+              placeholder="e.g. work or personal email"
+              autoComplete="off"
+              name="trial-guest-email"
               value={values.trialEmail}
               onChange={(e) => onChange("trialEmail", e.target.value)}
               className="h-10 rounded-xl border-slate-300 bg-white pl-9 text-base font-medium shadow-none placeholder:text-slate-300 hover:bg-slate-50 focus:ring-0"

@@ -248,9 +248,9 @@ export function CancelBookingModal({
                       </div>
                     ) : (
                       <Select
-                        value={cancellationCategoryId || undefined}
+                        value={cancellationCategoryId || "none"}
                         onValueChange={(value) => {
-                          setCancellationCategoryId(value)
+                          setCancellationCategoryId(value === "none" ? "" : value)
                           setErrors((prev) => ({
                             ...prev,
                             cancellationCategoryId: undefined,
@@ -271,6 +271,9 @@ export function CancelBookingModal({
                           position="popper"
                           className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl"
                         >
+                          <SelectItem value="none" className="text-muted-foreground" disabled>
+                            {categories.length > 0 ? "Select a reason" : "No reasons available"}
+                          </SelectItem>
                           {categories.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}

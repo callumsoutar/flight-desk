@@ -11,6 +11,7 @@ import {
 } from "@/components/bookings/booking-status-tracker"
 import { CheckinDebriefEditor } from "@/components/debrief/checkin-debrief-editor"
 import { useTimezone } from "@/contexts/timezone-context"
+import { shouldSkipDebrief } from "@/lib/bookings/should-skip-debrief"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { LessonProgressWithInstructor } from "@/lib/types/debrief"
 import type { LessonProgressRow } from "@/lib/types/tables"
@@ -60,7 +61,7 @@ export function DebriefEditClient({
   const lessonName = booking.lesson?.name ?? "Training Flight"
   const invoiceId = booking.checkin_invoice_id ?? null
   const lessonProgressExists = Boolean(effectiveLessonProgress?.id)
-  const includeDebriefStage = instructionType !== "solo"
+  const includeDebriefStage = !shouldSkipDebrief(instructionType)
 
   const trackerStages = React.useMemo(
     () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),

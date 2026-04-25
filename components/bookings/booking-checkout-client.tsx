@@ -24,10 +24,13 @@ import {
   deriveBookingTrackerState,
   getBookingTrackerStages,
 } from "@/components/bookings/booking-status-tracker"
+import { BookingCheckoutSuccessToast } from "@/components/bookings/booking-checkout-success-toast"
+import { BookingCheckoutTransitionState } from "@/components/bookings/booking-checkout-transition-state"
 import { BookingCheckoutWarnings } from "@/components/bookings/booking-checkout-warnings"
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet"
 import { CheckoutSheetPrintPortal } from "@/components/bookings/checkout-sheet-print-portal"
 import { filterBookingWarningsForMemberOrStudentView } from "@/lib/bookings/filter-booking-warnings-for-member-view"
+import { shouldSkipDebrief } from "@/lib/bookings/should-skip-debrief"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -155,6 +158,7 @@ export function BookingCheckoutClient({
   const [warningsRefreshError, setWarningsRefreshError] = React.useState<string | null>(null)
   const [isWarningsRefreshing, setIsWarningsRefreshing] = React.useState(false)
   const [cancelOpen, setCancelOpen] = React.useState(false)
+  const [isAuthorizingCheckout, setIsAuthorizingCheckout] = React.useState(false)
   const savedBookingFormRef = React.useRef(savedBookingForm)
   const savedCheckoutFormRef = React.useRef(savedCheckoutForm)
   const bookingFormRef = React.useRef(bookingForm)
@@ -377,7 +381,7 @@ export function BookingCheckoutClient({
     if (!booking.lesson_progress) return false
     return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
   }, [booking.lesson_progress])
-  const includeDebriefStage = booking.flight_type?.instruction_type !== "solo"
+  const includeDebriefStage = !shouldSkipDebrief(booking.flight_type?.instruction_type)
   const trackerStages = React.useMemo(
     () =>
       getBookingTrackerStages(
@@ -484,26 +488,41 @@ export function BookingCheckoutClient({
     if (!canSubmitCheckout) return
 
     startTransition(async () => {
-      const result = await authorizeBookingCheckoutAction(bookingId, buildCheckoutPayload())
+      setIsAuthorizingCheckout(true)
+      const minimumDelay = new Promise((resolve) => setTimeout(resolve, 650))
+      try {
+        const result = await authorizeBookingCheckoutAction(bookingId, buildCheckoutPayload())
+        await minimumDelay
 
-      if (!result.ok) {
-        toast.error(result.error)
-        return
+        if (!result.ok) {
+          toast.error(result.error)
+          return
+        }
+
+        toast.custom(
+          (id) => <BookingCheckoutSuccessToast onClose={() => toast.dismiss(id)} />,
+          {
+            duration: 5000,
+          }
+        )
+        const nextSavedBooking = normalizeBookingEditFormState({
+          ...bookingForm,
+          start_time: toIso(bookingForm.start_time),
+          end_time: toIso(bookingForm.end_time),
+        })
+        setBookingForm(nextSavedBooking)
+        setSavedBookingForm(nextSavedBooking)
+        savedBookingFormRef.current = nextSavedBooking
+
+        setSavedCheckoutForm(checkoutForm)
+        savedCheckoutFormRef.current = checkoutForm
+        await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
+      } catch (error) {
+        await minimumDelay
+        toast.error(error instanceof Error ? error.message : "Failed to check flight out")
+      } finally {
+        setIsAuthorizingCheckout(false)
       }
-
-      toast.success("Flight authorized and marked as flying")
-      const nextSavedBooking = normalizeBookingEditFormState({
-        ...bookingForm,
-        start_time: toIso(bookingForm.start_time),
-        end_time: toIso(bookingForm.end_time),
-      })
-      setBookingForm(nextSavedBooking)
-      setSavedBookingForm(nextSavedBooking)
-      savedBookingFormRef.current = nextSavedBooking
-
-      setSavedCheckoutForm(checkoutForm)
-      savedCheckoutFormRef.current = checkoutForm
-      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
     })
   }
 
@@ -758,6 +777,10 @@ export function BookingCheckoutClient({
         onConfirm={handleCancel}
         pending={isPending}
       />
+
+      {isAuthorizingCheckout ? (
+        <BookingCheckoutTransitionState overlay message="Checking flight out..." />
+      ) : null}
 
       {checkoutSheetData ? (
         <CheckoutSheetPrintPortal>

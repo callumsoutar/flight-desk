@@ -37,6 +37,7 @@ import {
 import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import { ContactDetailsModal } from "@/components/members/contact-details-modal"
 import { runAsyncProgressToast } from "@/components/ui/async-progress-toast"
+import { shouldSkipDebrief } from "@/lib/bookings/should-skip-debrief"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -234,7 +235,7 @@ export function BookingDetailClient({
     if (!booking.lesson_progress) return false
     return Array.isArray(booking.lesson_progress) ? booking.lesson_progress.length > 0 : true
   }, [booking.lesson_progress])
-  const includeDebriefStage = isFlightBooking && booking.flight_type?.instruction_type !== "solo"
+  const includeDebriefStage = isFlightBooking && !shouldSkipDebrief(booking.flight_type?.instruction_type)
   const trackerStages = React.useMemo(
     () => getBookingTrackerStages(Boolean(booking.briefing_completed), includeDebriefStage),
     [booking.briefing_completed, includeDebriefStage]
