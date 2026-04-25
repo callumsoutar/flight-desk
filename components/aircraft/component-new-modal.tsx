@@ -47,6 +47,14 @@ const COMPONENT_TYPE_OPTIONS: ComponentType[] = [
 ]
 const INTERVAL_TYPE_OPTIONS: IntervalType[] = ["HOURS", "CALENDAR", "BOTH"]
 
+function parseNullableNumberInput(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function toYyyyMmDd(date: Date | null): string | null {
   if (!date) return null
   const year = date.getFullYear()
@@ -61,12 +69,12 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
   const [description, setDescription] = useState("")
   const [componentType, setComponentType] = useState<ComponentType>("inspection")
   const [intervalType, setIntervalType] = useState<IntervalType>("HOURS")
-  const [intervalHours, setIntervalHours] = useState<number | null>(null)
-  const [intervalDays, setIntervalDays] = useState<number | null>(null)
+  const [intervalHours, setIntervalHours] = useState("")
+  const [intervalDays, setIntervalDays] = useState("")
   const [currentDueDate, setCurrentDueDate] = useState<Date | null>(null)
-  const [currentDueHours, setCurrentDueHours] = useState<number | null>(null)
+  const [currentDueHours, setCurrentDueHours] = useState("")
   const [lastCompletedDate, setLastCompletedDate] = useState<Date | null>(null)
-  const [lastCompletedHours, setLastCompletedHours] = useState<number | null>(null)
+  const [lastCompletedHours, setLastCompletedHours] = useState("")
   const [status, setStatus] = useState<ComponentStatus>("active")
   const [priority, setPriority] = useState<string | null>("MEDIUM")
   const [notes, setNotes] = useState("")
@@ -80,12 +88,12 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
         setDescription("")
         setComponentType("inspection")
         setIntervalType("HOURS")
-        setIntervalHours(null)
-        setIntervalDays(null)
+        setIntervalHours("")
+        setIntervalDays("")
         setCurrentDueDate(null)
-        setCurrentDueHours(null)
+        setCurrentDueHours("")
         setLastCompletedDate(null)
-        setLastCompletedHours(null)
+        setLastCompletedHours("")
         setStatus("active")
         setPriority("MEDIUM")
         setNotes("")
@@ -101,20 +109,25 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
 
-    if (intervalType === "HOURS" && (intervalHours === null || intervalHours === undefined)) {
+    const parsedIntervalHours = parseNullableNumberInput(intervalHours)
+    const parsedIntervalDays = parseNullableNumberInput(intervalDays)
+    const parsedCurrentDueHours = parseNullableNumberInput(currentDueHours)
+    const parsedLastCompletedHours = parseNullableNumberInput(lastCompletedHours)
+
+    if (intervalType === "HOURS" && parsedIntervalHours === null) {
       toast.error("Interval Hours is required when Interval Type is HOURS")
       return
     }
-    if (intervalType === "CALENDAR" && (intervalDays === null || intervalDays === undefined)) {
+    if (intervalType === "CALENDAR" && parsedIntervalDays === null) {
       toast.error("Interval Days is required when Interval Type is CALENDAR")
       return
     }
     if (intervalType === "BOTH") {
-      if (intervalHours === null || intervalHours === undefined) {
+      if (parsedIntervalHours === null) {
         toast.error("Interval Hours is required when Interval Type is BOTH")
         return
       }
-      if (intervalDays === null || intervalDays === undefined) {
+      if (parsedIntervalDays === null) {
         toast.error("Interval Days is required when Interval Type is BOTH")
         return
       }
@@ -125,12 +138,12 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
       description,
       component_type: componentType,
       interval_type: intervalType,
-      interval_hours: intervalHours,
-      interval_days: intervalDays,
+      interval_hours: parsedIntervalHours,
+      interval_days: parsedIntervalDays,
       current_due_date: toYyyyMmDd(currentDueDate),
-      current_due_hours: currentDueHours,
+      current_due_hours: parsedCurrentDueHours,
       last_completed_date: toYyyyMmDd(lastCompletedDate),
-      last_completed_hours: lastCompletedHours,
+      last_completed_hours: parsedLastCompletedHours,
       status,
       priority,
       notes,
@@ -241,8 +254,10 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                       <Clock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                       <Input
                         type="number"
-                        value={lastCompletedHours ?? ""}
-                        onChange={(e) => setLastCompletedHours(e.target.value ? Number(e.target.value) : null)}
+                        inputMode="decimal"
+                        step="any"
+                        value={lastCompletedHours}
+                        onChange={(e) => setLastCompletedHours(e.target.value)}
                         className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                       />
                     </div>
@@ -272,8 +287,10 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                         <Clock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                         <Input
                           type="number"
-                          value={currentDueHours ?? ""}
-                          onChange={(e) => setCurrentDueHours(e.target.value ? Number(e.target.value) : null)}
+                          inputMode="decimal"
+                          step="any"
+                          value={currentDueHours}
+                          onChange={(e) => setCurrentDueHours(e.target.value)}
                           className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                         />
                       </div>
@@ -333,8 +350,10 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                           <Clock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                           <Input
                             type="number"
-                            value={intervalHours ?? ""}
-                            onChange={(e) => setIntervalHours(e.target.value ? Number(e.target.value) : null)}
+                            inputMode="decimal"
+                            step="any"
+                            value={intervalHours}
+                            onChange={(e) => setIntervalHours(e.target.value)}
                             placeholder="e.g. 100"
                             required={intervalType === "HOURS" || intervalType === "BOTH"}
                             className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
@@ -351,8 +370,10 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                           <Calendar className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                           <Input
                             type="number"
-                            value={intervalDays ?? ""}
-                            onChange={(e) => setIntervalDays(e.target.value ? Number(e.target.value) : null)}
+                            inputMode="numeric"
+                            step="1"
+                            value={intervalDays}
+                            onChange={(e) => setIntervalDays(e.target.value)}
                             placeholder="e.g. 365"
                             required={intervalType === "CALENDAR" || intervalType === "BOTH"}
                             className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"

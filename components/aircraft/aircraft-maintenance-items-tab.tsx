@@ -4,9 +4,16 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { IconClipboard, IconPlus } from "@tabler/icons-react"
+import { Eye, MoreHorizontal } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useTimezone } from "@/contexts/timezone-context"
 import {
   aircraftComponentsQueryKey,
@@ -356,19 +363,34 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
                     <span className="font-semibold text-slate-900">{dueIn}</span>
                   </td>
                   <td className="px-4 py-3.5 text-right align-middle">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3 text-xs font-medium"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        handleLogMaintenance(component.id)
-                      }}
-                    >
-                      <IconClipboard className="h-3.5 w-3.5 mr-1.5" />
-                      Log
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          aria-label={`Actions for ${component.name}`}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                        <DropdownMenuItem
+                          onSelect={() => openEditor(component)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleLogMaintenance(component.id)}
+                        >
+                          <IconClipboard className="h-4 w-4" />
+                          Log
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               )
@@ -465,19 +487,34 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
               ) : null}
 
               <div className="mt-3 border-t border-slate-100 pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-3 text-xs font-medium"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    handleLogMaintenance(component.id)
-                  }}
-                >
-                  <IconClipboard className="h-3.5 w-3.5 mr-1.5" />
-                  Log Maintenance
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      aria-label={`Actions for ${component.name}`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem
+                      onSelect={() => openEditor(component)}
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => handleLogMaintenance(component.id)}
+                    >
+                      <IconClipboard className="h-4 w-4" />
+                      Log
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           )

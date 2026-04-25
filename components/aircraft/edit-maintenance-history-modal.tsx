@@ -223,6 +223,7 @@ const EditMaintenanceHistoryModal: React.FC<EditMaintenanceHistoryModalProps> = 
             <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">
               Edit Maintenance Visit
             </DialogTitle>
+            <DialogDescription className="sr-only">Loading maintenance visit details.</DialogDescription>
           </DialogHeader>
           <div className="flex h-full min-h-0 flex-col bg-white items-center justify-center">
             <div className="text-sm text-slate-500">Loading...</div>

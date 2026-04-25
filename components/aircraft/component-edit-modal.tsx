@@ -63,6 +63,14 @@ const COMPONENT_TYPE_OPTIONS: ComponentType[] = [
 ]
 const INTERVAL_TYPE_OPTIONS: IntervalType[] = ["HOURS", "CALENDAR", "BOTH"]
 
+function parseNullableNumberInput(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 function toDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null
   const parsed = new Date(dateString)
@@ -89,12 +97,12 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
   const [description, setDescription] = useState("")
   const [componentType, setComponentType] = useState<ComponentType>("inspection")
   const [intervalType, setIntervalType] = useState<IntervalType>("HOURS")
-  const [intervalHours, setIntervalHours] = useState<number | null>(null)
-  const [intervalDays, setIntervalDays] = useState<number | null>(null)
+  const [intervalHours, setIntervalHours] = useState("")
+  const [intervalDays, setIntervalDays] = useState("")
   const [currentDueDate, setCurrentDueDate] = useState<Date | null>(null)
-  const [currentDueHours, setCurrentDueHours] = useState<number | null>(null)
+  const [currentDueHours, setCurrentDueHours] = useState("")
   const [lastCompletedDate, setLastCompletedDate] = useState<Date | null>(null)
-  const [lastCompletedHours, setLastCompletedHours] = useState<number | null>(null)
+  const [lastCompletedHours, setLastCompletedHours] = useState("")
   const [status, setStatus] = useState<ComponentStatus>("active")
   const [priority, setPriority] = useState<string | null>("MEDIUM")
   const [notes, setNotes] = useState<string>("")
@@ -108,12 +116,28 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
       setDescription(component.description || "")
       setComponentType(component.component_type || "inspection")
       setIntervalType(component.interval_type || "HOURS")
-      setIntervalHours(component.interval_hours ?? null)
-      setIntervalDays(component.interval_days ?? null)
+      setIntervalHours(
+        component.interval_hours !== null && component.interval_hours !== undefined
+          ? String(component.interval_hours)
+          : ""
+      )
+      setIntervalDays(
+        component.interval_days !== null && component.interval_days !== undefined
+          ? String(component.interval_days)
+          : ""
+      )
       setCurrentDueDate(toDate(component.current_due_date))
-      setCurrentDueHours(component.current_due_hours ?? null)
+      setCurrentDueHours(
+        component.current_due_hours !== null && component.current_due_hours !== undefined
+          ? String(component.current_due_hours)
+          : ""
+      )
       setLastCompletedDate(toDate(component.last_completed_date))
-      setLastCompletedHours(component.last_completed_hours ?? null)
+      setLastCompletedHours(
+        component.last_completed_hours !== null && component.last_completed_hours !== undefined
+          ? String(component.last_completed_hours)
+          : ""
+      )
       setStatus(component.status || "active")
       setPriority(component.priority || "MEDIUM")
       setNotes(component.notes || "")
@@ -124,20 +148,25 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
 
-    if (intervalType === "HOURS" && (intervalHours === null || intervalHours === undefined)) {
+    const parsedIntervalHours = parseNullableNumberInput(intervalHours)
+    const parsedIntervalDays = parseNullableNumberInput(intervalDays)
+    const parsedCurrentDueHours = parseNullableNumberInput(currentDueHours)
+    const parsedLastCompletedHours = parseNullableNumberInput(lastCompletedHours)
+
+    if (intervalType === "HOURS" && parsedIntervalHours === null) {
       toast.error("Interval Hours is required when Interval Type is HOURS")
       return
     }
-    if (intervalType === "CALENDAR" && (intervalDays === null || intervalDays === undefined)) {
+    if (intervalType === "CALENDAR" && parsedIntervalDays === null) {
       toast.error("Interval Days is required when Interval Type is CALENDAR")
       return
     }
     if (intervalType === "BOTH") {
-      if (intervalHours === null || intervalHours === undefined) {
+      if (parsedIntervalHours === null) {
         toast.error("Interval Hours is required when Interval Type is BOTH")
         return
       }
-      if (intervalDays === null || intervalDays === undefined) {
+      if (parsedIntervalDays === null) {
         toast.error("Interval Days is required when Interval Type is BOTH")
         return
       }
@@ -148,12 +177,12 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
       description,
       component_type: componentType,
       interval_type: intervalType,
-      interval_hours: intervalHours,
-      interval_days: intervalDays,
+      interval_hours: parsedIntervalHours,
+      interval_days: parsedIntervalDays,
       current_due_date: toYyyyMmDd(currentDueDate),
-      current_due_hours: currentDueHours,
+      current_due_hours: parsedCurrentDueHours,
       last_completed_date: toYyyyMmDd(lastCompletedDate),
-      last_completed_hours: lastCompletedHours,
+      last_completed_hours: parsedLastCompletedHours,
       status,
       priority,
       notes,
@@ -307,8 +336,10 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                       <Clock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                       <Input
                         type="number"
-                        value={lastCompletedHours ?? ""}
-                        onChange={(e) => setLastCompletedHours(e.target.value ? Number(e.target.value) : null)}
+                        inputMode="decimal"
+                        step="any"
+                        value={lastCompletedHours}
+                        onChange={(e) => setLastCompletedHours(e.target.value)}
                         className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                       />
                     </div>
@@ -338,8 +369,10 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                         <Clock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                         <Input
                           type="number"
-                          value={currentDueHours ?? ""}
-                          onChange={(e) => setCurrentDueHours(e.target.value ? Number(e.target.value) : null)}
+                          inputMode="decimal"
+                          step="any"
+                          value={currentDueHours}
+                          onChange={(e) => setCurrentDueHours(e.target.value)}
                           className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
                         />
                       </div>
@@ -459,8 +492,10 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                           <Clock className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                           <Input
                             type="number"
-                            value={intervalHours ?? ""}
-                            onChange={(e) => setIntervalHours(e.target.value ? Number(e.target.value) : null)}
+                            inputMode="decimal"
+                            step="any"
+                            value={intervalHours}
+                            onChange={(e) => setIntervalHours(e.target.value)}
                             placeholder="e.g. 100"
                             required={intervalType === "HOURS" || intervalType === "BOTH"}
                             className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
@@ -477,8 +512,10 @@ const ComponentEditModal: React.FC<ComponentEditModalProps> = ({
                           <Calendar className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                           <Input
                             type="number"
-                            value={intervalDays ?? ""}
-                            onChange={(e) => setIntervalDays(e.target.value ? Number(e.target.value) : null)}
+                            inputMode="numeric"
+                            step="1"
+                            value={intervalDays}
+                            onChange={(e) => setIntervalDays(e.target.value)}
                             placeholder="e.g. 365"
                             required={intervalType === "CALENDAR" || intervalType === "BOTH"}
                             className="h-10 rounded-xl border-slate-200 bg-white pl-9 text-base font-medium shadow-none hover:bg-slate-50 focus:ring-0"
