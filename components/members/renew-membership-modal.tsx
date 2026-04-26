@@ -204,8 +204,8 @@ export function RenewMembershipModal({
         if (!nextOpen && !loading) onClose()
       }}
     >
-      <DialogContent className="max-h-[90vh] w-[680px] max-w-[92vw] overflow-hidden p-0">
-        <div className="flex h-full max-h-[90vh] flex-col">
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[24px] border-none p-0 shadow-2xl top-[calc(env(safe-area-inset-top)+1rem)] translate-y-0 sm:top-[50%] sm:w-full sm:max-w-[560px] sm:translate-y-[-50%] h-[calc(100dvh-2rem)] sm:h-auto sm:max-h-[calc(100dvh-4rem)]">
+        <div className="flex h-full min-h-0 flex-col bg-white">
           <DialogHeader className="border-b border-slate-200 px-6 pt-6 pb-4">
             <DialogTitle className="flex items-center gap-2 text-xl text-slate-900">
               <RefreshCw className="h-5 w-5 text-blue-600" />
@@ -216,7 +216,7 @@ export function RenewMembershipModal({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <div className="flex-1 min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 py-5">
             <div className="space-y-4">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
                 <Gift className="h-4 w-4 text-indigo-600" />
