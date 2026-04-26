@@ -8,7 +8,10 @@ const contentSecurityPolicy = [
   "font-src 'self' data: https:",
   "img-src 'self' data: blob: https:",
   "object-src 'none'",
-  `script-src 'self' 'unsafe-inline' ${isProduction ? "" : "'unsafe-eval' "}https:`,
+  // In production, omit `unsafe-eval` (tighter than dev). Client-side invoice PDFs use
+  // @react-pdf/renderer / Yoga, which compiles WebAssembly; browsers require `wasm-unsafe-eval`
+  // in script-src for that, or the console shows a WASM compile / CSP error on deploy.
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' ${isProduction ? "" : "'unsafe-eval' "}https:`,
   "style-src 'self' 'unsafe-inline' https:",
   "connect-src 'self' https: wss:",
   "frame-ancestors 'none'",
@@ -56,8 +59,8 @@ const nextConfig: NextConfig = {
       },
     ]
   },
-  // Dev mode needs unsafe-eval for React/Turbopack debugging. Keep production
-  // tighter and extend allowlists per environment only when integrations need it.
+  // Dev mode also needs unsafe-eval for React/Turbopack debugging. Production keeps
+  // unsafe-eval off but allows wasm-unsafe-eval (see script-src above) for client PDFs.
 }
 
 export default nextConfig
