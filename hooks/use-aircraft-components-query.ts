@@ -90,6 +90,18 @@ export async function updateAircraftComponent(
   return payload
 }
 
+export async function voidAircraftComponent(componentId: string): Promise<void> {
+  const response = await fetch(`/api/aircraft-components?id=${encodeURIComponent(componentId)}`, {
+    method: "DELETE",
+    cache: "no-store",
+  })
+  const payload = (await response.json().catch(() => ({}))) as { error?: string }
+
+  if (!response.ok) {
+    throw new Error(getAircraftComponentsErrorMessage(payload, "Failed to remove maintenance item"))
+  }
+}
+
 export function useAircraftComponentsQuery(aircraftId: string, initialComponents?: AircraftComponentsRow[]) {
   return useQuery({
     queryKey: aircraftComponentsQueryKey(aircraftId),

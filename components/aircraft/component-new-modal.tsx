@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
 import type { Database } from "@/lib/types"
 import type { AircraftComponentsRow } from "@/lib/types/tables"
-import { Plus, Info, Repeat, Settings, FileText, Tag, Clock, Calendar, CalendarIcon } from "lucide-react"
+import { Plus, Info, Repeat, Settings, FileText, Tag, Clock, Calendar, CalendarIcon, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useTimezone } from "@/contexts/timezone-context"
 import { formatDate } from "@/lib/utils/date-format"
@@ -62,6 +62,8 @@ function toYyyyMmDd(date: Date | null): string | null {
   return `${year}-${month}-${day}`
 }
 
+const FORM_ID = "aircraft-component-new-form"
+
 const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChange, onSave }) => {
   const { timeZone } = useTimezone()
   const [name, setName] = useState("")
@@ -76,35 +78,28 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
   const [lastCompletedHours, setLastCompletedHours] = useState("")
   const [status, setStatus] = useState<ComponentStatus>("active")
   const [notes, setNotes] = useState("")
-
-  const hasResetRef = React.useRef(false)
+  const [submitting, setSubmitting] = useState(false)
 
   React.useEffect(() => {
-    if (open && !hasResetRef.current) {
-      const timeoutId = setTimeout(() => {
-        setName("")
-        setDescription("")
-        setComponentType("inspection")
-        setIntervalType("HOURS")
-        setIntervalHours("")
-        setIntervalDays("")
-        setCurrentDueDate(null)
-        setCurrentDueHours("")
-        setLastCompletedDate(null)
-        setLastCompletedHours("")
-        setStatus("active")
-        setNotes("")
-        hasResetRef.current = true
-      }, 0)
-
-      return () => clearTimeout(timeoutId)
-    } else if (!open) {
-      hasResetRef.current = false
-    }
+    if (!open) return
+    setName("")
+    setDescription("")
+    setComponentType("inspection")
+    setIntervalType("HOURS")
+    setIntervalHours("")
+    setIntervalDays("")
+    setCurrentDueDate(null)
+    setCurrentDueHours("")
+    setLastCompletedDate(null)
+    setLastCompletedHours("")
+    setStatus("active")
+    setNotes("")
+    setSubmitting(false)
   }, [open])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    if (submitting) return
 
     const parsedIntervalHours = parseNullableNumberInput(intervalHours)
     const parsedIntervalDays = parseNullableNumberInput(intervalDays)
@@ -130,6 +125,7 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
       }
     }
 
+    setSubmitting(true)
     const payload: Partial<AircraftComponentsRow> = {
       name,
       description,
@@ -148,12 +144,20 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
       await onSave(payload)
       onOpenChange(false)
     } catch (error) {
-      console.error("Failed to save component:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to create maintenance item")
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && submitting) return
+        onOpenChange(next)
+      }}
+    >
       <DialogContent
         className={cn(
           "p-0 border-none shadow-2xl rounded-[24px] overflow-hidden flex flex-col",
@@ -180,8 +184,15 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6">
-            <div className="space-y-6">
+          <form
+            id={FORM_ID}
+            onSubmit={handleSave}
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-6 pb-6"
+            aria-busy={submitting}
+          >
+            <div
+              className={cn("space-y-6", submitting && "pointer-events-none select-none opacity-60")}
+            >
               <section>
                 <div className="mb-3 flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
@@ -435,16 +446,25 @@ const ComponentNewModal: React.FC<ComponentNewModalProps> = ({ open, onOpenChang
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                disabled={submitting}
                 className="h-10 flex-1 rounded-xl border-slate-200 text-sm font-bold shadow-none hover:bg-slate-50"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                onClick={handleSave}
+                form={FORM_ID}
+                disabled={submitting}
                 className="h-10 flex-[1.4] rounded-xl bg-slate-900 text-sm font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800"
               >
-                Create Component
+                {submitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    Creating…
+                  </span>
+                ) : (
+                  "Create Component"
+                )}
               </Button>
             </div>
           </div>

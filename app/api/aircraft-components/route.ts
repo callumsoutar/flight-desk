@@ -181,11 +181,41 @@ export async function PATCH(request: NextRequest) {
     .update(updateData)
     .eq("tenant_id", tenantId)
     .eq("id", id)
+    .is("voided_at", null)
     .select("*")
     .maybeSingle()
 
   if (error || !data) {
     return noStoreJson({ error: "Failed to update maintenance item" }, { status: 500 })
+  }
+
+  return noStoreJson(data)
+}
+
+export async function DELETE(request: NextRequest) {
+  const session = await getTenantScopedRouteContext({ access: "staff" })
+  if (session.response) return session.response
+  const { supabase, tenantId } = session.context
+
+  const id = request.nextUrl.searchParams.get("id")
+  if (!id) {
+    return noStoreJson({ error: "id is required" }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from("aircraft_components")
+    .update({ voided_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId)
+    .eq("id", id)
+    .is("voided_at", null)
+    .select("*")
+    .maybeSingle()
+
+  if (error) {
+    return noStoreJson({ error: "Failed to remove maintenance item" }, { status: 500 })
+  }
+  if (!data) {
+    return noStoreJson({ error: "Maintenance item not found" }, { status: 404 })
   }
 
   return noStoreJson(data)

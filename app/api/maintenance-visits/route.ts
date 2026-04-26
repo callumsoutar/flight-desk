@@ -109,7 +109,8 @@ export async function GET(request: NextRequest) {
         .from("aircraft_components")
         .select("id, name")
         .eq("tenant_id", tenantId)
-        .eq("aircraft_id", aircraftId),
+        .eq("aircraft_id", aircraftId)
+        .is("voided_at", null),
     ])
 
     if (visitsResult.error) {

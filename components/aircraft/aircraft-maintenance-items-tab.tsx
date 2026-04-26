@@ -4,14 +4,24 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { IconClipboard, IconPlus } from "@tabler/icons-react"
-import { Eye, MoreHorizontal } from "lucide-react"
+import { Eye, MoreHorizontal, Trash2 } from "lucide-react"
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useTimezone } from "@/contexts/timezone-context"
@@ -20,6 +30,7 @@ import {
   createAircraftComponent,
   updateAircraftComponent,
   useAircraftComponentsQuery,
+  voidAircraftComponent,
 } from "@/hooks/use-aircraft-components-query"
 import { formatDate } from "@/lib/utils/date-format"
 import type { AircraftWithType } from "@/lib/types/aircraft"
@@ -155,6 +166,8 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
   const [newModalOpen, setNewModalOpen] = React.useState(false)
   const [logModalOpen, setLogModalOpen] = React.useState(false)
   const [logComponentId, setLogComponentId] = React.useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<AircraftComponentsRow | null>(null)
+  const [deleteSubmitting, setDeleteSubmitting] = React.useState(false)
   const [nowTime, setNowTime] = React.useState(0)
   const { data: rows = [] } = useAircraftComponentsQuery(aircraft.id, components)
 
@@ -228,6 +241,32 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
   const handleLogMaintenance = (componentId: string) => {
     setLogComponentId(componentId)
     setLogModalOpen(true)
+  }
+
+  const confirmDeleteComponent = async () => {
+    if (!deleteTarget) return
+    setDeleteSubmitting(true)
+    try {
+      await voidAircraftComponent(deleteTarget.id)
+      queryClient.setQueryData<AircraftComponentsRow[]>(aircraftComponentsQueryKey(aircraft.id), (prev) =>
+        (prev ?? []).filter((row) => row.id !== deleteTarget.id)
+      )
+      if (selectedComponent?.id === deleteTarget.id) {
+        setSelectedComponent(null)
+        setModalOpen(false)
+      }
+      if (logComponentId === deleteTarget.id) {
+        setLogComponentId(null)
+        setLogModalOpen(false)
+      }
+      toast.success("Maintenance item removed")
+      setDeleteTarget(null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to remove maintenance item"
+      toast.error(message)
+    } finally {
+      setDeleteSubmitting(false)
+    }
   }
 
   return (
@@ -389,6 +428,16 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
                           <IconClipboard className="h-4 w-4" />
                           Log
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => {
+                            setDeleteTarget(component)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -513,6 +562,16 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
                       <IconClipboard className="h-4 w-4" />
                       Log
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={() => {
+                        setDeleteTarget(component)
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -546,6 +605,38 @@ export function AircraftMaintenanceItemsTab({ components, aircraft }: Props) {
           void queryClient.invalidateQueries({ queryKey: aircraftComponentsQueryKey(aircraft.id) })
         }
       />
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null)
+            setDeleteSubmitting(false)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove maintenance item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `“${deleteTarget.name}” will be hidden from maintenance lists. Existing maintenance history is kept.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSubmitting}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteSubmitting}
+              onClick={() => void confirmDeleteComponent()}
+            >
+              {deleteSubmitting ? "Removing…" : "Remove"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
