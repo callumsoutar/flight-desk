@@ -170,9 +170,6 @@ export function BookingRequestsCard({
                     Aircraft
                   </TableHead>
                   <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Type
-                  </TableHead>
-                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                     When
                   </TableHead>
                   <TableHead className="h-9 w-px text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -205,9 +202,6 @@ export function BookingRequestsCard({
                           </TableCell>
                           <TableCell className="py-2.5 text-sm text-muted-foreground">
                             {aircraft}
-                          </TableCell>
-                          <TableCell className="py-2.5 text-sm text-muted-foreground">
-                            {bookingType}
                           </TableCell>
                           <TableCell className="py-2.5 text-sm tabular-nums text-muted-foreground">
                             <span className="text-foreground">{dateLabel}</span>

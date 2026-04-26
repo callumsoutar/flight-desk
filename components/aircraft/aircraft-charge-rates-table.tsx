@@ -45,6 +45,9 @@ function parsePackageExGst(value: string): number | null {
   return Number.isFinite(v) && v > 0 ? v : null
 }
 
+/** Trial flight types are priced under Settings → Trial flights, not per-aircraft charge rates. */
+const AIRCRAFT_CHARGE_RATE_INSTRUCTION_TYPES: FlightType["instruction_type"][] = ["dual", "solo"]
+
 export default function AircraftChargeRatesTable({ aircraftId }: Props) {
   const queryClient = useQueryClient()
   const [editingRate, setEditingRate] = React.useState<EditingRate | null>(null)
@@ -54,22 +57,40 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
   const { data: flightTypes = [] } = useFlightTypesQuery({ includeInactive: false })
   const { data: defaultTaxRate = 0.15 } = useDefaultTaxRateQuery()
 
-  const hasFixedPackageRow = React.useMemo(
-    () => rates.some((r) => isFixedPackageFlightType(flightTypes, r.flight_type_id)),
+  const flightTypesForAircraftRates = React.useMemo(
+    () => flightTypes.filter((ft) => AIRCRAFT_CHARGE_RATE_INSTRUCTION_TYPES.includes(ft.instruction_type)),
+    [flightTypes]
+  )
+
+  const displayRates = React.useMemo(
+    () =>
+      rates.filter((r) => {
+        const ft = flightTypes.find((f) => f.id === r.flight_type_id)
+        return (
+          ft != null && AIRCRAFT_CHARGE_RATE_INSTRUCTION_TYPES.includes(ft.instruction_type)
+        )
+      }),
     [rates, flightTypes]
+  )
+
+  const hasFixedPackageRow = React.useMemo(
+    () => displayRates.some((r) => isFixedPackageFlightType(flightTypes, r.flight_type_id)),
+    [displayRates, flightTypes]
   )
 
   const handleAddRate = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!flightTypes.length) {
-      toast.error("No flight types available")
+    if (!flightTypesForAircraftRates.length) {
+      toast.error("No flight types available for aircraft rates (trial types use Trial flights settings).")
       return
     }
 
-    const assignedFlightTypeIds = rates.map((rate) => rate.flight_type_id)
-    const availableFlightTypes = flightTypes.filter((ft) => !assignedFlightTypeIds.includes(ft.id))
+    const assignedFlightTypeIds = displayRates.map((rate) => rate.flight_type_id)
+    const availableFlightTypes = flightTypesForAircraftRates.filter(
+      (ft) => !assignedFlightTypeIds.includes(ft.id)
+    )
 
     if (availableFlightTypes.length === 0) {
       toast.error("All flight types already have rates assigned")
@@ -289,9 +310,9 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
     return taxExclusiveAmount * (1 + defaultTaxRate)
   }
 
-  const availableFlightTypes = flightTypes.filter((ft) => {
+  const availableFlightTypes = flightTypesForAircraftRates.filter((ft) => {
     const isCurrentFlightType = editingRate?.flight_type_id === ft.id
-    const isAlreadyAssigned = rates.some(
+    const isAlreadyAssigned = displayRates.some(
       (rate) => rate.flight_type_id === ft.id && rate.id !== editingRate?.id
     )
     return isCurrentFlightType || !isAlreadyAssigned
@@ -433,7 +454,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
               </TableRow>
             ) : null}
 
-            {!loading && rates.length === 0 && !addingNewRate ? (
+            {!loading && displayRates.length === 0 && !addingNewRate ? (
               <TableRow>
                 <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
                   No rates configured. Add one to get started.
@@ -442,7 +463,7 @@ export default function AircraftChargeRatesTable({ aircraftId }: Props) {
             ) : null}
 
             {!loading
-              ? rates.map((rate) => (
+              ? displayRates.map((rate) => (
                   <TableRow key={rate.id} className={isEditing(rate.id) ? "bg-indigo-50/40" : ""}>
                     <TableCell>
                       {isEditing(rate.id) ? (

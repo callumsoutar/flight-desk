@@ -81,13 +81,6 @@ function formatInstructor(instructor: DashboardBookingLite["instructor"]) {
   return "—"
 }
 
-function formatBookingType(type: string) {
-  if (type === "flight") return "Flight"
-  if (type === "groundwork") return "Ground"
-  if (type === "maintenance") return "Maintenance"
-  return type.charAt(0).toUpperCase() + type.slice(1)
-}
-
 function formatShortDate(value: string, timeZone: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "—"
@@ -371,9 +364,6 @@ export function MemberDashboard({ data }: { data: DashboardData }) {
                     When
                   </TableHead>
                   <TableHead className="text-xs font-medium text-muted-foreground">Aircraft</TableHead>
-                  <TableHead className="hidden text-xs font-medium text-muted-foreground md:table-cell">
-                    Type
-                  </TableHead>
                   <TableHead className="pr-6 text-right text-xs font-medium text-muted-foreground">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -382,7 +372,6 @@ export function MemberDashboard({ data }: { data: DashboardData }) {
               <TableBody>
                 {data.bookingRequests.map((booking) => {
                   const aircraft = booking.aircraft?.registration ?? "—"
-                  const bookingType = formatBookingType(booking.booking_type)
                   const when = `${formatShortDate(booking.start_time, data.timeZone)} · ${formatTime(booking.start_time, data.timeZone)}–${formatTime(booking.end_time, data.timeZone)}`
 
                   return (
@@ -391,9 +380,6 @@ export function MemberDashboard({ data }: { data: DashboardData }) {
                         <span className="block font-medium tabular-nums text-foreground">{when}</span>
                       </TableCell>
                       <TableCell className="align-top font-medium text-foreground">{aircraft}</TableCell>
-                      <TableCell className="hidden align-top text-muted-foreground md:table-cell">
-                        {bookingType}
-                      </TableCell>
                       <TableCell className="pr-6 text-right align-top">
                         <Button asChild variant="outline" size="sm" className="h-8 text-xs">
                           <Link href={`/bookings/${booking.id}`}>View</Link>

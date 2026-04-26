@@ -31,8 +31,11 @@ const deleteSchema = z.strictObject({
 })
 
 type ValidateRefsResult =
-  | { ok: true; flightType: { id: string; billing_mode: string } }
-  | { ok: false; message: "Aircraft not found" | "Flight type not found" }
+  | { ok: true; flightType: { id: string; billing_mode: string; instruction_type: string } }
+  | {
+      ok: false
+      message: "Aircraft not found" | "Flight type not found" | "Trial flight type uses Trial flights settings"
+    }
 
 async function validateReferences(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -50,7 +53,7 @@ async function validateReferences(
       .maybeSingle(),
     supabase
       .from("flight_types")
-      .select("id, billing_mode")
+      .select("id, billing_mode, instruction_type")
       .eq("tenant_id", tenantId)
       .eq("id", flightTypeId)
       .is("voided_at", null)
@@ -62,6 +65,9 @@ async function validateReferences(
   }
   if (flightTypeResult.error || !flightTypeResult.data) {
     return { ok: false, message: "Flight type not found" }
+  }
+  if (flightTypeResult.data.instruction_type === "trial") {
+    return { ok: false, message: "Trial flight type uses Trial flights settings" }
   }
 
   return { ok: true, flightType: flightTypeResult.data }
@@ -113,11 +119,28 @@ export async function GET(request: NextRequest) {
     return noStoreJson({ charge_rate: data ?? null })
   }
 
+  const { data: nonTrialTypes, error: nonTrialError } = await supabase
+    .from("flight_types")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .is("voided_at", null)
+    .neq("instruction_type", "trial")
+
+  if (nonTrialError) {
+    return noStoreJson({ error: "Failed to fetch aircraft charge rates" }, { status: 500 })
+  }
+
+  const allowedFlightTypeIds = (nonTrialTypes ?? []).map((r) => r.id)
+  if (allowedFlightTypeIds.length === 0) {
+    return noStoreJson({ rates: [] })
+  }
+
   const { data, error } = await supabase
     .from("aircraft_charge_rates")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("aircraft_id", aircraftId)
+    .in("flight_type_id", allowedFlightTypeIds)
     .order("created_at", { ascending: true })
 
   if (error) {
@@ -146,7 +169,8 @@ export async function POST(request: NextRequest) {
     payload.flight_type_id
   )
   if (!referenceCheck.ok) {
-    return noStoreJson({ error: referenceCheck.message }, { status: 404 })
+    const status = referenceCheck.message === "Trial flight type uses Trial flights settings" ? 400 : 404
+    return noStoreJson({ error: referenceCheck.message }, { status })
   }
 
   const billingMode = referenceCheck.flightType.billing_mode as "hourly" | "fixed_package"
@@ -214,7 +238,8 @@ export async function PATCH(request: NextRequest) {
   const targetFlightTypeId = rest.flight_type_id ?? existing.flight_type_id
   const referenceCheck = await validateReferences(supabase, tenantId, existing.aircraft_id, targetFlightTypeId)
   if (!referenceCheck.ok) {
-    return noStoreJson({ error: referenceCheck.message }, { status: 404 })
+    const status = referenceCheck.message === "Trial flight type uses Trial flights settings" ? 400 : 404
+    return noStoreJson({ error: referenceCheck.message }, { status })
   }
 
   const billingMode = referenceCheck.flightType.billing_mode as "hourly" | "fixed_package"

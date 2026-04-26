@@ -78,10 +78,9 @@ function BookingRequestsSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <CardShellSkeleton titleWidth="w-36" descriptionWidth="w-52">
       <div className="overflow-hidden rounded-lg border">
-        <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_1fr_auto] items-center gap-3 border-b bg-muted/40 px-3 py-2.5">
+        <div className="grid grid-cols-[1.4fr_0.9fr_1fr_auto] items-center gap-3 border-b bg-muted/40 px-3 py-2.5">
           <SkeletonBlock className="h-2.5 w-12" />
           <SkeletonBlock className="h-2.5 w-14" />
-          <SkeletonBlock className="h-2.5 w-10" />
           <SkeletonBlock className="h-2.5 w-12" />
           <SkeletonBlock className="h-2.5 w-10 justify-self-end" />
         </div>
@@ -89,11 +88,10 @@ function BookingRequestsSkeleton({ rows = 4 }: { rows?: number }) {
           {Array.from({ length: rows }).map((_, index) => (
             <div
               key={index}
-              className="grid grid-cols-[1.4fr_0.9fr_0.7fr_1fr_auto] items-center gap-3 px-3 py-2.5"
+              className="grid grid-cols-[1.4fr_0.9fr_1fr_auto] items-center gap-3 px-3 py-2.5"
             >
               <SkeletonBlock className="h-3.5 w-28" />
               <SkeletonBlock className="h-3.5 w-16" />
-              <SkeletonBlock className="h-3.5 w-14" />
               <SkeletonBlock className="h-3.5 w-24" />
               <SkeletonBlock className="h-7 w-20 justify-self-end rounded-md" />
             </div>
