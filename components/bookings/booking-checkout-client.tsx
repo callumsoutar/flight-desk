@@ -50,6 +50,7 @@ import {
 } from "@/hooks/use-booking-query"
 import { useTimezone } from "@/contexts/timezone-context"
 import { buildCheckoutSheetData } from "@/lib/bookings/build-checkout-sheet-data"
+import type { BusinessHoursSettings } from "@/lib/settings/general-settings"
 import type { BookingOptions, BookingWithRelations } from "@/lib/types/bookings"
 import type { BookingWarningsResponse } from "@/lib/types/booking-warnings"
 import type { UserRole } from "@/lib/types/roles"
@@ -124,6 +125,7 @@ export function BookingCheckoutClient({
   booking: initialBooking,
   initialWarnings,
   options,
+  businessHours,
   role,
   checkoutSheetBranding,
 }: {
@@ -131,6 +133,7 @@ export function BookingCheckoutClient({
   booking: BookingWithRelations
   initialWarnings: BookingWarningsResponse
   options: BookingOptions
+  businessHours: BusinessHoursSettings
   role: UserRole | null
   checkoutSheetBranding?: {
     clubName: string
@@ -647,6 +650,8 @@ export function BookingCheckoutClient({
               <BookingEditDetailsCard
                 form={bookingForm}
                 options={options}
+                businessHours={businessHours}
+                timeZone={timeZone}
                 isReadOnly={isReadOnly}
                 isAdminOrInstructor={isStaff}
                 isMemberOrStudent={isMemberOrStudent}

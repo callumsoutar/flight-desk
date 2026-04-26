@@ -1,7 +1,7 @@
 "use client"
 
-import dynamic from "next/dynamic"
-
+import { ReportsDashboard } from "@/components/reports/reports-dashboard"
+import type { MemberWithBalance } from "@/lib/types/member-balances"
 import type {
   AircraftUtilisationDashboard,
   FlyingActivityDashboard,
@@ -10,11 +10,6 @@ import type {
 } from "@/lib/types/reports"
 import type { DateRange, ReportData } from "@/lib/reports/fetch-report-data"
 
-const ReportsDashboard = dynamic(
-  () => import("@/components/reports/reports-dashboard").then((mod) => mod.ReportsDashboard),
-  { ssr: false }
-)
-
 export function ReportsPageClient({
   data,
   dateRange,
@@ -22,6 +17,9 @@ export function ReportsPageClient({
   staffDashboard,
   aircraftUtilisation,
   hoursByFlightType,
+  initialMemberBalances,
+  memberBalancesTimeZone,
+  initialTab,
   role,
 }: {
   data: ReportData
@@ -30,6 +28,9 @@ export function ReportsPageClient({
   staffDashboard: StaffDashboard | null
   aircraftUtilisation: AircraftUtilisationDashboard | null
   hoursByFlightType: HoursByFlightTypeRow[]
+  initialMemberBalances: MemberWithBalance[]
+  memberBalancesTimeZone: string
+  initialTab: "flying-activity" | "member-balances" | "staff" | "aircraft"
   role: string | null
 }) {
   return (
@@ -40,6 +41,9 @@ export function ReportsPageClient({
       staffDashboard={staffDashboard}
       aircraftUtilisation={aircraftUtilisation}
       hoursByFlightType={hoursByFlightType}
+      initialMemberBalances={initialMemberBalances}
+      memberBalancesTimeZone={memberBalancesTimeZone}
+      initialTab={initialTab}
       role={role}
     />
   )

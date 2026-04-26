@@ -70,6 +70,7 @@ async function BookingCheckoutContent({
       booking={pageData.booking}
       initialWarnings={warningsForClient}
       options={pageData.options}
+      businessHours={pageData.businessHours}
       role={role}
       checkoutSheetBranding={{
         clubName: generalSettings.tenant.name,

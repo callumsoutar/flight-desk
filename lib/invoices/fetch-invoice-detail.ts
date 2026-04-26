@@ -2,6 +2,8 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import type { InvoiceEmailNotificationSummary } from "@/lib/email/email-notification-summary-types"
+import { fetchInvoiceEmailNotificationSummary } from "@/lib/email/fetch-email-notification-summaries"
 import type { Database, InvoiceItemsRow } from "@/lib/types"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
 
@@ -19,6 +21,7 @@ export type InvoiceDetailData = {
     exported_at: string | null
     error_message: string | null
   } | null
+  emailNotificationSummary: InvoiceEmailNotificationSummary
 }
 
 export async function fetchInvoiceDetail(
@@ -26,7 +29,7 @@ export async function fetchInvoiceDetail(
   tenantId: string,
   invoiceId: string
 ): Promise<InvoiceDetailData> {
-  const [invoiceResult, itemResult, xeroStatusResult] = await Promise.all([
+  const [invoiceResult, itemResult, xeroStatusResult, emailNotificationSummary] = await Promise.all([
     supabase
       .from("invoices")
       .select("*, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email)")
@@ -45,6 +48,7 @@ export async function fetchInvoiceDetail(
       .eq("tenant_id", tenantId)
       .eq("invoice_id", invoiceId)
       .maybeSingle(),
+    fetchInvoiceEmailNotificationSummary(supabase, tenantId, invoiceId),
   ])
 
   if (invoiceResult.error) throw invoiceResult.error
@@ -62,5 +66,6 @@ export async function fetchInvoiceDetail(
     invoice,
     items: invoice ? (itemResult.data ?? []) : [],
     xeroStatus: xeroStatusResult.data ?? null,
+    emailNotificationSummary,
   }
 }

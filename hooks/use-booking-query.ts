@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import type { BookingEmailNotificationSummary } from "@/lib/email/email-notification-summary-types"
 import type { BookingWithRelations } from "@/lib/types/bookings"
 import type { BookingWarningsResponse } from "@/lib/types/booking-warnings"
 import type { BookingStatus } from "@/lib/types/bookings"
@@ -216,6 +217,49 @@ export function useBookingQuery(bookingId: string, initialData: BookingWithRelat
   return useQuery({
     queryKey: bookingQueryKey(bookingId),
     queryFn: () => fetchBooking(bookingId),
+    initialData,
+    staleTime: 30 * 1000,
+  })
+}
+
+type BookingGetWithNotifications = {
+  booking: BookingWithRelations
+  email_notifications?: { confirmationSentAt: string | null }
+}
+
+export function bookingEmailNotificationsKey(bookingId: string) {
+  return ["booking", bookingId, "email-notifications"] as const
+}
+
+async function fetchBookingEmailNotifications(bookingId: string): Promise<BookingEmailNotificationSummary> {
+  const response = await fetch(`/api/bookings/${bookingId}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: { "cache-control": "no-store" },
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(payload?.error || "Failed to load booking email status")
+  }
+
+  const payload = (await response.json().catch(() => null)) as BookingGetWithNotifications | null
+  if (!payload?.booking) {
+    throw new Error("Failed to load booking email status")
+  }
+
+  return {
+    confirmationSentAt: payload.email_notifications?.confirmationSentAt ?? null,
+  }
+}
+
+export function useBookingEmailNotificationsQuery(
+  bookingId: string,
+  initialData: BookingEmailNotificationSummary
+) {
+  return useQuery({
+    queryKey: bookingEmailNotificationsKey(bookingId),
+    queryFn: () => fetchBookingEmailNotifications(bookingId),
     initialData,
     staleTime: 30 * 1000,
   })

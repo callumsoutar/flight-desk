@@ -39,7 +39,7 @@ export async function fetchMembers(
   let tenantUsersQuery = supabase
     .from("tenant_users")
     .select(
-      "id, user_id, is_active, granted_at, role:roles!tenant_users_role_id_fkey(id, name), user:user_directory!tenant_users_user_id_fkey(id, first_name, last_name, email)"
+      "id, user_id, is_active, granted_at, role:roles!tenant_users_role_id_fkey(id, name), user:users!tenant_users_user_id_fkey(id, first_name, last_name, email, phone, company_name)"
     )
     .eq("tenant_id", tenantId)
     .order("granted_at", { ascending: false })
@@ -144,7 +144,10 @@ export async function fetchMembers(
     return (
       fullName.includes(search) ||
       (member.user?.email ?? "").toLowerCase().includes(search) ||
-      (member.role?.name ?? "").toLowerCase().includes(search)
+      (member.user?.phone ?? "").toLowerCase().includes(search) ||
+      (member.user?.company_name ?? "").toLowerCase().includes(search) ||
+      (member.role?.name ?? "").toLowerCase().includes(search) ||
+      (member.membership?.membership_type?.name ?? "").toLowerCase().includes(search)
     )
   })
 }

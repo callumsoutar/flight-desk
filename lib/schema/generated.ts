@@ -6,6 +6,11 @@
 
 import { z } from "zod";
 
+export const publicBillingModeEnumSchema = z.union([
+  z.literal("hourly"),
+  z.literal("fixed_package"),
+]);
+
 export const publicBookingStatusSchema = z.union([
   z.literal("unconfirmed"),
   z.literal("confirmed"),
@@ -399,6 +404,7 @@ export const publicAircraftChargeRatesRowSchema = z.object({
   charge_hobbs: z.boolean(),
   charge_tacho: z.boolean(),
   created_at: z.string(),
+  fixed_package_price: z.number().nullable(),
   flight_type_id: z.string(),
   id: z.string(),
   rate_per_hour: z.number(),
@@ -412,6 +418,7 @@ export const publicAircraftChargeRatesInsertSchema = z.object({
   charge_hobbs: z.boolean().optional(),
   charge_tacho: z.boolean().optional(),
   created_at: z.string().optional(),
+  fixed_package_price: z.number().optional().nullable(),
   flight_type_id: z.string(),
   id: z.string().optional(),
   rate_per_hour: z.number(),
@@ -425,6 +432,7 @@ export const publicAircraftChargeRatesUpdateSchema = z.object({
   charge_hobbs: z.boolean().optional(),
   charge_tacho: z.boolean().optional(),
   created_at: z.string().optional(),
+  fixed_package_price: z.number().optional().nullable(),
   flight_type_id: z.string().optional(),
   id: z.string().optional(),
   rate_per_hour: z.number().optional(),
@@ -1836,13 +1844,17 @@ export const publicFlightExperienceRelationshipsSchema = z.tuple([
 
 export const publicFlightTypesRowSchema = z.object({
   aircraft_gl_code: z.string().nullable(),
+  billing_mode: publicBillingModeEnumSchema,
   created_at: z.string(),
   description: z.string().nullable(),
+  duration_minutes: z.number().nullable(),
+  fixed_package_price: z.number().nullable(),
   id: z.string(),
   instruction_type: publicInstructionTypeEnumSchema,
   instructor_gl_code: z.string().nullable(),
   is_active: z.boolean(),
   is_default_solo: z.boolean().nullable(),
+  is_revenue: z.boolean(),
   name: z.string(),
   tenant_id: z.string(),
   updated_at: z.string(),
@@ -1851,13 +1863,17 @@ export const publicFlightTypesRowSchema = z.object({
 
 export const publicFlightTypesInsertSchema = z.object({
   aircraft_gl_code: z.string().optional().nullable(),
+  billing_mode: publicBillingModeEnumSchema.optional(),
   created_at: z.string().optional(),
   description: z.string().optional().nullable(),
+  duration_minutes: z.number().optional().nullable(),
+  fixed_package_price: z.number().optional().nullable(),
   id: z.string().optional(),
   instruction_type: publicInstructionTypeEnumSchema.optional(),
   instructor_gl_code: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   is_default_solo: z.boolean().optional().nullable(),
+  is_revenue: z.boolean().optional(),
   name: z.string(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
@@ -1866,13 +1882,17 @@ export const publicFlightTypesInsertSchema = z.object({
 
 export const publicFlightTypesUpdateSchema = z.object({
   aircraft_gl_code: z.string().optional().nullable(),
+  billing_mode: publicBillingModeEnumSchema.optional(),
   created_at: z.string().optional(),
   description: z.string().optional().nullable(),
+  duration_minutes: z.number().optional().nullable(),
+  fixed_package_price: z.number().optional().nullable(),
   id: z.string().optional(),
   instruction_type: publicInstructionTypeEnumSchema.optional(),
   instructor_gl_code: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   is_default_solo: z.boolean().optional().nullable(),
+  is_revenue: z.boolean().optional(),
   name: z.string().optional(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
@@ -1924,6 +1944,7 @@ export const publicInstructorFlightTypeRatesRowSchema = z.object({
   id: z.string(),
   instructor_id: z.string(),
   rate: z.number(),
+  revenue_allocation: z.number().nullable(),
   tenant_id: z.string(),
   updated_at: z.string(),
 });
@@ -1936,6 +1957,7 @@ export const publicInstructorFlightTypeRatesInsertSchema = z.object({
   id: z.string().optional(),
   instructor_id: z.string(),
   rate: z.number(),
+  revenue_allocation: z.number().optional().nullable(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
 });
@@ -1948,6 +1970,7 @@ export const publicInstructorFlightTypeRatesUpdateSchema = z.object({
   id: z.string().optional(),
   instructor_id: z.string().optional(),
   rate: z.number().optional(),
+  revenue_allocation: z.number().optional().nullable(),
   tenant_id: z.string().optional(),
   updated_at: z.string().optional(),
 });
@@ -3545,6 +3568,7 @@ export const publicTenantUsersRowSchema = z.object({
   granted_by: z.string().nullable(),
   id: z.string(),
   is_active: z.boolean(),
+  is_restricted_login: z.boolean(),
   role_changed_at: z.string().nullable(),
   role_id: z.string(),
   tenant_id: z.string(),
@@ -3558,6 +3582,7 @@ export const publicTenantUsersInsertSchema = z.object({
   granted_by: z.string().optional().nullable(),
   id: z.string().optional(),
   is_active: z.boolean().optional(),
+  is_restricted_login: z.boolean().optional(),
   role_changed_at: z.string().optional().nullable(),
   role_id: z.string(),
   tenant_id: z.string().optional(),
@@ -3571,6 +3596,7 @@ export const publicTenantUsersUpdateSchema = z.object({
   granted_by: z.string().optional().nullable(),
   id: z.string().optional(),
   is_active: z.boolean().optional(),
+  is_restricted_login: z.boolean().optional(),
   role_changed_at: z.string().optional().nullable(),
   role_id: z.string().optional(),
   tenant_id: z.string().optional(),
@@ -4673,6 +4699,19 @@ export const publicGetAccountBalanceArgsSchema = z.object({
 
 export const publicGetAccountBalanceReturnsSchema = z.number();
 
+export const publicGetMemberBalanceMetricsArgsSchema = z.object({
+  p_tenant_id: z.string(),
+  p_time_zone: z.string().optional(),
+});
+
+export const publicGetMemberBalanceMetricsReturnsSchema = z.array(
+  z.object({
+    current_balance: z.number(),
+    last_payment_at: z.string().nullable(),
+    user_id: z.string(),
+  }),
+);
+
 export const publicGetAircraftMaintenanceCostReportArgsSchema = z.object({
   p_aircraft_id: z.string().optional(),
   p_end_date: z.string().optional(),
@@ -4828,6 +4867,7 @@ export const publicGetHoursByFlightTypeReturnsSchema = z.array(
     flight_type_name: z.string(),
     flights: z.number(),
     instruction_type: z.string(),
+    is_revenue: z.boolean(),
     pct_of_total: z.number(),
     solo_hours: z.number(),
     total_hours: z.number(),
@@ -5121,6 +5161,7 @@ export const publicVoidInvoiceAtomicArgsSchema = z.object({
 
 export const publicVoidInvoiceAtomicReturnsSchema = jsonSchema;
 
+export type PublicBillingModeEnum = z.infer<typeof publicBillingModeEnumSchema>;
 export type PublicBookingStatus = z.infer<typeof publicBookingStatusSchema>;
 export type PublicBookingType = z.infer<typeof publicBookingTypeSchema>;
 export type PublicChargeableTypeScope = z.infer<
@@ -5871,6 +5912,12 @@ export type PublicGetAccountBalanceArgs = z.infer<
 >;
 export type PublicGetAccountBalanceReturns = z.infer<
   typeof publicGetAccountBalanceReturnsSchema
+>;
+export type PublicGetMemberBalanceMetricsArgs = z.infer<
+  typeof publicGetMemberBalanceMetricsArgsSchema
+>;
+export type PublicGetMemberBalanceMetricsReturns = z.infer<
+  typeof publicGetMemberBalanceMetricsReturnsSchema
 >;
 export type PublicGetAircraftMaintenanceCostReportArgs = z.infer<
   typeof publicGetAircraftMaintenanceCostReportArgsSchema

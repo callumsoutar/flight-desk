@@ -13,6 +13,7 @@ import { getAuthSession } from "@/lib/auth/session"
 import { fetchMemberDetail } from "@/lib/members/fetch-member-detail"
 import { fetchMemberMembershipsData } from "@/lib/members/fetch-member-memberships-data"
 import { fetchMemberPilotData } from "@/lib/members/fetch-member-pilot-data"
+import { fetchGeneralSettings } from "@/lib/settings/fetch-general-settings"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
 type PageProps = {
@@ -44,11 +45,13 @@ async function MemberDetailContent({
   let member: Awaited<ReturnType<typeof fetchMemberDetail>>
   let pilotData: Awaited<ReturnType<typeof fetchMemberPilotData>>
   let membershipsData: Awaited<ReturnType<typeof fetchMemberMembershipsData>>
+  let generalSettings: Awaited<ReturnType<typeof fetchGeneralSettings>>
   try {
-    ;[member, pilotData, membershipsData] = await Promise.all([
+    ;[member, pilotData, membershipsData, generalSettings] = await Promise.all([
       fetchMemberDetail(supabase, tenantId, memberId),
       fetchMemberPilotData(supabase, tenantId, memberId),
       fetchMemberMembershipsData(supabase, tenantId, memberId, timeZone),
+      fetchGeneralSettings(supabase, tenantId),
     ])
   } catch {
     return (
@@ -78,6 +81,7 @@ async function MemberDetailContent({
         membershipTypes={membershipsData.membershipTypes}
         defaultTaxRate={membershipsData.defaultTaxRate}
         membershipYear={membershipsData.membershipYear}
+        businessHours={generalSettings.businessHours}
       />
     </AppRouteDetailContainer>
   )

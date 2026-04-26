@@ -3,6 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import type { HoursByFlightTypeRow } from "@/lib/types/reports"
 
@@ -17,9 +18,20 @@ function colorForInstructionType(value: string) {
   return "hsl(215, 22%, 70%)"
 }
 
-export function HoursByFlightTypeChart({ rows }: { rows: HoursByFlightTypeRow[] }) {
+export function HoursByFlightTypeChart({
+  rows,
+  className,
+}: {
+  rows: HoursByFlightTypeRow[]
+  className?: string
+}) {
   return (
-    <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
+    <Card
+      className={cn(
+        "relative w-full min-w-0 overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md",
+        className
+      )}
+    >
       <CardHeader className="px-4 pt-4 pb-0">
         <CardTitle className="text-sm font-semibold text-slate-900">Hours by Flight Type</CardTitle>
         <CardDescription className="text-xs">Total hours and share of overall flying activity</CardDescription>

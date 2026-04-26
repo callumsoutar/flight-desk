@@ -3,6 +3,13 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { isStaffRole } from "@/lib/auth/roles"
+import type { BookingEmailNotificationSummary } from "@/lib/email/email-notification-summary-types"
+import { fetchBookingEmailNotificationSummary } from "@/lib/email/fetch-email-notification-summaries"
+import {
+  DEFAULT_BUSINESS_HOURS,
+  resolveBusinessHours,
+  type BusinessHoursSettings,
+} from "@/lib/settings/general-settings"
 import { fetchBookingsSettings } from "@/lib/settings/fetch-bookings-settings"
 import type { Database } from "@/lib/types"
 import type { UserRole } from "@/lib/types/roles"
@@ -16,8 +23,10 @@ function pickMaybeOne<T>(value: T | T[] | null | undefined): T | null {
 export type BookingPageData = {
   booking: BookingWithRelations | null
   options: BookingOptions
+  businessHours: BusinessHoursSettings
   auditLogs: AuditLog[]
   auditLookupMaps: AuditLookupMaps
+  emailNotificationSummary: BookingEmailNotificationSummary
 }
 
 async function fetchBooking(
@@ -329,10 +338,13 @@ export async function fetchBookingPageData(
 ): Promise<BookingPageData> {
   const booking = await fetchBooking(supabase, tenantId, bookingId)
 
+  const emptyEmailSummary: BookingEmailNotificationSummary = { confirmationSentAt: null }
+
   if (!booking) {
     return {
       booking: null,
       options: emptyBookingOptionsPartial(),
+      businessHours: DEFAULT_BUSINESS_HOURS,
       auditLogs: [],
       auditLookupMaps: {
         users: {},
@@ -341,6 +353,7 @@ export async function fetchBookingPageData(
         flightTypes: {},
         aircraft: {},
       },
+      emailNotificationSummary: emptyEmailSummary,
     }
   }
 
@@ -348,6 +361,7 @@ export async function fetchBookingPageData(
     return {
       booking: null,
       options: emptyBookingOptionsPartial(),
+      businessHours: DEFAULT_BUSINESS_HOURS,
       auditLogs: [],
       auditLookupMaps: {
         users: {},
@@ -356,13 +370,25 @@ export async function fetchBookingPageData(
         flightTypes: {},
         aircraft: {},
       },
+      emailNotificationSummary: emptyEmailSummary,
     }
   }
 
-  const [options, auditResult] = await Promise.all([
+  const [options, auditResult, emailNotificationSummary, tenantSettingsResult] = await Promise.all([
     fetchOptions(supabase, tenantId, access.userId, access.role),
     fetchAuditLogs(supabase, tenantId, bookingId),
+    fetchBookingEmailNotificationSummary(supabase, tenantId, bookingId),
+    supabase.from("tenant_settings").select("settings").eq("tenant_id", tenantId).maybeSingle(),
   ])
 
-  return { booking, options, auditLogs: auditResult.logs, auditLookupMaps: auditResult.maps }
+  if (tenantSettingsResult.error) throw tenantSettingsResult.error
+
+  return {
+    booking,
+    options,
+    businessHours: resolveBusinessHours(tenantSettingsResult.data?.settings ?? null),
+    auditLogs: auditResult.logs,
+    auditLookupMaps: auditResult.maps,
+    emailNotificationSummary,
+  }
 }

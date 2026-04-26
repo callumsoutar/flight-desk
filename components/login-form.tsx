@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   AlertCircle,
   ArrowRight,
@@ -46,6 +46,7 @@ const carouselSlides = [
 ]
 
 export function LoginForm({ nextUrl }: { nextUrl?: string }) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const safeNextUrl = sanitizeNextPath(nextUrl)
 
@@ -99,7 +100,10 @@ export function LoginForm({ nextUrl }: { nextUrl?: string }) {
       }
 
       broadcastAuthChanged()
-      window.location.assign(safeNextUrl)
+      // Avoid `window.location.assign` here: Firefox can hard-navigate before the
+      // server action's Set-Cookie is fully applied, briefly showing its error page.
+      // Refresh lets the login route's server `redirect(next)` run with the new session.
+      router.refresh()
     })
   }
 

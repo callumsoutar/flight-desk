@@ -76,6 +76,8 @@ export interface HoursByFlightTypeRow {
   flight_type_id: string
   flight_type_name: string
   instruction_type: string
+  /** From flight_types.is_revenue; drives revenue vs non-revenue reporting. */
+  is_revenue: boolean
   flights: number
   total_hours: number
   dual_hours: number

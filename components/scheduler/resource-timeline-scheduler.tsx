@@ -1646,6 +1646,7 @@ export function ResourceTimelineScheduler({ data: initialData }: { data: Schedul
         currentUserId={user?.id ?? null}
         onCreated={handleSchedulerChanged}
         instructorRosterWindows={instructorAvailabilityById}
+        businessHours={data.businessHours}
       />
 
       <CancelBookingModal

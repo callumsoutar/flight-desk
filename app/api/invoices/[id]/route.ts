@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 
 import { getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
 import { isStaffRole } from "@/lib/auth/roles"
+import { fetchInvoiceEmailNotificationSummary } from "@/lib/email/fetch-email-notification-summaries"
 import { getEffectiveInvoiceStatus } from "@/lib/invoices/effective-status"
 
 export const dynamic = "force-dynamic"
@@ -24,13 +25,24 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     .maybeSingle()
   const timeZone = tenant?.timezone?.trim() || "Pacific/Auckland"
 
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("*, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email)")
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .is("deleted_at", null)
-    .maybeSingle()
+  const [invoiceResult, xeroResult, emailNotificationSummary] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("*, user:user_directory!invoices_user_id_fkey(id, first_name, last_name, email)")
+      .eq("tenant_id", tenantId)
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle(),
+    supabase
+      .from("xero_invoices")
+      .select("export_status, xero_invoice_id, exported_at, error_message")
+      .eq("tenant_id", tenantId)
+      .eq("invoice_id", id)
+      .maybeSingle(),
+    fetchInvoiceEmailNotificationSummary(supabase, tenantId, id),
+  ])
+
+  const { data, error } = invoiceResult
 
   if (error) {
     return noStoreJson({ error: "Failed to load invoice" }, { status: 500 })
@@ -55,12 +67,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     }),
   }
 
-  const { data: xeroStatus } = await supabase
-    .from("xero_invoices")
-    .select("export_status, xero_invoice_id, exported_at, error_message")
-    .eq("tenant_id", tenantId)
-    .eq("invoice_id", id)
-    .maybeSingle()
+  const xeroStatus = xeroResult.data
 
   return noStoreJson({
     invoice,
@@ -72,5 +79,6 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
           error_message: xeroStatus.error_message,
         }
       : null,
+    email_notifications: { invoiceSentAt: emailNotificationSummary.invoiceSentAt },
   })
 }

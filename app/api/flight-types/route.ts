@@ -36,6 +36,7 @@ const createSchema = z.strictObject({
   aircraft_gl_code: z.string().trim().max(20).optional().nullable(),
   instructor_gl_code: z.string().trim().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
+  is_revenue: z.boolean().optional(),
 })
 
 const updateSchema = z.strictObject({
@@ -49,6 +50,7 @@ const updateSchema = z.strictObject({
   aircraft_gl_code: z.string().trim().max(20).optional().nullable(),
   instructor_gl_code: z.string().trim().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
+  is_revenue: z.boolean().optional(),
 })
 
 function normalizeNullableString(value: unknown): string | null {
@@ -139,6 +141,7 @@ export async function POST(request: NextRequest) {
       instructor_gl_code:
         payload.instruction_type === "solo" ? null : normalizeNullableString(payload.instructor_gl_code),
       is_active: payload.is_active ?? true,
+      is_revenue: payload.is_revenue ?? true,
       is_default_solo: false,
     })
     .select("id")
@@ -190,6 +193,7 @@ export async function PUT(request: NextRequest) {
     updateData.instructor_gl_code = normalizeNullableString(rest.instructor_gl_code)
   }
   if (rest.is_active !== undefined) updateData.is_active = rest.is_active
+  if (rest.is_revenue !== undefined) updateData.is_revenue = rest.is_revenue
 
   if (!Object.keys(updateData).length) {
     return noStoreJson({ error: "No fields to update" }, { status: 400 })

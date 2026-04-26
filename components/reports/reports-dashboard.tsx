@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   Bar,
   BarChart,
@@ -41,10 +42,13 @@ import { DateRangeSelector } from "@/components/reports/date-range-selector"
 import { AircraftUtilisationTable } from "@/components/reports/aircraft-utilisation-table"
 import { AircraftUtilisationTrendChart } from "@/components/reports/aircraft-utilisation-trend-chart"
 import { HoursByFlightTypeChart } from "@/components/reports/hours-by-flight-type-chart"
+import { MemberBalancesReportPanel } from "@/components/reports/member-balances-report-panel"
+import { RevenueVsNonRevenueChart } from "@/components/reports/revenue-vs-non-revenue-chart"
 import { InstructorRevenueRanking } from "@/components/reports/instructor-revenue-ranking"
 import { StaffDualHoursCards } from "@/components/reports/staff-dual-hours-cards"
 import { StudentsPerInstructor } from "@/components/reports/students-per-instructor"
 import type { ReportData, DateRange } from "@/lib/reports/fetch-report-data"
+import type { MemberWithBalance } from "@/lib/types/member-balances"
 import type {
   AircraftUtilisationDashboard,
   FlyingActivityDashboard,
@@ -60,7 +64,6 @@ import type {
 const C1 = "hsl(217, 55%, 58%)"   // Soft brand blue
 const C2 = "hsl(232, 38%, 62%)"   // Muted indigo
 const C3 = "hsl(207, 38%, 68%)"   // Dusty sky
-const C4 = "hsl(248, 32%, 70%)"   // Soft lavender
 const C5 = "hsl(215, 22%, 78%)"   // Light slate
 
 // ---------------------------------------------------------------------------
@@ -89,10 +92,6 @@ const flyingHoursByMonthConfig = {
 const weekendWeekdayConfig = {
   weekend: { label: "Weekend", color: C1 },
   weekday: { label: "Weekday", color: C3 },
-} satisfies ChartConfig
-
-const stageConfig = {
-  hours: { label: "Hours", color: C4 },
 } satisfies ChartConfig
 
 const cancellationsConfig = {
@@ -151,6 +150,7 @@ function EmptyChart({ message }: { message: string }) {
 
 const TABS = [
   { id: "flying-activity", label: "Flying Activity" },
+  { id: "member-balances", label: "Balances" },
   { id: "staff", label: "Staff" },
   { id: "aircraft", label: "Aircraft" },
 ] as const
@@ -254,6 +254,9 @@ export function ReportsDashboard({
   staffDashboard,
   aircraftUtilisation,
   hoursByFlightType,
+  initialMemberBalances,
+  memberBalancesTimeZone,
+  initialTab,
   role,
 }: {
   data: ReportData
@@ -262,16 +265,44 @@ export function ReportsDashboard({
   staffDashboard: StaffDashboard | null
   aircraftUtilisation: AircraftUtilisationDashboard | null
   hoursByFlightType: HoursByFlightTypeRow[]
+  initialMemberBalances: MemberWithBalance[]
+  memberBalancesTimeZone: string
+  initialTab: TabId
   role: string | null
 }) {
-  const [activeTab, setActiveTab] = React.useState<TabId>("flying-activity")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = React.useState<TabId>(initialTab)
   const canViewStaffAndAircraft = role === "owner" || role === "admin" || role === "instructor"
+  const showDateRangeSelector = activeTab !== "member-balances"
+
+  const handleTabChange = React.useCallback(
+    (nextTab: TabId) => {
+      setActiveTab(nextTab)
+
+      const params = new URLSearchParams(searchParams.toString())
+      if (nextTab === "flying-activity") {
+        params.delete("tab")
+      } else {
+        params.set("tab", nextTab)
+      }
+
+      const nextQuery = params.toString()
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+    },
+    [pathname, router, searchParams]
+  )
 
   React.useEffect(() => {
-    if (!canViewStaffAndAircraft && activeTab !== "flying-activity") {
-      setActiveTab("flying-activity")
+    if (!canViewStaffAndAircraft && (activeTab === "staff" || activeTab === "aircraft")) {
+      handleTabChange("flying-activity")
     }
-  }, [activeTab, canViewStaffAndAircraft])
+  }, [activeTab, canViewStaffAndAircraft, handleTabChange])
+
+  React.useEffect(() => {
+    setActiveTab(initialTab)
+  }, [initialTab])
 
   return (
     <div className="flex flex-col gap-6">
@@ -280,16 +311,18 @@ export function ReportsDashboard({
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Reports</h1>
           <p className="mt-1 text-slate-600">
-            Flight school analytics and insights.
+            {activeTab === "member-balances"
+              ? "Current member account balances, overdue invoices, and follow-up visibility."
+              : "Flight school analytics and insights."}
           </p>
         </div>
-        <DateRangeSelector dateRange={dateRange} />
+        {showDateRangeSelector ? <DateRangeSelector dateRange={dateRange} /> : null}
       </div>
 
       {/* Bookings-style tab bar */}
       <TabBar
         active={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
         canViewStaffAndAircraft={canViewStaffAndAircraft}
       />
 
@@ -406,91 +439,66 @@ export function ReportsDashboard({
             </Card>
           </div>
 
-          {/* Breakdowns */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-              <CardHeader className="px-4 pt-4 pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-900">Weekend vs Weekday</CardTitle>
-                <CardDescription className="text-xs">Share of total flight hours</CardDescription>
-              </CardHeader>
-              <CardContent className="px-2 pb-4">
-                {(!flyingActivity || (flyingActivity.weekend_hours + flyingActivity.weekday_hours) === 0) ? (
-                  <EmptyChart message="No flight hours in this period" />
-                ) : (
-                  <ChartContainer
-                    config={weekendWeekdayConfig}
-                    className="mx-auto aspect-square max-h-[200px]"
-                  >
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                      <Pie
-                        data={[
-                          { name: "Weekend", hours: flyingActivity.weekend_hours, fill: "var(--color-weekend)" },
-                          { name: "Weekday", hours: flyingActivity.weekday_hours, fill: "var(--color-weekday)" },
-                        ]}
-                        dataKey="hours"
-                        nameKey="name"
-                        innerRadius={50}
-                        strokeWidth={4}
-                      >
-                        <Label
-                          content={({ viewBox }) => {
-                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                              const total = flyingActivity.weekend_hours + flyingActivity.weekday_hours
-                              const pct = total > 0 ? Math.round((flyingActivity.weekend_hours / total) * 100) : 0
-                              return (
-                                <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                                  <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
-                                    {pct}%
-                                  </tspan>
-                                  <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-xs">
-                                    Weekend
-                                  </tspan>
-                                </text>
-                              )
-                            }
-                            return null
-                          }}
-                        />
-                      </Pie>
-                      <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-                    </PieChart>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
+          {/* Breakdowns — same 1/3 + 2/3 rhythm as Instructor + Cancellation below */}
+          <div className="flex flex-col gap-4">
+            <div className="grid items-start gap-4 lg:grid-cols-3">
+              <div className="min-w-0 lg:col-span-1">
+                <RevenueVsNonRevenueChart rows={hoursByFlightType} />
+              </div>
+              <Card className="relative min-w-0 overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md lg:col-span-2">
+                <CardHeader className="px-4 pt-4 pb-0">
+                  <CardTitle className="text-sm font-semibold text-slate-900">Weekend vs Weekday</CardTitle>
+                  <CardDescription className="text-xs">Share of total flight hours</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center px-2 pb-4">
+                  {(!flyingActivity || (flyingActivity.weekend_hours + flyingActivity.weekday_hours) === 0) ? (
+                    <EmptyChart message="No flight hours in this period" />
+                  ) : (
+                    <ChartContainer
+                      config={weekendWeekdayConfig}
+                      className="mx-auto aspect-square w-full max-w-[min(100%,20rem)] max-h-[220px]"
+                    >
+                      <PieChart>
+                        <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                        <Pie
+                          data={[
+                            { name: "Weekend", hours: flyingActivity.weekend_hours, fill: "var(--color-weekend)" },
+                            { name: "Weekday", hours: flyingActivity.weekday_hours, fill: "var(--color-weekday)" },
+                          ]}
+                          dataKey="hours"
+                          nameKey="name"
+                          innerRadius={50}
+                          strokeWidth={4}
+                        >
+                          <Label
+                            content={({ viewBox }) => {
+                              if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                                const totalH = flyingActivity.weekend_hours + flyingActivity.weekday_hours
+                                const pct = totalH > 0 ? Math.round((flyingActivity.weekend_hours / totalH) * 100) : 0
+                                return (
+                                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-bold">
+                                      {pct}%
+                                    </tspan>
+                                    <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-xs">
+                                      Weekend
+                                    </tspan>
+                                  </text>
+                                )
+                              }
+                              return null
+                            }}
+                          />
+                        </Pie>
+                        <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                      </PieChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             <HoursByFlightTypeChart rows={hoursByFlightType} />
-
-            <Card className="relative overflow-hidden border-slate-200/60 bg-white shadow-sm transition-all hover:shadow-md">
-              <CardHeader className="px-4 pt-4 pb-0">
-                <CardTitle className="text-sm font-semibold text-slate-900">Hours by Stage</CardTitle>
-                <CardDescription className="text-xs">Distribution across training stages</CardDescription>
-              </CardHeader>
-              <CardContent className="px-2 pb-4">
-                {(!flyingActivity || flyingActivity.hours_by_stage.length === 0) ? (
-                  <EmptyChart message="No stage data in this period." />
-                ) : (
-                  <ChartContainer
-                    config={stageConfig}
-                    className="aspect-auto w-full"
-                    style={{ height: `${Math.max(180, flyingActivity.hours_by_stage.length * 32)}px` }}
-                  >
-                    <BarChart
-                      data={flyingActivity.hours_by_stage}
-                      layout="vertical"
-                      margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
-                    >
-                      <CartesianGrid horizontal={false} />
-                      <YAxis dataKey="stage" type="category" tickLine={false} axisLine={false} tickMargin={8} width={100} />
-                      <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} />
-                      <ChartTooltip content={<ChartTooltipContent formatter={(value, _name, item) => [`${value} hrs`, item.payload.stage]} />} />
-                      <Bar dataKey="hours" fill="var(--color-hours)" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ChartContainer>
-                )}
-              </CardContent>
-            </Card>
           </div>
 
           {/* Operations & Instructors */}
@@ -656,6 +664,13 @@ export function ReportsDashboard({
           />
           <AircraftUtilisationTrendChart rows={aircraftUtilisation?.monthly_by_aircraft ?? []} />
         </div>
+      )}
+
+      {activeTab === "member-balances" && (
+        <MemberBalancesReportPanel
+          initialMembers={initialMemberBalances}
+          initialTimeZone={memberBalancesTimeZone}
+        />
       )}
 
     </div>

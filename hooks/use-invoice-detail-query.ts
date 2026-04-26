@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import type { InvoiceEmailNotificationSummary } from "@/lib/email/email-notification-summary-types"
 import type { InvoiceItemsRow } from "@/lib/types"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
 
@@ -16,11 +17,13 @@ export type InvoiceDetailQueryData = {
   invoice: InvoiceWithRelations
   items: InvoiceItemsRow[]
   xeroStatus: XeroStatusData | null
+  emailNotificationSummary: InvoiceEmailNotificationSummary
 }
 
 type InvoiceDetailResponse = {
   invoice?: InvoiceWithRelations
   xero_status?: XeroStatusData | null
+  email_notifications?: { invoiceSentAt: string | null }
   error?: string
 }
 
@@ -89,6 +92,9 @@ export async function fetchInvoiceDetailQuery(invoiceId: string): Promise<Invoic
     invoice: invoicePayload.invoice,
     items: Array.isArray(itemsPayload?.invoice_items) ? itemsPayload.invoice_items : [],
     xeroStatus: invoicePayload.xero_status ?? null,
+    emailNotificationSummary: {
+      invoiceSentAt: invoicePayload.email_notifications?.invoiceSentAt ?? null,
+    },
   }
 }
 

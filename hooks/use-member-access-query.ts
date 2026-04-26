@@ -6,6 +6,8 @@ export type MemberAccessResponse = {
   portal_status: "active" | "pending_invite" | "not_invited"
   invite_status: "none" | "pending" | "accepted"
   account_created: boolean
+  is_restricted_login: boolean
+  can_toggle_restricted_login: boolean
   roles: { id: string; name: string }[]
   current_role: { id: string; name: string } | null
   email: string | null
@@ -89,6 +91,25 @@ export async function updateMemberRoleAccess(
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new Error(getMemberAccessError(payload, "Failed to update role"))
+  }
+
+  return payload as { updated: boolean }
+}
+
+export async function updateMemberPortalRestricted(
+  memberId: string,
+  isRestricted: boolean
+): Promise<{ updated: boolean }> {
+  const response = await fetch(`/api/members/${memberId}/access`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_restricted_login: isRestricted }),
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(
+      getMemberAccessError(payload, "Failed to update portal login access")
+    )
   }
 
   return payload as { updated: boolean }

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const { data: source, error: sourceError } = await supabase
     .from("flight_types")
     .select(
-      "id, name, description, instruction_type, billing_mode, duration_minutes, fixed_package_price, aircraft_gl_code, instructor_gl_code, is_active"
+      "id, name, description, instruction_type, billing_mode, duration_minutes, fixed_package_price, aircraft_gl_code, instructor_gl_code, is_active, is_revenue"
     )
     .eq("tenant_id", tenantId)
     .eq("id", source_id)
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       instructor_gl_code:
         source.instruction_type === "solo" ? null : source.instructor_gl_code,
       is_active: source.is_active,
+      is_revenue: source.is_revenue ?? true,
       is_default_solo: false,
     })
     .select("id")

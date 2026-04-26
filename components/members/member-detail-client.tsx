@@ -94,6 +94,7 @@ import type {
   TenantDefaultTaxRate,
   MembershipTypeWithChargeable,
 } from "@/lib/types/memberships"
+import type { BusinessHoursSettings } from "@/lib/settings/general-settings"
 import { useTimezone } from "@/contexts/timezone-context"
 import { zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import { formatDate } from "@/lib/utils/date-format"
@@ -112,6 +113,7 @@ export function MemberDetailClient({
   membershipTypes,
   defaultTaxRate,
   membershipYear,
+  businessHours,
 }: {
   member: MemberDetailWithRelations
   availableLicenses: LicenseLite[]
@@ -121,6 +123,7 @@ export function MemberDetailClient({
   membershipTypes: MembershipTypeWithChargeable[]
   defaultTaxRate: TenantDefaultTaxRate
   membershipYear: MembershipYearSettings | null
+  businessHours: BusinessHoursSettings
 }) {
   const { timeZone } = useTimezone()
   const { role, user } = useAuth()
@@ -695,6 +698,7 @@ export function MemberDetailClient({
         isStaff={isStaff}
         currentUserId={user?.id ?? null}
         onCreated={handleBookingCreated}
+        businessHours={businessHours}
       />
     </div>
   )

@@ -37,6 +37,7 @@ import {
 import { CancelBookingModal, type CancelBookingPayload } from "@/components/bookings/cancel-booking-modal"
 import { ContactDetailsModal } from "@/components/members/contact-details-modal"
 import { runAsyncProgressToast } from "@/components/ui/async-progress-toast"
+import { useTimezone } from "@/contexts/timezone-context"
 import { shouldSkipDebrief } from "@/lib/bookings/should-skip-debrief"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -57,11 +58,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { StickyFormActions } from "@/components/ui/sticky-form-actions"
-import { bookingQueryKey, sendBookingConfirmationEmailMutation, useBookingQuery } from "@/hooks/use-booking-query"
+import {
+  bookingEmailNotificationsKey,
+  bookingQueryKey,
+  sendBookingConfirmationEmailMutation,
+  useBookingEmailNotificationsQuery,
+  useBookingQuery,
+} from "@/hooks/use-booking-query"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
+import type { BookingEmailNotificationSummary } from "@/lib/email/email-notification-summary-types"
+import type { BusinessHoursSettings } from "@/lib/settings/general-settings"
 import type { AuditLog, AuditLookupMaps, BookingOptions, BookingStatus, BookingWithRelations } from "@/lib/types/bookings"
 import type { UserRole } from "@/lib/types/roles"
+import { formatDate } from "@/lib/utils/date-format"
+import { cn } from "@/lib/utils"
 
 function toIso(value: string) {
   if (!value) return ""
@@ -77,21 +87,31 @@ export function BookingDetailClient({
   bookingId,
   booking: initialBooking,
   options,
+  businessHours,
   auditLogs,
   auditLookupMaps,
+  emailNotificationSummary,
   role,
 }: {
   bookingId: string
   booking: BookingWithRelations
   options: BookingOptions
+  businessHours: BusinessHoursSettings
   auditLogs: AuditLog[]
   auditLookupMaps: AuditLookupMaps
+  emailNotificationSummary: BookingEmailNotificationSummary
   role: UserRole | null
 }) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { timeZone } = useTimezone()
   const { data: liveBooking } = useBookingQuery(bookingId, initialBooking)
+  const { data: liveEmailNotificationSummary } = useBookingEmailNotificationsQuery(
+    bookingId,
+    emailNotificationSummary
+  )
   const booking = liveBooking ?? initialBooking
+  const emailNotifications = liveEmailNotificationSummary ?? emailNotificationSummary
   const isMobile = useIsMobile()
   const serverInitialForm = React.useMemo(() => createBookingEditInitialState(booking), [booking])
   const [form, setForm] = React.useState<BookingEditFormState>(() => serverInitialForm)
@@ -184,12 +204,14 @@ export function BookingDetailClient({
         successDescription: booking.student?.email?.trim() || undefined,
         error: (error) => error instanceof Error ? error.message : "Failed to send confirmation email",
       })
+      await queryClient.invalidateQueries({ queryKey: bookingEmailNotificationsKey(bookingId) })
+      await queryClient.invalidateQueries({ queryKey: bookingQueryKey(bookingId) })
     } catch {
       return
     } finally {
       setSendingConfirmation(false)
     }
-  }, [booking.student?.email, bookingId])
+  }, [booking.student?.email, bookingId, queryClient])
 
   const handleCancel = (payload: CancelBookingPayload) => {
     startTransition(async () => {
@@ -388,6 +410,8 @@ export function BookingDetailClient({
               <BookingEditDetailsCard
                 form={form}
                 options={options}
+                businessHours={businessHours}
+                timeZone={timeZone}
                 isReadOnly={isReadOnly}
                 isAdminOrInstructor={isAdminOrInstructor}
                 isMemberOrStudent={isMemberOrStudent}
@@ -479,7 +503,15 @@ export function BookingDetailClient({
                 </Button>
               </CardHeader>
               {auditOpen ? (
-                <CardContent className="p-0">
+                <CardContent className="space-y-0 p-0">
+                  <div className="flex items-start gap-2 border-b border-border/20 px-6 py-3 text-sm text-muted-foreground">
+                    <IconMail className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <span>
+                      {emailNotifications.confirmationSentAt
+                        ? `Confirmation email sent on ${formatDate(emailNotifications.confirmationSentAt, timeZone, "long") || "—"}`
+                        : "Booking confirmation email not sent."}
+                    </span>
+                  </div>
                   <BookingAuditTimeline logs={auditLogs} maps={auditLookupMaps} />
                 </CardContent>
               ) : null}

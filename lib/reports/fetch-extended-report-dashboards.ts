@@ -116,6 +116,7 @@ export async function getHoursByFlightType(
 
     return ensureArray(data as unknown as HoursByFlightTypeRow[]).map((row) => ({
       ...row,
+      is_revenue: typeof row.is_revenue === "boolean" ? row.is_revenue : true,
       flights: asNumber(row.flights),
       total_hours: asNumber(row.total_hours),
       dual_hours: asNumber(row.dual_hours),

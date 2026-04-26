@@ -2,8 +2,10 @@ import { NextRequest } from "next/server"
 import { z } from "zod"
 
 import { getTenantAdminRouteContext, getTenantScopedRouteContext, noStoreJson } from "@/lib/api/tenant-route"
+import { isMemberOrStudentRole, isUserRole } from "@/lib/auth/roles"
 import { createPrivilegedSupabaseClient } from "@/lib/supabase/privileged"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import type { UserRole } from "@/lib/types/roles"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +15,9 @@ export type MemberAccessResponse = {
   portal_status: MemberAccessStatus
   invite_status: "none" | "pending" | "accepted"
   account_created: boolean
+  /** When true, member/student users cannot use the portal (UI must reflect even if auth shows active). */
+  is_restricted_login: boolean
+  can_toggle_restricted_login: boolean
   roles: { id: string; name: string }[]
   current_role: { id: string; name: string } | null
   email: string | null
@@ -42,7 +47,7 @@ export async function GET(
         .maybeSingle(),
       supabase
         .from("tenant_users")
-        .select("role:roles!tenant_users_role_id_fkey(id, name)")
+        .select("is_restricted_login, role:roles!tenant_users_role_id_fkey(id, name)")
         .eq("tenant_id", tenantId)
         .eq("user_id", memberId)
         .maybeSingle(),
@@ -53,11 +58,20 @@ export async function GET(
         .order("name"),
     ])
 
-    if (memberUserResult.error || !memberUserResult.data) {
+    if (memberUserResult.error) {
+      return noStoreJson({ error: "Failed to load user" }, { status: 500 })
+    }
+    if (!memberUserResult.data) {
       return noStoreJson({ error: "Member not found" }, { status: 404 })
     }
 
-    if (tenantUserResult.error || !tenantUserResult.data) {
+    if (tenantUserResult.error) {
+      return noStoreJson(
+        { error: "Failed to load tenant membership" },
+        { status: 500 }
+      )
+    }
+    if (!tenantUserResult.data) {
       return noStoreJson({ error: "Member not found in tenant" }, { status: 404 })
     }
 
@@ -68,6 +82,11 @@ export async function GET(
     const currentRole = Array.isArray(tenantUser.role)
       ? tenantUser.role[0]
       : tenantUser.role
+    const roleNameRaw = currentRole ? (currentRole as { name: string }).name : ""
+    const roleNorm = roleNameRaw ? roleNameRaw.toLowerCase() : ""
+    const isRestrictedLogin = Boolean(tenantUser.is_restricted_login)
+    const canToggleRestricted =
+      isUserRole(roleNorm) && isMemberOrStudentRole(roleNorm as UserRole)
 
     let portal_status: MemberAccessStatus = "not_invited"
     let invite_status: "none" | "pending" | "accepted" = "none"
@@ -119,6 +138,8 @@ export async function GET(
       portal_status,
       invite_status,
       account_created,
+      is_restricted_login: isRestrictedLogin,
+      can_toggle_restricted_login: canToggleRestricted,
       roles: (allRoles ?? []).map((r) => ({ id: r.id, name: r.name })),
       current_role: currentRole
         ? { id: (currentRole as { id: string }).id, name: (currentRole as { name: string }).name }
@@ -133,9 +154,26 @@ export async function GET(
   }
 }
 
-const updateRoleSchema = z.strictObject({
-  role_id: z.string().uuid(),
-})
+const patchAccessSchema = z
+  .object({
+    role_id: z.string().uuid().optional(),
+    is_restricted_login: z.boolean().optional(),
+  })
+  .refine(
+    (b) => b.role_id !== undefined || b.is_restricted_login !== undefined,
+    { message: "At least one of role_id or is_restricted_login is required" }
+  )
+
+function targetRoleNameFromTenantUser(
+  data: { role: unknown } | null
+): string {
+  if (!data?.role) return ""
+  const r = data.role
+  const one = Array.isArray(r) ? r[0] : r
+  if (!one || typeof one !== "object" || !("name" in one)) return ""
+  const n = (one as { name: string }).name
+  return typeof n === "string" ? n.toLowerCase() : ""
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -148,35 +186,76 @@ export async function PATCH(
   const { supabase, tenantId } = session.context
 
   const body = await request.json().catch(() => null)
-  const parsed = updateRoleSchema.safeParse(body)
+  const parsed = patchAccessSchema.safeParse(body)
   if (!parsed.success) {
     return noStoreJson({ error: "Invalid request body" }, { status: 400 })
   }
 
+  const { role_id: roleId, is_restricted_login: restricted } = parsed.data
+
   try {
-    const { data: roleRow, error: roleError } = await supabase
-      .from("roles")
-      .select("id")
-      .eq("id", parsed.data.role_id)
-      .eq("is_active", true)
-      .maybeSingle()
+    if (restricted !== undefined) {
+      const { data: targetTu, error: targetErr } = await supabase
+        .from("tenant_users")
+        .select("role:roles!tenant_users_role_id_fkey(name)")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", memberId)
+        .maybeSingle()
 
-    if (roleError || !roleRow) {
-      return noStoreJson({ error: "Invalid role" }, { status: 400 })
+      if (targetErr || !targetTu) {
+        return noStoreJson({ error: "Member not found in tenant" }, { status: 404 })
+      }
+
+      const targetRoleName = targetRoleNameFromTenantUser(targetTu)
+      if (!isUserRole(targetRoleName) || !isMemberOrStudentRole(targetRoleName as UserRole)) {
+        return noStoreJson(
+          {
+            error:
+              "Portal login restriction can only be changed for members and students. Change the role first if needed.",
+          },
+          { status: 400 }
+        )
+      }
+
+      const { error: restrictErr } = await supabase
+        .from("tenant_users")
+        .update({ is_restricted_login: restricted })
+        .eq("tenant_id", tenantId)
+        .eq("user_id", memberId)
+
+      if (restrictErr) {
+        return noStoreJson({ error: "Failed to update portal access" }, { status: 500 })
+      }
     }
 
-    const { error: updateError } = await supabase
-      .from("tenant_users")
-      .update({ role_id: parsed.data.role_id })
-      .eq("tenant_id", tenantId)
-      .eq("user_id", memberId)
+    if (roleId) {
+      const { data: roleRow, error: roleError } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("id", roleId)
+        .eq("is_active", true)
+        .maybeSingle()
 
-    if (updateError) {
-      return noStoreJson({ error: "Failed to update role" }, { status: 500 })
+      if (roleError || !roleRow) {
+        return noStoreJson({ error: "Invalid role" }, { status: 400 })
+      }
+
+      const { error: updateError } = await supabase
+        .from("tenant_users")
+        .update({ role_id: roleId })
+        .eq("tenant_id", tenantId)
+        .eq("user_id", memberId)
+
+      if (updateError) {
+        return noStoreJson({ error: "Failed to update role" }, { status: 500 })
+      }
     }
 
-    return noStoreJson({ updated: true, role_id: parsed.data.role_id }, { status: 200 })
+    return noStoreJson(
+      { updated: true, role_id: roleId ?? null, is_restricted_login: restricted },
+      { status: 200 }
+    )
   } catch {
-    return noStoreJson({ error: "Failed to update role" }, { status: 500 })
+    return noStoreJson({ error: "Failed to update access" }, { status: 500 })
   }
 }

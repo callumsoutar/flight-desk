@@ -1588,6 +1588,7 @@ export type Database = {
           instructor_gl_code: string | null
           is_active: boolean
           is_default_solo: boolean | null
+          is_revenue: boolean
           name: string
           tenant_id: string
           updated_at: string
@@ -1605,6 +1606,7 @@ export type Database = {
           instructor_gl_code?: string | null
           is_active?: boolean
           is_default_solo?: boolean | null
+          is_revenue?: boolean
           name: string
           tenant_id?: string
           updated_at?: string
@@ -1622,6 +1624,7 @@ export type Database = {
           instructor_gl_code?: string | null
           is_active?: boolean
           is_default_solo?: boolean | null
+          is_revenue?: boolean
           name?: string
           tenant_id?: string
           updated_at?: string
@@ -3257,6 +3260,7 @@ export type Database = {
           granted_by: string | null
           id: string
           is_active: boolean
+          is_restricted_login: boolean
           role_changed_at: string | null
           role_id: string
           tenant_id: string
@@ -3269,6 +3273,7 @@ export type Database = {
           granted_by?: string | null
           id?: string
           is_active?: boolean
+          is_restricted_login?: boolean
           role_changed_at?: string | null
           role_id: string
           tenant_id?: string
@@ -3281,6 +3286,7 @@ export type Database = {
           granted_by?: string | null
           id?: string
           is_active?: boolean
+          is_restricted_login?: boolean
           role_changed_at?: string | null
           role_id?: string
           tenant_id?: string
@@ -4334,6 +4340,14 @@ export type Database = {
         Returns: string
       }
       get_account_balance: { Args: { p_user_id: string }; Returns: number }
+      get_member_balance_metrics: {
+        Args: { p_tenant_id: string; p_time_zone?: string }
+        Returns: {
+          current_balance: number
+          last_payment_at: string | null
+          user_id: string
+        }[]
+      }
       get_aircraft_maintenance_cost_report: {
         Args: {
           p_aircraft_id?: string
@@ -4459,6 +4473,7 @@ export type Database = {
           flight_type_name: string
           flights: number
           instruction_type: string
+          is_revenue: boolean
           pct_of_total: number
           solo_hours: number
           total_hours: number

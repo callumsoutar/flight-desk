@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { IconChevronDown } from "@tabler/icons-react"
+import { IconChevronDown, IconMail } from "@tabler/icons-react"
 import { Ban } from "lucide-react"
 import { toast } from "sonner"
 
@@ -30,6 +30,7 @@ import {
   DEFAULT_INVOICING_SETTINGS,
   type InvoicingSettings,
 } from "@/lib/invoices/invoicing-settings"
+import type { InvoiceEmailNotificationSummary } from "@/lib/email/email-notification-summary-types"
 import type { InvoiceItemsRow } from "@/lib/types"
 import type { InvoiceWithRelations } from "@/lib/types/invoices"
 import { cn } from "@/lib/utils"
@@ -43,6 +44,7 @@ export function InvoiceDetailClient({
   canVoid = false,
   xeroEnabled = false,
   xeroStatus = null,
+  emailNotificationSummary,
   auditLogs = [],
   auditLookupMaps = { users: {} },
   payments = [],
@@ -60,6 +62,7 @@ export function InvoiceDetailClient({
     exported_at: string | null
     error_message: string | null
   } | null
+  emailNotificationSummary: InvoiceEmailNotificationSummary
   auditLogs?: InvoiceAuditLog[]
   auditLookupMaps?: InvoiceAuditLookupMaps
   payments?: InvoicePaymentRow[]
@@ -72,10 +75,12 @@ export function InvoiceDetailClient({
     invoice,
     items,
     xeroStatus,
+    emailNotificationSummary,
   })
   const liveInvoice = data.invoice
   const liveItems = data.items
   const liveXeroStatus = data.xeroStatus
+  const liveEmailNotificationSummary = data.emailNotificationSummary
 
   const selectedMember = React.useMemo<UserResult | null>(() => {
     if (!liveInvoice.user || !liveInvoice.user.id) return null
@@ -256,7 +261,15 @@ export function InvoiceDetailClient({
               </Button>
             </CardHeader>
             {auditOpen ? (
-              <CardContent className="p-0">
+              <CardContent className="space-y-0 p-0">
+                <div className="flex items-start gap-2 border-b border-border/20 px-6 py-3 text-sm text-muted-foreground">
+                  <IconMail className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                  <span>
+                    {liveEmailNotificationSummary.invoiceSentAt
+                      ? `Invoice emailed on ${formatDate(liveEmailNotificationSummary.invoiceSentAt, timeZone, "long") || "—"}`
+                      : "Invoice email not sent."}
+                  </span>
+                </div>
                 <InvoiceAuditTimeline logs={auditLogs} maps={auditLookupMaps} />
               </CardContent>
             ) : null}

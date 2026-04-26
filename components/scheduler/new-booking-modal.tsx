@@ -16,6 +16,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { buildHalfHourTimeOptionsFromBusinessHours } from "@/lib/bookings/business-hours-time-options"
+import { DEFAULT_BUSINESS_HOURS, type BusinessHoursSettings } from "@/lib/settings/general-settings"
 import { minBookableWallClockMinutesFromNow, zonedDateTimeToUtc, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import { formatDate } from "@/lib/utils/date-format"
 import { cn } from "@/lib/utils"
@@ -126,15 +128,6 @@ const BOOKING_TYPE_OPTIONS: { value: BookingType; label: string }[] = [
   { value: "maintenance", label: "Maintenance" },
   { value: "other", label: "Other" },
 ]
-
-const TIME_OPTIONS = (() => {
-  const values: string[] = []
-  for (let hour = 7; hour <= 23; hour += 1) {
-    values.push(`${String(hour).padStart(2, "0")}:00`)
-    values.push(`${String(hour).padStart(2, "0")}:30`)
-  }
-  return values
-})()
 
 function formatName(value: { first_name: string | null; last_name: string | null; email: string | null }) {
   return [value.first_name, value.last_name].filter(Boolean).join(" ").trim() || value.email || "Unknown"
@@ -300,6 +293,7 @@ export function NewBookingModal({
   currentUserId,
   onCreated,
   instructorRosterWindows,
+  businessHours = DEFAULT_BUSINESS_HOURS,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -309,9 +303,15 @@ export function NewBookingModal({
   currentUserId: string | null
   onCreated: () => void
   instructorRosterWindows?: Map<string, InstructorRosterWindow[]>
+  businessHours?: BusinessHoursSettings
 }) {
   const isMemberOrStudent = !isStaff
   const defaultDurationMinutes = 120
+
+  const timeOptions = React.useMemo(
+    () => buildHalfHourTimeOptionsFromBusinessHours(businessHours),
+    [businessHours]
+  )
 
   const [bookingMode, setBookingMode] = React.useState<"regular" | "trial" | "maintenance">("regular")
   const [form, setForm] = React.useState<FormState | null>(null)
@@ -525,34 +525,34 @@ export function NewBookingModal({
   )
 
   const filteredStartTimeOptions = React.useMemo(() => {
-    if (!form) return TIME_OPTIONS
-    if (!isMemberOrStudent) return TIME_OPTIONS
+    if (!form) return timeOptions
+    if (!isMemberOrStudent) return timeOptions
     const dateKey = toYyyyMmDd(form.date)
-    if (dateKey !== zonedTodayYyyyMmDd(timeZone)) return TIME_OPTIONS
+    if (dateKey !== zonedTodayYyyyMmDd(timeZone)) return timeOptions
     const minM = minBookableWallClockMinutesFromNow({
       dateYyyyMmDd: dateKey,
       timeZone,
       intervalMinutes: 30,
     })
     if (minM === null) return []
-    return TIME_OPTIONS.filter((time) => {
+    return timeOptions.filter((time) => {
       const t = parseTimeToMinutes(time)
       return t !== null && t >= minM
     })
-  }, [form, isMemberOrStudent, timeZone])
+  }, [form, isMemberOrStudent, timeZone, timeOptions])
 
   const filteredEndTimeOptions = React.useMemo(() => {
-    if (!sameDay || rosterMaxEndMinutes === null || !form?.startTime) return TIME_OPTIONS
+    if (!sameDay || rosterMaxEndMinutes === null || !form?.startTime) return timeOptions
     const startMin = parseTimeToMinutes(form.startTime)
-    if (startMin === null) return TIME_OPTIONS
-    const filtered = TIME_OPTIONS.filter((time) => {
+    if (startMin === null) return timeOptions
+    const filtered = timeOptions.filter((time) => {
       const timeMin = parseTimeToMinutes(time)
       if (timeMin === null) return false
       return timeMin > startMin && timeMin <= rosterMaxEndMinutes
     })
     // Avoid empty options (broken Select); roster window edge cases can filter everything out.
-    return filtered.length > 0 ? filtered : TIME_OPTIONS
-  }, [sameDay, rosterMaxEndMinutes, form?.startTime])
+    return filtered.length > 0 ? filtered : timeOptions
+  }, [sameDay, rosterMaxEndMinutes, form?.startTime, timeOptions])
 
   const disableMemberPastCalendarDay = React.useCallback(
     (date: Date) => {
@@ -1209,7 +1209,7 @@ export function NewBookingModal({
                         onValueChange={(value) => updateForm("startTime", value)}
                         disabled={filteredStartTimeOptions.length === 0}
                       >
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-28 max-w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue placeholder={filteredStartTimeOptions.length === 0 ? "No slots left today" : "Start"} />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">
@@ -1276,7 +1276,7 @@ export function NewBookingModal({
                         ) : null}
                       </label>
                       <Select value={form.endTime} onValueChange={(value) => updateForm("endTime", value)}>
-                        <SelectTrigger className="h-10 w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
+                        <SelectTrigger className="h-10 w-28 max-w-full rounded-xl border-slate-300 bg-white px-3 text-base md:text-sm font-medium shadow-none hover:bg-slate-50 focus:ring-0">
                           <SelectValue placeholder="End" />
                         </SelectTrigger>
                         <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] rounded-xl border-slate-200 shadow-xl">

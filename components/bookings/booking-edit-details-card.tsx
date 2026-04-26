@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/select"
 import { LessonSearchDropdown } from "@/components/bookings/lesson-search-dropdown"
 import MemberSelect, { type UserResult } from "@/components/invoices/member-select"
+import {
+  buildHalfHourTimeOptionsFromBusinessHours,
+  ensureHhmmInTimeOptions,
+} from "@/lib/bookings/business-hours-time-options"
+import { parseTimeToMinutes } from "@/lib/roster/availability"
+import type { BusinessHoursSettings } from "@/lib/settings/general-settings"
 import { cn } from "@/lib/utils"
+import { minBookableWallClockMinutesFromNow, zonedTodayYyyyMmDd } from "@/lib/utils/timezone"
 import type { BookingOptions, BookingType, BookingWithRelations } from "@/lib/types/bookings"
 
 export type BookingEditFormState = {
@@ -46,20 +53,6 @@ export function normalizeBookingEditFormState(state: BookingEditFormState): Book
     remarks: state.remarks ?? null,
   }
 }
-
-function generateTimeOptions(): string[] {
-  const times: string[] = []
-  for (let hour = 0; hour < 24; hour++) {
-    for (let minute = 0; minute < 60; minute += 30) {
-      const h = String(hour).padStart(2, "0")
-      const m = String(minute).padStart(2, "0")
-      times.push(`${h}:${m}`)
-    }
-  }
-  return times
-}
-
-const TIME_OPTIONS = generateTimeOptions()
 
 function formatTimeForDisplay(time: string): string {
   if (!time) return "Select time"
@@ -124,6 +117,8 @@ export function createBookingEditInitialState(booking: BookingWithRelations): Bo
 export function BookingEditDetailsCard({
   form,
   options,
+  businessHours,
+  timeZone,
   isReadOnly,
   isAdminOrInstructor,
   isMemberOrStudent,
@@ -134,6 +129,8 @@ export function BookingEditDetailsCard({
 }: {
   form: BookingEditFormState
   options: BookingOptions
+  businessHours: BusinessHoursSettings
+  timeZone: string
   isReadOnly: boolean
   isAdminOrInstructor: boolean
   isMemberOrStudent: boolean
@@ -144,6 +141,51 @@ export function BookingEditDetailsCard({
 }) {
   const startParts = parseIsoParts(form.start_time)
   const endParts = parseIsoParts(form.end_time)
+
+  const baseTimeOptions = React.useMemo(
+    () => buildHalfHourTimeOptionsFromBusinessHours(businessHours),
+    [businessHours]
+  )
+
+  const filteredStartTimeOptions = React.useMemo(() => {
+    let opts = baseTimeOptions
+    const startDateKey = startParts.date
+    if (isMemberOrStudent && startDateKey && startDateKey === zonedTodayYyyyMmDd(timeZone)) {
+      const minM = minBookableWallClockMinutesFromNow({
+        dateYyyyMmDd: startDateKey,
+        timeZone,
+        intervalMinutes: 30,
+      })
+      if (minM === null) {
+        opts = []
+      } else {
+        opts = opts.filter((time) => {
+          const t = parseTimeToMinutes(time)
+          return t !== null && t >= minM
+        })
+      }
+    }
+    return ensureHhmmInTimeOptions(opts, startParts.time)
+  }, [baseTimeOptions, isMemberOrStudent, startParts.date, startParts.time, timeZone])
+
+  const sameCalendarDay = Boolean(
+    startParts.date && endParts.date && startParts.date === endParts.date
+  )
+
+  const filteredEndTimeOptions = React.useMemo(() => {
+    let opts = baseTimeOptions
+    if (sameCalendarDay && startParts.time) {
+      const startMin = parseTimeToMinutes(startParts.time)
+      if (startMin !== null) {
+        const filtered = opts.filter((time) => {
+          const m = parseTimeToMinutes(time)
+          return m !== null && m > startMin
+        })
+        opts = filtered.length > 0 ? filtered : opts
+      }
+    }
+    return ensureHhmmInTimeOptions(opts, endParts.time)
+  }, [baseTimeOptions, sameCalendarDay, startParts.time, endParts.time])
 
   const updateField = <K extends keyof BookingEditFormState>(
     key: K,
@@ -208,16 +250,20 @@ export function BookingEditDetailsCard({
                     const nextTime = value === "none" ? "" : value
                     updateStartTime(combineDateAndTime(startParts.date, nextTime))
                   }}
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || filteredStartTimeOptions.length === 0}
                 >
                   <SelectTrigger className={controlClass}>
-                    <SelectValue placeholder="Time">
+                    <SelectValue
+                      placeholder={
+                        filteredStartTimeOptions.length === 0 ? "No slots left today" : "Time"
+                      }
+                    >
                       {startParts.time ? formatTimeForDisplay(startParts.time) : "Time"}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
                     <SelectItem value="none">Select time</SelectItem>
-                    {TIME_OPTIONS.map((time) => (
+                    {filteredStartTimeOptions.map((time) => (
                       <SelectItem key={time} value={time}>
                         {formatTimeForDisplay(time)}
                       </SelectItem>
@@ -265,7 +311,7 @@ export function BookingEditDetailsCard({
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
                     <SelectItem value="none">Select time</SelectItem>
-                    {TIME_OPTIONS.map((time) => (
+                    {filteredEndTimeOptions.map((time) => (
                       <SelectItem key={time} value={time}>
                         {formatTimeForDisplay(time)}
                       </SelectItem>

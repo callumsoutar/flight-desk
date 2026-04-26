@@ -84,6 +84,7 @@ async function InvoiceDetailContent({
       canVoid={canVoid}
       xeroEnabled={xeroEnabled}
       xeroStatus={detail.xeroStatus}
+      emailNotificationSummary={detail.emailNotificationSummary}
       auditLogs={auditResult.logs}
       auditLookupMaps={auditResult.maps}
       payments={paymentsResult}

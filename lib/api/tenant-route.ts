@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { isPortalAccessSuspendedForTenant, PORTAL_ACCESS_DISABLED } from "@/lib/auth/portal-access"
 import { getAuthSession } from "@/lib/auth/session"
 import type { AuthUser } from "@/lib/auth/session"
 import { isAdminRole, isStaffRole } from "@/lib/auth/roles"
@@ -94,6 +95,23 @@ export async function getTenantScopedRouteContext({
 
   if (access === "staff" && !isStaffRole(role)) {
     return { context: null, response: noStoreJson({ error: "Forbidden" }, { status: 403 }) }
+  }
+
+  if (access === "authenticated") {
+    const suspended = await isPortalAccessSuspendedForTenant(
+      supabase,
+      user.id,
+      tenantId
+    )
+    if (suspended) {
+      return {
+        context: null,
+        response: noStoreJson(
+          { error: "Portal access disabled", code: PORTAL_ACCESS_DISABLED },
+          { status: 403 }
+        ),
+      }
+    }
   }
 
   return {

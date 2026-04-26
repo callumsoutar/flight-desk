@@ -11,6 +11,7 @@ import {
 import { sendBookingCancelledEmailForBooking } from "@/lib/email/send-booking-cancelled-for-booking"
 import { sendBookingConfirmedEmailForBooking } from "@/lib/email/send-booking-confirmed-for-booking"
 import { sendBookingUpdatedEmailForBooking } from "@/lib/email/send-booking-updated-for-booking"
+import { fetchBookingEmailNotificationSummary } from "@/lib/email/fetch-email-notification-summaries"
 import { logError } from "@/lib/security/logger"
 import type { BookingStatus } from "@/lib/types/bookings"
 
@@ -71,12 +72,17 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
 
   const { id } = await context.params
 
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(BOOKING_SELECT)
-    .eq("tenant_id", tenantId)
-    .eq("id", id)
-    .maybeSingle()
+  const [bookingResult, emailNotificationSummary] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .eq("tenant_id", tenantId)
+      .eq("id", id)
+      .maybeSingle(),
+    fetchBookingEmailNotificationSummary(supabase, tenantId, id),
+  ])
+
+  const { data, error } = bookingResult
 
   if (error) {
     return noStoreJson({ error: "Failed to load booking" }, { status: 500 })
@@ -89,7 +95,10 @@ export async function GET(_: NextRequest, context: { params: Promise<{ id: strin
     return noStoreJson({ error: "Forbidden" }, { status: 403 })
   }
 
-  return noStoreJson({ booking: data })
+  return noStoreJson({
+    booking: data,
+    email_notifications: { confirmationSentAt: emailNotificationSummary.confirmationSentAt },
+  })
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {

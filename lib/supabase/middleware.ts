@@ -2,7 +2,9 @@ import { createServerClient } from "@supabase/ssr"
 import type { CookieOptions } from "@supabase/ssr"
 import type { NextRequest } from "next/server"
 
+import { isPortalAccessSuspended } from "@/lib/auth/portal-access"
 import { claimsRoleToUserRole } from "@/lib/auth/roles"
+import type { JwtClaims } from "@/lib/auth/session"
 import type { Database } from "@/lib/types"
 import type { UserRole } from "@/lib/types/roles"
 import { getSupabasePublicEnv } from "@/lib/supabase/env-public"
@@ -17,6 +19,7 @@ export async function updateSession(request: NextRequest): Promise<{
   userId: string | null
   role: UserRole | null
   cookiesToSet: CookieToSet[]
+  portalAccessSuspended: boolean
 }> {
   const cookiesToSet: CookieToSet[] = []
   const { url, anonKey } = getSupabasePublicEnv()
@@ -39,8 +42,13 @@ export async function updateSession(request: NextRequest): Promise<{
   const claimedRole =
     claimsRoleToUserRole(claims?.app_role) ?? claimsRoleToUserRole(claims?.role) ?? null
   if (!claimsError && typeof claimedUserId === "string" && claimedUserId) {
-    return { userId: claimedUserId, role: claimedRole, cookiesToSet }
+    const portalAccessSuspended = await isPortalAccessSuspended(
+      supabase,
+      claimedUserId,
+      claims as JwtClaims
+    )
+    return { userId: claimedUserId, role: claimedRole, cookiesToSet, portalAccessSuspended }
   }
 
-  return { userId: null, role: null, cookiesToSet }
+  return { userId: null, role: null, cookiesToSet, portalAccessSuspended: false }
 }

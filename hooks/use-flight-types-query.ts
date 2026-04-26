@@ -17,6 +17,7 @@ export type FlightType = Pick<
   | "instructor_gl_code"
   | "is_active"
   | "is_default_solo"
+  | "is_revenue"
   | "updated_at"
 >
 
@@ -71,6 +72,7 @@ export async function createFlightType(input: {
   aircraft_gl_code: string | null
   instructor_gl_code: string | null
   is_active: boolean
+  is_revenue: boolean
 }): Promise<{ id: string }> {
   const response = await fetch("/api/flight-types", {
     method: "POST",
@@ -96,6 +98,7 @@ export async function updateFlightType(input: {
   aircraft_gl_code: string | null
   instructor_gl_code: string | null
   is_active: boolean
+  is_revenue: boolean
 }) {
   const response = await fetch("/api/flight-types", {
     method: "PUT",

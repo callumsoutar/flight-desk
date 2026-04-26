@@ -59,8 +59,10 @@ async function BookingDetailContent({
       bookingId={bookingId}
       booking={pageData.booking}
       options={pageData.options}
+      businessHours={pageData.businessHours}
       auditLogs={pageData.auditLogs}
       auditLookupMaps={pageData.auditLookupMaps}
+      emailNotificationSummary={pageData.emailNotificationSummary}
       role={role}
     />
   )

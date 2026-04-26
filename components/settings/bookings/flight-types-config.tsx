@@ -67,6 +67,7 @@ type FlightTypeFormData = {
   aircraft_gl_code: string
   instructor_gl_code: string
   is_active: boolean
+  is_revenue: boolean
 }
 
 const defaultFormData: FlightTypeFormData = {
@@ -79,6 +80,7 @@ const defaultFormData: FlightTypeFormData = {
   aircraft_gl_code: "",
   instructor_gl_code: "",
   is_active: true,
+  is_revenue: true,
 }
 
 function roundToTwoDecimals(value: number) {
@@ -281,6 +283,8 @@ function FlightTypeDialog({
         aircraft_gl_code: flightType.aircraft_gl_code ?? "",
         instructor_gl_code: flightType.instructor_gl_code ?? "",
         is_active: Boolean(flightType.is_active),
+        is_revenue:
+          typeof flightType.is_revenue === "boolean" ? flightType.is_revenue : true,
       })
     } else if (instructionScope === "trial") {
       setFormData({
@@ -385,6 +389,7 @@ function FlightTypeDialog({
               ? null
               : formData.instructor_gl_code || null,
           is_active: formData.is_active,
+          is_revenue: formData.is_revenue,
         })
       } else {
         await createFlightType({
@@ -400,6 +405,7 @@ function FlightTypeDialog({
               ? null
               : formData.instructor_gl_code || null,
           is_active: formData.is_active,
+          is_revenue: formData.is_revenue,
         })
       }
 
@@ -679,6 +685,26 @@ function FlightTypeDialog({
                     )}
                   </div>
                 ) : null}
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Label className="text-sm font-semibold text-slate-900 leading-none">Revenue flying</Label>
+                      <p className="mt-1 text-xs text-slate-600 leading-snug">
+                        {formData.is_revenue
+                          ? "Counts toward revenue flying in reports."
+                          : "Treat as non-revenue (e.g. supervision, charity) in reports."}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.is_revenue}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({ ...prev, is_revenue: checked }))
+                      }
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-3">
                   <div className="flex items-center justify-between gap-3">

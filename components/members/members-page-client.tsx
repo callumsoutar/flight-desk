@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { useQueryClient } from "@tanstack/react-query"
 
 import { MembersTable } from "@/components/members/members-table"
+import { memberBalancesQueryKey } from "@/hooks/use-member-balances-query"
 import { membersQueryKey, useMembersQuery } from "@/hooks/use-members-query"
 
 const AddMemberModal = dynamic(
@@ -45,6 +46,7 @@ export function MembersPageClient({ members }: Props) {
 
   const handleAddSuccess = React.useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: membersQueryKey() })
+    await queryClient.invalidateQueries({ queryKey: memberBalancesQueryKey() })
   }, [queryClient])
 
   return (

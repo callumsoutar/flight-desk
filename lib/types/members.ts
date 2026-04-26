@@ -7,15 +7,14 @@ import type {
   RoleRow,
   TenantUserRow,
   UserRow,
-  UserDirectoryRow,
 } from "@/lib/types"
 
 export type PersonType = "all" | "member" | "instructor" | "staff" | "contact"
 export type MembershipStatus = "active" | "expired" | "none"
 
 export type DirectoryUserLite = Pick<
-  UserDirectoryRow,
-  "id" | "first_name" | "last_name" | "email"
+  UserRow,
+  "id" | "first_name" | "last_name" | "email" | "phone" | "company_name"
 >
 
 export type MembershipWithType = Pick<MembershipRow, "id" | "is_active" | "expiry_date"> & {

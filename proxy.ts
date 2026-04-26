@@ -14,7 +14,7 @@ function applyCookies(
 }
 
 export async function proxy(request: NextRequest) {
-  const { userId, role, cookiesToSet } = await updateSession(request)
+  const { userId, role, cookiesToSet, portalAccessSuspended } = await updateSession(request)
   const pathname = request.nextUrl.pathname
 
   if (!userId) {
@@ -22,6 +22,14 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/login"
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`)
 
+    const response = NextResponse.redirect(url)
+    applyCookies(response, cookiesToSet)
+    return response
+  }
+
+  if (portalAccessSuspended) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/portal-access-suspended"
     const response = NextResponse.redirect(url)
     applyCookies(response, cookiesToSet)
     return response
