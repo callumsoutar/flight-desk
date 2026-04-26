@@ -82,6 +82,14 @@ const VOIDABLE_STATUSES = new Set(["draft", "authorised", "overdue", "paid"])
 
 const XERO_EXPORTABLE = new Set(["authorised", "paid", "overdue"])
 
+function isRemoteHttpUrl(url: string) {
+  return url.startsWith("http://") || url.startsWith("https://")
+}
+
+function invoicingSettingsWithoutLogo<T extends { includeLogoOnInvoice: boolean; logoUrl: string | null }>(s: T) {
+  return { ...s, includeLogoOnInvoice: false, logoUrl: null }
+}
+
 /** react-pdf in the browser often fails to embed remote URLs; prefetch as data URI when possible. */
 async function fetchLogoAsDataUri(url: string): Promise<string | null> {
   try {
@@ -148,26 +156,54 @@ export default function InvoiceViewActions({
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true)
+    const wantedLogo = settings.includeLogoOnInvoice && Boolean(settings.logoUrl)
     try {
       const [{ pdf }, { default: InvoiceReportPDF }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("@/components/invoices/invoice-report-pdf"),
       ])
-      let pdfSettings = settings
-      if (
-        settings.includeLogoOnInvoice &&
-        settings.logoUrl &&
-        (settings.logoUrl.startsWith("http://") || settings.logoUrl.startsWith("https://"))
-      ) {
+
+      // Remote logos: if our CORS fetch cannot embed, do not pass http(s) into react-pdf.
+      // Its own image fetch is stricter in some browsers (notably Firefox) and can make toBlob() throw.
+      let pdfSettings = { ...settings }
+      let remoteLogoFetchFailed = false
+      if (wantedLogo && settings.logoUrl && isRemoteHttpUrl(settings.logoUrl)) {
         const dataUri = await fetchLogoAsDataUri(settings.logoUrl)
         if (dataUri) {
           pdfSettings = { ...settings, logoUrl: dataUri }
+        } else {
+          pdfSettings = invoicingSettingsWithoutLogo(settings)
+          remoteLogoFetchFailed = true
         }
       }
 
-      const blob = await pdf(
-        <InvoiceReportPDF invoice={invoice} items={items} settings={pdfSettings} timeZone={timeZone} />
-      ).toBlob()
+      const renderToBlob = (s: typeof pdfSettings) =>
+        pdf(
+          <InvoiceReportPDF invoice={invoice} items={items} settings={s} timeZone={timeZone} />
+        ).toBlob()
+
+      let usedFallbackNoLogo = false
+      let blob: Blob
+      try {
+        blob = await renderToBlob(pdfSettings)
+      } catch (firstError) {
+        if (!wantedLogo) {
+          throw firstError
+        }
+        console.error("[invoice PDF] first render failed, retrying without logo", firstError)
+        usedFallbackNoLogo = true
+        blob = await renderToBlob(invoicingSettingsWithoutLogo(settings))
+      }
+
+      if (usedFallbackNoLogo) {
+        toast("PDF ready without logo. The image could not be embedded in this browser.", {
+          description: "Try again from another browser, or re-upload the logo in Invoicing settings if it persists.",
+        })
+      } else if (remoteLogoFetchFailed) {
+        toast("PDF ready without logo. The image could not be loaded (check network or storage URL).", {
+          description: "CORS and browser differences can block tenant logos. The invoice text and totals are unchanged.",
+        })
+      }
 
       const objectUrl = URL.createObjectURL(blob)
       const link = document.createElement("a")
@@ -179,9 +215,13 @@ export default function InvoiceViewActions({
       document.body.appendChild(link)
       link.click()
       link.remove()
-      URL.revokeObjectURL(objectUrl)
-    } catch {
-      toast.error("Failed to generate PDF")
+      // Firefox: revoking the blob URL in the same turn as a.click() can cancel the download
+      // (https://bugzilla.mozilla.org/show_bug.cgi?id=1282407).
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+    } catch (error) {
+      console.error("[invoice PDF] download failed", error)
+      const message = error instanceof Error ? error.message : "Failed to generate PDF"
+      toast.error(message || "Failed to generate PDF")
     } finally {
       setIsDownloading(false)
     }
@@ -275,6 +315,11 @@ export default function InvoiceViewActions({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handleDownloadPDF() }} disabled={isDownloading}>
+              {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Download PDF
+            </DropdownMenuItem>
+
             <DropdownMenuItem
               onSelect={(e) => { e.preventDefault(); void handleEmailInvoice() }}
               disabled={!canEmail || isEmailing}
@@ -283,15 +328,12 @@ export default function InvoiceViewActions({
               Email Invoice
             </DropdownMenuItem>
 
-            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handleDownloadPDF() }} disabled={isDownloading}>
-              {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              Download PDF
-            </DropdownMenuItem>
-
             <DropdownMenuItem onSelect={(e) => { e.preventDefault(); void handlePrint() }} disabled={isPrinting}>
               {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
               Print PDF
             </DropdownMenuItem>
+
+            {bookingId || canRecordPayment ? <DropdownMenuSeparator /> : null}
 
             {bookingId ? (
               <DropdownMenuItem onSelect={() => router.push(`/bookings/${bookingId}`)}>
