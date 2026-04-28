@@ -204,6 +204,13 @@ export async function recordInvoicePaymentAction(input: unknown) {
   const result = paymentResult as Record<string, unknown>
   const transactionId = typeof result.transaction_id === "string" ? result.transaction_id : null
   const paymentId = typeof result.payment_id === "string" ? result.payment_id : null
+  const receiptNumberRaw = result.receipt_number
+  const receiptNumber =
+    typeof receiptNumberRaw === "number" && Number.isFinite(receiptNumberRaw)
+      ? receiptNumberRaw
+      : typeof receiptNumberRaw === "string" && /^\d+$/.test(receiptNumberRaw)
+        ? Number(receiptNumberRaw)
+        : null
 
   revalidatePath("/invoices")
   revalidatePath(`/invoices/${invoiceId}`)
@@ -213,6 +220,7 @@ export async function recordInvoicePaymentAction(input: unknown) {
     result: {
       transactionId,
       paymentId,
+      receiptNumber,
     },
   }
 }

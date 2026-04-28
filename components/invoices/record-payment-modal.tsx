@@ -102,13 +102,8 @@ export default function RecordPaymentModal({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
-  const [receiptId, setReceiptId] = React.useState<string | null>(null)
+  const [receiptNumber, setReceiptNumber] = React.useState<number | null>(null)
   const [showAdditionalInfo, setShowAdditionalInfo] = React.useState(false)
-
-  const willFullyPay =
-    amount > 0 &&
-    computedRemaining > 0 &&
-    roundToTwoDecimals(amount) === roundToTwoDecimals(computedRemaining)
 
   const reset = React.useCallback(() => {
     setAmount(roundToTwoDecimals(computedRemaining || 0))
@@ -119,7 +114,7 @@ export default function RecordPaymentModal({
     setLoading(false)
     setError(null)
     setSuccess(false)
-    setReceiptId(null)
+    setReceiptNumber(null)
     setShowAdditionalInfo(false)
   }, [computedRemaining])
 
@@ -170,7 +165,11 @@ export default function RecordPaymentModal({
       return
     }
 
-    setReceiptId(result.result.transactionId || result.result.paymentId || null)
+    setReceiptNumber(
+      typeof result.result.receiptNumber === "number" && Number.isFinite(result.result.receiptNumber)
+        ? result.result.receiptNumber
+        : null
+    )
     setSuccess(true)
     setLoading(false)
 
@@ -195,24 +194,6 @@ export default function RecordPaymentModal({
             <DialogDescription className="text-xs text-muted-foreground">
               Invoice {invoiceNumber || `#${invoiceId.slice(0, 8)}`}
             </DialogDescription>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
-              <span>
-                <span className="font-semibold text-foreground">
-                  {formatCurrency(computedRemaining)}
-                </span>{" "}
-                remaining
-              </span>
-              <span>
-                <span className="font-medium text-foreground">{formatCurrency(totalPaid ?? 0)}</span>{" "}
-                paid
-              </span>
-              <span>
-                <span className="font-medium text-foreground">
-                  {formatCurrency(totalAmount ?? null)}
-                </span>{" "}
-                total
-              </span>
-            </div>
           </DialogHeader>
 
           {success ? (
@@ -224,9 +205,9 @@ export default function RecordPaymentModal({
               <p className="mt-1 text-sm text-muted-foreground">
                 Applied {formatCurrency(amount)} to this invoice.
               </p>
-              {receiptId ? (
+              {receiptNumber != null ? (
                 <div className="mt-3 rounded-md border bg-muted/40 px-3 py-1.5 font-mono text-xs text-muted-foreground">
-                  Receipt {receiptId}
+                  Receipt #{receiptNumber}
                 </div>
               ) : null}
             </div>
@@ -353,19 +334,6 @@ export default function RecordPaymentModal({
                       </div>
                     </div>
                   ) : null}
-                </div>
-
-                <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-                  {willFullyPay ? (
-                    <span className="font-medium text-green-700">This will mark the invoice as paid.</span>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Remaining after payment:{" "}
-                      <span className="font-medium text-foreground">
-                        {formatCurrency(roundToTwoDecimals(computedRemaining - Math.max(0, amount)))}
-                      </span>
-                    </span>
-                  )}
                 </div>
 
                 {error ? (

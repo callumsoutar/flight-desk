@@ -36,6 +36,18 @@ function formatMoney(amount: number) {
   return `$${Math.abs(amount).toFixed(2)}`
 }
 
+function formatBalance(balance: number) {
+  if (balance < 0) return `$${Math.abs(balance).toFixed(2)} CR`
+  if (balance > 0) return `$${balance.toFixed(2)}`
+  return "$0.00"
+}
+
+function getEntryHref(entry: AccountStatementEntry) {
+  if (entry.entry_type === "invoice") return `/invoices/${entry.entry_id}`
+  if (entry.entry_type === "payment" || entry.entry_type === "credit_note") return `/payments/${entry.entry_id}`
+  return null
+}
+
 function getEntryTypeBadge(type: AccountStatementEntry["entry_type"]) {
   switch (type) {
     case "invoice":
@@ -82,7 +94,12 @@ export function MemberFinances({
   const statement: AccountStatementEntry[] = statementData?.statement ?? EMPTY_STATEMENT
   const closingBalance = statementData?.closing_balance ?? 0
 
-  const outstandingBalance = Math.max(closingBalance, 0)
+  const balanceHint =
+    closingBalance < 0
+      ? "Member is in credit for this period."
+      : closingBalance > 0
+        ? "Debit balance — amount owing for this period."
+        : "Settled for this period."
 
   const handleEmailStatement = async () => {
     if (!memberId || isEmailing) return
@@ -129,7 +146,7 @@ export function MemberFinances({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col gap-1">
               <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Outstanding Balance
+                Account balance
               </p>
               {isLoading ? (
                 <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
@@ -138,10 +155,19 @@ export function MemberFinances({
                 </div>
               ) : (
                 <>
-                  <p className="text-3xl font-bold text-red-700">${outstandingBalance.toFixed(2)}</p>
-                  {closingBalance <= 0 ? (
-                    <p className="text-sm text-slate-500">No amount currently owing.</p>
-                  ) : null}
+                  <p
+                    className={cn(
+                      "text-3xl font-bold tabular-nums tracking-tight",
+                      closingBalance < 0
+                        ? "text-green-700"
+                        : closingBalance > 0
+                          ? "text-red-700"
+                          : "text-slate-700"
+                    )}
+                  >
+                    {formatBalance(closingBalance)}
+                  </p>
+                  <p className="text-sm text-slate-500">{balanceHint}</p>
                 </>
               )}
             </div>
@@ -160,35 +186,37 @@ export function MemberFinances({
       </Card>
 
       <Card className="border border-slate-200 shadow-sm">
-        <CardHeader className="space-y-3 pb-3">
+        <CardHeader className="min-w-0 space-y-3 pb-3">
           <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
             <DollarSign className="h-4 w-4 text-slate-500" />
             Account Statement
           </CardTitle>
-          <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 shadow-sm sm:px-4">
-            <div className="flex min-w-0 flex-row flex-nowrap items-center gap-3 overflow-x-auto sm:gap-4">
-              <div className="flex min-w-0 shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 shadow-sm sm:px-4">
+            <div className="flex min-w-0 w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid min-w-0 w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-3">
                 <DatePicker
                   date={startDate}
                   onChange={(value) => value && setStartDate(value)}
-                  className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
+                  className="h-9 w-full min-w-0 border-slate-300 bg-white text-slate-900 shadow-sm sm:w-[10.25rem]"
                   disabled={isLoading}
                 />
-                <span className="shrink-0 text-sm font-medium text-slate-600">to</span>
+                <span className="text-center text-sm font-medium text-slate-600 sm:self-center">
+                  to
+                </span>
                 <DatePicker
                   date={endDate}
                   onChange={(value) => value && setEndDate(value)}
-                  className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
+                  className="h-9 w-full min-w-0 border-slate-300 bg-white text-slate-900 shadow-sm sm:w-[10.25rem]"
                   disabled={isLoading}
                 />
               </div>
-              <div className="ml-auto flex shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
+              <div className="flex min-w-0 w-full flex-col gap-2 sm:w-auto sm:flex-row lg:justify-end">
                 <Button
                   type="button"
                   size="sm"
                   onClick={() => void handleEmailStatement()}
                   disabled={!memberId || isLoading || isEmailing}
-                  className="h-9 gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:px-4"
+                  className="h-9 w-full gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:w-auto sm:px-4"
                 >
                   {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                   Email statement
@@ -199,7 +227,7 @@ export function MemberFinances({
                   size="sm"
                   onClick={handlePrintPdf}
                   disabled={!memberId || isLoading || isOpeningPdf}
-                  className="h-9 gap-1.5 border-slate-300 bg-white px-3 font-semibold text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:px-4"
+                  className="h-9 w-full gap-1.5 border-slate-300 bg-white px-3 font-semibold text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:w-auto sm:px-4"
                 >
                   {isOpeningPdf ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -228,7 +256,103 @@ export function MemberFinances({
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-md border">
+              <div className="space-y-3 md:hidden">
+                {statement.map((entry, idx) => {
+                  const isOpening = entry.entry_type === "opening_balance"
+                  const isDebit = entry.amount > 0
+                  const href = getEntryHref(entry)
+                  const clickable = Boolean(href)
+
+                  return (
+                    <div
+                      key={`${entry.entry_id}-${idx}`}
+                      className={cn(
+                        "rounded-xl border bg-white p-4 shadow-sm",
+                        isOpening ? "border-blue-200 bg-blue-50/70" : "border-slate-200",
+                        clickable ? "cursor-pointer active:bg-slate-50" : undefined
+                      )}
+                      onClick={() => {
+                        if (href) {
+                          router.push(href)
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {formatDate(entry.date, timeZone)}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-900">{entry.reference}</p>
+                            {getEntryTypeBadge(entry.entry_type)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {isOpening ? (
+                            <span className="text-sm text-slate-400">—</span>
+                          ) : isDebit ? (
+                            <span className="inline-flex items-center gap-1 text-sm font-medium text-red-600">
+                              <ArrowUpCircle className="h-4 w-4" />
+                              {formatMoney(entry.amount)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-sm font-medium text-green-600">
+                              <ArrowDownCircle className="h-4 w-4" />
+                              {formatMoney(entry.amount)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Description
+                          </p>
+                          <p className="text-sm text-slate-700">{entry.description}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Balance
+                          </p>
+                          <p
+                            className={cn(
+                              "text-sm font-semibold",
+                              entry.balance < 0
+                                ? "text-green-700"
+                                : entry.balance > 0
+                                  ? "text-red-700"
+                                  : "text-slate-700"
+                            )}
+                          >
+                            {formatBalance(entry.balance)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Closing Balance
+                  </p>
+                  <p
+                    className={cn(
+                      "mt-1 text-lg font-semibold",
+                      closingBalance < 0
+                        ? "text-green-700"
+                        : closingBalance > 0
+                          ? "text-red-700"
+                          : "text-slate-700"
+                    )}
+                  >
+                    {formatBalance(closingBalance)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-md border md:block">
                 <Table className="min-w-full">
                   <TableHeader>
                     <TableRow className="bg-slate-50">
@@ -241,9 +365,7 @@ export function MemberFinances({
                   </TableHeader>
                   <TableBody>
                     {statement.map((entry, idx) => {
-                      const isInvoice = entry.entry_type === "invoice"
-                      const isPaymentLike =
-                        entry.entry_type === "payment" || entry.entry_type === "credit_note"
+                      const href = getEntryHref(entry)
                       const isOpening = entry.entry_type === "opening_balance"
                       const isDebit = entry.amount > 0
 
@@ -252,13 +374,11 @@ export function MemberFinances({
                           key={`${entry.entry_id}-${idx}`}
                           className={cn(
                             isOpening ? "bg-blue-50" : "hover:bg-slate-50",
-                            isInvoice || isPaymentLike ? "cursor-pointer" : undefined
+                            href ? "cursor-pointer" : undefined
                           )}
                           onClick={() => {
-                            if (isInvoice) {
-                              router.push(`/invoices/${entry.entry_id}`)
-                            } else if (isPaymentLike) {
-                              router.push(`/payments/${entry.entry_id}`)
+                            if (href) {
+                              router.push(href)
                             }
                           }}
                         >
@@ -286,13 +406,17 @@ export function MemberFinances({
                             )}
                           </TableCell>
                           <TableCell className="text-right font-semibold">
-                            {entry.balance < 0 ? (
-                              <span className="text-green-700">${Math.abs(entry.balance).toFixed(2)} CR</span>
-                            ) : entry.balance > 0 ? (
-                              <span className="text-red-700">${entry.balance.toFixed(2)}</span>
-                            ) : (
-                              <span className="text-slate-700">$0.00</span>
-                            )}
+                            <span
+                              className={cn(
+                                entry.balance < 0
+                                  ? "text-green-700"
+                                  : entry.balance > 0
+                                    ? "text-red-700"
+                                    : "text-slate-700"
+                              )}
+                            >
+                              {formatBalance(entry.balance)}
+                            </span>
                           </TableCell>
                         </TableRow>
                       )
@@ -304,13 +428,17 @@ export function MemberFinances({
                       </TableCell>
                       <TableCell className="text-right text-slate-500">—</TableCell>
                       <TableCell className="text-right text-base">
-                        {closingBalance < 0 ? (
-                          <span className="text-green-700">${Math.abs(closingBalance).toFixed(2)} CR</span>
-                        ) : closingBalance > 0 ? (
-                          <span className="text-red-700">${closingBalance.toFixed(2)}</span>
-                        ) : (
-                          <span className="text-slate-700">$0.00</span>
-                        )}
+                        <span
+                          className={cn(
+                            closingBalance < 0
+                              ? "text-green-700"
+                              : closingBalance > 0
+                                ? "text-red-700"
+                                : "text-slate-700"
+                          )}
+                        >
+                          {formatBalance(closingBalance)}
+                        </span>
                       </TableCell>
                     </TableRow>
                   </TableBody>

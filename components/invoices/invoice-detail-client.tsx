@@ -238,14 +238,7 @@ export function InvoiceDetailClient({
             }))}
           />
 
-          {payments.length > 0 ? (
-            <InvoicePaymentsCard
-              invoiceId={liveInvoice.id}
-              payments={payments}
-              canReverse={canVoid}
-              xeroEnabled={xeroEnabled}
-            />
-          ) : null}
+          {payments.length > 0 ? <InvoicePaymentsCard payments={payments} /> : null}
 
           <Card className="rounded-xl border border-border/50 shadow-md gap-0 py-0">
             <CardHeader className="border-b border-border/20 p-0 !pb-0">

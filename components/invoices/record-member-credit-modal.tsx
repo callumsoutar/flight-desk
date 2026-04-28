@@ -95,7 +95,7 @@ export default function RecordMemberCreditModal({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
-  const [receiptId, setReceiptId] = React.useState<string | null>(null)
+  const [receiptNumber, setReceiptNumber] = React.useState<number | null>(null)
   const [newBalance, setNewBalance] = React.useState<number | null>(null)
 
   const lockMemberSelection = Boolean(initialMember)
@@ -111,7 +111,7 @@ export default function RecordMemberCreditModal({
     setLoading(false)
     setError(null)
     setSuccess(false)
-    setReceiptId(null)
+    setReceiptNumber(null)
     setNewBalance(null)
   }, [])
 
@@ -165,7 +165,11 @@ export default function RecordMemberCreditModal({
       return
     }
 
-    setReceiptId(result.result.transactionId || null)
+    setReceiptNumber(
+      typeof result.result.receiptNumber === "number" && Number.isFinite(result.result.receiptNumber)
+        ? result.result.receiptNumber
+        : null
+    )
     setNewBalance(result.result.newBalance ?? null)
     setSuccess(true)
     setLoading(false)
@@ -227,9 +231,9 @@ export default function RecordMemberCreditModal({
                   <span className="font-semibold text-slate-900">{formatCurrency(newBalance)}</span>
                 </p>
               ) : null}
-              {receiptId ? (
+              {receiptNumber != null ? (
                 <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-2.5 font-mono text-xs text-slate-600">
-                  Receipt {receiptId}
+                  Receipt #{receiptNumber}
                 </div>
               ) : null}
             </div>

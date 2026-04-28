@@ -104,6 +104,13 @@ export async function recordMemberCreditPaymentAction(input: unknown) {
   const result = paymentResult as Record<string, unknown>
   const transactionId = typeof result.transaction_id === "string" ? result.transaction_id : null
   const newBalance = typeof result.new_balance === "number" ? result.new_balance : null
+  const receiptNumberRaw = result.receipt_number
+  const receiptNumber =
+    typeof receiptNumberRaw === "number" && Number.isFinite(receiptNumberRaw)
+      ? receiptNumberRaw
+      : typeof receiptNumberRaw === "string" && /^\d+$/.test(receiptNumberRaw)
+        ? Number(receiptNumberRaw)
+        : null
 
   revalidatePath("/invoices")
   revalidatePath(`/members/${userId}`)
@@ -113,6 +120,7 @@ export async function recordMemberCreditPaymentAction(input: unknown) {
     result: {
       transactionId,
       newBalance,
+      receiptNumber,
     },
   }
 }

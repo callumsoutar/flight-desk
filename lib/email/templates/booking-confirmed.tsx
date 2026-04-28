@@ -1,9 +1,7 @@
 import {
   Body,
-  Button,
   Column,
   Container,
-  Head,
   Heading,
   Html,
   Link,
@@ -15,6 +13,7 @@ import {
 import * as React from "react"
 
 import { formatBookingDateRange } from "@/lib/email/format-booking-time"
+import { BookingEmailHead } from "@/lib/email/templates/booking-email-theme"
 
 export type BookingConfirmedEmailProps = {
   tenantName: string
@@ -25,13 +24,14 @@ export type BookingConfirmedEmailProps = {
   endTime: string
   timezone: string
   aircraftRegistration?: string | null
+  aircraftType?: string | null
   instructorName?: string | null
   purpose: string
   bookingUrl: string
   aircraftDisplay?: string | null
   flightType?: string | null
   lessonName?: string | null
-  description?: string | null
+  remarks?: string | null
   briefingAt?: string | null
   aerodrome?: string | null
   policyNote?: string | null
@@ -43,143 +43,153 @@ export type BookingConfirmedEmailProps = {
 export function BookingConfirmedEmail(props: BookingConfirmedEmailProps) {
   const when = formatBookingDateRange(props.startTime, props.endTime, props.timezone)
   const aircraftLine = props.aircraftDisplay ?? props.aircraftRegistration ?? null
+  const aircraftTypeShown = props.aircraftType?.trim() ?? ""
+  const showAircraftSection = Boolean(aircraftLine || aircraftTypeShown)
+  const regMismatch =
+    Boolean(
+      props.aircraftDisplay?.trim() &&
+        props.aircraftRegistration?.trim() &&
+        props.aircraftDisplay.trim() !== props.aircraftRegistration.trim()
+    )
+  const firstName = props.memberFirstName.trim() || "there"
+  const footerLinks = [
+    { href: props.bookingUrl, label: "Manage booking" },
+    props.bookingsUrl ? { href: props.bookingsUrl, label: "All bookings" } : null,
+    props.trainingLogUrl ? { href: props.trainingLogUrl, label: "Training log" } : null,
+  ].filter((link): link is { href: string; label: string } => Boolean(link))
 
   return (
     <Html lang="en">
-      <Head />
+      <BookingEmailHead />
       <Preview>{`Booking confirmed - ${when.full}`}</Preview>
-      <Body style={styles.body}>
-        <Container style={styles.wrap}>
-          {/* Header Section - Enhanced with rounded corners and more height */}
-          <Section style={styles.header}>
-            <Row style={styles.headerRow}>
-              <Column style={styles.headerColLeft}>
-                <Text style={styles.headerTitle}>{props.tenantName}</Text>
-              </Column>
-              <Column style={styles.headerColRight}>
-                <Text style={styles.headerTag}>Booking Confirmed</Text>
-                <Text style={styles.headerDate}>{when.date}</Text>
-              </Column>
-            </Row>
-          </Section>
+      <Body className="email-body" style={styles.body}>
+        <Container className="email-wrap" style={styles.wrap}>
+          <Section className="email-frame" style={styles.frame}>
+            <Section className="email-header" style={styles.header}>
+              <Row style={styles.headerRow}>
+                <Column style={styles.headerColLeft}>
+                  <Text className="email-header-title" style={styles.headerTitle}>{props.tenantName}</Text>
+                </Column>
+                <Column style={styles.headerColRight}>
+                  <Text className="email-tag" style={styles.headerTag}>Booking Confirmed</Text>
+                  <Text className="email-header-date" style={styles.headerDate}>{when.date}</Text>
+                </Column>
+              </Row>
+            </Section>
 
-          {/* Main Content Card */}
-          <Section style={styles.card}>
-            <Section style={styles.contentPadding}>
-              <Heading style={styles.mainHeading}>Your flight is confirmed</Heading>
-              
-              {/* Booking Details Card */}
-              <Section style={styles.detailsCard}>
-                <Section style={styles.detailsSection}>
-                  <Text style={styles.detailsLabel}>Date & Time</Text>
-                  <Text style={styles.detailsValueLarge}>{when.date}</Text>
-                  <Text style={styles.detailsValueSmall}>{`${when.startTime} - ${when.endTime}`}</Text>
-                </Section>
+            <Section className="email-card" style={styles.card}>
+              <Section style={styles.contentPadding}>
+                <Heading className="email-heading" style={styles.mainHeading}>Your flight is confirmed</Heading>
+                <Text className="email-copy" style={styles.heroSub}>
+                  {`Hi ${firstName}, your booking at ${props.tenantName} is locked in. Here are the current details.`}
+                </Text>
 
-                <Section style={styles.divider} />
+                <Section className="email-panel" style={styles.detailsCard}>
+                  <Section style={styles.detailsSection}>
+                    <Text className="email-label" style={styles.detailsLabel}>Date & Time</Text>
+                    <Text className="email-value-strong" style={styles.detailsValueLarge}>{when.date}</Text>
+                    <Text className="email-value" style={styles.detailsValueSmall}>{`${when.startTime} - ${when.endTime}`}</Text>
+                  </Section>
 
-                {aircraftLine && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Aircraft</Text>
-                      <Text style={styles.detailsValueLarge}>{aircraftLine}</Text>
-                      {props.aircraftRegistration && (
-                        <Text style={styles.detailsValueSmall}>Registration: {props.aircraftRegistration}</Text>
+                  <Section className="email-divider" style={styles.divider} />
+
+                  {showAircraftSection && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Aircraft</Text>
+                        {aircraftLine && (
+                          <Text className="email-value-strong" style={styles.detailsValueLarge}>{aircraftLine}</Text>
+                        )}
+                        {aircraftTypeShown && (
+                          <Text className="email-value" style={styles.detailsValueSmall}>Type: {aircraftTypeShown}</Text>
+                        )}
+                        {regMismatch && (
+                          <Text className="email-value" style={styles.detailsValueSmall}>
+                            Registration: {props.aircraftRegistration}
+                          </Text>
+                        )}
+                      </Section>
+                      <Section className="email-divider" style={styles.divider} />
+                    </>
+                  )}
+
+                  <Section style={styles.detailsSection}>
+                    <Text className="email-label" style={styles.detailsLabel}>Booking description</Text>
+                    <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.purpose}</Text>
+                  </Section>
+
+                  {(props.remarks?.trim() || props.flightType || props.lessonName) && (
+                    <Section className="email-divider" style={styles.divider} />
+                  )}
+
+                  {props.remarks?.trim() && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Remarks</Text>
+                        <Text className="email-value" style={styles.detailsValueSmall}>{props.remarks.trim()}</Text>
+                      </Section>
+                      {(props.flightType || props.lessonName) && (
+                        <Section className="email-divider" style={styles.divider} />
                       )}
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
+                    </>
+                  )}
 
-                {props.flightType && (
-                  <>
+                  {props.flightType && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Flight Type</Text>
+                        <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.flightType}</Text>
+                      </Section>
+                      {props.lessonName && <Section className="email-divider" style={styles.divider} />}
+                    </>
+                  )}
+
+                  {props.lessonName && (
                     <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Flight Type</Text>
-                      <Text style={styles.detailsValueMedium}>{props.flightType}</Text>
+                      <Text className="email-label" style={styles.detailsLabel}>Lesson</Text>
+                      <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.lessonName}</Text>
                     </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
+                  )}
+                </Section>
 
-                {props.lessonName && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Lesson</Text>
-                      <Text style={styles.detailsValueMedium}>{props.lessonName}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
+                <Section style={styles.ctaWrapper}>
+                  <Link href={props.bookingUrl} className="email-button email-button-text" style={styles.ctaBtn}>
+                    View booking details
+                  </Link>
+                </Section>
 
-                {props.description && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Description</Text>
-                      <Text style={styles.detailsValueSmall}>{props.description}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
-
-                <Section style={styles.detailsSection}>
-                  <Text style={styles.detailsLabel}>Purpose</Text>
-                  <Text style={styles.detailsValueMedium}>{props.purpose}</Text>
+                <Section style={styles.helpSection}>
+                  <Text className="email-copy" style={styles.helpText}>Need to make changes?</Text>
+                  <Link href={props.bookingUrl} className="email-help-link" style={styles.helpLink}>
+                    Manage your booking →
+                  </Link>
                 </Section>
               </Section>
+            </Section>
 
-              {/* CTA Button */}
-              <Section style={styles.ctaWrapper}>
-                <Button href={props.bookingUrl} style={styles.ctaBtn}>
-                  View booking details
-                </Button>
-              </Section>
+            <Section className="email-footer" style={styles.footer}>
+              {footerLinks.length > 0 && (
+                <Section style={styles.footerLinks}>
+                  {footerLinks.map((link) => (
+                    <Link key={link.href} href={link.href} className="email-footer-link" style={styles.footerLink}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </Section>
+              )}
 
-              {/* Info Box */}
-              <Section style={styles.infoBox}>
-                <Row>
-                  <Column style={styles.infoBoxIconCol}>
-                    <div style={styles.infoBoxIcon}>
-                      <Text style={styles.infoBoxIconText}>i</Text>
-                    </div>
-                  </Column>
-                  <Column style={styles.infoBoxTextCol}>
-                    <Text style={styles.infoBoxTitle}>Before your flight</Text>
-                    <Text style={styles.infoBoxContent}>
-                      Arrive 30 minutes early • Bring valid photo ID • Complete pre-flight weather check • Review airfield NOTAMs
-                    </Text>
-                  </Column>
-                </Row>
-              </Section>
-
-              {/* Help Link */}
-              <Section style={styles.helpSection}>
-                <Text style={styles.helpText}>Need to make changes?</Text>
-                <Link href={props.bookingUrl} style={styles.helpLink}>
-                  Manage your booking →
+              <Text className="email-footer-copy" style={styles.footerCopyright}>
+                Booking confirmation from {props.tenantName}
+              </Text>
+              <Text className="email-footer-copy" style={styles.footerAddress}>
+                Powered by FlightDesk
+              </Text>
+              {props.unsubscribeUrl && (
+                <Link href={props.unsubscribeUrl} className="email-footer-link" style={styles.unsubscribeLink}>
+                  Unsubscribe
                 </Link>
-              </Section>
+              )}
             </Section>
-          </Section>
-
-          {/* Footer Section */}
-          <Section style={styles.footer}>
-            <Section style={styles.footerLinks}>
-              <Link href="#" style={styles.footerLink}>Help Center</Link>
-              <Link href="#" style={styles.footerLink}>Terms</Link>
-              <Link href="#" style={styles.footerLink}>Community</Link>
-            </Section>
-            
-            <Text style={styles.footerCopyright}>
-              This is a confirmation email from {props.tenantName}
-            </Text>
-            <Text style={styles.footerAddress}>
-              Powered by FlightDesk Pro
-            </Text>
-            {props.unsubscribeUrl && (
-              <Link href={props.unsubscribeUrl} style={styles.unsubscribeLink}>
-                Unsubscribe
-              </Link>
-            )}
           </Section>
         </Container>
       </Body>
@@ -189,23 +199,25 @@ export function BookingConfirmedEmail(props: BookingConfirmedEmailProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   body: {
-    backgroundColor: "#eeeeee",
-    fontFamily: "'Uber Move', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    backgroundColor: "#eceef1",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     margin: 0,
     padding: 0,
   },
   wrap: {
     maxWidth: "600px",
     margin: "0 auto",
+    padding: "24px 12px",
+  },
+  frame: {
     backgroundColor: "#ffffff",
-    borderRadius: "16px",
+    border: "1px solid #d7dbe2",
+    borderRadius: "24px",
     overflow: "hidden",
   },
   header: {
-    backgroundColor: "#17223b",
-    padding: "40px 32px",
-    borderTopLeftRadius: "16px",
-    borderTopRightRadius: "16px",
+    backgroundColor: "#12161d",
+    padding: "32px",
   },
   headerRow: {
     verticalAlign: "middle",
@@ -222,17 +234,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerTitle: {
     color: "#ffffff",
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: 700,
     lineHeight: 1.25,
     margin: "2px 0 0",
   },
   headerTag: {
     fontSize: "11px",
-    color: "rgba(255,255,255,0.9)",
-    border: "1px solid rgba(255,255,255,0.28)",
+    color: "#ffffff",
+    border: "1px solid rgba(255,255,255,0.18)",
     borderRadius: "999px",
-    padding: "5px 12px",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    padding: "6px 12px",
     margin: "0 0 10px",
     display: "inline-block",
   },
@@ -246,18 +259,26 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "#ffffff",
   },
   contentPadding: {
-    padding: "48px 40px 40px 40px",
+    padding: "40px 32px 32px 32px",
   },
   mainHeading: {
-    margin: "0 0 24px 0",
-    color: "#000000",
-    fontSize: "24px",
+    margin: "0 0 12px 0",
+    color: "#111111",
+    fontSize: "32px",
     fontWeight: 700,
-    letterSpacing: "-0.3px",
+    lineHeight: 1.1,
+    letterSpacing: "-0.6px",
+  },
+  heroSub: {
+    color: "#5f636b",
+    fontSize: "15px",
+    lineHeight: 1.6,
+    margin: "0 0 28px 0",
   },
   detailsCard: {
-    backgroundColor: "#f6f6f6",
-    borderRadius: "12px",
+    backgroundColor: "#f5f6f7",
+    border: "1px solid #e5e7eb",
+    borderRadius: "16px",
     marginBottom: "32px",
     padding: "28px",
   },
@@ -265,43 +286,35 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "0",
   },
   detailsLabel: {
-    color: "#6b6b6b",
+    color: "#6b7280",
     fontSize: "11px",
     fontWeight: 600,
     textTransform: "uppercase",
-    letterSpacing: "1px",
+    letterSpacing: "0.08em",
     margin: "0 0 10px 0",
   },
   detailsValueLarge: {
-    color: "#000000",
+    color: "#111111",
     fontSize: "20px",
     fontWeight: 600,
     margin: "0 0 4px 0",
     letterSpacing: "-0.3px",
   },
   detailsValueMedium: {
-    color: "#000000",
+    color: "#111111",
     fontSize: "17px",
-    fontWeight: 500,
+    fontWeight: 600,
     margin: 0,
   },
   detailsValueSmall: {
-    color: "#545454",
+    color: "#3f3f46",
     fontSize: "15px",
     fontWeight: 400,
     margin: 0,
   },
-  detailsValueMono: {
-    color: "#000000",
-    fontSize: "17px",
-    fontWeight: 600,
-    fontFamily: "'Courier New', monospace",
-    letterSpacing: "0.5px",
-    margin: 0,
-  },
   divider: {
     height: "1px",
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#dfe3e8",
     margin: "24px 0",
   },
   ctaWrapper: {
@@ -310,101 +323,59 @@ const styles: Record<string, React.CSSProperties> = {
   ctaBtn: {
     display: "block",
     padding: "18px 32px",
-    backgroundColor: "#000000",
+    backgroundColor: "#161a22",
     color: "#ffffff",
+    border: "1px solid #161a22",
     textDecoration: "none",
-    borderRadius: "8px",
-    fontSize: "17px",
+    borderRadius: "999px",
+    fontSize: "16px",
     fontWeight: 600,
     textAlign: "center" as const,
     letterSpacing: "-0.2px",
-  },
-  infoBox: {
-    backgroundColor: "#f6f6f6",
-    borderRadius: "12px",
-    padding: "24px",
-    marginBottom: "32px",
-  },
-  infoBoxIconCol: {
-    width: "48px",
-    verticalAlign: "top",
-  },
-  infoBoxIcon: {
-    width: "32px",
-    height: "32px",
-    backgroundColor: "#000000",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  infoBoxIconText: {
-    color: "#ffffff",
-    fontSize: "16px",
-    fontWeight: "bold",
-    margin: 0,
-    textAlign: "center" as const,
-    width: "100%",
-  },
-  infoBoxTextCol: {
-    verticalAlign: "top",
-  },
-  infoBoxTitle: {
-    color: "#000000",
-    fontSize: "16px",
-    fontWeight: 600,
-    margin: "0 0 8px 0",
-  },
-  infoBoxContent: {
-    color: "#545454",
-    fontSize: "15px",
-    lineHeight: "24px",
-    margin: 0,
   },
   helpSection: {
     textAlign: "center" as const,
     padding: "20px 0",
   },
   helpText: {
-    color: "#545454",
+    color: "#5f636b",
     fontSize: "15px",
     margin: "0 0 8px 0",
   },
   helpLink: {
-    color: "#000000",
+    color: "#111111",
     fontSize: "16px",
     fontWeight: 600,
     textDecoration: "none",
   },
   footer: {
-    padding: "40px",
-    backgroundColor: "#000000",
+    padding: "32px",
+    backgroundColor: "#12161d",
     textAlign: "center" as const,
   },
   footerLinks: {
     marginBottom: "24px",
   },
   footerLink: {
-    color: "#ffffff",
+    color: "#f5f5f5",
     fontSize: "14px",
     textDecoration: "none",
     margin: "0 10px",
-    opacity: 0.8,
   },
   footerCopyright: {
-    color: "#999999",
+    color: "#9ca3af",
     fontSize: "12px",
     lineHeight: "20px",
     margin: "0 0 4px 0",
   },
   footerAddress: {
-    color: "#999999",
+    color: "#9ca3af",
     fontSize: "12px",
     lineHeight: "20px",
     margin: "0 0 8px 0",
   },
   unsubscribeLink: {
-    color: "#999999",
+    color: "#f5f5f5",
     fontSize: "12px",
     textDecoration: "none",
   },

@@ -41,6 +41,11 @@ import type {
   MemberCreditPaymentDetail,
   PaymentDetailResult,
 } from "@/lib/payments/fetch-payment-detail"
+import {
+  invoicePaymentDisplayReference,
+  memberCreditDisplayReference,
+  paymentPageHeading,
+} from "@/lib/payments/payment-display-reference"
 import { formatDate } from "@/lib/utils/date-format"
 
 const ReversePaymentModal = dynamic(
@@ -82,7 +87,7 @@ export function PaymentDetailClient(props: PaymentDetailClientProps) {
     return (
       <div className="flex flex-1 flex-col bg-muted/20">
         <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
-          <Card>
+          <Card className="rounded-2xl border border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Payment</CardTitle>
             </CardHeader>
@@ -124,7 +129,7 @@ function PaymentDetailLoaded({
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleteLoading, setDeleteLoading] = React.useState(false)
 
-  const title = detail.kind === "invoice_payment" ? "Payment" : "Credit top-up"
+  const pageHeading = paymentPageHeading(detail)
   const eyebrow =
     detail.kind === "invoice_payment"
       ? detail.invoice_number
@@ -141,8 +146,13 @@ function PaymentDetailLoaded({
     })
   }
 
+  const invoicePaymentRef =
+    detail.kind === "invoice_payment" ? invoicePaymentDisplayReference(detail) : null
+  const memberCreditRef =
+    detail.kind === "member_credit_topup" ? memberCreditDisplayReference(detail) : null
+
   return (
-    <div className="flex flex-1 flex-col bg-background">
+    <div className="flex flex-1 flex-col bg-muted/20">
       <div
         id="payment-receipt-print-root"
         className="pointer-events-none fixed left-[-10000px] top-0 w-px overflow-hidden print:pointer-events-auto print:static print:left-auto print:w-full print:overflow-visible print:rounded-none print:border-0"
@@ -152,6 +162,11 @@ function PaymentDetailLoaded({
           <div className="text-lg font-semibold">Payment receipt</div>
           {detail.kind === "invoice_payment" ? (
             <>
+              {invoicePaymentRef ? (
+                <p className="mt-3 text-base font-semibold tabular-nums">
+                  Receipt {invoicePaymentRef.value}
+                </p>
+              ) : null}
               <p className="mt-4">
                 Amount: <span className="font-medium">{formatMoney(detail.amount)}</span>
               </p>
@@ -165,14 +180,15 @@ function PaymentDetailLoaded({
                   Reference: {detail.payment_reference}
                 </p>
               ) : null}
-              <p className="mt-1 text-muted-foreground">
-                Ledger id:{" "}
-                <span className="font-mono">{detail.transaction_id.slice(0, 8)}…</span>
-              </p>
             </>
           ) : (
             <>
               <p className="mt-2 font-medium text-muted-foreground">Member credit top-up</p>
+              {memberCreditRef ? (
+                <p className="mt-2 text-base font-semibold tabular-nums">
+                  Receipt {memberCreditRef.value}
+                </p>
+              ) : null}
               <p className="mt-4">
                 Amount: <span className="font-medium">{formatMoney(detail.amount)}</span>
               </p>
@@ -182,17 +198,12 @@ function PaymentDetailLoaded({
               {detail.payment_reference ? (
                 <p className="mt-1 font-mono text-xs">Reference: {detail.payment_reference}</p>
               ) : null}
-              <p className="mt-4 text-muted-foreground">
-                Receipt id (transaction):{" "}
-                <span className="font-mono">{detail.id}</span>
-              </p>
             </>
           )}
         </div>
       </div>
-
-      <div className="border-b border-border/60">
-        <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[920px] px-4 py-4 sm:px-6 lg:px-10 lg:py-8">
+        <div className="sticky top-0 z-20 -mx-4 border-b border-border/60 bg-background/95 px-4 py-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
           <Button
             type="button"
             variant="ghost"
@@ -208,7 +219,7 @@ function PaymentDetailLoaded({
             <div className="min-w-0 space-y-2">
               <p className="text-sm text-muted-foreground">{eyebrow}</p>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                {title}
+                {pageHeading}
               </h1>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span>{eventDateLabel}</span>
@@ -226,7 +237,11 @@ function PaymentDetailLoaded({
                     </Link>
                   )
                 ) : null}
-                {detail.kind === "invoice_payment" && detail.reversed_at ? <span>Reversed</span> : null}
+                {detail.kind === "invoice_payment" && detail.reversed_at ? (
+                  <span className="rounded-full border border-border/60 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-foreground">
+                    Reversed
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -290,7 +305,7 @@ function PaymentDetailLoaded({
           </div>
         </div>
 
-        <div className="mx-auto mt-8 w-full max-w-4xl px-4 pb-8 sm:px-6 lg:px-8">
+        <div className="mt-6 pb-8">
           {detail.kind === "invoice_payment" ? (
             <>
               <InvoicePaymentBody detail={detail} formatDate={formatDate} router={router} />
@@ -390,26 +405,56 @@ function InvoicePaymentBody({
   router: ReturnType<typeof useRouter>
 }) {
   const isReversed = Boolean(detail.reversed_at)
+  const displayReference = invoicePaymentDisplayReference(detail)
 
   return (
-    <Card className="rounded-2xl border border-border/60 shadow-sm">
-      <CardContent className="p-6 sm:p-8">
-        <div className="space-y-8">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              {isReversed ? "Reversed invoice payment" : "Invoice payment"}
-            </p>
-            <p className="text-3xl font-semibold tracking-tight tabular-nums text-foreground sm:text-4xl">
-              {formatMoney(detail.amount)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {formatMethod(String(detail.payment_method))} ·{" "}
-              {formatDate(detail.paid_at, "long") ?? detail.paid_at}
-            </p>
-          </div>
+    <Card className="overflow-hidden rounded-[28px] border border-border/60 shadow-sm">
+      <CardContent className="p-0">
+        <div className="border-b border-border/50 px-6 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {isReversed ? "Reversed invoice payment" : "Invoice payment"}
+              </p>
+              <p className="text-3xl font-semibold tracking-tight tabular-nums text-foreground sm:text-4xl">
+                {formatMoney(detail.amount)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {formatMethod(String(detail.payment_method))} ·{" "}
+                {formatDate(detail.paid_at, "long") ?? detail.paid_at}
+              </p>
+            </div>
 
+            <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:min-w-[320px]">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {displayReference.label}
+                </p>
+                <p className="mt-2 text-sm font-semibold tabular-nums text-foreground">
+                  {displayReference.value}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Invoice
+                </p>
+                <div className="mt-2 text-sm text-foreground">
+                  <button
+                    type="button"
+                    className="text-left underline-offset-4 hover:underline"
+                    onClick={() => router.push(`/invoices/${detail.invoice_id}`)}
+                  >
+                    {detail.invoice_number ? detail.invoice_number : "Open linked invoice"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
           {isReversed ? (
-            <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 px-4 py-3 text-sm text-rose-900">
+            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-foreground">
               Reversed{" "}
               {detail.reversed_at ? formatDate(detail.reversed_at, "long") ?? detail.reversed_at : ""}
               {detail.reversal_reason ? ` · ${detail.reversal_reason}` : ""}
@@ -418,56 +463,43 @@ function InvoicePaymentBody({
 
           <dl className="grid gap-x-12 gap-y-6 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Paying member
               </dt>
-              <dd className="mt-1 text-sm text-foreground">
-                {detail.payer_name ? (
-                  <Link href={`/members/${detail.user_id}`} className="underline-offset-4 hover:underline">
-                    {detail.payer_name}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-left underline-offset-4 hover:underline"
-                    onClick={() => router.push(`/members/${detail.user_id}`)}
-                  >
-                    View member
-                  </button>
-                )}
-              </dd>
-            </div>
-
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Invoice
-              </dt>
-              <dd className="mt-1 text-sm text-foreground">
+              <dd className="mt-2 text-sm text-foreground">
+              {detail.payer_name ? (
+                <Link href={`/members/${detail.user_id}`} className="underline-offset-4 hover:underline">
+                  {detail.payer_name}
+                </Link>
+              ) : (
                 <button
                   type="button"
                   className="text-left underline-offset-4 hover:underline"
-                  onClick={() => router.push(`/invoices/${detail.invoice_id}`)}
+                  onClick={() => router.push(`/members/${detail.user_id}`)}
                 >
-                  {detail.invoice_number ? detail.invoice_number : "Open linked invoice"}
+                  View member
                 </button>
+              )}
               </dd>
             </div>
 
             {detail.payment_reference ? (
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Reference
                 </dt>
-                <dd className="mt-1 font-mono text-sm text-foreground">{detail.payment_reference}</dd>
+                <dd className="mt-2 text-sm text-foreground">
+                  <span className="font-mono">{detail.payment_reference}</span>
+                </dd>
               </div>
             ) : null}
 
             {detail.notes?.trim() ? (
               <div className="sm:col-span-2">
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Notes
                 </dt>
-                <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">{detail.notes.trim()}</dd>
+                <dd className="mt-2 whitespace-pre-wrap text-sm text-foreground">{detail.notes.trim()}</dd>
               </div>
             ) : null}
           </dl>
@@ -477,7 +509,6 @@ function InvoicePaymentBody({
               Recorded by {detail.created_by_name ?? "—"}
               {detail.created_at ? ` · ${formatDate(detail.created_at, "short") ?? detail.created_at}` : ""}
             </p>
-            <p className="mt-2 font-mono text-xs">{detail.transaction_id}</p>
           </div>
         </div>
       </CardContent>
@@ -495,75 +526,95 @@ function MemberCreditBody({
   router: ReturnType<typeof useRouter>
 }) {
   const reference = detail.payment_reference?.trim() || detail.reference_number?.trim() || null
+  const displayReference = memberCreditDisplayReference(detail)
 
   return (
-    <Card className="rounded-2xl border border-border/60 shadow-sm">
-      <CardContent className="p-6 sm:p-8">
-        <div className="space-y-8">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Member credit</p>
-            <p className="text-3xl font-semibold tracking-tight tabular-nums text-foreground sm:text-4xl">
-              {formatMoney(detail.amount)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {detail.payment_method_label ?? "Recorded manually"} ·{" "}
-              {formatDate(detail.paid_at, "long") ?? detail.paid_at}
-            </p>
-          </div>
-
-          <dl className="grid gap-x-12 gap-y-6 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Member
-              </dt>
-              <dd className="mt-1 text-sm text-foreground">
-                {detail.payer_name ? (
-                  <Link
-                    href={`/members/${detail.user_id}?tab=finances`}
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {detail.payer_name}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-left underline-offset-4 hover:underline"
-                    onClick={() => router.push(`/members/${detail.user_id}?tab=finances`)}
-                  >
-                    Open member finances
-                  </button>
-                )}
-              </dd>
+    <Card className="overflow-hidden rounded-[28px] border border-border/60 shadow-sm">
+      <CardContent className="p-0">
+        <div className="border-b border-border/50 px-6 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Member credit</p>
+              <p className="text-3xl font-semibold tracking-tight tabular-nums text-foreground sm:text-4xl">
+                {formatMoney(detail.amount)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {detail.payment_method_label ?? "Recorded manually"} ·{" "}
+                {formatDate(detail.paid_at, "long") ?? detail.paid_at}
+              </p>
             </div>
 
+            <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:min-w-[320px]">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {displayReference.label}
+                </p>
+                <p className="mt-2 text-sm font-semibold tabular-nums text-foreground">
+                  {displayReference.value}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Member
+                </p>
+                <div className="mt-2 text-sm text-foreground">
+                  {detail.payer_name ? (
+                    <Link
+                      href={`/members/${detail.user_id}?tab=finances`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {detail.payer_name}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-left underline-offset-4 hover:underline"
+                      onClick={() => router.push(`/members/${detail.user_id}?tab=finances`)}
+                    >
+                      Open member finances
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-8">
+          <dl className="grid gap-x-12 gap-y-6 sm:grid-cols-2">
             {reference ? (
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Reference
                 </dt>
-                <dd className="mt-1 font-mono text-sm text-foreground">{reference}</dd>
+                <dd className="mt-2 text-sm text-foreground">
+                  <span className="font-mono">{reference}</span>
+                </dd>
               </div>
             ) : null}
 
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Description
               </dt>
-              <dd className="mt-1 text-sm text-foreground">{detail.description}</dd>
+              <dd className="mt-2 text-sm text-foreground">{detail.description}</dd>
             </div>
 
             {detail.notes?.trim() ? (
               <div className="sm:col-span-2">
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Notes
                 </dt>
-                <dd className="mt-1 whitespace-pre-wrap text-sm text-foreground">{detail.notes.trim()}</dd>
+                <dd className="mt-2 whitespace-pre-wrap text-sm text-foreground">{detail.notes.trim()}</dd>
               </div>
             ) : null}
           </dl>
 
-          <div className="border-t border-border/60 pt-4">
-            <p className="font-mono text-xs text-muted-foreground">{detail.id}</p>
+          <div className="border-t border-border/60 pt-4 text-sm text-muted-foreground">
+            <p>
+              Recorded
+              {detail.created_at ? ` · ${formatDate(detail.created_at, "short") ?? detail.created_at}` : ""}
+            </p>
           </div>
         </div>
       </CardContent>

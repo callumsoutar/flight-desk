@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { AccountStatementEntry, AccountStatementResponse } from "@/lib/types/account-statement"
 import type { Database } from "@/lib/types/database"
+import { isReceiptColumnMissingError } from "@/lib/supabase/is-receipt-column-missing-error"
+import { stableReceiptStyleNumberFromUuid } from "@/lib/payments/stable-receipt-style-number"
 
 type SortableAccountStatementEntry = AccountStatementEntry & {
   sort_ts: number
@@ -34,6 +36,28 @@ type InvoiceStatementRow = {
   booking: InvoiceBookingSummary | null
 }
 
+type PaymentStatementRow = {
+  id: string
+  paid_at: string | null
+  created_at: string | null
+  amount: number
+  payment_method: "other" | "cash" | "credit_card" | "debit_card" | "bank_transfer"
+  payment_reference: string | null
+  notes: string | null
+  receipt_number?: number | null
+}
+
+type CreditStatementRow = {
+  id: string
+  amount: number
+  description: string | null
+  reference_number: string | null
+  receipt_number?: number | null
+  completed_at: string | null
+  created_at: string | null
+  metadata?: unknown
+}
+
 function parseDateValue(value: string | null | undefined): number {
   if (!value) return Number.MAX_SAFE_INTEGER
   const date = new Date(value)
@@ -62,6 +86,27 @@ function toDateOnly(isoOrDate: string): string {
   return `${y}-${m}-${day}`
 }
 
+function metaPaymentMethodAndNotes(metadata: unknown): { paymentMethod: string | null; notes: string | null; paymentReference: string | null } {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return { paymentMethod: null, notes: null, paymentReference: null }
+  }
+  const m = metadata as Record<string, unknown>
+  const paymentMethod = m.payment_method
+  const notes = m.notes
+  const paymentReference = m.payment_reference
+  return {
+    paymentMethod: typeof paymentMethod === "string" ? paymentMethod : null,
+    notes: typeof notes === "string" ? notes : null,
+    paymentReference: typeof paymentReference === "string" ? paymentReference : null,
+  }
+}
+
+function paymentMethodLabel(raw: string | null | undefined): string {
+  return (raw ?? "other")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (ch) => ch.toUpperCase())
+}
+
 export async function buildAccountStatement(
   supabase: SupabaseClient<Database>,
   options: {
@@ -88,23 +133,26 @@ export async function buildAccountStatement(
     return { ok: false, error: "not_found" }
   }
 
-  const [invoicesResult, paymentsResult, creditsResult] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select(
-        "id, issue_date, created_at, invoice_number, reference, total_amount, subtotal, tax_total, booking:bookings!invoices_booking_id_fkey(purpose, booking_type, route, lesson:lessons!bookings_lesson_id_fkey(name), flight_type:flight_types!bookings_flight_type_id_fkey(name), aircraft:aircraft!bookings_aircraft_id_fkey(registration, type, model, manufacturer))"
-      )
-      .eq("tenant_id", tenantId)
-      .eq("user_id", targetUserId)
-      .is("deleted_at", null),
+  const invoicesSelect =
+    "id, issue_date, created_at, invoice_number, reference, total_amount, subtotal, tax_total, booking:bookings!invoices_booking_id_fkey(purpose, booking_type, route, lesson:lessons!bookings_lesson_id_fkey(name), flight_type:flight_types!bookings_flight_type_id_fkey(name), aircraft:aircraft!bookings_aircraft_id_fkey(registration, type, model, manufacturer))"
+  const paymentsSelectWithReceipt =
+    "id, paid_at, created_at, amount, payment_method, payment_reference, notes, receipt_number"
+  const paymentsSelectLegacy =
+    "id, paid_at, created_at, amount, payment_method, payment_reference, notes"
+  const creditsSelectWithReceipt =
+    "id, amount, description, reference_number, receipt_number, completed_at, created_at, metadata"
+  const creditsSelectLegacy = "id, amount, description, reference_number, completed_at, created_at, metadata"
+
+  const [invoicesResult, paymentsFirst, creditsFirst] = await Promise.all([
+    supabase.from("invoices").select(invoicesSelect).eq("tenant_id", tenantId).eq("user_id", targetUserId).is("deleted_at", null),
     supabase
       .from("invoice_payments")
-      .select("id, paid_at, created_at, amount, payment_method, payment_reference, notes")
+      .select(paymentsSelectWithReceipt)
       .eq("tenant_id", tenantId)
       .eq("user_id", targetUserId),
     supabase
       .from("transactions")
-      .select("id, amount, description, reference_number, completed_at, created_at")
+      .select(creditsSelectWithReceipt)
       .eq("tenant_id", tenantId)
       .eq("user_id", targetUserId)
       .eq("status", "completed")
@@ -112,8 +160,45 @@ export async function buildAccountStatement(
       .contains("metadata", { transaction_type: "member_credit_topup" }),
   ])
 
-  if (invoicesResult.error || paymentsResult.error || creditsResult.error) {
+  if (invoicesResult.error) {
     return { ok: false, error: "query_failed" }
+  }
+
+  let paymentsData = (paymentsFirst.data ?? null) as PaymentStatementRow[] | null
+  let paymentsError = paymentsFirst.error
+  if (paymentsError) {
+    if (isReceiptColumnMissingError(paymentsError)) {
+      const retry = await supabase
+        .from("invoice_payments")
+        .select(paymentsSelectLegacy)
+        .eq("tenant_id", tenantId)
+        .eq("user_id", targetUserId)
+      paymentsData = (retry.data ?? null) as PaymentStatementRow[] | null
+      paymentsError = retry.error
+    }
+    if (paymentsError) {
+      return { ok: false, error: "query_failed" }
+    }
+  }
+
+  let creditsData = (creditsFirst.data ?? null) as CreditStatementRow[] | null
+  let creditsError = creditsFirst.error
+  if (creditsError) {
+    if (isReceiptColumnMissingError(creditsError)) {
+      const retry = await supabase
+        .from("transactions")
+        .select(creditsSelectLegacy)
+        .eq("tenant_id", tenantId)
+        .eq("user_id", targetUserId)
+        .eq("status", "completed")
+        .eq("type", "credit")
+        .contains("metadata", { transaction_type: "member_credit_topup" })
+      creditsData = (retry.data ?? null) as CreditStatementRow[] | null
+      creditsError = retry.error
+    }
+    if (creditsError) {
+      return { ok: false, error: "query_failed" }
+    }
   }
 
   const entries: SortableAccountStatementEntry[] = []
@@ -140,18 +225,26 @@ export async function buildAccountStatement(
     })
   }
 
-  for (const payment of paymentsResult.data ?? []) {
-    const methodLabel = (payment.payment_method ?? "other")
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (ch) => ch.toUpperCase())
+  for (const payment of paymentsData ?? []) {
+    const methodLabel = paymentMethodLabel(payment.payment_method)
 
     const eventDate = payment.paid_at ?? payment.created_at ?? new Date(0).toISOString()
+
+    const receipt =
+      payment.receipt_number !== null &&
+      payment.receipt_number !== undefined &&
+      Number.isFinite(Number(payment.receipt_number))
+        ? String(payment.receipt_number)
+        : null
 
     entries.push({
       entry_id: payment.id,
       entry_type: "payment",
       date: eventDate,
-      reference: payment.payment_reference?.trim() || `PAY-${payment.id.slice(0, 8).toUpperCase()}`,
+      reference:
+        receipt ??
+        (payment.payment_reference?.trim() ||
+          String(stableReceiptStyleNumberFromUuid(payment.id))),
       description: payment.notes?.trim() || `Payment (${methodLabel})`,
       amount: -Math.abs(payment.amount),
       balance: 0,
@@ -160,15 +253,30 @@ export async function buildAccountStatement(
     })
   }
 
-  for (const credit of creditsResult.data ?? []) {
+  for (const credit of creditsData ?? []) {
     const eventDate = credit.completed_at ?? credit.created_at ?? new Date(0).toISOString()
+    const { paymentMethod, notes, paymentReference } = metaPaymentMethodAndNotes(credit.metadata)
+    const methodLabel = paymentMethodLabel(paymentMethod)
+
+    const receipt =
+      credit.receipt_number !== null &&
+      credit.receipt_number !== undefined &&
+      Number.isFinite(Number(credit.receipt_number))
+        ? String(credit.receipt_number)
+        : null
+
+    const refFromMeta = paymentReference?.trim() || null
 
     entries.push({
       entry_id: credit.id,
-      entry_type: "credit_note",
+      entry_type: "payment",
       date: eventDate,
-      reference: credit.reference_number?.trim() || `CR-${credit.id.slice(0, 8).toUpperCase()}`,
-      description: credit.description?.trim() || "Member credit top-up",
+      reference:
+        receipt ??
+        (refFromMeta ||
+          credit.reference_number?.trim() ||
+          String(stableReceiptStyleNumberFromUuid(credit.id))),
+      description: notes?.trim() || `Payment (${methodLabel})`,
       amount: -Math.abs(credit.amount),
       balance: 0,
       sort_ts: parseDateValue(eventDate),

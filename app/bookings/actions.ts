@@ -45,7 +45,7 @@ const cancelBookingSchema = z.strictObject({
 })
 
 const BOOKING_EMAIL_SELECT =
-  "id, tenant_id, user_id, start_time, end_time, aircraft_id, instructor_id, lesson_id, purpose, remarks, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user:user_directory!instructors_user_id_fkey(first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration), lesson:lessons!bookings_lesson_id_fkey(id, name), flight_type:flight_types!bookings_flight_type_id_fkey(id, name)"
+  "id, tenant_id, user_id, start_time, end_time, aircraft_id, instructor_id, lesson_id, purpose, remarks, student:user_directory!bookings_user_id_fkey(id, first_name, last_name, email), instructor:instructors!bookings_instructor_id_fkey(id, first_name, last_name, user:user_directory!instructors_user_id_fkey(first_name, last_name, email)), aircraft:aircraft!bookings_aircraft_id_fkey(id, registration, type), lesson:lessons!bookings_lesson_id_fkey(id, name), flight_type:flight_types!bookings_flight_type_id_fkey(id, name)"
 
 function formatInstructorName(instructor: {
   first_name?: string | null

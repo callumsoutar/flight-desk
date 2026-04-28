@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle2, Lock, Save, Trash2, User } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Lock, Save, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import type { InvoiceStatus } from "@/lib/types/invoices"
@@ -139,15 +139,19 @@ export default function InvoiceActionsToolbar({
             </span>
           ) : null}
 
-          {/* Member chip */}
+          {/* Member (subtle text link — avoids a heavy “chip” next to status) */}
           {member ? (
-            <Link
-              href={`/members/${member.id}`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border/50 bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <User className="h-3.5 w-3.5" />
-              <span className="max-w-[180px] truncate">{displayName}</span>
-            </Link>
+            <>
+              <span className="hidden text-muted-foreground/70 sm:inline" aria-hidden>
+                ·
+              </span>
+              <Link
+                href={`/members/${member.id}`}
+                className="max-w-[min(14rem,42vw)] truncate text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {displayName}
+              </Link>
+            </>
           ) : null}
         </div>
       </div>

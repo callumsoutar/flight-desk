@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/lib/types"
+import { isReceiptColumnMissingError, parseReceiptNumber } from "@/lib/supabase/is-receipt-column-missing-error"
 
 type ReversalMetaRow = {
   id: string
@@ -15,6 +16,7 @@ export type InvoicePaymentDetail = {
   id: string
   invoice_id: string
   invoice_number: string | null
+  receipt_number: number | null
   amount: number
   payment_method: Database["public"]["Enums"]["payment_method"]
   payment_reference: string | null
@@ -31,6 +33,14 @@ export type InvoicePaymentDetail = {
   created_by_name: string | null
 }
 
+type InvoicePaymentQueryRow = Omit<
+  InvoicePaymentDetail,
+  "kind" | "invoice_number" | "receipt_number" | "payer_name" | "reversed_at" | "reversal_transaction_id" | "reversal_reason" | "created_by_name"
+> & {
+  receipt_number?: number | null
+  invoices: { invoice_number?: string | null; deleted_at?: string | null } | { invoice_number?: string | null; deleted_at?: string | null }[] | null
+}
+
 type MemberCreditMetadata = {
   transaction_type?: string
   payment_method?: string
@@ -42,6 +52,7 @@ export type MemberCreditPaymentDetail = {
   kind: "member_credit_topup"
   id: string
   tenant_id: string
+  receipt_number: number | null
   amount: number
   description: string
   reference_number: string | null
@@ -56,7 +67,28 @@ export type MemberCreditPaymentDetail = {
   metadata: MemberCreditMetadata | null
 }
 
+type MemberCreditPaymentQueryRow = Omit<
+  MemberCreditPaymentDetail,
+  "kind" | "receipt_number" | "payer_name" | "payment_method_label" | "payment_reference" | "notes" | "paid_at" | "metadata"
+> & {
+  receipt_number?: number | null
+  paid_at?: string
+  metadata: MemberCreditMetadata | null
+  status: string
+  type: string
+}
+
 export type PaymentDetailResult = InvoicePaymentDetail | MemberCreditPaymentDetail
+
+const INVOICE_PAYMENT_SELECT_WITH_RECEIPT =
+  "id, invoice_id, tenant_id, user_id, amount, payment_method, payment_reference, notes, paid_at, transaction_id, created_by, created_at, receipt_number, invoices(invoice_number, deleted_at)"
+const INVOICE_PAYMENT_SELECT_LEGACY =
+  "id, invoice_id, tenant_id, user_id, amount, payment_method, payment_reference, notes, paid_at, transaction_id, created_by, created_at, invoices(invoice_number, deleted_at)"
+
+const TRANSACTION_PAYMENT_SELECT_WITH_RECEIPT =
+  "id, tenant_id, user_id, amount, description, reference_number, completed_at, created_at, metadata, status, type, receipt_number"
+const TRANSACTION_PAYMENT_SELECT_LEGACY =
+  "id, tenant_id, user_id, amount, description, reference_number, completed_at, created_at, metadata, status, type"
 
 function formatMethod(method: string): string {
   return method.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -67,14 +99,26 @@ export async function fetchPaymentDetailById(
   tenantId: string,
   paymentId: string,
 ): Promise<PaymentDetailResult | null> {
-  const { data: invoicePayment, error: ipError } = await supabase
+  const ipFirst = await supabase
     .from("invoice_payments")
-    .select(
-      "id, invoice_id, tenant_id, user_id, amount, payment_method, payment_reference, notes, paid_at, transaction_id, created_by, created_at, invoices(invoice_number, deleted_at)",
-    )
+    .select(INVOICE_PAYMENT_SELECT_WITH_RECEIPT)
     .eq("tenant_id", tenantId)
     .eq("id", paymentId)
     .maybeSingle()
+
+  let invoicePayment = (ipFirst.data ?? null) as InvoicePaymentQueryRow | null
+  let ipError = ipFirst.error
+
+  if (ipError && isReceiptColumnMissingError(ipError)) {
+    const retry = await supabase
+      .from("invoice_payments")
+      .select(INVOICE_PAYMENT_SELECT_LEGACY)
+      .eq("tenant_id", tenantId)
+      .eq("id", paymentId)
+      .maybeSingle()
+    invoicePayment = (retry.data ?? null) as InvoicePaymentQueryRow | null
+    ipError = retry.error
+  }
 
   if (ipError) throw ipError
 
@@ -137,6 +181,9 @@ export async function fetchPaymentDetailById(
       id: invoicePayment.id,
       invoice_id: invoicePayment.invoice_id,
       invoice_number: invoiceNumber,
+      receipt_number: parseReceiptNumber(
+        "receipt_number" in invoicePayment ? invoicePayment.receipt_number : undefined,
+      ),
       amount: Number(invoicePayment.amount),
       payment_method: invoicePayment.payment_method,
       payment_reference: invoicePayment.payment_reference,
@@ -154,14 +201,26 @@ export async function fetchPaymentDetailById(
     } satisfies InvoicePaymentDetail
   }
 
-  const { data: txn, error: txnError } = await supabase
+  const txnFirst = await supabase
     .from("transactions")
-    .select(
-      "id, tenant_id, user_id, amount, description, reference_number, completed_at, created_at, metadata, status, type",
-    )
+    .select(TRANSACTION_PAYMENT_SELECT_WITH_RECEIPT)
     .eq("tenant_id", tenantId)
     .eq("id", paymentId)
     .maybeSingle()
+
+  let txn = (txnFirst.data ?? null) as MemberCreditPaymentQueryRow | null
+  let txnError = txnFirst.error
+
+  if (txnError && isReceiptColumnMissingError(txnError)) {
+    const retry = await supabase
+      .from("transactions")
+      .select(TRANSACTION_PAYMENT_SELECT_LEGACY)
+      .eq("tenant_id", tenantId)
+      .eq("id", paymentId)
+      .maybeSingle()
+    txn = (retry.data ?? null) as MemberCreditPaymentQueryRow | null
+    txnError = retry.error
+  }
 
   if (txnError) throw txnError
   if (
@@ -198,6 +257,9 @@ export async function fetchPaymentDetailById(
     kind: "member_credit_topup",
     id: txn.id,
     tenant_id: txn.tenant_id,
+    receipt_number: parseReceiptNumber(
+      "receipt_number" in txn ? txn.receipt_number : undefined,
+    ),
     amount: Math.abs(Number(txn.amount)),
     description: txn.description,
     reference_number: txn.reference_number,

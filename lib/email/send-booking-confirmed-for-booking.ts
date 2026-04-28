@@ -76,13 +76,16 @@ export async function sendBookingConfirmedEmailForBooking(args: {
       timezone,
       aircraftRegistration:
         ((booking.aircraft as { registration?: string | null } | null)?.registration ?? null),
+      aircraftType: ((booking.aircraft as { type?: string | null } | null)?.type ?? null),
       instructorName: instructor
         ? `${instructor.first_name ?? ""} ${instructor.last_name ?? ""}`.trim() || null
         : null,
       purpose: String(booking.purpose ?? ""),
       bookingUrl,
+      aircraftDisplay: ((booking.aircraft as { registration?: string | null } | null)?.registration ?? null),
+      flightType: ((booking.flight_type as { name?: string | null } | null)?.name ?? null),
       lessonName: (booking.lesson as { name?: string | null } | null)?.name ?? null,
-      description: String(booking.remarks ?? ""),
+      remarks: (booking.remarks as string | null) ?? null,
     })
   )
 

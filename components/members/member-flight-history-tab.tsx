@@ -159,14 +159,14 @@ export function MemberFlightHistoryTab({ memberId, memberEmail }: MemberFlightHi
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 shadow-sm sm:px-4">
-        <div className="flex min-w-0 flex-row flex-nowrap items-center gap-3 overflow-x-auto sm:gap-4">
-          <div className="flex shrink-0 gap-2 sm:gap-3">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePresetClick(30)}
-              className="border-slate-300 bg-white font-medium text-slate-800 shadow-sm hover:bg-slate-100 hover:text-slate-900"
+              className="w-full border-slate-300 bg-white font-medium text-slate-800 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:w-auto"
             >
               30 days
             </Button>
@@ -174,13 +174,13 @@ export function MemberFlightHistoryTab({ memberId, memberEmail }: MemberFlightHi
               variant="outline"
               size="sm"
               onClick={() => handlePresetClick(90)}
-              className="border-slate-300 bg-white font-medium text-slate-800 shadow-sm hover:bg-slate-100 hover:text-slate-900"
+              className="w-full border-slate-300 bg-white font-medium text-slate-800 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:w-auto"
             >
               90 days
             </Button>
           </div>
 
-          <div className="flex min-w-0 shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
+          <div className="grid min-w-0 w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-3">
             <DatePicker
               date={fromInput}
               onChange={(value) => {
@@ -192,9 +192,9 @@ export function MemberFlightHistoryTab({ memberId, memberEmail }: MemberFlightHi
                   setDateTo(endOfDay(parsed))
                 }
               }}
-              className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
+              className="h-9 w-full min-w-0 border-slate-300 bg-white text-slate-900 shadow-sm sm:w-[10.25rem]"
             />
-            <span className="shrink-0 text-sm font-medium text-slate-600">to</span>
+            <span className="text-center text-sm font-medium text-slate-600 sm:self-center">to</span>
             <DatePicker
               date={toInput}
               onChange={(value) => {
@@ -205,17 +205,17 @@ export function MemberFlightHistoryTab({ memberId, memberEmail }: MemberFlightHi
                 if (nextTo < dateFrom) return
                 setDateTo(nextTo)
               }}
-              className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
+              className="h-9 w-full min-w-0 border-slate-300 bg-white text-slate-900 shadow-sm sm:w-[10.25rem]"
             />
           </div>
 
-          <div className="ml-auto flex shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
+          <div className="flex min-w-0 w-full flex-col gap-2 sm:w-auto sm:flex-row xl:justify-end">
             <Button
               type="button"
               size="sm"
               onClick={() => void handleEmailSummary()}
               disabled={!canEmailSummary}
-              className="h-9 gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:px-4"
+              className="h-9 w-full gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:w-auto sm:px-4"
             >
               {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               Email summary
@@ -226,7 +226,7 @@ export function MemberFlightHistoryTab({ memberId, memberEmail }: MemberFlightHi
               size="sm"
               onClick={handlePrintPdf}
               disabled={!memberId || isLoading || isOpeningPdf}
-              className="h-9 gap-1.5 border-slate-300 bg-white px-3 font-semibold text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:px-4"
+              className="h-9 w-full gap-1.5 border-slate-300 bg-white px-3 font-semibold text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:w-auto sm:px-4"
             >
               {isOpeningPdf ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

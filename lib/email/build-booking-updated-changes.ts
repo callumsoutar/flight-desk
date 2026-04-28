@@ -50,7 +50,7 @@ export function buildBookingUpdatedChanges(
   const afterPurpose = normalize(after.purpose)
   if (beforePurpose !== afterPurpose) {
     changes.push({
-      label: "Purpose",
+      label: "Booking description",
       before: toDisplay(beforePurpose, "Not set"),
       after: toDisplay(afterPurpose, "Not set"),
     })
@@ -60,9 +60,9 @@ export function buildBookingUpdatedChanges(
   const afterDescription = normalize(after.description)
   if (beforeDescription !== afterDescription) {
     changes.push({
-      label: "Description",
-      before: toDisplay(beforeDescription, "No description"),
-      after: toDisplay(afterDescription, "No description"),
+      label: "Remarks",
+      before: toDisplay(beforeDescription, "No remarks"),
+      after: toDisplay(afterDescription, "No remarks"),
     })
   }
 

@@ -94,11 +94,12 @@ export async function sendBookingUpdatedEmailForBooking(args: {
       changes,
       aircraftDisplay:
         ((booking.aircraft as { registration?: string | null } | null)?.registration ?? null),
+      aircraftType: ((booking.aircraft as { type?: string | null } | null)?.type ?? null),
       instructorName: formatInstructorName(instructor),
       flightType: ((booking.flight_type as { name?: string | null } | null)?.name ?? null),
       lessonName: ((booking.lesson as { name?: string | null } | null)?.name ?? null),
       purpose: String(booking.purpose ?? ""),
-      description: (booking.remarks as string | null) ?? null,
+      remarks: (booking.remarks as string | null) ?? null,
     })
   )
 

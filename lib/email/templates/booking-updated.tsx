@@ -1,9 +1,7 @@
 import {
   Body,
-  Button,
   Column,
   Container,
-  Head,
   Heading,
   Html,
   Link,
@@ -14,8 +12,9 @@ import {
 } from "@react-email/components"
 import * as React from "react"
 
-import { formatBookingDateRange } from "@/lib/email/format-booking-time"
 import type { BookingUpdatedChange } from "@/lib/email/build-booking-updated-changes"
+import { formatBookingDateRange } from "@/lib/email/format-booking-time"
+import { BookingEmailHead } from "@/lib/email/templates/booking-email-theme"
 
 export type BookingUpdatedEmailProps = {
   tenantName: string
@@ -28,11 +27,12 @@ export type BookingUpdatedEmailProps = {
   bookingUrl: string
   changes: BookingUpdatedChange[]
   aircraftDisplay?: string | null
+  aircraftType?: string | null
   flightType?: string | null
   lessonName?: string | null
   instructorName?: string | null
   purpose?: string | null
-  description?: string | null
+  remarks?: string | null
   bookingsUrl?: string | null
   trainingLogUrl?: string | null
   unsubscribeUrl?: string | null
@@ -40,12 +40,12 @@ export type BookingUpdatedEmailProps = {
 
 function changeRow(change: BookingUpdatedChange) {
   return (
-    <Section style={styles.changeCard}>
-      <Text style={styles.changeLabel}>{change.label}</Text>
+    <Section className="email-panel" style={styles.changeCard}>
+      <Text className="email-change-label" style={styles.changeLabel}>{change.label}</Text>
       <Text style={styles.changeValues}>
-        <span style={styles.changeBefore}>{change.before}</span>
-        <span style={styles.changeArrow}>{"  →  "}</span>
-        <span style={styles.changeAfter}>{change.after}</span>
+        <span className="email-change-before" style={styles.changeBefore}>{change.before}</span>
+        <span className="email-change-arrow" style={styles.changeArrow}>{"  →  "}</span>
+        <span className="email-change-after" style={styles.changeAfter}>{change.after}</span>
       </Text>
     </Section>
   )
@@ -54,147 +54,167 @@ function changeRow(change: BookingUpdatedChange) {
 export function BookingUpdatedEmail(props: BookingUpdatedEmailProps) {
   const when = formatBookingDateRange(props.startTime, props.endTime, props.timezone)
   const aircraftLine = props.aircraftDisplay ?? null
+  const aircraftTypeShown = props.aircraftType?.trim() ?? ""
+  const showAircraftSection = Boolean(aircraftLine || aircraftTypeShown)
+  const firstName = props.memberFirstName.trim() || "there"
+  const footerLinks = [
+    { href: props.bookingUrl, label: "Manage booking" },
+    props.bookingsUrl ? { href: props.bookingsUrl, label: "All bookings" } : null,
+    props.trainingLogUrl ? { href: props.trainingLogUrl, label: "Training log" } : null,
+  ].filter((link): link is { href: string; label: string } => Boolean(link))
 
   return (
     <Html lang="en">
-      <Head />
+      <BookingEmailHead />
       <Preview>{`Booking updated - ${when.full}`}</Preview>
-      <Body style={styles.body}>
-        <Container style={styles.wrap}>
-          {/* Header Section */}
-          <Section style={styles.header}>
-            <Row style={styles.headerRow}>
-              <Column style={styles.headerColLeft}>
-                <Text style={styles.headerTitle}>{props.tenantName}</Text>
-              </Column>
-              <Column style={styles.headerColRight}>
-                <Text style={styles.headerTag}>Booking Updated</Text>
-                <Text style={styles.headerDate}>{when.date}</Text>
-              </Column>
-            </Row>
-          </Section>
+      <Body className="email-body" style={styles.body}>
+        <Container className="email-wrap" style={styles.wrap}>
+          <Section className="email-frame" style={styles.frame}>
+            <Section className="email-header" style={styles.header}>
+              <Row style={styles.headerRow}>
+                <Column style={styles.headerColLeft}>
+                  <Text className="email-header-title" style={styles.headerTitle}>{props.tenantName}</Text>
+                </Column>
+                <Column style={styles.headerColRight}>
+                  <Text className="email-tag" style={styles.headerTag}>Booking Updated</Text>
+                  <Text className="email-header-date" style={styles.headerDate}>{when.date}</Text>
+                </Column>
+              </Row>
+            </Section>
 
-          {/* Main Content Card */}
-          <Section style={styles.card}>
-            <Section style={styles.contentPadding}>
-              <Heading style={styles.mainHeading}>Your booking details changed</Heading>
-              <Text style={styles.heroSub}>
-                {`We updated this booking at ${props.tenantName}. Review the changes and current details below.`}
+            <Section className="email-card" style={styles.card}>
+              <Section style={styles.contentPadding}>
+                <Heading className="email-heading" style={styles.mainHeading}>Your booking details changed</Heading>
+                <Text className="email-copy" style={styles.heroSub}>
+                  {`Hi ${firstName}, we updated this booking at ${props.tenantName}. Review the latest changes below.`}
+                </Text>
+
+                <Section style={styles.changesSection}>
+                  <Text className="email-eyebrow" style={styles.sectionLabel}>Changes made</Text>
+                  {props.changes.map((change) => (
+                    <React.Fragment key={`${change.label}-${change.before}-${change.after}`}>
+                      {changeRow(change)}
+                    </React.Fragment>
+                  ))}
+                </Section>
+
+                <Section className="email-panel" style={styles.detailsCard}>
+                  <Text className="email-eyebrow" style={styles.sectionLabel}>Current booking details</Text>
+                  <Section style={styles.detailsSection}>
+                    <Text className="email-label" style={styles.detailsLabel}>Date & Time</Text>
+                    <Text className="email-value-strong" style={styles.detailsValueLarge}>{when.date}</Text>
+                    <Text className="email-value" style={styles.detailsValueSmall}>{`${when.startTime} - ${when.endTime}`}</Text>
+                  </Section>
+
+                  <Section className="email-divider" style={styles.divider} />
+
+                  {showAircraftSection && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Aircraft</Text>
+                        {aircraftLine && (
+                          <Text className="email-value-strong" style={styles.detailsValueLarge}>{aircraftLine}</Text>
+                        )}
+                        {aircraftTypeShown && (
+                          <Text className="email-value" style={styles.detailsValueSmall}>Type: {aircraftTypeShown}</Text>
+                        )}
+                      </Section>
+                      <Section className="email-divider" style={styles.divider} />
+                    </>
+                  )}
+
+                  <Section style={styles.detailsSection}>
+                    <Text className="email-label" style={styles.detailsLabel}>Booking description</Text>
+                    <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.purpose || "Not set"}</Text>
+                  </Section>
+
+                  {(props.remarks?.trim() ||
+                    props.instructorName ||
+                    props.flightType ||
+                    props.lessonName) && (
+                    <Section className="email-divider" style={styles.divider} />
+                  )}
+
+                  {props.remarks?.trim() && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Remarks</Text>
+                        <Text className="email-value" style={styles.detailsValueSmall}>{props.remarks.trim()}</Text>
+                      </Section>
+                      {(props.instructorName || props.flightType || props.lessonName) && (
+                        <Section className="email-divider" style={styles.divider} />
+                      )}
+                    </>
+                  )}
+
+                  {props.instructorName && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Instructor</Text>
+                        <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.instructorName}</Text>
+                      </Section>
+                      {(props.flightType || props.lessonName) && (
+                        <Section className="email-divider" style={styles.divider} />
+                      )}
+                    </>
+                  )}
+
+                  {props.flightType && (
+                    <>
+                      <Section style={styles.detailsSection}>
+                        <Text className="email-label" style={styles.detailsLabel}>Flight Type</Text>
+                        <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.flightType}</Text>
+                      </Section>
+                      {props.lessonName && <Section className="email-divider" style={styles.divider} />}
+                    </>
+                  )}
+
+                  {props.lessonName && (
+                    <Section style={styles.detailsSection}>
+                      <Text className="email-label" style={styles.detailsLabel}>Lesson</Text>
+                      <Text className="email-value-strong" style={styles.detailsValueMedium}>{props.lessonName}</Text>
+                    </Section>
+                  )}
+                </Section>
+
+                <Section style={styles.ctaWrapper}>
+                  <Link href={props.bookingUrl} className="email-button email-button-text" style={styles.ctaBtn}>
+                    View booking details
+                  </Link>
+                </Section>
+
+                <Section style={styles.helpSection}>
+                  <Text className="email-copy" style={styles.helpText}>Need to make changes?</Text>
+                  <Link href={props.bookingUrl} className="email-help-link" style={styles.helpLink}>
+                    Manage your booking →
+                  </Link>
+                </Section>
+              </Section>
+            </Section>
+
+            <Section className="email-footer" style={styles.footer}>
+              {footerLinks.length > 0 && (
+                <Section style={styles.footerLinks}>
+                  {footerLinks.map((link) => (
+                    <Link key={link.href} href={link.href} className="email-footer-link" style={styles.footerLink}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </Section>
+              )}
+
+              <Text className="email-footer-copy" style={styles.footerCopyright}>
+                Booking update from {props.tenantName}
               </Text>
-
-              {/* Changes Section */}
-              <Section style={styles.changesSection}>
-                <Text style={styles.sectionLabel}>Changes made</Text>
-                {props.changes.map((change) => (
-                  <React.Fragment key={`${change.label}-${change.before}-${change.after}`}>
-                    {changeRow(change)}
-                  </React.Fragment>
-                ))}
-              </Section>
-              
-              {/* Booking Details Card */}
-              <Section style={styles.detailsCard}>
-                <Text style={styles.sectionLabel}>Current booking details</Text>
-                <Section style={styles.detailsSection}>
-                  <Text style={styles.detailsLabel}>Date & Time</Text>
-                  <Text style={styles.detailsValueLarge}>{when.date}</Text>
-                  <Text style={styles.detailsValueSmall}>{`${when.startTime} - ${when.endTime}`}</Text>
-                </Section>
-
-                <Section style={styles.divider} />
-
-                {aircraftLine && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Aircraft</Text>
-                      <Text style={styles.detailsValueLarge}>{aircraftLine}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
-
-                {props.instructorName && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Instructor</Text>
-                      <Text style={styles.detailsValueMedium}>{props.instructorName}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
-
-                {props.flightType && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Flight Type</Text>
-                      <Text style={styles.detailsValueMedium}>{props.flightType}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
-
-                {props.lessonName && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Lesson</Text>
-                      <Text style={styles.detailsValueMedium}>{props.lessonName}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
-
-                {props.description && (
-                  <>
-                    <Section style={styles.detailsSection}>
-                      <Text style={styles.detailsLabel}>Description</Text>
-                      <Text style={styles.detailsValueSmall}>{props.description}</Text>
-                    </Section>
-                    <Section style={styles.divider} />
-                  </>
-                )}
-
-                <Section style={styles.detailsSection}>
-                  <Text style={styles.detailsLabel}>Purpose</Text>
-                  <Text style={styles.detailsValueMedium}>{props.purpose || "Not set"}</Text>
-                </Section>
-              </Section>
-
-              {/* CTA Button */}
-              <Section style={styles.ctaWrapper}>
-                <Button href={props.bookingUrl} style={styles.ctaBtn}>
-                  View booking details
-                </Button>
-              </Section>
-
-              {/* Help Link */}
-              <Section style={styles.helpSection}>
-                <Text style={styles.helpText}>Need to make changes?</Text>
-                <Link href={props.bookingUrl} style={styles.helpLink}>
-                  Manage your booking →
+              <Text className="email-footer-copy" style={styles.footerAddress}>
+                Powered by FlightDesk
+              </Text>
+              {props.unsubscribeUrl && (
+                <Link href={props.unsubscribeUrl} className="email-footer-link" style={styles.unsubscribeLink}>
+                  Unsubscribe
                 </Link>
-              </Section>
+              )}
             </Section>
-          </Section>
-
-          {/* Footer Section */}
-          <Section style={styles.footer}>
-            <Section style={styles.footerLinks}>
-              <Link href="#" style={styles.footerLink}>Help Center</Link>
-              <Link href="#" style={styles.footerLink}>Terms</Link>
-              <Link href="#" style={styles.footerLink}>Community</Link>
-            </Section>
-            
-            <Text style={styles.footerCopyright}>
-              This is a confirmation email from {props.tenantName}
-            </Text>
-            <Text style={styles.footerAddress}>
-              Powered by FlightDesk Pro
-            </Text>
-            {props.unsubscribeUrl && (
-              <Link href={props.unsubscribeUrl} style={styles.unsubscribeLink}>
-                Unsubscribe
-              </Link>
-            )}
           </Section>
         </Container>
       </Body>
@@ -204,23 +224,25 @@ export function BookingUpdatedEmail(props: BookingUpdatedEmailProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   body: {
-    backgroundColor: "#eeeeee",
-    fontFamily: "'Uber Move', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    backgroundColor: "#eceef1",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     margin: 0,
     padding: 0,
   },
   wrap: {
     maxWidth: "600px",
     margin: "0 auto",
+    padding: "24px 12px",
+  },
+  frame: {
     backgroundColor: "#ffffff",
-    borderRadius: "16px",
+    border: "1px solid #d7dbe2",
+    borderRadius: "24px",
     overflow: "hidden",
   },
   header: {
-    backgroundColor: "#17223b",
-    padding: "40px 32px",
-    borderTopLeftRadius: "16px",
-    borderTopRightRadius: "16px",
+    backgroundColor: "#12161d",
+    padding: "32px",
   },
   headerRow: {
     verticalAlign: "middle",
@@ -237,17 +259,18 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerTitle: {
     color: "#ffffff",
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: 700,
     lineHeight: 1.25,
     margin: "2px 0 0",
   },
   headerTag: {
     fontSize: "11px",
-    color: "rgba(255,255,255,0.9)",
-    border: "1px solid rgba(255,255,255,0.28)",
+    color: "#ffffff",
+    border: "1px solid rgba(255,255,255,0.18)",
     borderRadius: "999px",
-    padding: "5px 12px",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    padding: "6px 12px",
     margin: "0 0 10px",
     display: "inline-block",
   },
@@ -261,19 +284,20 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "#ffffff",
   },
   contentPadding: {
-    padding: "48px 40px 40px 40px",
+    padding: "40px 32px 32px 32px",
   },
   mainHeading: {
     margin: "0 0 16px 0",
-    color: "#000000",
-    fontSize: "24px",
+    color: "#111111",
+    fontSize: "32px",
     fontWeight: 700,
-    letterSpacing: "-0.3px",
+    lineHeight: 1.1,
+    letterSpacing: "-0.6px",
   },
   heroSub: {
-    color: "#6b7280",
-    fontSize: "14px",
-    lineHeight: 1.5,
+    color: "#5f636b",
+    fontSize: "15px",
+    lineHeight: 1.6,
     margin: "0 0 32px 0",
   },
   changesSection: {
@@ -281,7 +305,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   sectionLabel: {
     fontSize: "11px",
-    color: "#9ca3af",
+    color: "#8a9099",
     textTransform: "uppercase",
     fontWeight: 600,
     letterSpacing: "0.08em",
@@ -289,9 +313,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   changeCard: {
     border: "1px solid #e5e7eb",
-    backgroundColor: "#f9fafb",
-    borderRadius: "10px",
-    padding: "12px 16px",
+    backgroundColor: "#f5f6f7",
+    borderRadius: "16px",
+    padding: "14px 16px",
     marginBottom: "12px",
   },
   changeLabel: {
@@ -308,7 +332,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.4,
   },
   changeBefore: {
-    color: "#9ca3af",
+    color: "#8b95a1",
     textDecoration: "line-through",
   },
   changeArrow: {
@@ -317,12 +341,13 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "0 8px",
   },
   changeAfter: {
-    color: "#15803d",
+    color: "#067647",
     fontWeight: 700,
   },
   detailsCard: {
-    backgroundColor: "#f6f6f6",
-    borderRadius: "12px",
+    backgroundColor: "#f5f6f7",
+    border: "1px solid #e5e7eb",
+    borderRadius: "16px",
     marginBottom: "32px",
     padding: "28px",
   },
@@ -330,35 +355,35 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "0",
   },
   detailsLabel: {
-    color: "#6b6b6b",
+    color: "#6b7280",
     fontSize: "11px",
     fontWeight: 600,
     textTransform: "uppercase",
-    letterSpacing: "1px",
+    letterSpacing: "0.08em",
     margin: "0 0 10px 0",
   },
   detailsValueLarge: {
-    color: "#000000",
+    color: "#111111",
     fontSize: "20px",
     fontWeight: 600,
     margin: "0 0 4px 0",
     letterSpacing: "-0.3px",
   },
   detailsValueMedium: {
-    color: "#000000",
+    color: "#111111",
     fontSize: "17px",
-    fontWeight: 500,
+    fontWeight: 600,
     margin: 0,
   },
   detailsValueSmall: {
-    color: "#545454",
+    color: "#3f3f46",
     fontSize: "15px",
     fontWeight: 400,
     margin: 0,
   },
   divider: {
     height: "1px",
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#dfe3e8",
     margin: "24px 0",
   },
   ctaWrapper: {
@@ -367,11 +392,12 @@ const styles: Record<string, React.CSSProperties> = {
   ctaBtn: {
     display: "block",
     padding: "18px 32px",
-    backgroundColor: "#000000",
+    backgroundColor: "#161a22",
     color: "#ffffff",
+    border: "1px solid #161a22",
     textDecoration: "none",
-    borderRadius: "8px",
-    fontSize: "17px",
+    borderRadius: "999px",
+    fontSize: "16px",
     fontWeight: 600,
     textAlign: "center" as const,
     letterSpacing: "-0.2px",
@@ -381,45 +407,44 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "20px 0",
   },
   helpText: {
-    color: "#545454",
+    color: "#5f636b",
     fontSize: "15px",
     margin: "0 0 8px 0",
   },
   helpLink: {
-    color: "#000000",
+    color: "#111111",
     fontSize: "16px",
     fontWeight: 600,
     textDecoration: "none",
   },
   footer: {
-    padding: "40px",
-    backgroundColor: "#000000",
+    padding: "32px",
+    backgroundColor: "#12161d",
     textAlign: "center" as const,
   },
   footerLinks: {
     marginBottom: "24px",
   },
   footerLink: {
-    color: "#ffffff",
+    color: "#f5f5f5",
     fontSize: "14px",
     textDecoration: "none",
     margin: "0 10px",
-    opacity: 0.8,
   },
   footerCopyright: {
-    color: "#999999",
+    color: "#9ca3af",
     fontSize: "12px",
     lineHeight: "20px",
     margin: "0 0 4px 0",
   },
   footerAddress: {
-    color: "#999999",
+    color: "#9ca3af",
     fontSize: "12px",
     lineHeight: "20px",
     margin: "0 0 8px 0",
   },
   unsubscribeLink: {
-    color: "#999999",
+    color: "#f5f5f5",
     fontSize: "12px",
     textDecoration: "none",
   },

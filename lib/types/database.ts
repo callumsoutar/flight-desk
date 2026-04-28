@@ -1968,6 +1968,7 @@ export type Database = {
           paid_at: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_reference: string | null
+          receipt_number: number
           tenant_id: string
           transaction_id: string
           user_id: string
@@ -1982,6 +1983,7 @@ export type Database = {
           paid_at?: string
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_reference?: string | null
+          receipt_number?: number
           tenant_id?: string
           transaction_id: string
           user_id: string
@@ -1996,6 +1998,7 @@ export type Database = {
           paid_at?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_reference?: string | null
+          receipt_number?: number
           tenant_id?: string
           transaction_id?: string
           user_id?: string
@@ -3407,6 +3410,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           metadata: Json | null
+          receipt_number: number | null
           reference_number: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           tenant_id: string
@@ -3422,6 +3426,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
+          receipt_number?: number | null
           reference_number?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tenant_id?: string
@@ -3437,6 +3442,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           metadata?: Json | null
+          receipt_number?: number | null
           reference_number?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tenant_id?: string

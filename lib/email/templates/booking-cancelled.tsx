@@ -130,7 +130,7 @@ export function BookingCancelledEmail(props: BookingCancelledEmailProps) {
               This is a notification from {props.tenantName}
             </Text>
             <Text style={styles.footerAddress}>
-              Powered by FlightDesk Pro
+              Powered by FlightDesk
             </Text>
             {props.unsubscribeUrl && (
               <Link href={props.unsubscribeUrl} style={styles.unsubscribeLink}>
