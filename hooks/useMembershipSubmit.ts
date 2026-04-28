@@ -81,15 +81,7 @@ export function useMembershipSubmit(options?: UseMembershipSubmitOptions) {
         throw new Error("Expiry date is required.")
       }
 
-      const effectiveExpiryDate =
-        payload.mode === "renew"
-          ? (() => {
-              if (!payload.renewalBaseExpiryDate) {
-                throw new Error("Current expiry date is required to renew membership.")
-              }
-              return addMonths(payload.renewalBaseExpiryDate, payload.membershipType.duration_months)
-            })()
-          : payload.expiryDate
+      const effectiveExpiryDate = payload.expiryDate
 
       if (payload.mode === "renew") {
         if (!payload.renewalBaseExpiryDate) {
@@ -112,6 +104,12 @@ export function useMembershipSubmit(options?: UseMembershipSubmitOptions) {
         }
         if (effectiveExpiryDate <= payload.renewalBaseExpiryDate) {
           throw new Error("Renewed expiry date must be after the current expiry date.")
+        }
+        if (effectiveExpiryDate <= payload.startDate) {
+          throw new Error("Expiry date must be after the renewal start date.")
+        }
+        if (effectiveExpiryDate < addMonths(payload.startDate, 1)) {
+          throw new Error("Expiry date must be at least 1 month after the renewal start date.")
         }
       } else {
         if (effectiveExpiryDate <= payload.startDate) {

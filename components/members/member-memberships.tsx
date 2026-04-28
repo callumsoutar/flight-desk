@@ -364,6 +364,7 @@ export function MemberMemberships({
           currentMembership={currentMembership}
           membershipTypes={currentMembershipTypes}
           defaultTaxRate={currentDefaultTaxRate}
+          membershipYear={currentMembershipYear}
         />
       ) : null}
 
