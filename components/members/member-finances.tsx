@@ -8,6 +8,7 @@ import {
   DollarSign,
   Loader2,
   Mail,
+  Printer,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -76,6 +77,7 @@ export function MemberFinances({
   const [startDate, setStartDate] = React.useState(() => getStartOfMonth(now))
   const [endDate, setEndDate] = React.useState(() => getEndOfMonth(now))
   const [isEmailing, setIsEmailing] = React.useState(false)
+  const [isOpeningPdf, setIsOpeningPdf] = React.useState(false)
   const { data: statementData, isLoading, error } = useAccountStatementQuery(memberId, startDate, endDate)
   const statement: AccountStatementEntry[] = statementData?.statement ?? EMPTY_STATEMENT
   const closingBalance = statementData?.closing_balance ?? 0
@@ -97,6 +99,26 @@ export function MemberFinances({
       toast.error(sendError instanceof Error ? sendError.message : "Failed to send statement email")
     } finally {
       setIsEmailing(false)
+    }
+  }
+
+  const handlePrintPdf = () => {
+    if (!memberId || isLoading || isOpeningPdf) return
+
+    setIsOpeningPdf(true)
+    try {
+      const params = new URLSearchParams({ from_date: startDate, to_date: endDate })
+      const nextWindow = window.open(
+        `/api/members/${memberId}/account-statement/pdf?${params.toString()}`,
+        "_blank",
+        "noopener,noreferrer"
+      )
+
+      if (!nextWindow) {
+        toast.error("The PDF was blocked by your browser. Allow pop-ups and try again.")
+      }
+    } finally {
+      window.setTimeout(() => setIsOpeningPdf(false), 250)
     }
   }
 
@@ -126,10 +148,10 @@ export function MemberFinances({
             {canRecordMemberPayment && onReceivePaymentClick ? (
               <Button
                 type="button"
-                className="h-10 shrink-0 bg-green-600 text-white hover:bg-green-700"
+                className="h-9 shrink-0 gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:px-4"
                 onClick={onReceivePaymentClick}
               >
-                <IconCurrencyDollar className="mr-2 h-4 w-4" />
+                <IconCurrencyDollar className="h-4 w-4" />
                 Receive payment
               </Button>
             ) : null}
@@ -138,41 +160,54 @@ export function MemberFinances({
       </Card>
 
       <Card className="border border-slate-200 shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-              <DollarSign className="h-4 w-4 text-slate-500" />
-              Account Statement
-            </CardTitle>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleEmailStatement()}
-                disabled={!memberId || isLoading || isEmailing}
-                className="h-9 gap-1.5"
-              >
-                {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Email statement
-              </Button>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-600">From</span>
+        <CardHeader className="space-y-3 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <DollarSign className="h-4 w-4 text-slate-500" />
+            Account Statement
+          </CardTitle>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 shadow-sm sm:px-4">
+            <div className="flex min-w-0 flex-row flex-nowrap items-center gap-3 overflow-x-auto sm:gap-4">
+              <div className="flex min-w-0 shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
                 <DatePicker
                   date={startDate}
                   onChange={(value) => value && setStartDate(value)}
-                  className="w-[140px]"
+                  className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
                   disabled={isLoading}
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-600">To</span>
+                <span className="shrink-0 text-sm font-medium text-slate-600">to</span>
                 <DatePicker
                   date={endDate}
                   onChange={(value) => value && setEndDate(value)}
-                  className="w-[140px]"
+                  className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
                   disabled={isLoading}
                 />
+              </div>
+              <div className="ml-auto flex shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleEmailStatement()}
+                  disabled={!memberId || isLoading || isEmailing}
+                  className="h-9 gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:px-4"
+                >
+                  {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Email statement
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrintPdf}
+                  disabled={!memberId || isLoading || isOpeningPdf}
+                  className="h-9 gap-1.5 border-slate-300 bg-white px-3 font-semibold text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:px-4"
+                >
+                  {isOpeningPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4" />
+                  )}
+                  Print PDF
+                </Button>
               </div>
             </div>
           </div>
@@ -207,6 +242,8 @@ export function MemberFinances({
                   <TableBody>
                     {statement.map((entry, idx) => {
                       const isInvoice = entry.entry_type === "invoice"
+                      const isPaymentLike =
+                        entry.entry_type === "payment" || entry.entry_type === "credit_note"
                       const isOpening = entry.entry_type === "opening_balance"
                       const isDebit = entry.amount > 0
 
@@ -215,11 +252,13 @@ export function MemberFinances({
                           key={`${entry.entry_id}-${idx}`}
                           className={cn(
                             isOpening ? "bg-blue-50" : "hover:bg-slate-50",
-                            isInvoice ? "cursor-pointer" : undefined
+                            isInvoice || isPaymentLike ? "cursor-pointer" : undefined
                           )}
                           onClick={() => {
                             if (isInvoice) {
                               router.push(`/invoices/${entry.entry_id}`)
+                            } else if (isPaymentLike) {
+                              router.push(`/payments/${entry.entry_id}`)
                             }
                           }}
                         >

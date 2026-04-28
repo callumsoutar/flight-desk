@@ -639,7 +639,10 @@ export function MemberDetailClient({
                 />
               </Tabs.Content>
               <Tabs.Content value="logbook">
-                <MemberFlightHistoryTab memberId={currentMember.user_id} />
+                <MemberFlightHistoryTab
+                  memberId={currentMember.user_id}
+                  memberEmail={currentMember.user?.email ?? null}
+                />
               </Tabs.Content>
               <Tabs.Content value="training">
                 <MemberTrainingTab memberId={currentMember.user_id} />

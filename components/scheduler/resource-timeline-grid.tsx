@@ -183,7 +183,7 @@ export function ResourceTimelineGrid({
     <div className="relative min-w-0 flex-1 min-h-0">
       <div
         ref={scrollContainerRef}
-        className={cn("overflow-x-scroll overflow-y-hidden", isPanning ? "cursor-grabbing select-none" : "")}
+        className={cn("overflow-x-auto overflow-y-hidden", isPanning ? "cursor-grabbing select-none" : "")}
         tabIndex={isOverflowing ? 0 : -1}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -209,7 +209,7 @@ export function ResourceTimelineGrid({
         }}
         aria-label={
           isOverflowing
-            ? "Scheduler timeline. Drag to pan horizontally, use the bottom scrollbar, or press left and right arrow keys."
+            ? "Scheduler timeline. Drag to pan horizontally, scroll horizontally, or press left and right arrow keys."
             : undefined
         }
       >

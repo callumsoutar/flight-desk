@@ -30,6 +30,27 @@ export async function fetchMemberFlightHistory(memberId: string): Promise<Member
   return payload
 }
 
+export async function sendMemberFlightHistorySummaryEmail(input: {
+  memberId: string
+  fromDate: string
+  toDate: string
+}) {
+  const response = await fetch("/api/email/send-flight-history-summary", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: input.memberId,
+      from_date: input.fromDate,
+      to_date: input.toDate,
+    }),
+  })
+  const payload = (await response.json().catch(() => ({}))) as { error?: string }
+
+  if (!response.ok) {
+    throw new Error(getMemberFlightHistoryError(payload, "Failed to send flight history summary email"))
+  }
+}
+
 export function useMemberFlightHistoryQuery(memberId: string) {
   return useQuery({
     queryKey: memberFlightHistoryQueryKey(memberId),

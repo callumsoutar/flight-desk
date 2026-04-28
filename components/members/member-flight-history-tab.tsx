@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Loader2 } from "lucide-react"
+import { Loader2, Mail, Printer } from "lucide-react"
 import {
   IconCalendar,
   IconChartBar,
@@ -11,29 +11,26 @@ import {
   IconPlane,
   IconSchool,
 } from "@tabler/icons-react"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
-import { useMemberFlightHistoryQuery } from "@/hooks/use-member-flight-history-query"
-import type { MemberFlightHistoryEntry } from "@/lib/types/flight-history"
 import { useTimezone } from "@/contexts/timezone-context"
+import {
+  filterMemberFlightHistoryEntries,
+  getAircraftLabel,
+  getFlightDescription,
+  getFlightHoursDisplay,
+  getInstructorName,
+} from "@/lib/flight-history/member-flight-history-summary"
+import { sendMemberFlightHistorySummaryEmail, useMemberFlightHistoryQuery } from "@/hooks/use-member-flight-history-query"
+import type { MemberFlightHistoryEntry } from "@/lib/types/flight-history"
 import { formatDate as formatDateTz } from "@/lib/utils/date-format"
 
 export type MemberFlightHistoryTabProps = {
   memberId: string
-}
-
-function startOfDay(date: Date): Date {
-  const result = new Date(date)
-  result.setHours(0, 0, 0, 0)
-  return result
-}
-
-function endOfDay(date: Date): Date {
-  const result = new Date(date)
-  result.setHours(23, 59, 59, 999)
-  return result
+  memberEmail?: string | null
 }
 
 function subDays(date: Date, days: number): Date {
@@ -49,28 +46,19 @@ function toInputDate(value: Date): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function getInstructorName(flight: MemberFlightHistoryEntry): string {
-  const firstName = flight.instructor?.user?.first_name ?? flight.instructor?.first_name ?? ""
-  const lastName = flight.instructor?.user?.last_name ?? flight.instructor?.last_name ?? ""
-  const fullName = `${firstName} ${lastName}`.trim()
-  return fullName || "Instructor"
+function startOfDay(date: Date): Date {
+  const result = new Date(date)
+  result.setHours(0, 0, 0, 0)
+  return result
 }
 
-function getFlightHours(flight: MemberFlightHistoryEntry): number {
-  const value = flight.billing_hours
-  if (value == null) return 0
-  const hours = typeof value === "string" ? Number(value) : value
-  return Number.isFinite(hours) ? hours : 0
+function endOfDay(date: Date): Date {
+  const result = new Date(date)
+  result.setHours(23, 59, 59, 999)
+  return result
 }
 
-function getFlightHoursDisplay(flight: MemberFlightHistoryEntry): string {
-  const value = flight.billing_hours
-  if (value == null) return "-"
-  const raw = String(value)
-  return raw.includes(".") ? raw : `${raw}.0`
-}
-
-export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps) {
+export function MemberFlightHistoryTab({ memberId, memberEmail }: MemberFlightHistoryTabProps) {
   const { timeZone } = useTimezone()
   const {
     data: historyData,
@@ -84,6 +72,11 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
 
   const [dateFrom, setDateFrom] = React.useState<Date>(() => startOfDay(subDays(new Date(), 30)))
   const [dateTo, setDateTo] = React.useState<Date>(() => endOfDay(new Date()))
+  const [isEmailing, setIsEmailing] = React.useState(false)
+  const [isOpeningPdf, setIsOpeningPdf] = React.useState(false)
+
+  const fromInput = toInputDate(dateFrom)
+  const toInput = toInputDate(dateTo)
 
   const handlePresetClick = (days: number) => {
     setDateFrom(startOfDay(subDays(new Date(), days)))
@@ -91,19 +84,57 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
   }
 
   const flights = React.useMemo(() => {
-    return allFlights.filter((flight) => {
-      if (!flight.end_time) return false
-      const flightDate = new Date(flight.end_time)
-      if (Number.isNaN(flightDate.getTime())) return false
-      return flightDate >= dateFrom && flightDate <= dateTo
-    })
-  }, [allFlights, dateFrom, dateTo])
+    return filterMemberFlightHistoryEntries(allFlights, fromInput, toInput, timeZone)
+  }, [allFlights, fromInput, toInput, timeZone])
 
-  const totalFlightHours = flights.reduce((total, flight) => total + getFlightHours(flight), 0)
+  const totalFlightHours = flights.reduce((total, flight) => {
+    const value = flight.billing_hours
+    if (value == null) return total
+    const hours = typeof value === "string" ? Number(value) : value
+    return total + (Number.isFinite(hours) ? hours : 0)
+  }, 0)
   const avgHoursPerFlight = flights.length > 0 ? totalFlightHours / flights.length : 0
+  const canEmailSummary = Boolean(memberEmail?.trim()) && !isLoading && !isEmailing
 
-  const fromInput = toInputDate(dateFrom)
-  const toInput = toInputDate(dateTo)
+  const handleEmailSummary = async () => {
+    if (!canEmailSummary) return
+
+    setIsEmailing(true)
+    try {
+      await sendMemberFlightHistorySummaryEmail({
+        memberId,
+        fromDate: fromInput,
+        toDate: toInput,
+      })
+      toast.success("Flight history summary emailed to member")
+    } catch (sendError) {
+      toast.error(
+        sendError instanceof Error ? sendError.message : "Failed to send flight history summary email"
+      )
+    } finally {
+      setIsEmailing(false)
+    }
+  }
+
+  const handlePrintPdf = () => {
+    if (!memberId || isLoading || isOpeningPdf) return
+
+    setIsOpeningPdf(true)
+    try {
+      const params = new URLSearchParams({ from_date: fromInput, to_date: toInput })
+      const nextWindow = window.open(
+        `/api/members/${memberId}/flight-history-summary/pdf?${params.toString()}`,
+        "_blank",
+        "noopener,noreferrer"
+      )
+
+      if (!nextWindow) {
+        toast.error("The PDF was blocked by your browser. Allow pop-ups and try again.")
+      }
+    } finally {
+      window.setTimeout(() => setIsOpeningPdf(false), 250)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -128,14 +159,14 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          <div className="flex gap-2">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-3 shadow-sm sm:px-4">
+        <div className="flex min-w-0 flex-row flex-nowrap items-center gap-3 overflow-x-auto sm:gap-4">
+          <div className="flex shrink-0 gap-2 sm:gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePresetClick(30)}
-              className="flex-1 sm:flex-none"
+              className="border-slate-300 bg-white font-medium text-slate-800 shadow-sm hover:bg-slate-100 hover:text-slate-900"
             >
               30 days
             </Button>
@@ -143,13 +174,13 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
               variant="outline"
               size="sm"
               onClick={() => handlePresetClick(90)}
-              className="flex-1 sm:flex-none"
+              className="border-slate-300 bg-white font-medium text-slate-800 shadow-sm hover:bg-slate-100 hover:text-slate-900"
             >
               90 days
             </Button>
           </div>
 
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex min-w-0 shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
             <DatePicker
               date={fromInput}
               onChange={(value) => {
@@ -161,9 +192,9 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
                   setDateTo(endOfDay(parsed))
                 }
               }}
-              className="h-9"
+              className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
             />
-            <span className="text-sm text-muted-foreground">to</span>
+            <span className="shrink-0 text-sm font-medium text-slate-600">to</span>
             <DatePicker
               date={toInput}
               onChange={(value) => {
@@ -174,8 +205,36 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
                 if (nextTo < dateFrom) return
                 setDateTo(nextTo)
               }}
-              className="h-9"
+              className="h-9 w-[10.25rem] shrink-0 border-slate-300 bg-white text-slate-900 shadow-sm"
             />
+          </div>
+
+          <div className="ml-auto flex shrink-0 flex-row flex-nowrap items-center gap-2 sm:gap-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleEmailSummary()}
+              disabled={!canEmailSummary}
+              className="h-9 gap-1.5 bg-slate-900 px-3 font-semibold text-white shadow-sm hover:bg-slate-800 sm:px-4"
+            >
+              {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              Email summary
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handlePrintPdf}
+              disabled={!memberId || isLoading || isOpeningPdf}
+              className="h-9 gap-1.5 border-slate-300 bg-white px-3 font-semibold text-slate-900 shadow-sm hover:bg-slate-100 hover:text-slate-900 sm:px-4"
+            >
+              {isOpeningPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              Print PDF
+            </Button>
           </div>
         </div>
       </div>
@@ -221,11 +280,8 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
               </tr>
             ) : (
               flights.map((flight) => {
-                const aircraftLabel =
-                  flight.aircraft?.registration ||
-                  (flight.aircraft?.id ? `Aircraft ${flight.aircraft.id.slice(0, 8)}` : "Aircraft")
-                const description =
-                  flight.lesson?.name || flight.flight_type?.name || flight.purpose || "Flight"
+                const aircraftLabel = getAircraftLabel(flight)
+                const description = getFlightDescription(flight)
                 const isSolo = !flight.instructor
 
                 return (
@@ -290,11 +346,8 @@ export function MemberFlightHistoryTab({ memberId }: MemberFlightHistoryTabProps
           </div>
         ) : (
           flights.map((flight) => {
-            const aircraftLabel =
-              flight.aircraft?.registration ||
-              (flight.aircraft?.id ? `Aircraft ${flight.aircraft.id.slice(0, 8)}` : "Aircraft")
-            const description =
-              flight.lesson?.name || flight.flight_type?.name || flight.purpose || "Flight"
+            const aircraftLabel = getAircraftLabel(flight)
+            const description = getFlightDescription(flight)
             const isSolo = !flight.instructor
 
             return (
