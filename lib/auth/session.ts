@@ -210,16 +210,13 @@ export async function getAuthSession(
 }
 
 /**
- * Session shape used by `app/layout.tsx` (authoritative role + tenant, validated user).
- * Do not wrap in `cache()` — it can interact badly with streaming and auth timing on navigation.
+ * Session shape used by `app/layout.tsx`.
+ * Keep this lightweight because it runs for every app-router navigation.
  */
 export async function loadRootLayoutAuthSession(): Promise<AuthSession> {
   const supabase = await createSupabaseServerClient()
   return getAuthSession(supabase, {
-    requireUser: true,
     includeRole: true,
     includeTenant: true,
-    authoritativeRole: true,
-    authoritativeTenant: true,
   })
 }

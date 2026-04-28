@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 
 import { DashboardPageClient } from "@/components/dashboard/dashboard-page-client"
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton"
-import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { AppRouteListContainer } from "@/components/layouts/app-route-shell"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { isStaffRole } from "@/lib/auth/roles"
@@ -66,26 +66,22 @@ export default async function DashboardPage() {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <RouteNotFoundState
-            heading="Account not set up"
-            message="Your account hasn't been fully set up yet. Please contact your administrator."
-          />
-        </AppRouteListContainer>
-      </AppRouteShell>
+      <AppRouteListContainer>
+        <RouteNotFoundState
+          heading="Account not set up"
+          message="Your account hasn't been fully set up yet. Please contact your administrator."
+        />
+      </AppRouteListContainer>
     )
   }
 
   return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <React.Suspense
-          fallback={<DashboardPageSkeleton variant={isStaffRole(role) ? "staff" : "member"} />}
-        >
-          <DashboardContent tenantId={tenantId} viewer={{ userId: user.id, role }} />
-        </React.Suspense>
-      </AppRouteListContainer>
-    </AppRouteShell>
+    <AppRouteListContainer>
+      <React.Suspense
+        fallback={<DashboardPageSkeleton variant={isStaffRole(role) ? "staff" : "member"} />}
+      >
+        <DashboardContent tenantId={tenantId} viewer={{ userId: user.id, role }} />
+      </React.Suspense>
+    </AppRouteListContainer>
   )
 }

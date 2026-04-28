@@ -2,7 +2,7 @@ import * as React from "react"
 import { redirect } from "next/navigation"
 
 import { SchedulerPageClient } from "@/components/scheduler/scheduler-page-client"
-import { AppRouteListContainer, AppRouteShell } from "@/components/layouts/app-route-shell"
+import { AppRouteListContainer } from "@/components/layouts/app-route-shell"
 import { RouteLoadingState } from "@/components/loading/route-loading-state"
 import { RouteNotFoundState } from "@/components/loading/route-not-found-state"
 import { fetchSchedulerPageData } from "@/lib/scheduler/fetch-scheduler-page-data"
@@ -72,14 +72,12 @@ export default async function SchedulerPage({ searchParams }: PageProps) {
   if (!user) redirect("/login")
   if (!tenantId) {
     return (
-      <AppRouteShell>
-        <AppRouteListContainer>
-          <RouteNotFoundState
-            heading="Account not set up"
-            message="Your account hasn't been fully set up yet. Please contact your administrator."
-          />
-        </AppRouteListContainer>
-      </AppRouteShell>
+      <AppRouteListContainer>
+        <RouteNotFoundState
+          heading="Account not set up"
+          message="Your account hasn't been fully set up yet. Please contact your administrator."
+        />
+      </AppRouteListContainer>
     )
   }
 
@@ -94,12 +92,10 @@ export default async function SchedulerPage({ searchParams }: PageProps) {
   const dateYyyyMmDd = resolveDateKey(firstQueryValue(params.date), timeZone)
 
   return (
-    <AppRouteShell>
-      <AppRouteListContainer>
-        <React.Suspense fallback={<RouteLoadingState message="Loading scheduler..." />}>
-          <SchedulerContent tenantId={tenantId} dateYyyyMmDd={dateYyyyMmDd} timeZone={timeZone} />
-        </React.Suspense>
-      </AppRouteListContainer>
-    </AppRouteShell>
+    <AppRouteListContainer>
+      <React.Suspense fallback={<RouteLoadingState message="Loading scheduler..." />}>
+        <SchedulerContent tenantId={tenantId} dateYyyyMmDd={dateYyyyMmDd} timeZone={timeZone} />
+      </React.Suspense>
+    </AppRouteListContainer>
   )
 }

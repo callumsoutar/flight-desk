@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
 import { ReactQueryProvider } from "@/components/providers/react-query-provider"
 import { AuthProvider } from "@/contexts/auth-context"
-import { fetchUserProfile } from "@/lib/auth/user-profile"
 import { TimezoneProvider } from "@/contexts/timezone-context"
 import { loadRootLayoutAuthSession } from "@/lib/auth/session"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
@@ -23,17 +22,14 @@ export default async function RootLayout({
   const supabase = await createSupabaseServerClient()
   const { user, role, tenantId } = await loadRootLayoutAuthSession()
 
-  const [profile, tenantTimezone] = await Promise.all([
-    user ? fetchUserProfile(supabase, user) : Promise.resolve(null),
-    tenantId
-      ? supabase
-          .from("tenants")
-          .select("timezone")
-          .eq("id", tenantId)
-          .maybeSingle()
-          .then(({ data }) => data?.timezone ?? "Pacific/Auckland")
-      : Promise.resolve("Pacific/Auckland"),
-  ])
+  const tenantTimezone = tenantId
+    ? await supabase
+        .from("tenants")
+        .select("timezone")
+        .eq("id", tenantId)
+        .maybeSingle()
+        .then(({ data }) => data?.timezone ?? "Pacific/Auckland")
+    : "Pacific/Auckland"
 
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
@@ -42,7 +38,7 @@ export default async function RootLayout({
         className="antialiased"
       >
         <ReactQueryProvider>
-          <AuthProvider initialUser={user} initialRole={role} initialProfile={profile}>
+          <AuthProvider initialUser={user} initialRole={role} initialProfile={null}>
             <TimezoneProvider timeZone={tenantTimezone}>
               {children}
               <Toaster />

@@ -43,6 +43,7 @@ export function AuthProvider({
   const role = data?.role ?? null
   const profile = data?.profile ?? null
   const loading = isFetching
+  const didHydrateMissingAuthDataRef = React.useRef(false)
 
   const clearAuthCache = React.useCallback(() => {
     queryClient.setQueryData<AuthMeQueryData>(authMeQueryKey(), {
@@ -79,6 +80,14 @@ export function AuthProvider({
       channel?.close()
     }
   }, [refreshUser])
+
+  React.useEffect(() => {
+    const missingBootstrapData = Boolean(initialUser) && (initialRole === null || initialProfile === null)
+    if (!missingBootstrapData || didHydrateMissingAuthDataRef.current) return
+
+    didHydrateMissingAuthDataRef.current = true
+    void refetch()
+  }, [initialProfile, initialRole, initialUser, refetch])
 
   const signOut = React.useCallback(async () => {
     clearAuthCache()

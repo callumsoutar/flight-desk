@@ -1,0 +1,16 @@
+"use client"
+
+import { AppRouteListContainer } from "@/components/layouts/app-route-shell"
+import { RouteErrorState } from "@/components/loading/route-error-state"
+
+export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  return (
+    <AppRouteListContainer>
+      <RouteErrorState
+        title="Unable to load scheduler"
+        message="Something went wrong while loading scheduler data."
+        reset={reset}
+      />
+    </AppRouteListContainer>
+  )
+}
