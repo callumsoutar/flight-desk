@@ -104,6 +104,23 @@ function formatDurationMinutes(totalMinutes: number): string {
   return `${hoursPart}h ${minutesPart}m`
 }
 
+const CHECKOUT_PRINT_PAGE_STYLE_ID = "fd-checkout-sheet-print-page"
+
+function ensureCheckoutPrintPageRules() {
+  if (typeof document === "undefined") return
+  if (document.getElementById(CHECKOUT_PRINT_PAGE_STYLE_ID)) return
+  const el = document.createElement("style")
+  el.id = CHECKOUT_PRINT_PAGE_STYLE_ID
+  /* Explicit 297mm by 210mm is landscape A4; sorts last in head for cascade over other @page rules. */
+  el.textContent = "@media print { @page { margin: 0; size: 297mm 210mm; } }"
+  document.head.appendChild(el)
+}
+
+function removeCheckoutPrintPageRules() {
+  if (typeof document === "undefined") return
+  document.getElementById(CHECKOUT_PRINT_PAGE_STYLE_ID)?.remove()
+}
+
 function createCheckoutInitialState(booking: BookingWithRelations): CheckoutFormState {
   return {
     checked_out_aircraft_id: booking.checked_out_aircraft_id ?? booking.aircraft_id ?? null,
@@ -182,6 +199,22 @@ export function BookingCheckoutClient({
   React.useEffect(() => {
     checkoutFormRef.current = checkoutForm
   }, [checkoutForm])
+
+  React.useEffect(() => {
+    const onBeforePrint = () => {
+      ensureCheckoutPrintPageRules()
+    }
+    const onAfterPrint = () => {
+      removeCheckoutPrintPageRules()
+    }
+    window.addEventListener("beforeprint", onBeforePrint)
+    window.addEventListener("afterprint", onAfterPrint)
+    return () => {
+      window.removeEventListener("beforeprint", onBeforePrint)
+      window.removeEventListener("afterprint", onAfterPrint)
+      removeCheckoutPrintPageRules()
+    }
+  }, [])
 
   React.useEffect(() => {
     const prevSavedBooking = savedBookingFormRef.current
@@ -562,7 +595,12 @@ export function BookingCheckoutClient({
             type="button"
             variant="outline"
             className="h-10 gap-2 font-medium shadow-sm transition-all hover:bg-muted/60 hover:shadow"
-            onClick={() => window.print()}
+            onClick={() => {
+              ensureCheckoutPrintPageRules()
+              requestAnimationFrame(() => {
+                window.print()
+              })
+            }}
             disabled={isPending}
           >
             <IconPrinter className="h-4 w-4" />

@@ -229,10 +229,11 @@
     break-inside: avoid-page !important;
   }
 
-  @page {
-    size: A4 landscape;
-    margin: 0;
-  }
+  /*
+    Default @page size is not set here: payment receipt uses a named @page only.
+    Checkout relies on a landscape @page injected in beforeprint (see booking-checkout-client)
+    so it sorts after bundled CSS and nudges WebKit print preview toward landscape.
+  */
 }
 
 /* Minimal payment receipt sheet for /payments/[id] print (Portrait A4). */
@@ -258,6 +259,7 @@
   }
 
   html.payment-receipt-print-mode #payment-receipt-print-root {
+    page: payment-receipt;
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -275,7 +277,7 @@
     pointer-events: auto !important;
   }
 
-  @page {
+  @page payment-receipt {
     size: A4 portrait;
     margin: 0;
   }
